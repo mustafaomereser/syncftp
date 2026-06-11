@@ -14,6 +14,9 @@ var rootCmd = &cobra.Command{
 
 Sunucu tarafındaki config dosyaları (protect listesi) korunur, üzerine yazılmaz.
 İlk sync'te tüm dosyalar gönderilir; sonrasında yalnızca değişenler.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runShell()
+	},
 }
 
 func main() {

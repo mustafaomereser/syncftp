@@ -101,9 +101,9 @@ func listDir(client *ftpclient.Client, remotePath, indent string, recursive bool
 // ── get ───────────────────────────────────────────────────────────────────────
 
 var remoteGetCmd = &cobra.Command{
-	Use:   "get <remote-path> [local-dest]",
+	Use:   "get [remote-path] [local-dest]",
 	Short: "FTP'den dosya indir",
-	Args:  cobra.RangeArgs(1, 2),
+	Args:  cobra.MaximumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		srv, client, err := connectRemote()
 		if err != nil {
@@ -111,9 +111,27 @@ var remoteGetCmd = &cobra.Command{
 		}
 		defer client.Close()
 
-		remotePath := resolveRemotePath(srv, args[0])
+		var remotePath string
+		if len(args) >= 1 {
+			resolved := resolveRemotePath(srv, args[0])
+			if entries, lsErr := client.List(resolved); lsErr == nil && entries != nil {
+				var pickErr error
+				remotePath, pickErr = pickRemoteFile(client, resolved)
+				if pickErr != nil {
+					return pickErr
+				}
+			} else {
+				remotePath = resolved
+			}
+		} else {
+			var pickErr error
+			remotePath, pickErr = pickRemoteFile(client, srv.RemotePath)
+			if pickErr != nil {
+				return pickErr
+			}
+		}
 
-		localDest := filepath.Base(args[0])
+		localDest := filepath.Base(remotePath)
 		if len(args) == 2 {
 			localDest = args[1]
 		}
@@ -141,9 +159,9 @@ var (
 )
 
 var remoteRmCmd = &cobra.Command{
-	Use:   "rm <remote-path>",
+	Use:   "rm [remote-path]",
 	Short: "FTP'den dosya veya dizin sil",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		srv, client, err := connectRemote()
 		if err != nil {
@@ -151,7 +169,25 @@ var remoteRmCmd = &cobra.Command{
 		}
 		defer client.Close()
 
-		remotePath := resolveRemotePath(srv, args[0])
+		var remotePath string
+		if len(args) == 1 {
+			resolved := resolveRemotePath(srv, args[0])
+			if entries, lsErr := client.List(resolved); lsErr == nil && entries != nil {
+				var pickErr error
+				remotePath, pickErr = pickRemoteFile(client, resolved)
+				if pickErr != nil {
+					return pickErr
+				}
+			} else {
+				remotePath = resolved
+			}
+		} else {
+			var pickErr error
+			remotePath, pickErr = pickRemoteFile(client, srv.RemotePath)
+			if pickErr != nil {
+				return pickErr
+			}
+		}
 
 		// Hedefin dosya mı dizin mi olduğunu anla
 		entries, err := client.List(remotePath)
@@ -198,9 +234,9 @@ var remoteRmCmd = &cobra.Command{
 var remoteCatMaxKB int
 
 var remoteCatCmd = &cobra.Command{
-	Use:   "cat <remote-path>",
+	Use:   "cat [remote-path]",
 	Short: "FTP'deki dosyanın içeriğini görüntüle",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		srv, client, err := connectRemote()
 		if err != nil {
@@ -208,7 +244,24 @@ var remoteCatCmd = &cobra.Command{
 		}
 		defer client.Close()
 
-		remotePath := resolveRemotePath(srv, args[0])
+		var remotePath string
+		if len(args) == 1 {
+			resolved := resolveRemotePath(srv, args[0])
+			// Dizin verilmişse interaktif seçici aç
+			if entries, lsErr := client.List(resolved); lsErr == nil && entries != nil {
+				remotePath, err = pickRemoteFile(client, resolved)
+				if err != nil {
+					return err
+				}
+			} else {
+				remotePath = resolved
+			}
+		} else {
+			remotePath, err = pickRemoteFile(client, srv.RemotePath)
+			if err != nil {
+				return err
+			}
+		}
 		maxBytes := int64(remoteCatMaxKB) * 1024
 
 		fmt.Printf("── %s ──\n", remotePath)
@@ -276,24 +329,85 @@ func connectRemote() (config.Server, *ftpclient.Client, error) {
 	return srv, client, nil
 }
 
-// pickServer shows a numbered list and returns the server the user picks.
+// pickServer interaktif TUI ile sunucu seçtirir.
 func pickServer(servers []config.Server) (config.Server, error) {
-	fmt.Println("Sunucu seçin:")
-	for i, s := range servers {
-		fmt.Printf("  [%d] %-20s %s\n", i+1, s.Name, s.Host)
+	srv, err := pickServerTUI(servers)
+	if err != nil {
+		return config.Server{}, err
 	}
-	fmt.Printf("Seçim [1-%d]: ", len(servers))
+	if srv == nil {
+		return config.Server{}, fmt.Errorf("sunucu seçilmedi")
+	}
+	return *srv, nil
+}
 
+// pickRemoteFile shows an interactive numbered file browser on the FTP server.
+// The user can navigate into directories or select a file.
+func pickRemoteFile(client *ftpclient.Client, startPath string) (string, error) {
 	reader := bufio.NewReader(os.Stdin)
-	line, _ := reader.ReadString('\n')
-	line = strings.TrimSpace(line)
+	current := startPath
 
-	var n int
-	if _, err := fmt.Sscanf(line, "%d", &n); err != nil || n < 1 || n > len(servers) {
-		return config.Server{}, fmt.Errorf("geçersiz seçim: %q", line)
+	for {
+		entries, err := client.List(current)
+		if err != nil {
+			return "", fmt.Errorf("dizin listelenemedi: %w", err)
+		}
+
+		// Filtrele . ve ..
+		var items []goftp.Entry
+		for _, e := range entries {
+			if e.Name != "." && e.Name != ".." {
+				items = append(items, *e)
+			}
+		}
+
+		fmt.Printf("\n  %s\n", current)
+		fmt.Println("  ─────────────────────────")
+		if current != "/" && current != startPath {
+			fmt.Println("  [0] .. (üst dizin)")
+		}
+		for i, e := range items {
+			switch e.Type {
+			case goftp.EntryTypeFolder:
+				fmt.Printf("  [%d] %s/\n", i+1, e.Name)
+			default:
+				fmt.Printf("  [%d] %s  (%s)\n", i+1, e.Name, formatSize(e.Size))
+			}
+		}
+		fmt.Printf("  Seçim [0-%d, q=iptal]: ", len(items))
+
+		line, _ := reader.ReadString('\n')
+		line = strings.TrimSpace(line)
+
+		if line == "q" || line == "Q" {
+			return "", fmt.Errorf("iptal edildi")
+		}
+
+		if line == "0" {
+			current = path.Dir(current)
+			if current == "." {
+				current = "/"
+			}
+			continue
+		}
+
+		var n int
+		if _, err := fmt.Sscanf(line, "%d", &n); err != nil || n < 1 || n > len(items) {
+			fmt.Printf("  Geçersiz seçim: %q\n", line)
+			continue
+		}
+
+		chosen := items[n-1]
+		selected := path.Join(current, chosen.Name)
+
+		if chosen.Type == goftp.EntryTypeFolder {
+			current = selected
+			continue
+		}
+
+		fmt.Printf("  Seçildi: %s\n\n", selected)
+		return selected, nil
 	}
-	fmt.Println()
-	return servers[n-1], nil
 }
 
 // resolveRemotePath makes a path absolute relative to the server's remote_path.

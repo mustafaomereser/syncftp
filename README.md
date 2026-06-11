@@ -9,6 +9,7 @@ A Go CLI tool that detects changed files via SHA256 hashing and distributes them
 - **Auto-retry** — failed uploads are retried automatically and saved for manual re-runs
 - **Config-free mode** — sync any directory to any FTP without a project config (`syncftp push`)
 - **HTTP API** — built-in local API server for PHP/web UI integration (`syncftp serve`)
+- **Interactive shell** — run `syncftp` with no arguments for a full TUI shell with arrow-key file browser, server picker, and action menus
 
 ---
 
@@ -283,35 +284,105 @@ syncftp push ./website --host ftp.example.com --user admin --pass secret \
 
 Browse, download, preview and delete files on the FTP server.
 
-When multiple servers are configured and `--server` is not provided, an interactive selection menu is shown.
+When multiple servers are configured and `--server` is not provided, an interactive TUI server picker is shown.
 
 ```bash
-syncftp remote ls                          # list remote_path from config
-syncftp remote ls css/                     # list a subdirectory
-syncftp remote ls --recursive              # full tree
+syncftp remote ls                          # open interactive file browser
+syncftp remote ls css/                     # open browser starting at css/
+syncftp remote ls --recursive              # plain recursive tree (no TUI)
 syncftp remote ls --server staging         # specific server
 
 syncftp remote cat index.php               # preview first 10 KB
+syncftp remote cat                         # open file browser to pick a file
 syncftp remote cat error.log --max-kb 50   # preview first 50 KB
 
 syncftp remote get index.php               # download to current directory
+syncftp remote get                         # open file browser to pick a file
 syncftp remote get css/style.css ~/tmp/    # download to specific path
 
-syncftp remote rm old-file.php             # delete file (asks for confirmation)
+syncftp remote rm old-file.php             # delete file (TUI confirmation)
+syncftp remote rm                          # open file browser to pick a file
 syncftp remote rm old-file.php --force     # delete without confirmation
 syncftp remote rm cache/ --recursive       # delete directory and all contents
 ```
 
-**Server selection (multiple servers):**
-
-```
-Select a server:
-  [1] production         ftp.example.com
-  [2] staging            ftp2.example.com
-Selection [1-2]:
-```
-
 Paths without a leading `/` are resolved relative to the server's `remote_path`. Use an absolute path (starting with `/`) to reference any location on the server.
+
+---
+
+### `syncftp` (Interactive Shell)
+
+Run `syncftp` with no arguments to open the interactive shell. A full TUI environment with arrow-key navigation, file browser, server picker, and action menus.
+
+```bash
+syncftp
+```
+
+```
+╔══════════════════════════════════════════════╗
+║  syncFTP Shell  ·  my-project                ║
+║  'help' yazın, çıkmak için 'exit'            ║
+╚══════════════════════════════════════════════╝
+
+syncftp [production:/public_html]>
+```
+
+#### Shell Commands
+
+| Command | Description |
+|---|---|
+| `ls [path]` | Open arrow-key file browser (navigate with ↑↓, enter dirs with →, go up with ←) |
+| `cd <path>` | Change remote directory (`cd ..` to go up) |
+| `cat [file]` | Preview file content — opens browser if no path given |
+| `get [file] [dest]` | Download file — opens browser if no path given |
+| `rm [-f] [-r] [file]` | Delete file/dir — opens browser if no path given, TUI confirmation |
+| `pwd` | Show current remote path |
+| `status` | Show local changes per server |
+| `sync [--full] [--dry-run] [--server name]` | Upload to FTP (multi-select server picker if multiple) |
+| `servers` | TUI server list — select to connect |
+| `server [name]` | Connect to a server (TUI picker if no name given) |
+| `clear` / `cls` | Clear screen and show welcome banner |
+| `help` / `?` | Show command reference |
+| `exit` / `quit` | Exit shell |
+
+#### File Browser
+
+Opened by `ls`, or automatically when `cat`/`get`/`rm` receive no path argument.
+
+```
+  📁 /public_html
+  ──────────────────────────────────────────────────────────────────────
+  ↑↓/jk  Gezin    →/Enter  Gir/Seç    ←/ESC  Üst dizin    g/G  İlk/Son    q  Çık
+
+ ▶ 📁  assets/                                    3 öğe          2026-06-11
+    📁  uploads/                                   çok boyutlu    2026-06-10
+    📁  cache/                                     0 öğe          2026-06-09
+    ·····················································
+    📄  index.php                                  4.2 KB         2026-06-10
+    📄  config.php                                 1.1 KB         2026-06-09
+
+  3 klasör, 2 dosya  ·  1/5
+```
+
+- Folders are always listed first (alphabetical), files below (alphabetical)
+- Folder item counts are loaded in the background — shows `...` then updates to `N öğe` or `çok boyutlu` (1000+)
+- Selecting a file in `ls` opens an action menu: **Cat / Get / Delete / Cancel**
+- Arrow key history is saved to `.syncftp/shell_history`
+
+#### Server Picker (TUI)
+
+Used by `servers`, `server`, `sync` (multi-select), and `remote` commands.
+
+```
+  Sunucular
+  ────────────────────────────────────────────
+▶ [1] ✅  production    ftp.example.com:21  conn:3  (bağlı)
+  [2] 🖥  staging       ftp2.example.com:21  conn:1
+```
+
+Keys: `↑↓` navigate · `Enter` select · `[1-9]` quick select · `q` cancel
+
+For `sync` with multiple servers, a **multi-select picker** is shown (Space to toggle, `a` to select all, Enter to confirm).
 
 ---
 
@@ -558,7 +629,7 @@ syncFTP creates a `.syncftp/` directory next to `syncftp.json`:
 | `internal/ftp` | FTP client, connection pool, upload, remote operations |
 | `internal/failed` | Failed file list persistence |
 | `internal/release` | Release manifest writer |
-| `cmd/syncftp` | CLI commands (init, status, sync, push, remote, serve) |
+| `cmd/syncftp` | CLI commands (init, status, sync, push, remote, serve, shell) |
 
 ---
 
