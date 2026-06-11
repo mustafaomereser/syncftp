@@ -30,31 +30,23 @@ type FirstSync struct {
 }
 
 type Server struct {
-	Name       string   `json:"name"`
-	Host       string   `json:"host"`
-	Port       int      `json:"port"`
-	User       string   `json:"user"`
-	Password   string   `json:"password,omitempty"`
-	RemotePath string   `json:"remote_path"`
-	Passive    bool     `json:"passive"`
-	Enabled    bool     `json:"enabled"`
-	Include    []string `json:"include"`
-	Exclude    []string `json:"exclude"`
+	Name           string   `json:"name"`
+	Host           string   `json:"host"`
+	Port           int      `json:"port"`
+	User           string   `json:"user"`
+	Password       string   `json:"password"`
+	RemotePath     string   `json:"remote_path"`
+	Passive        bool     `json:"passive"`
+	Enabled        bool     `json:"enabled"`
+	MaxConnections int      `json:"max_connections"` // default 1
+	MaxRetries     int      `json:"max_retries"`     // default 2
+	Include        []string `json:"include"`
+	Exclude        []string `json:"exclude"`
 }
 
-type secretConfig struct {
-	Servers []struct {
-		Name     string `json:"name"`
-		Password string `json:"password"`
-	} `json:"servers"`
-}
-
-// Load reads syncftp.json and merges passwords from syncftp.secrets.json if present.
+// Load reads syncftp.json and returns the parsed config.
 func Load(dir string) (*Config, error) {
-	mainPath := filepath.Join(dir, "syncftp.json")
-	secretPath := filepath.Join(dir, "syncftp.secrets.json")
-
-	data, err := os.ReadFile(mainPath)
+	data, err := os.ReadFile(filepath.Join(dir, "syncftp.json"))
 	if err != nil {
 		return nil, fmt.Errorf("syncftp.json okunamadı: %w", err)
 	}
@@ -67,22 +59,6 @@ func Load(dir string) (*Config, error) {
 	for i := range cfg.Servers {
 		if cfg.Servers[i].Port == 0 {
 			cfg.Servers[i].Port = 21
-		}
-	}
-
-	if data, err := os.ReadFile(secretPath); err == nil {
-		var sec secretConfig
-		if err := json.Unmarshal(data, &sec); err != nil {
-			return nil, fmt.Errorf("syncftp.secrets.json parse hatası: %w", err)
-		}
-		pwMap := make(map[string]string, len(sec.Servers))
-		for _, s := range sec.Servers {
-			pwMap[s.Name] = s.Password
-		}
-		for i, srv := range cfg.Servers {
-			if pw, ok := pwMap[srv.Name]; ok {
-				cfg.Servers[i].Password = pw
-			}
 		}
 	}
 

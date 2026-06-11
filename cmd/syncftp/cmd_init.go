@@ -17,8 +17,8 @@ func init() {
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "syncftp.json ve syncftp.secrets.json dosyalarını oluşturur",
-	Long:  "İnteraktif sihirbaz ile FTP sunucu bilgilerini girerek config dosyalarını oluşturur.",
+	Short: "syncftp.json dosyasını oluşturur",
+	Long:  "İnteraktif sihirbaz ile FTP sunucu bilgilerini girerek syncftp.json oluşturur.",
 	RunE:  runInit,
 }
 
@@ -52,13 +52,13 @@ func runInit(cmd *cobra.Command, args []string) error {
 	host := ask("FTP host", "")
 	port := ask("Port", "21")
 	user := ask("Kullanıcı adı", "")
-	password := ask("Şifre (syncftp.secrets.json'a kaydedilecek)", "")
+	password := ask("Şifre", "")
 	remotePath := ask("Uzak dizin", "/public_html")
 
 	portNum := 21
 	fmt.Sscanf(port, "%d", &portNum)
 
-	mainCfg := map[string]any{
+	cfg := map[string]any{
 		"project": map[string]any{
 			"name":       projectName,
 			"local_path": localPath,
@@ -77,37 +77,26 @@ func runInit(cmd *cobra.Command, args []string) error {
 				"host":        host,
 				"port":        portNum,
 				"user":        user,
+				"password":    password,
 				"remote_path": remotePath,
-				"passive":     true,
-				"enabled":     true,
-				"include":     []string{},
-				"exclude":     []string{},
+				"passive":         true,
+				"enabled":         true,
+				"max_connections": 1,
+				"max_retries":     2,
+				"include":         []string{},
+				"exclude":         []string{},
 			},
 		},
 	}
 
-	mainData, err := json.MarshalIndent(mainCfg, "", "  ")
+	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return fmt.Errorf("JSON oluşturulamadı: %w", err)
 	}
-	if err := os.WriteFile("syncftp.json", mainData, 0644); err != nil {
+	if err := os.WriteFile("syncftp.json", data, 0600); err != nil {
 		return fmt.Errorf("syncftp.json yazılamadı: %w", err)
 	}
-	fmt.Println("✓ syncftp.json oluşturuldu")
-
-	secretCfg := map[string]any{
-		"servers": []map[string]any{
-			{"name": serverName, "password": password},
-		},
-	}
-	secretData, err := json.MarshalIndent(secretCfg, "", "  ")
-	if err != nil {
-		return fmt.Errorf("JSON oluşturulamadı: %w", err)
-	}
-	if err := os.WriteFile("syncftp.secrets.json", secretData, 0600); err != nil {
-		return fmt.Errorf("syncftp.secrets.json yazılamadı: %w", err)
-	}
-	fmt.Println("✓ syncftp.secrets.json oluşturuldu (izinler: 600)")
+	fmt.Println("✓ syncftp.json oluşturuldu (izinler: 600)")
 
 	addToIgnoreFile(dir)
 
@@ -116,16 +105,16 @@ func runInit(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// addToIgnoreFile adds syncFTP-specific entries to .gitignore or syncftp.ignore.
+// addToIgnoreFile adds syncftp.json and syncftp.exe to .gitignore or syncftp.ignore.
 // If neither exists, creates syncftp.ignore.
 func addToIgnoreFile(dir string) {
-	block := "\n# syncFTP — do not commit\nsyncftp.secrets.json\nsyncftp.json\nsyncftp.exe\n"
+	block := "\n# syncFTP — do not commit\nsyncftp.json\nsyncftp.exe\n"
 
 	for _, name := range []string{".gitignore", "syncftp.ignore"} {
 		p := filepath.Join(dir, name)
 		if _, err := os.Stat(p); err == nil {
 			content, _ := os.ReadFile(p)
-			if strings.Contains(string(content), "syncftp.secrets.json") {
+			if strings.Contains(string(content), "syncftp.json") {
 				fmt.Printf("  (syncFTP girdileri zaten %s içinde)\n", name)
 				return
 			}
@@ -135,13 +124,13 @@ func addToIgnoreFile(dir string) {
 			}
 			defer f.Close()
 			fmt.Fprint(f, block)
-			fmt.Printf("✓ syncftp.secrets.json, syncftp.json, syncftp.exe → %s'e eklendi\n", name)
+			fmt.Printf("✓ syncftp.json, syncftp.exe → %s'e eklendi\n", name)
 			return
 		}
 	}
 
-	content := "# syncFTP — do not commit\nsyncftp.secrets.json\nsyncftp.json\nsyncftp.exe\n"
+	content := "# syncFTP — do not commit\nsyncftp.json\nsyncftp.exe\n"
 	if err := os.WriteFile(filepath.Join(dir, "syncftp.ignore"), []byte(content), 0644); err == nil {
-		fmt.Println("✓ syncftp.ignore oluşturuldu (syncftp.secrets.json, syncftp.json, syncftp.exe eklendi)")
+		fmt.Println("✓ syncftp.ignore oluşturuldu (syncftp.json, syncftp.exe eklendi)")
 	}
 }

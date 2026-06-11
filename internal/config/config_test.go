@@ -26,7 +26,7 @@ func baseConfig(name string) map[string]any {
 		"servers": []map[string]any{
 			{
 				"name": "prod", "host": "ftp.example.com", "port": 21,
-				"user": "user", "remote_path": "/public_html",
+				"user": "user", "password": "gizli123", "remote_path": "/public_html",
 				"passive": true, "enabled": true,
 				"include": []string{}, "exclude": []string{},
 			},
@@ -51,21 +51,8 @@ func TestLoad_Basic(t *testing.T) {
 	if cfg.Servers[0].Host != "ftp.example.com" {
 		t.Errorf("host yanlış: %q", cfg.Servers[0].Host)
 	}
-}
-
-func TestLoad_MergesPassword(t *testing.T) {
-	dir := t.TempDir()
-	writeJSON(t, dir, "syncftp.json", baseConfig("test"))
-	writeJSON(t, dir, "syncftp.secrets.json", map[string]any{
-		"servers": []map[string]any{{"name": "prod", "password": "gizli123"}},
-	})
-
-	cfg, err := Load(dir)
-	if err != nil {
-		t.Fatalf("Load başarısız: %v", err)
-	}
 	if cfg.Servers[0].Password != "gizli123" {
-		t.Errorf("şifre merge edilmedi, alınan: %q", cfg.Servers[0].Password)
+		t.Errorf("şifre yanlış: %q", cfg.Servers[0].Password)
 	}
 }
 

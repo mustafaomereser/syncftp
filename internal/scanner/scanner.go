@@ -45,11 +45,6 @@ func Scan(dir string, matcher *ignore.Matcher) ([]File, error) {
 			return nil
 		}
 
-		// Always skip secrets file (contains passwords)
-		if rel == "syncftp.secrets.json" {
-			return nil
-		}
-
 		if matcher.Match(rel) {
 			if d.IsDir() {
 				return filepath.SkipDir

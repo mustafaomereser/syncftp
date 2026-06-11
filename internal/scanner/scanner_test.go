@@ -13,7 +13,7 @@ func TestScan_BasicFiles(t *testing.T) {
 
 	writeFile(t, dir, "index.php", "<?php echo 'hello';")
 	writeFile(t, dir, "css/style.css", "body { margin: 0; }")
-	writeFile(t, dir, "syncftp.secrets.json", `{"servers":[]}`) // her zaman atlanmalı
+	writeFile(t, dir, "syncftp.extra", "extra") // taranmalı — artık otomatik hariç tutulan dosya yok
 
 	matcher := &ignore.Matcher{} // no-op matcher
 	files, err := Scan(dir, matcher)
@@ -21,8 +21,8 @@ func TestScan_BasicFiles(t *testing.T) {
 		t.Fatalf("Scan başarısız: %v", err)
 	}
 
-	if len(files) != 2 {
-		t.Errorf("2 dosya beklendi, %d alındı", len(files))
+	if len(files) != 3 {
+		t.Errorf("3 dosya beklendi, %d alındı", len(files))
 	}
 
 	relPaths := make(map[string]bool)
@@ -39,8 +39,8 @@ func TestScan_BasicFiles(t *testing.T) {
 	if !relPaths["css/style.css"] {
 		t.Error("css/style.css taranmış olmalıydı")
 	}
-	if relPaths["syncftp.secrets.json"] {
-		t.Error("syncftp.secrets.json taranmamalıydı")
+	if !relPaths["syncftp.extra"] {
+		t.Error("syncftp.extra taranmış olmalıydı")
 	}
 }
 

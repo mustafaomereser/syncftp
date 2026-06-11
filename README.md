@@ -1,51 +1,46 @@
 # syncFTP
 
-Yerel projelerdeki değişen dosyaları tespit edip birden fazla FTP sunucusuna dağıtan CLI aracı.
+A Go CLI tool that detects changed files via SHA256 hashing and distributes them to one or more FTP servers.
 
-- Değişiklik tespiti SHA256 hash ile yapılır — git gerektirmez
-- Birden fazla FTP sunucusunu tek komutla günceller
-- Sunucu tarafındaki config dosyalarını (`.env`, `database.php` vb.) korur, üzerine yazmaz
-- Şifreler ayrı dosyada tutulur, ana config git'e commit edilebilir
+- **No git required** — change detection is hash-based, works in any directory
+- **Multi-server** — deploy to production and staging in a single command
+- **Server-side protection** — never overwrites `.env`, database configs, or any file you mark as protected
+- **Parallel uploads** — configurable connection pool per server
+- **Auto-retry** — failed uploads are retried automatically and saved for manual re-runs
+- **Config-free mode** — sync any directory to any FTP without a project config (`syncftp push`)
+- **HTTP API** — built-in local API server for PHP/web UI integration (`syncftp serve`)
 
 ---
 
-## Kurulum
+## Installation
 
-**Go 1.21+** gereklidir. https://go.dev/dl/
+Requires **Go 1.21+** → https://go.dev/dl/
 
 ```bash
 git clone <repo>
 cd syncftp
 go mod tidy
 go build -o syncftp.exe ./cmd/syncftp/   # Windows
-go build -o syncftp ./cmd/syncftp/       # Linux / macOS
+go build -o syncftp     ./cmd/syncftp/   # Linux / macOS
 ```
 
 ---
 
-## Hızlı Başlangıç
+## Quick Start
 
 ```bash
-# 1. Proje dizinine girin
 cd /path/to/your/project
 
-# 2. Config oluşturun (sihirbaz açılır)
-syncftp init
-
-# 3. Neyin değiştiğini görün
-syncftp status
-
-# 4. FTP'ye yükleyin
-syncftp sync
+syncftp init      # interactive wizard — creates syncftp.json
+syncftp status    # show what has changed (nothing is uploaded)
+syncftp sync      # upload changed files to all enabled servers
 ```
 
 ---
 
-## Config Dosyaları
+## Configuration — `syncftp.json`
 
-syncFTP iki ayrı dosya kullanır:
-
-### `syncftp.json` — Ana config
+Created by `syncftp init`. Stored with permission `600`. Added to `.gitignore` automatically.
 
 ```json
 {
@@ -67,9 +62,12 @@ syncFTP iki ayrı dosya kullanır:
       "host": "ftp.example.com",
       "port": 21,
       "user": "ftpuser",
+      "password": "secret",
       "remote_path": "/public_html",
       "passive": true,
       "enabled": true,
+      "max_connections": 3,
+      "max_retries": 2,
       "include": [],
       "exclude": []
     },
@@ -78,9 +76,12 @@ syncFTP iki ayrı dosya kullanır:
       "host": "ftp2.example.com",
       "port": 21,
       "user": "staginguser",
+      "password": "secret2",
       "remote_path": "/staging",
       "passive": true,
       "enabled": true,
+      "max_connections": 1,
+      "max_retries": 2,
       "include": ["css/", "js/"],
       "exclude": ["vendor/"]
     }
@@ -88,33 +89,31 @@ syncFTP iki ayrı dosya kullanır:
 }
 ```
 
-Her sunucunun kendi `include` ve `exclude` listesi olabilir — bu sayede her ortama farklı dosya seti gönderilir.
+### Field Reference
 
-### `syncftp.secrets.json` — Şifreler (git'e commit ETMEYİN)
-
-`syncftp init` komutu bu dosyayı oluşturur ve otomatik olarak `.gitignore`'a ekler.
-
-```json
-{
-  "servers": [
-    { "name": "production", "password": "gizli_sifre_1" },
-    { "name": "staging",    "password": "gizli_sifre_2" }
-  ]
-}
-```
-
-> Şifreler `name` alanı eşleştirilerek `syncftp.json`'daki sunuculara merge edilir.
+| Field | Default | Description |
+|---|---|---|
+| `project.local_path` | `"."` | Local directory to scan, relative to config file |
+| `sync.protect` | `[]` | Files/dirs that are **never** overwritten on the FTP server |
+| `sync.include` | `[]` | Global whitelist — sync only these paths (empty = all) |
+| `sync.exclude` | `[]` | Global blacklist — always skip these paths |
+| `first_sync.full` | `true` | On first sync: upload all files (`true`) or only `include` list (`false`) |
+| `server.max_connections` | `1` | Parallel FTP connections for this server |
+| `server.max_retries` | `2` | Retry count on upload failure (0 = no retry) |
+| `server.include` | `[]` | Per-server whitelist — overrides global `sync.include` |
+| `server.exclude` | `[]` | Per-server blacklist — added on top of global `sync.exclude` |
+| `server.enabled` | `true` | Set `false` to skip this server in all sync operations |
 
 ---
 
-## Ignore Dosyaları
+## Ignore Files
 
-Proje kökünde hangisi varsa o kullanılır (öncelik sırası):
+syncFTP uses the first file it finds, in this order:
 
-1. `.gitignore` — zaten varsa otomatik kullanılır
-2. `syncftp.ignore` — git kullanmıyorsanız bu dosyayı oluşturun
+1. `.gitignore` — used automatically if present
+2. `syncftp.ignore` — create this if you don't use git
 
-Format `.gitignore` ile birebir aynıdır:
+Format is identical to `.gitignore`:
 
 ```gitignore
 node_modules/
@@ -124,216 +123,449 @@ dist/
 uploads/
 ```
 
+The `.syncftp/` metadata directory and `syncftp.json` itself are always excluded from scanning regardless of ignore rules.
+
 ---
 
-## Komutlar
+## Commands
 
 ### `syncftp init`
 
-İnteraktif sihirbaz. Proje adı, FTP bilgileri sorulur ve `syncftp.toml` + `syncftp.config` oluşturulur.
+Interactive wizard. Prompts for project name, FTP credentials, and writes `syncftp.json`. Also adds the config file and binary to `.gitignore`.
 
 ```
-=== syncFTP Kurulum Sihirbazı ===
+=== syncFTP Setup Wizard ===
 
-Proje adı [my-project]:
-Yerel dizin [.]:
+Project name [my-project]:
+Local directory [.]:
 
-Sunucu adı [production]:
+Server name [production]:
 FTP host: ftp.example.com
 Port [21]:
-Kullanıcı adı: ftpuser
-Şifre: ****
-Uzak dizin [/public_html]:
+Username: ftpuser
+Password: ****
+Remote directory [/public_html]:
 ```
 
 ---
 
 ### `syncftp status`
 
-Değişen dosyaları listeler. **Hiçbir şey yüklemez.**
+Shows what has changed since the last sync. **Nothing is uploaded.**
 
 ```bash
-syncftp status                            # tüm değişiklikleri göster
-syncftp status --include css              # sadece css/ altındaki değişiklikleri göster
-syncftp status --exclude vendor           # vendor/ hariç göster
-syncftp status --include src --exclude src/__tests__   # kombine
+syncftp status                                        # all servers
+syncftp status --include css                          # only show changes under css/
+syncftp status --exclude vendor                       # hide vendor/ changes
+syncftp status --include src --exclude src/__tests__  # combine
 ```
 
 ```
-Proje : my-project
-Dizin : C:\projeler\my-project
-Dosya : 142 adet
+Project : my-project
+Path    : /home/user/my-project
+Files   : 142
 
 ── production (ftp.example.com) ──
-  + YENİ (2):
-    js/utils.js
-    css/dark-mode.css
-  ~ DEĞİŞEN (1):
-    index.php
-  - SİLİNEN (FTP'den silinmez, sadece bilgi) (1):
-    old-file.php
+  + NEW (2):
+      js/utils.js
+      css/dark-mode.css
+  ~ CHANGED (1):
+      index.php
+  - DELETED locally (not removed from FTP) (1):
+      old-file.php
 ```
+
+> Deleted files are reported but **never removed** from the FTP server — intentional safety behaviour.
 
 ---
 
 ### `syncftp sync`
 
-Değişen dosyaları tüm aktif sunuculara yükler.
+Uploads changed files to all enabled servers.
 
 ```bash
-syncftp sync                        # tüm sunuculara
-syncftp sync --server production    # sadece production'a
-syncftp sync --full                 # tüm dosyaları (state'i yoksay)
-syncftp sync --dry-run              # ne yükleneceğini göster, yükleme
+syncftp sync                          # all enabled servers
+syncftp sync --server production      # one specific server
+syncftp sync --full                   # ignore state, re-upload everything
+syncftp sync --dry-run                # preview what would be uploaded
+syncftp sync --retry-failed           # re-upload files that failed in the last run
+```
 
-# Whitelist: sadece belirtilen dosya/klasörü sync et
+**Filtering:**
+
+```bash
+# Whitelist — only sync specific paths (overrides syncftp.json include)
 syncftp sync --include css
-syncftp sync --include css --include js/app.js   # birden fazla yol
+syncftp sync --include css --include js/app.js
 
-# Exclude: belirtilen dosya/klasörü bu sync'ten hariç tut (tek seferlik)
+# Blacklist — exclude specific paths for this run only
 syncftp sync --exclude vendor
 syncftp sync --exclude vendor --exclude tests
 
-# Kombine kullanım
-syncftp sync --include src/components --exclude src/components/__tests__
-syncftp sync --include css --dry-run              # önce dry-run ile kontrol
-```
-
-> **`--include` ile TOML `include` farkı:** `--include` sadece o anki çalıştırma için geçerlidir ve `syncftp.toml`'daki `sync.include`'u geçersiz kılar. Kalıcı whitelist için TOML'u kullanın.
-
-> **`--exclude` ile `protect` farkı:** `protect` (TOML) kalıcı ve sunucu tarafındaki dosyaları korumak içindir. `--exclude` tek seferlik ve geçici hariç tutma içindir.
-
-**Örnek çıktı:**
-
-```
-Taranıyor: C:\projeler\my-project
-142 dosya bulundu
-
-══ production (ftp.example.com) ══
-  3 dosya işlenecek
-    ✓ js/utils.js
-    ✓ css/dark-mode.css
-    ✓ index.php
-    KORUNUYOR  .env
-  Tamamlandı: 3 yüklendi, 1 korundu, 0 hata
-  Release: .syncftp\releases\production\20260611-143012
-```
-
----
-
-## Protect (Koruma) Nasıl Çalışır?
-
-`sync.protect` listesindeki dosya ve dizinler FTP'de **hiçbir zaman güncellenmez**. Bu sayede sunucu tarafındaki özel config dosyaları korunur.
-
-```toml
-[sync]
-protect = [
-  ".env",              # tam dosya adı eşleşmesi
-  "config/app.php",    # alt dizindeki dosya
-  "storage/",          # dizin sonu / ile dizin eşleşmesi (tüm içeriği korur)
-]
-```
-
----
-
-## Include / Exclude Nasıl Çalışır?
-
-syncFTP'de filtrelemeyi iki farklı şekilde yapabilirsiniz:
-
-### Kalıcı filtre — `syncftp.json`
-
-Her sync'te sabit filtre uygulamak istiyorsanız config'e ekleyin.
-
-**Global (tüm sunucular için):**
-```json
-{
-  "sync": {
-    "include": ["public/", "index.php"],
-    "exclude": ["vendor/", "tests/"]
-  }
-}
-```
-
-**Sunucu bazlı (o sunucuya özgü):**
-```json
-{
-  "servers": [
-    {
-      "name": "production",
-      "include": ["css/", "js/", "index.php"],
-      "exclude": []
-    },
-    {
-      "name": "staging",
-      "include": [],
-      "exclude": ["vendor/"]
-    }
-  ]
-}
-```
-
-`include` boşsa tüm değişen dosyalar senkronize edilir. Sunucu `include`/`exclude` global'i override eder.
-
-### Tek seferlik — `--include` ve `--exclude` flag'leri
-
-O anki sync için geçici filtre uygulamak istiyorsanız CLI flag'lerini kullanın:
-
-```bash
-# Sadece css/ ve js/ klasörlerini bu sefer sync et
-syncftp sync --include css --include js
-
-# vendor/ ve tests/ hariç tüm değişiklikleri sync et
-syncftp sync --exclude vendor --exclude tests
-
-# src/components altını sync et ama test dosyalarını atla
+# Combine
 syncftp sync --include src/components --exclude src/components/__tests__
 
-# Önce ne yükleneceğini gör, sonra gerçekten yükle
+# Always preview first
 syncftp sync --include css --dry-run
 syncftp sync --include css
 ```
 
-`--include` verilirse TOML'daki `sync.include`'u geçersiz kılar. `--exclude` ise her durumda ek olarak uygulanır.
+**Example output:**
+
+```
+Scanning: /home/user/my-project
+142 files found
+
+══ production (ftp.example.com) ══
+  3 files to process (1 protected)
+  Connection pool: 3 / Retry: 2
+    PROTECTED  .env
+    ✓ js/utils.js
+    ✓ css/dark-mode.css
+    ✓ index.php (2nd attempt)
+  Done: 3 uploaded, 1 protected, 0 failed
+  Release: .syncftp/releases/production/20260612-143012
+```
 
 ---
 
-## İç Yapı
+### `syncftp push`
 
-| Dizin | Görevi |
-|---|---|
-| `internal/config` | TOML okuma, `syncftp.config` şifre merge'i |
-| `internal/ignore` | `.gitignore` / `syncftp.ignore` parser |
-| `internal/scanner` | Dosya ağacı tarama, SHA256 hesaplama |
-| `internal/state` | Per-server sync durumu (`.syncftp/state/`) |
-| `internal/ftp` | FTP bağlantı, upload, dizin oluşturma |
-| `internal/release` | Release manifest (`.syncftp/releases/`) |
-| `cmd/syncftp` | CLI komutları (init, status, sync) |
+Syncs **any local directory** to an FTP server without needing a `syncftp.json`. Useful for one-off deployments or scripting.
+
+State is stored in `<local-dir>/.syncftp/` so subsequent runs only upload changed files.
+
+```bash
+# Ad-hoc — provide credentials directly
+syncftp push ./website --host ftp.example.com --user admin --pass secret --remote /public_html
+
+# Use a server already defined in syncftp.json (only changes the local source dir)
+syncftp push ./another-project --server production
+
+# With parallel connections
+syncftp push ./website --host ftp.example.com --user admin --pass secret \
+  --remote /public_html --connections 3
+
+# Filtering
+syncftp push ./website --host ftp.example.com --user admin --pass secret \
+  --remote /public_html --include css --exclude vendor
+
+# Preview first
+syncftp push ./website --host ftp.example.com --user admin --pass secret \
+  --remote /public_html --dry-run
+
+# Force full re-upload
+syncftp push ./website --host ftp.example.com --user admin --pass secret \
+  --remote /public_html --full
+```
+
+**Flags:**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--host` | — | FTP server address (required unless `--server` is used) |
+| `--port` | `21` | FTP port |
+| `--user` | — | Username |
+| `--pass` | — | Password |
+| `--remote` | `"/"` | Remote target directory |
+| `--passive` | `true` | Use passive mode |
+| `--server` | — | Reuse a server from `syncftp.json` |
+| `--full` | `false` | Re-upload all files, ignore state |
+| `--dry-run` | `false` | Preview without uploading |
+| `--include` | — | Whitelist (repeatable) |
+| `--exclude` | — | Blacklist (repeatable) |
+| `--connections` | `1` | Parallel FTP connections |
+| `--retries` | `2` | Retry count on failure |
 
 ---
 
-## State ve Release Dosyaları
+### `syncftp remote`
 
-syncFTP proje kökünde `.syncftp/` dizini oluşturur:
+Browse, download, preview and delete files on the FTP server.
+
+When multiple servers are configured and `--server` is not provided, an interactive selection menu is shown.
+
+```bash
+syncftp remote ls                          # list remote_path from config
+syncftp remote ls css/                     # list a subdirectory
+syncftp remote ls --recursive              # full tree
+syncftp remote ls --server staging         # specific server
+
+syncftp remote cat index.php               # preview first 10 KB
+syncftp remote cat error.log --max-kb 50   # preview first 50 KB
+
+syncftp remote get index.php               # download to current directory
+syncftp remote get css/style.css ~/tmp/    # download to specific path
+
+syncftp remote rm old-file.php             # delete file (asks for confirmation)
+syncftp remote rm old-file.php --force     # delete without confirmation
+syncftp remote rm cache/ --recursive       # delete directory and all contents
+```
+
+**Server selection (multiple servers):**
+
+```
+Select a server:
+  [1] production         ftp.example.com
+  [2] staging            ftp2.example.com
+Selection [1-2]:
+```
+
+Paths without a leading `/` are resolved relative to the server's `remote_path`. Use an absolute path (starting with `/`) to reference any location on the server.
+
+---
+
+### `syncftp serve`
+
+Starts a local HTTP API server so external tools (PHP, scripts, web UIs) can interact with syncFTP via HTTP.
+
+```bash
+syncftp serve              # http://127.0.0.1:8080
+syncftp serve --port 9000
+```
+
+Only listens on `127.0.0.1` (localhost). CORS is enabled for all origins so browser-based UIs work out of the box.
+
+#### API Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/servers` | List all configured servers (passwords excluded) |
+| `GET` | `/api/status` | Changed files per server |
+| `GET` | `/api/status?server=production` | Changed files for one server |
+| `POST` | `/api/sync` | Run sync, returns results |
+| `GET` | `/api/failed` | List files that failed in last sync |
+| `GET` | `/api/failed?server=production` | Failed files for one server |
+| `GET` | `/api/remote/ls?server=&path=` | List remote directory |
+| `GET` | `/api/remote/ls?server=&path=&recursive=true` | Recursive listing |
+| `GET` | `/api/remote/cat?server=&path=&max_kb=10` | Preview file content |
+| `GET` | `/api/remote/get?server=&path=` | Download file (raw stream) |
+| `GET` | `/api/remote/get?server=&path=&json=true` | Download file (base64 JSON) |
+| `DELETE` | `/api/remote/rm?server=&path=` | Delete file |
+| `DELETE` | `/api/remote/rm?server=&path=&recursive=true` | Delete directory recursively |
+
+**All responses follow this envelope:**
+
+```json
+{ "ok": true,  "data": { ... } }
+{ "ok": false, "error": "error message" }
+```
+
+**POST /api/sync — request body:**
+
+```json
+{
+  "server":       "production",
+  "full":         false,
+  "dry_run":      false,
+  "include":      ["css/", "js/"],
+  "exclude":      ["vendor/"],
+  "retry_failed": false
+}
+```
+
+All fields are optional. Omitting `server` syncs all enabled servers.
+
+**POST /api/sync — response:**
+
+```json
+{
+  "ok": true,
+  "data": {
+    "server":   "production",
+    "dry_run":  false,
+    "uploaded": [{ "path": "css/style.css", "attempts": 1 }],
+    "failed":   [{ "path": "img/hero.jpg",  "attempts": 3, "error": "connection reset" }],
+    "skipped":  [".env"],
+    "deleted_locally": ["old-page.php"]
+  }
+}
+```
+
+**PHP examples:**
+
+```php
+// List servers
+$servers = json_decode(file_get_contents('http://127.0.0.1:8080/api/servers'));
+
+// Check status
+$status = json_decode(file_get_contents('http://127.0.0.1:8080/api/status?server=production'));
+
+// Run sync
+$ctx = stream_context_create(['http' => [
+    'method'  => 'POST',
+    'header'  => 'Content-Type: application/json',
+    'content' => json_encode(['server' => 'production']),
+]]);
+$result = json_decode(file_get_contents('http://127.0.0.1:8080/api/sync', false, $ctx));
+
+// List remote files
+$files = json_decode(file_get_contents('http://127.0.0.1:8080/api/remote/ls?server=production&path=css/'));
+
+// Preview a file
+$res = json_decode(file_get_contents('http://127.0.0.1:8080/api/remote/cat?server=production&path=index.php'));
+echo $res->data->content;
+
+// Download a file (raw)
+file_put_contents('local.php', file_get_contents(
+    'http://127.0.0.1:8080/api/remote/get?server=production&path=index.php'
+));
+
+// Delete a file
+$ctx = stream_context_create(['http' => ['method' => 'DELETE']]);
+$res = json_decode(file_get_contents(
+    'http://127.0.0.1:8080/api/remote/rm?server=production&path=old.php',
+    false, $ctx
+));
+```
+
+---
+
+## Filtering System
+
+syncFTP has three independent filtering mechanisms that work together.
+
+### 1. `protect` — permanent server-side protection
+
+Files in `sync.protect` are **never uploaded**, ever. Use this for server-specific files that must not be overwritten (`.env`, database configs, uploaded media directories).
+
+```json
+"sync": {
+  "protect": [
+    ".env",
+    "config/database.php",
+    "storage/"
+  ]
+}
+```
+
+A trailing `/` means directory prefix match — all files under that path are protected.
+
+### 2. `include` / `exclude` — permanent filters in config
+
+Control which files participate in every sync. Can be set globally or per-server.
+
+```json
+"sync": {
+  "include": [],
+  "exclude": ["vendor/", "node_modules/", "tests/"]
+},
+"servers": [
+  {
+    "name": "production",
+    "include": ["css/", "js/", "index.php"],
+    "exclude": []
+  },
+  {
+    "name": "staging",
+    "include": [],
+    "exclude": ["vendor/"]
+  }
+]
+```
+
+**Priority (include):** CLI `--include` → server `include` → global `sync.include`
+
+**Priority (exclude):** global `sync.exclude` + server `exclude` + CLI `--exclude` (all combined)
+
+### 3. `--include` / `--exclude` flags — one-shot overrides
+
+Applied only to the current command invocation. Do not affect state or future runs.
+
+```bash
+syncftp sync --include css --include js   # this run: only css/ and js/
+syncftp sync --exclude tests              # this run: skip tests/
+```
+
+### Summary table
+
+| Mechanism | Scope | Where |
+|---|---|---|
+| `sync.protect` | Permanent, all servers | `syncftp.json` |
+| `sync.include` / `sync.exclude` | Permanent, global | `syncftp.json` |
+| `server.include` / `server.exclude` | Permanent, per server | `syncftp.json` |
+| `--include` / `--exclude` flags | This run only | CLI |
+
+---
+
+## Failed Files & Retry
+
+When uploads fail after all retry attempts, syncFTP saves the list to `.syncftp/failed/<server>.json`.
+
+```bash
+# Re-upload only the files that failed last time
+syncftp sync --retry-failed
+syncftp sync --retry-failed --server production
+
+# Or via the API
+curl -X POST http://127.0.0.1:8080/api/sync \
+  -H 'Content-Type: application/json' \
+  -d '{"server":"production","retry_failed":true}'
+```
+
+The failed list is cleared automatically once all files upload successfully.
+
+---
+
+## Connection Pool & Retry
+
+Each server can have its own connection pool and retry settings:
+
+```json
+{
+  "name": "production",
+  "max_connections": 3,
+  "max_retries": 2
+}
+```
+
+- `max_connections` — number of simultaneous FTP connections (default `1`)
+- `max_retries` — how many times to retry a failed upload before giving up (default `2`, meaning 3 total attempts)
+
+If some connections in the pool fail to open, syncFTP continues with however many opened successfully (minimum 1). A partial pool warning is printed.
+
+---
+
+## State & Release Files
+
+syncFTP creates a `.syncftp/` directory next to `syncftp.json`:
 
 ```
 .syncftp/
 ├── state/
-│   ├── production.json    # hangi dosyaların hangi hash ile yüklendiği
+│   ├── production.json    # per-file hashes from last successful sync
 │   └── staging.json
+├── failed/
+│   └── production.json    # files that failed in the last run (cleared on success)
 └── releases/
     └── production/
-        └── 20260611-143012/
-            └── manifest.json   # o release'teki dosyalar ve hash'leri
+        └── 20260612-143012/
+            └── manifest.json   # files and hashes for this release
 ```
 
-> `.syncftp/` dizini her zaman taramadan hariç tutulur — FTP'ye gönderilmez.
+`.syncftp/` is always excluded from scanning and never uploaded to the FTP server.
 
 ---
 
-## Testler
+## Internal Structure
+
+| Package | Role |
+|---|---|
+| `internal/config` | JSON config loading |
+| `internal/ignore` | `.gitignore` / `syncftp.ignore` parser |
+| `internal/scanner` | Directory walk, SHA256 hashing |
+| `internal/state` | Per-server sync state (load / save / diff) |
+| `internal/ftp` | FTP client, connection pool, upload, remote operations |
+| `internal/failed` | Failed file list persistence |
+| `internal/release` | Release manifest writer |
+| `cmd/syncftp` | CLI commands (init, status, sync, push, remote, serve) |
+
+---
+
+## Running Tests
 
 ```bash
-go test ./...                          # tüm testler
-go test ./internal/state/...           # sadece state testleri
-go test ./internal/scanner/... -v      # verbose çıktı
+go test ./...                           # all packages
+go test ./internal/state/... -v         # verbose state tests
+go test ./internal/scanner/...          # scanner tests
 ```

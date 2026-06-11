@@ -2,6 +2,7 @@ package ftp
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"strings"
@@ -72,6 +73,75 @@ func (c *Client) mkdirAll(remotePath string) error {
 		_ = c.conn.MakeDir(current)
 	}
 	return nil
+}
+
+// List returns entries at the given remote directory path.
+func (c *Client) List(remotePath string) ([]*goftp.Entry, error) {
+	entries, err := c.conn.List(remotePath)
+	if err != nil {
+		return nil, fmt.Errorf("listeleme başarısız (%s): %w", remotePath, err)
+	}
+	return entries, nil
+}
+
+// Download saves a remote file to localDest.
+func (c *Client) Download(remotePath, localDest string) error {
+	resp, err := c.conn.Retr(remotePath)
+	if err != nil {
+		return fmt.Errorf("dosya alınamadı (%s): %w", remotePath, err)
+	}
+	defer resp.Close()
+
+	f, err := os.Create(localDest)
+	if err != nil {
+		return fmt.Errorf("yerel dosya oluşturulamadı: %w", err)
+	}
+	defer f.Close()
+
+	if _, err := io.Copy(f, resp); err != nil {
+		os.Remove(localDest)
+		return fmt.Errorf("indirme başarısız: %w", err)
+	}
+	return nil
+}
+
+// DeleteFile removes a single remote file.
+func (c *Client) DeleteFile(remotePath string) error {
+	if err := c.conn.Delete(remotePath); err != nil {
+		return fmt.Errorf("silme başarısız (%s): %w", remotePath, err)
+	}
+	return nil
+}
+
+// DeleteDir removes a remote directory.
+// Set recursive=true to delete non-empty directories.
+func (c *Client) DeleteDir(remotePath string, recursive bool) error {
+	if recursive {
+		if err := c.conn.RemoveDirRecur(remotePath); err != nil {
+			return fmt.Errorf("dizin silme başarısız (%s): %w", remotePath, err)
+		}
+		return nil
+	}
+	if err := c.conn.RemoveDir(remotePath); err != nil {
+		return fmt.Errorf("dizin silme başarısız (%s): %w", remotePath, err)
+	}
+	return nil
+}
+
+// Preview reads up to maxBytes from a remote file and returns the content.
+func (c *Client) Preview(remotePath string, maxBytes int64) ([]byte, error) {
+	resp, err := c.conn.Retr(remotePath)
+	if err != nil {
+		return nil, fmt.Errorf("dosya alınamadı (%s): %w", remotePath, err)
+	}
+	defer resp.Close()
+
+	buf := make([]byte, maxBytes)
+	n, err := io.ReadFull(resp, buf)
+	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+		return nil, err
+	}
+	return buf[:n], nil
 }
 
 // IsProtected returns true if relPath matches any protect pattern.
