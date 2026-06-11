@@ -45,64 +45,65 @@ syncftp sync
 
 syncFTP iki ayrı dosya kullanır:
 
-### `syncftp.toml` — Ana config (git'e commit edilebilir)
+### `syncftp.json` — Ana config
 
-```toml
-[project]
-name = "my-project"
-local_path = "."          # hangi klasör taransın (. = bulunduğun yer)
-
-[sync]
-# Bu dosyalar/dizinler FTP'de asla üzerine yazılmaz
-protect = [
-  ".env",
-  "config/database.php",
-  "storage/",
-]
-
-# Boşsa tüm değişen dosyalar senkronize edilir.
-# Dolu ise sadece bu yollar gönderilir.
-include = []
-
-[first_sync]
-# true  → ilk sync'te tüm dosyaları gönder
-# false → sadece include listesini gönder
-full = true
-
-[[servers]]
-name       = "production"
-host       = "ftp.example.com"
-port       = 21
-user       = "ftpuser"
-remote_path = "/public_html"
-passive    = true
-enabled    = true
-
-[[servers]]
-name       = "staging"
-host       = "ftp2.example.com"
-port       = 21
-user       = "staginguser"
-remote_path = "/staging"
-passive    = true
-enabled    = true
+```json
+{
+  "project": {
+    "name": "my-project",
+    "local_path": "."
+  },
+  "sync": {
+    "protect": [".env", "config/database.php", "storage/"],
+    "include": [],
+    "exclude": []
+  },
+  "first_sync": {
+    "full": true
+  },
+  "servers": [
+    {
+      "name": "production",
+      "host": "ftp.example.com",
+      "port": 21,
+      "user": "ftpuser",
+      "remote_path": "/public_html",
+      "passive": true,
+      "enabled": true,
+      "include": [],
+      "exclude": []
+    },
+    {
+      "name": "staging",
+      "host": "ftp2.example.com",
+      "port": 21,
+      "user": "staginguser",
+      "remote_path": "/staging",
+      "passive": true,
+      "enabled": true,
+      "include": ["css/", "js/"],
+      "exclude": ["vendor/"]
+    }
+  ]
+}
 ```
 
-### `syncftp.config` — Şifreler (git'e commit ETMEYİN)
+Her sunucunun kendi `include` ve `exclude` listesi olabilir — bu sayede her ortama farklı dosya seti gönderilir.
+
+### `syncftp.secrets.json` — Şifreler (git'e commit ETMEYİN)
 
 `syncftp init` komutu bu dosyayı oluşturur ve otomatik olarak `.gitignore`'a ekler.
 
-```toml
-[[servers]]
-name     = "production"
-password = "gizli_sifre_1"
-
-[[servers]]
-name     = "staging"
-password = "gizli_sifre_2"
+```json
+{
+  "servers": [
+    { "name": "production", "password": "gizli_sifre_1" },
+    { "name": "staging",    "password": "gizli_sifre_2" }
+  ]
+}
 ```
 
-> Şifreler `name` alanı eşleştirilerek `syncftp.toml`'daki sunuculara merge edilir.
+> Şifreler `name` alanı eşleştirilerek `syncftp.json`'daki sunuculara merge edilir.
 
 ---
 
@@ -239,19 +240,39 @@ protect = [
 
 syncFTP'de filtrelemeyi iki farklı şekilde yapabilirsiniz:
 
-### Kalıcı whitelist — `syncftp.toml`
+### Kalıcı filtre — `syncftp.json`
 
-Her sync'te sadece belirli dosya/klasörleri göndermek istiyorsanız TOML'a ekleyin:
+Her sync'te sabit filtre uygulamak istiyorsanız config'e ekleyin.
 
-```toml
-[sync]
-include = [
-  "public/",     # sadece public/ klasörü
-  "index.php",   # ve index.php
-]
+**Global (tüm sunucular için):**
+```json
+{
+  "sync": {
+    "include": ["public/", "index.php"],
+    "exclude": ["vendor/", "tests/"]
+  }
+}
 ```
 
-`include` boşsa tüm değişen dosyalar senkronize edilir.
+**Sunucu bazlı (o sunucuya özgü):**
+```json
+{
+  "servers": [
+    {
+      "name": "production",
+      "include": ["css/", "js/", "index.php"],
+      "exclude": []
+    },
+    {
+      "name": "staging",
+      "include": [],
+      "exclude": ["vendor/"]
+    }
+  ]
+}
+```
+
+`include` boşsa tüm değişen dosyalar senkronize edilir. Sunucu `include`/`exclude` global'i override eder.
 
 ### Tek seferlik — `--include` ve `--exclude` flag'leri
 

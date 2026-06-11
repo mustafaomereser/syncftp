@@ -1,44 +1,47 @@
 package config
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 )
 
-func TestLoad_Basic(t *testing.T) {
-	dir := t.TempDir()
-
-	toml := `
-[project]
-name = "test-proje"
-local_path = "."
-
-[sync]
-protect = [".env"]
-include = []
-
-[first_sync]
-full = true
-
-[[servers]]
-name = "prod"
-host = "ftp.example.com"
-port = 21
-user = "user"
-remote_path = "/public_html"
-passive = true
-enabled = true
-`
-	if err := os.WriteFile(filepath.Join(dir, "syncftp.toml"), []byte(toml), 0644); err != nil {
+func writeJSON(t *testing.T, dir, name string, v any) {
+	t.Helper()
+	data, err := json.Marshal(v)
+	if err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(dir, name), data, 0644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func baseConfig(name string) map[string]any {
+	return map[string]any{
+		"project":    map[string]any{"name": name, "local_path": "."},
+		"sync":       map[string]any{"protect": []string{".env"}, "include": []string{}, "exclude": []string{}},
+		"first_sync": map[string]any{"full": true},
+		"servers": []map[string]any{
+			{
+				"name": "prod", "host": "ftp.example.com", "port": 21,
+				"user": "user", "remote_path": "/public_html",
+				"passive": true, "enabled": true,
+				"include": []string{}, "exclude": []string{},
+			},
+		},
+	}
+}
+
+func TestLoad_Basic(t *testing.T) {
+	dir := t.TempDir()
+	writeJSON(t, dir, "syncftp.json", baseConfig("test-proje"))
 
 	cfg, err := Load(dir)
 	if err != nil {
 		t.Fatalf("Load başarısız: %v", err)
 	}
-
 	if cfg.Project.Name != "test-proje" {
 		t.Errorf("proje adı yanlış: %q", cfg.Project.Name)
 	}
@@ -52,35 +55,15 @@ enabled = true
 
 func TestLoad_MergesPassword(t *testing.T) {
 	dir := t.TempDir()
-
-	toml := `
-[project]
-name = "test"
-local_path = "."
-[first_sync]
-full = true
-[[servers]]
-name = "prod"
-host = "ftp.example.com"
-port = 21
-user = "user"
-remote_path = "/"
-passive = true
-enabled = true
-`
-	secret := `
-[[servers]]
-name = "prod"
-password = "gizli123"
-`
-	os.WriteFile(filepath.Join(dir, "syncftp.toml"), []byte(toml), 0644)
-	os.WriteFile(filepath.Join(dir, "syncftp.config"), []byte(secret), 0600)
+	writeJSON(t, dir, "syncftp.json", baseConfig("test"))
+	writeJSON(t, dir, "syncftp.secrets.json", map[string]any{
+		"servers": []map[string]any{{"name": "prod", "password": "gizli123"}},
+	})
 
 	cfg, err := Load(dir)
 	if err != nil {
 		t.Fatalf("Load başarısız: %v", err)
 	}
-
 	if cfg.Servers[0].Password != "gizli123" {
 		t.Errorf("şifre merge edilmedi, alınan: %q", cfg.Servers[0].Password)
 	}
@@ -88,29 +71,16 @@ password = "gizli123"
 
 func TestLoad_DefaultPort(t *testing.T) {
 	dir := t.TempDir()
+	cfg := baseConfig("test")
+	cfg["servers"].([]map[string]any)[0]["port"] = 0
+	writeJSON(t, dir, "syncftp.json", cfg)
 
-	toml := `
-[project]
-name = "test"
-local_path = "."
-[first_sync]
-full = true
-[[servers]]
-name = "prod"
-host = "ftp.example.com"
-user = "user"
-remote_path = "/"
-enabled = true
-`
-	os.WriteFile(filepath.Join(dir, "syncftp.toml"), []byte(toml), 0644)
-
-	cfg, err := Load(dir)
+	loaded, err := Load(dir)
 	if err != nil {
 		t.Fatalf("Load başarısız: %v", err)
 	}
-
-	if cfg.Servers[0].Port != 21 {
-		t.Errorf("varsayılan port 21 olmalıydı, alınan: %d", cfg.Servers[0].Port)
+	if loaded.Servers[0].Port != 21 {
+		t.Errorf("varsayılan port 21 olmalıydı, alınan: %d", loaded.Servers[0].Port)
 	}
 }
 

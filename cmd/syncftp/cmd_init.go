@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,7 +17,7 @@ func init() {
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "syncftp.toml ve syncftp.config dosyalarını oluşturur",
+	Short: "syncftp.json ve syncftp.secrets.json dosyalarını oluşturur",
 	Long:  "İnteraktif sihirbaz ile FTP sunucu bilgilerini girerek config dosyalarını oluşturur.",
 	RunE:  runInit,
 }
@@ -51,53 +52,62 @@ func runInit(cmd *cobra.Command, args []string) error {
 	host := ask("FTP host", "")
 	port := ask("Port", "21")
 	user := ask("Kullanıcı adı", "")
-	password := ask("Şifre (syncftp.config'e kaydedilecek)", "")
+	password := ask("Şifre (syncftp.secrets.json'a kaydedilecek)", "")
 	remotePath := ask("Uzak dizin", "/public_html")
 
-	tomlContent := fmt.Sprintf(`[project]
-name = %q
-local_path = %q
+	portNum := 21
+	fmt.Sscanf(port, "%d", &portNum)
 
-[sync]
-# Uzak sunucuda asla üzerine yazılmayacak dosya/dizinler
-protect = [
-  ".env",
-]
-
-# Boşsa tüm değişen dosyalar senkronize edilir.
-# Dolu ise yalnızca bu yollar senkronize edilir.
-include = []
-
-[first_sync]
-# true = ilk sync'te tüm dosyaları gönder
-# false = sadece include listesini gönder
-full = true
-
-[[servers]]
-name = %q
-host = %q
-port = %s
-user = %q
-remote_path = %q
-passive = true
-enabled = true
-`, projectName, localPath, serverName, host, port, user, remotePath)
-
-	if err := os.WriteFile("syncftp.toml", []byte(tomlContent), 0644); err != nil {
-		return fmt.Errorf("syncftp.toml yazılamadı: %w", err)
+	mainCfg := map[string]any{
+		"project": map[string]any{
+			"name":       projectName,
+			"local_path": localPath,
+		},
+		"sync": map[string]any{
+			"protect": []string{".env"},
+			"include": []string{},
+			"exclude": []string{},
+		},
+		"first_sync": map[string]any{
+			"full": true,
+		},
+		"servers": []map[string]any{
+			{
+				"name":        serverName,
+				"host":        host,
+				"port":        portNum,
+				"user":        user,
+				"remote_path": remotePath,
+				"passive":     true,
+				"enabled":     true,
+				"include":     []string{},
+				"exclude":     []string{},
+			},
+		},
 	}
-	fmt.Println("✓ syncftp.toml oluşturuldu")
 
-	secretContent := fmt.Sprintf(`# Bu dosya şifre içerir — asla git'e commit etmeyin.
-[[servers]]
-name = %q
-password = %q
-`, serverName, password)
-
-	if err := os.WriteFile("syncftp.config", []byte(secretContent), 0600); err != nil {
-		return fmt.Errorf("syncftp.config yazılamadı: %w", err)
+	mainData, err := json.MarshalIndent(mainCfg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("JSON oluşturulamadı: %w", err)
 	}
-	fmt.Println("✓ syncftp.config oluşturuldu (izinler: 600)")
+	if err := os.WriteFile("syncftp.json", mainData, 0644); err != nil {
+		return fmt.Errorf("syncftp.json yazılamadı: %w", err)
+	}
+	fmt.Println("✓ syncftp.json oluşturuldu")
+
+	secretCfg := map[string]any{
+		"servers": []map[string]any{
+			{"name": serverName, "password": password},
+		},
+	}
+	secretData, err := json.MarshalIndent(secretCfg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("JSON oluşturulamadı: %w", err)
+	}
+	if err := os.WriteFile("syncftp.secrets.json", secretData, 0600); err != nil {
+		return fmt.Errorf("syncftp.secrets.json yazılamadı: %w", err)
+	}
+	fmt.Println("✓ syncftp.secrets.json oluşturuldu (izinler: 600)")
 
 	addToIgnoreFile(dir)
 
@@ -109,13 +119,13 @@ password = %q
 // addToIgnoreFile adds syncFTP-specific entries to .gitignore or syncftp.ignore.
 // If neither exists, creates syncftp.ignore.
 func addToIgnoreFile(dir string) {
-	block := "\n# syncFTP credentials — do not commit\nsyncftp.config\nsyncftp.toml\nsyncftp.exe\n"
+	block := "\n# syncFTP — do not commit\nsyncftp.secrets.json\nsyncftp.json\nsyncftp.exe\n"
 
 	for _, name := range []string{".gitignore", "syncftp.ignore"} {
 		p := filepath.Join(dir, name)
 		if _, err := os.Stat(p); err == nil {
 			content, _ := os.ReadFile(p)
-			if strings.Contains(string(content), "syncftp.config") {
+			if strings.Contains(string(content), "syncftp.secrets.json") {
 				fmt.Printf("  (syncFTP girdileri zaten %s içinde)\n", name)
 				return
 			}
@@ -125,14 +135,13 @@ func addToIgnoreFile(dir string) {
 			}
 			defer f.Close()
 			fmt.Fprint(f, block)
-			fmt.Printf("✓ syncftp.config, syncftp.toml, syncftp.exe → %s'e eklendi\n", name)
+			fmt.Printf("✓ syncftp.secrets.json, syncftp.json, syncftp.exe → %s'e eklendi\n", name)
 			return
 		}
 	}
 
-	// Neither file exists — create syncftp.ignore
-	content := "# syncFTP credentials — do not commit\nsyncftp.config\nsyncftp.toml\nsyncftp.exe\n"
+	content := "# syncFTP — do not commit\nsyncftp.secrets.json\nsyncftp.json\nsyncftp.exe\n"
 	if err := os.WriteFile(filepath.Join(dir, "syncftp.ignore"), []byte(content), 0644); err == nil {
-		fmt.Println("✓ syncftp.ignore oluşturuldu (syncftp.config, syncftp.toml, syncftp.exe eklendi)")
+		fmt.Println("✓ syncftp.ignore oluşturuldu (syncftp.secrets.json, syncftp.json, syncftp.exe eklendi)")
 	}
 }

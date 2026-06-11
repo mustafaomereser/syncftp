@@ -84,7 +84,7 @@ func runSync(cmd *cobra.Command, args []string) error {
 	}
 
 	if flagDryRun {
-		fmt.Println("[DRY RUN] Hiçbir şey yüklenmeyecek\n")
+		fmt.Println("[DRY RUN] Hiçbir şey yüklenmeyecek")
 	}
 
 	if len(flagInclude) > 0 {
@@ -119,11 +119,18 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 		return err
 	}
 
-	// CLI --include varsa TOML sync.include'u geçersiz kılar
+	// Include önceliği: CLI > sunucu > global
 	effectiveInclude := cfg.Sync.Include
+	if len(srv.Include) > 0 {
+		effectiveInclude = srv.Include
+	}
 	if len(cliInclude) > 0 {
 		effectiveInclude = cliInclude
 	}
+
+	// Exclude: global + sunucu + CLI (hepsi toplanır)
+	effectiveExclude := append(append([]string{}, cfg.Sync.Exclude...), srv.Exclude...)
+	effectiveExclude = append(effectiveExclude, cliExclude...)
 
 	var toUpload []string
 	isFirst := !st.FirstSyncDone || flagFull
@@ -157,7 +164,7 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 		}
 	}
 
-	toUpload = filterByExclude(toUpload, cliExclude)
+	toUpload = filterByExclude(toUpload, effectiveExclude)
 
 	sort.Strings(toUpload)
 

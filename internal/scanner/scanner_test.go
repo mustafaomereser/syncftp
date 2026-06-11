@@ -13,7 +13,7 @@ func TestScan_BasicFiles(t *testing.T) {
 
 	writeFile(t, dir, "index.php", "<?php echo 'hello';")
 	writeFile(t, dir, "css/style.css", "body { margin: 0; }")
-	writeFile(t, dir, "syncftp.config", "password = secret") // her zaman atlanmalı
+	writeFile(t, dir, "syncftp.secrets.json", `{"servers":[]}`) // her zaman atlanmalı
 
 	matcher := &ignore.Matcher{} // no-op matcher
 	files, err := Scan(dir, matcher)
@@ -39,8 +39,8 @@ func TestScan_BasicFiles(t *testing.T) {
 	if !relPaths["css/style.css"] {
 		t.Error("css/style.css taranmış olmalıydı")
 	}
-	if relPaths["syncftp.config"] {
-		t.Error("syncftp.config taranmamalıydı")
+	if relPaths["syncftp.secrets.json"] {
+		t.Error("syncftp.secrets.json taranmamalıydı")
 	}
 }
 

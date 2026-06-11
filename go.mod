@@ -3,7 +3,6 @@ module syncftp
 go 1.21
 
 require (
-	github.com/BurntSushi/toml v1.3.2
 	github.com/jlaffaye/ftp v0.2.0
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/spf13/cobra v1.8.0

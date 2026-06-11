@@ -92,9 +92,18 @@ func runStatus(cmd *cobra.Command, args []string) error {
 
 		diff := state.Diff(st, current)
 
-		newFiles := applyStatusFilters(diff.New, effectiveInclude, statusFlagExclude)
-		changedFiles := applyStatusFilters(diff.Changed, effectiveInclude, statusFlagExclude)
-		deletedFiles := applyStatusFilters(diff.Deleted, effectiveInclude, statusFlagExclude)
+		// Include önceliği: CLI > sunucu > global
+		srvInclude := effectiveInclude
+		if len(srv.Include) > 0 && len(statusFlagInclude) == 0 {
+			srvInclude = srv.Include
+		}
+		// Exclude: global + sunucu + CLI
+		srvExclude := append(append([]string{}, cfg.Sync.Exclude...), srv.Exclude...)
+		srvExclude = append(srvExclude, statusFlagExclude...)
+
+		newFiles := applyStatusFilters(diff.New, srvInclude, srvExclude)
+		changedFiles := applyStatusFilters(diff.Changed, srvInclude, srvExclude)
+		deletedFiles := applyStatusFilters(diff.Deleted, srvInclude, srvExclude)
 
 		fmt.Printf("── %s (%s) ──\n", srv.Name, srv.Host)
 
