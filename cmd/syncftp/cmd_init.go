@@ -106,15 +106,17 @@ password = %q
 	return nil
 }
 
-// addToIgnoreFile adds "syncftp.config" to .gitignore or syncftp.ignore.
+// addToIgnoreFile adds syncFTP-specific entries to .gitignore or syncftp.ignore.
 // If neither exists, creates syncftp.ignore.
 func addToIgnoreFile(dir string) {
+	block := "\n# syncFTP credentials — do not commit\nsyncftp.config\nsyncftp.toml\nsyncftp.exe\n"
+
 	for _, name := range []string{".gitignore", "syncftp.ignore"} {
 		p := filepath.Join(dir, name)
 		if _, err := os.Stat(p); err == nil {
 			content, _ := os.ReadFile(p)
 			if strings.Contains(string(content), "syncftp.config") {
-				fmt.Printf("  (syncftp.config zaten %s içinde)\n", name)
+				fmt.Printf("  (syncFTP girdileri zaten %s içinde)\n", name)
 				return
 			}
 			f, err := os.OpenFile(p, os.O_APPEND|os.O_WRONLY, 0644)
@@ -122,16 +124,15 @@ func addToIgnoreFile(dir string) {
 				return
 			}
 			defer f.Close()
-			fmt.Fprintln(f, "\n# syncFTP credentials — do not commit")
-			fmt.Fprintln(f, "syncftp.config")
-			fmt.Printf("✓ syncftp.config → %s'e eklendi\n", name)
+			fmt.Fprint(f, block)
+			fmt.Printf("✓ syncftp.config, syncftp.toml, syncftp.exe → %s'e eklendi\n", name)
 			return
 		}
 	}
 
 	// Neither file exists — create syncftp.ignore
-	content := "# syncFTP credentials — do not commit\nsyncftp.config\n"
+	content := "# syncFTP credentials — do not commit\nsyncftp.config\nsyncftp.toml\nsyncftp.exe\n"
 	if err := os.WriteFile(filepath.Join(dir, "syncftp.ignore"), []byte(content), 0644); err == nil {
-		fmt.Println("✓ syncftp.ignore oluşturuldu (syncftp.config eklendi)")
+		fmt.Println("✓ syncftp.ignore oluşturuldu (syncftp.config, syncftp.toml, syncftp.exe eklendi)")
 	}
 }
