@@ -37,8 +37,9 @@ func Scan(dir string, matcher *ignore.Matcher) ([]File, error) {
 			return nil
 		}
 
-		// Always skip .syncftp metadata directory
-		if rel == ".syncftp" || strings.HasPrefix(rel, ".syncftp/") {
+		// Always skip internal/VCS directories
+		if rel == ".syncftp" || strings.HasPrefix(rel, ".syncftp/") ||
+			rel == ".git" || strings.HasPrefix(rel, ".git/") {
 			if d.IsDir() {
 				return filepath.SkipDir
 			}

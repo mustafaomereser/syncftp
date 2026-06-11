@@ -108,7 +108,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 // addToIgnoreFile adds syncftp.json and syncftp.exe to .gitignore or syncftp.ignore.
 // If neither exists, creates syncftp.ignore.
 func addToIgnoreFile(dir string) {
-	block := "\n# syncFTP — do not commit\nsyncftp.json\nsyncftp.exe\n"
+	block := "\n# syncFTP — do not commit\nsyncftp.json\nsyncftp.exe\n\n# syncFTP runtime\n.syncftp/\n.git/\n"
 
 	for _, name := range []string{".gitignore", "syncftp.ignore"} {
 		p := filepath.Join(dir, name)
@@ -129,7 +129,7 @@ func addToIgnoreFile(dir string) {
 		}
 	}
 
-	content := "# syncFTP — do not commit\nsyncftp.json\nsyncftp.exe\n"
+	content := "# syncFTP — do not commit\nsyncftp.json\nsyncftp.exe\n\n# syncFTP runtime\n.syncftp/\n.git/\n"
 	if err := os.WriteFile(filepath.Join(dir, "syncftp.ignore"), []byte(content), 0644); err == nil {
 		fmt.Println("✓ syncftp.ignore oluşturuldu (syncftp.json, syncftp.exe eklendi)")
 	}
