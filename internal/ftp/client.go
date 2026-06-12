@@ -74,6 +74,12 @@ func (c *Client) Upload(localPath, relPath string) error {
 		return fmt.Errorf("dizin oluşturulamadı (%s): %w", remoteDir, err)
 	}
 
+	// Bazı PHP hosting sunucuları TYPE I'ı dosya bazında override edebiliyor.
+	// Her upload öncesi binary modu açıkça set et.
+	if err := c.conn.Type(goftp.TransferTypeBinary); err != nil {
+		return fmt.Errorf("binary mod ayarlanamadı: %w", err)
+	}
+
 	f, err := os.Open(localPath)
 	if err != nil {
 		return fmt.Errorf("dosya açılamadı: %w", err)
