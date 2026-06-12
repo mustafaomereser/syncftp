@@ -75,7 +75,8 @@ Created by `syncftp init`. Stored with permission `600`. Added to `.gitignore` a
       "max_connections": 3,
       "max_retries": 2,
       "include": [],
-      "exclude": []
+      "exclude": [],
+      "protect": []
     },
     {
       "name": "staging",
@@ -89,7 +90,8 @@ Created by `syncftp init`. Stored with permission `600`. Added to `.gitignore` a
       "max_connections": 1,
       "max_retries": 2,
       "include": ["css/", "js/"],
-      "exclude": []
+      "exclude": [],
+      "protect": []
     }
   ]
 }
@@ -111,6 +113,7 @@ Created by `syncftp init`. Stored with permission `600`. Added to `.gitignore` a
 | `server.max_retries` | `2` | Retry count on upload failure (0 = no retry) |
 | `server.include` | `[]` | Per-server whitelist — overrides global `sync.include` |
 | `server.exclude` | `[]` | Per-server blacklist — added on top of global `sync.exclude` |
+| `server.protect` | `[]` | Per-server protect list — never overwrite these paths on this server |
 | `server.enabled` | `true` | Set `false` to skip this server in all sync operations |
 
 ---
@@ -343,6 +346,7 @@ syncftp
 | `freeze [--server name]` | Manage freeze list for a server |
 | `servers` | TUI server list |
 | `server [name]` | Connect to a server |
+| `config` | Add, edit or delete servers |
 | `lang [en\|tr]` | Show or change display language |
 | `clear` / `cls` | Clear screen |
 | `help` / `?` | Show command reference |
@@ -391,6 +395,94 @@ When `sync` runs, a full-screen progress view is shown:
   ✗ img/hero.jpg: connection reset (3 attempts)
   ✓ css/components/button.css
 ```
+
+---
+
+### `syncftp config`
+
+Manage servers and global sync settings interactively — add, edit, delete, or toggle without touching `syncftp.json` manually.
+
+```bash
+syncftp config
+```
+
+Inside the interactive shell, use `config` without the `syncftp` prefix.
+
+```
+⚙  Server Ayarları
+  ↑↓ gezin  |  Enter/e = düzenle  |  Space = aç/kapat  |  d = sil  |  n = yeni  |  q = çık
+  ──────────────────────────────────────────────────────────────────────────
+
+  ⚙ Global Ayarlar  (protect, include, exclude, ignore_files)
+▶ ✓  production    ftp.example.com:21/public_html    conn:3  retry:2
+   ✓  staging       ftp2.example.com:21/staging        conn:1  retry:2
+   + Yeni server ekle
+
+  2 server
+```
+
+#### Server list keys
+
+| Key | Action |
+|---|---|
+| `↑` / `↓` or `j` / `k` | Navigate |
+| `Enter` / `e` | Edit — opens field navigator |
+| `Space` | Toggle server enabled / disabled — saves immediately |
+| `d` | Delete server — inline `y` confirmation |
+| `n` | Add new server |
+| `q` / `Esc` | Close |
+
+The first row opens **Global Settings** (protect, include, exclude, ignore_files). The last row adds a new server.
+
+#### Field navigator (edit screen)
+
+All fields are listed in a single screen. Navigate with arrow keys; no sequential prompts.
+
+```
+⚙  Server Düzenle: production
+  ↑↓ gezin  |  Enter = düzenle  |  Space = bool toggle  |  b = gözat  |  s = kaydet  |  q = iptal
+  ─────────────────────────────────────────────────────────
+  Ad                production
+  Host              ftp.example.com
+  Port              21
+▶ Kullanıcı         ftpuser█
+  Şifre             ****
+  Uzak dizin        /public_html
+  Aktif             ✓
+  Passive mode      ✓
+  EPSV devre dışı   ○
+  NAT workaround    ○
+  Max bağlantı      3
+  Max retry         2
+  Include           (boş)  [b=gözat]
+  Exclude           vendor/  [b=gözat]
+  Protect           .env, config/db.php  [b=gözat]
+```
+
+| Key | Action |
+|---|---|
+| `↑` / `↓` or `j` / `k` | Move between fields |
+| `Enter` | Text/int/password fields: start inline edit (type, `Backspace`, `Enter` = confirm, `Esc` = cancel) |
+| `Space` | Bool fields: toggle |
+| `b` | List fields (include / exclude / protect): open **local file browser** |
+| `s` | Save and return |
+| `q` / `Esc` | Cancel |
+
+#### Local file browser (for include / exclude / protect)
+
+Opens from the project's local directory. Existing list entries that are found on disk are pre-marked.
+
+| Key | Action |
+|---|---|
+| `↑` / `↓` or `j` / `k` | Navigate |
+| `Enter` / `→` | Enter directory |
+| `←` / `Esc` | Go up |
+| `Space` | Mark / unmark file or folder |
+| `a` | Toggle all in current view |
+| `s` | Save selection and return |
+| `q` | Cancel — previous list unchanged |
+
+Items that are not filesystem paths (glob patterns like `*.log`) are kept in the list unchanged when saving from the browser.
 
 ---
 

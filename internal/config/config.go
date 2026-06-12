@@ -45,6 +45,7 @@ type Server struct {
 	MaxRetries     int      `json:"max_retries"`     // default 2
 	Include        []string `json:"include"`
 	Exclude        []string `json:"exclude"`
+	Protect        []string `json:"protect"`
 }
 
 // Load reads syncftp.json and returns the parsed config.
@@ -70,6 +71,15 @@ func Load(dir string) (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+// Save writes cfg back to syncftp.json in dir.
+func Save(dir string, cfg *Config) error {
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, "syncftp.json"), data, 0600)
 }
 
 func (c *Config) EnabledServers() []Server {

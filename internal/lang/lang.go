@@ -426,6 +426,11 @@ Sync:
 Server management:
   servers                 Server list
   server [name]           Select / connect to server
+  config                  Add, edit or delete servers — full TUI field navigator
+                            ↑↓ = select field  |  Enter = edit  |  Space = toggle bool
+                            b = local file browser for include / exclude / protect
+                            s = save  |  q = cancel
+                            Top row: Global Settings (protect, include, exclude, ignore_files)
 
 Other:
   lang [en|tr]            Show or change display language
@@ -689,6 +694,11 @@ Senkronizasyon:
 Sunucu yönetimi:
   servers                 Sunucu listesi
   server [ad]             Sunucu seç / bağlan
+  config                  Sunucu ekle, düzenle, sil — TUI alan gezgini
+                            ↑↓ = alan seç  |  Enter = düzenle  |  Space = bool toggle
+                            b = include / exclude / protect için yerel dosya tarayıcısı
+                            s = kaydet  |  q = iptal
+                            İlk satır: Global Ayarlar (protect, include, exclude, ignore_files)
 
 Diğer:
   lang [en|tr]            Dili göster veya değiştir

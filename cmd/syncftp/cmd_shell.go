@@ -102,6 +102,15 @@ func runShell() error {
 		case "freeze":
 			sh.cmdFreeze(args)
 
+		case "config":
+			if err := runServerMgr(sh.configDir); err != nil {
+				fmt.Printf(lang.L.ShellErrFmt, err)
+			}
+			// Config değişmiş olabilir — yeniden yükle
+			if cfg, err := config.Load(sh.configDir); err == nil {
+				sh.cfg = *cfg
+			}
+
 		case "clear", "cls":
 			sh.cmdClear()
 
