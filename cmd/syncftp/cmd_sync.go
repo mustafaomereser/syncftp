@@ -13,6 +13,7 @@ import (
 	"syncftp/internal/failed"
 	ftpclient "syncftp/internal/ftp"
 	"syncftp/internal/ignore"
+	"syncftp/internal/lang"
 	"syncftp/internal/release"
 	"syncftp/internal/scanner"
 	"syncftp/internal/state"
@@ -92,25 +93,25 @@ func runSync(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		if selected == nil {
-			fmt.Println("İptal.")
+			fmt.Println(lang.L.SyncCancelled)
 			return nil
 		}
 		servers = selected
 	}
 
 	if flagDryRun {
-		fmt.Println("[DRY RUN] Hiçbir şey yüklenmeyecek")
+		fmt.Println(lang.L.SyncDryRunNote)
 	}
 
 	if len(flagInclude) > 0 {
-		fmt.Printf("Whitelist (%d yol): yalnızca bu yollar sync edilecek\n", len(flagInclude))
+		fmt.Printf(lang.L.SyncWhitelistFmt, len(flagInclude))
 		for _, p := range flagInclude {
 			fmt.Printf("  + %s\n", p)
 		}
 		fmt.Println()
 	}
 	if len(flagExclude) > 0 {
-		fmt.Printf("Exclude (%d yol): bu yollar bu sync'ten hariç tutulacak\n", len(flagExclude))
+		fmt.Printf(lang.L.SyncExcludeFmt, len(flagExclude))
 		for _, p := range flagExclude {
 			fmt.Printf("  - %s\n", p)
 		}
@@ -120,7 +121,7 @@ func runSync(cmd *cobra.Command, args []string) error {
 	for _, srv := range servers {
 		fmt.Printf("══ %s (%s) ══\n", srv.Name, srv.Host)
 		if err := syncToServer(dir, cfg, srv, current, byRel, flagInclude, flagExclude); err != nil {
-			fmt.Printf("  HATA: %v\n", err)
+			fmt.Printf(lang.L.SyncServerErrFmt, err)
 		}
 		fmt.Println()
 	}
@@ -155,16 +156,16 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 			return fmt.Errorf("failed listesi okunamadı: %w", err)
 		}
 		if fl == nil || len(fl.Files) == 0 {
-			fmt.Println("  Yeniden denenecek başarısız dosya yok")
+			fmt.Println(lang.L.SyncRetryNoFiles)
 			return nil
 		}
-		fmt.Printf("  Retry modu: %d başarısız dosya (%s)\n", len(fl.Files), fl.CreatedAt.Format("2006-01-02 15:04:05"))
+		fmt.Printf(lang.L.SyncRetryModeFmt, len(fl.Files), fl.CreatedAt.Format("2006-01-02 15:04:05"))
 		// Sadece hala local'de var olan dosyaları al
 		for _, rel := range fl.Files {
 			if _, exists := current[rel]; exists {
 				toUpload = append(toUpload, rel)
 			} else {
-				fmt.Printf("  ! %s artık local'de yok, atlanıyor\n", rel)
+				fmt.Printf(lang.L.SyncRetrySkipFmt, rel)
 			}
 		}
 	} else {
@@ -172,7 +173,7 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 
 		if isFirst {
 			if flagFull && st.FirstSyncDone {
-				fmt.Println("  Tam sync (--full): tüm dosyalar yüklenecek")
+				fmt.Println(lang.L.SyncFullFlag)
 				toUpload = mapKeys(current)
 			} else {
 				// Akıllı ilk sync: sunucudaki dosyaları boyutla karşılaştır
@@ -187,7 +188,7 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 
 			if len(diff.Deleted) > 0 {
 				sort.Strings(diff.Deleted)
-				fmt.Printf("  ! SİLİNEN dosyalar (FTP'de bırakıldı):\n")
+				fmt.Print(lang.L.SyncDeletedHeader)
 				for _, p := range diff.Deleted {
 					fmt.Printf("      - %s\n", p)
 				}
@@ -205,7 +206,7 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 	sort.Strings(toUpload)
 
 	if len(toUpload) == 0 {
-		fmt.Println("  Değişiklik yok")
+		fmt.Println(lang.L.SyncNoChange2)
 		return nil
 	}
 
@@ -222,18 +223,18 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 	}
 
 	total := len(tasks) + skipped
-	fmt.Printf("  %d dosya işlenecek", total)
+	fmt.Printf(lang.L.SyncProcessingFmt, total)
 	if skipped > 0 {
-		fmt.Printf(" (%d korunuyor)", skipped)
+		fmt.Printf(lang.L.SyncProtectedFmt, skipped)
 	}
 	fmt.Println()
 
 	if flagDryRun {
 		for _, rel := range toUpload {
 			if ftpclient.IsProtected(rel, cfg.Sync.Protect) {
-				fmt.Printf("    KORUNUYOR  %s\n", rel)
+				fmt.Printf(lang.L.SyncProtectedLabel, rel)
 			} else {
-				fmt.Printf("    YÜKLENECEK %s\n", rel)
+				fmt.Printf(lang.L.SyncUploadLabel, rel)
 			}
 		}
 		return nil
@@ -247,7 +248,7 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 	if maxRetry == 0 {
 		maxRetry = 2
 	}
-	fmt.Printf("  Bağlantı havuzu: %d / Retry: %d\n", maxConn, maxRetry)
+	fmt.Printf(lang.L.SyncPoolFmt, maxConn, maxRetry)
 
 	pool, err := ftpclient.NewPool(srv)
 	if err != nil {
@@ -260,7 +261,7 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 	// Korunan dosyaları logla
 	for _, rel := range toUpload {
 		if ftpclient.IsProtected(rel, cfg.Sync.Protect) {
-			fmt.Printf("    KORUNUYOR  %s\n", rel)
+			fmt.Printf(lang.L.SyncProtectedLabel, rel)
 		}
 	}
 
@@ -269,23 +270,23 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 	for _, r := range results {
 		if r.Err != nil {
 			if r.Attempts > 1 {
-				fmt.Printf("    ✗ %s (%d deneme): %v\n", r.RelPath, r.Attempts, r.Err)
+				fmt.Printf(lang.L.SyncAttemptsFmt, r.RelPath, r.Attempts, r.Err)
 			} else {
-				fmt.Printf("    ✗ %s: %v\n", r.RelPath, r.Err)
+				fmt.Printf(lang.L.SyncUploadErrFmt, r.RelPath, r.Err)
 			}
 			failedCount++
 		} else {
 			if r.Attempts > 1 {
-				fmt.Printf("    ✓ %s (%d. denemede başarılı)\n", r.RelPath, r.Attempts)
+				fmt.Printf(lang.L.SyncAttemptOkFmt, r.RelPath, r.Attempts)
 			} else {
-				fmt.Printf("    ✓ %s\n", r.RelPath)
+				fmt.Printf(lang.L.SyncUploadOkFmt, r.RelPath)
 			}
 			successFiles[r.RelPath] = r.Hash
 			uploaded++
 		}
 	}
 
-	fmt.Printf("  Tamamlandı: %d yüklendi, %d korundu, %d hata\n", uploaded, skipped, failedCount)
+	fmt.Printf(lang.L.SyncDoneFullFmt, uploaded, skipped, failedCount)
 
 	// Başarısız dosyaları kaydet veya temizle
 	var failedPaths []string
@@ -296,9 +297,9 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 	}
 	if len(failedPaths) > 0 {
 		if err := failed.Save(configDir, srv.Name, failedPaths); err != nil {
-			fmt.Printf("  ! Failed listesi kaydedilemedi: %v\n", err)
+			fmt.Printf(lang.L.SyncFailedSaveErr, err)
 		} else {
-			fmt.Printf("  ! %d başarısız dosya .syncftp/failed/%s.json'a kaydedildi — tekrar denemek için: syncftp sync --retry-failed\n", len(failedPaths), srv.Name)
+			fmt.Printf(lang.L.SyncFailedSavedFmt, len(failedPaths), srv.Name)
 		}
 	} else {
 		failed.Clear(configDir, srv.Name)
@@ -317,14 +318,14 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 	st.FirstSyncDone = true
 
 	if err := state.Save(configDir, st); err != nil {
-		fmt.Printf("  ! State kaydedilemedi: %v\n", err)
+		fmt.Printf(lang.L.SyncStateErr, err)
 	}
 
 	if len(successFiles) > 0 {
 		if relDir, err := release.Create(configDir, srv.Name, successFiles); err != nil {
-			fmt.Printf("  ! Release oluşturulamadı: %v\n", err)
+			fmt.Printf(lang.L.SyncReleaseErr, err)
 		} else {
-			fmt.Printf("  Release: %s\n", relDir)
+			fmt.Printf(lang.L.SyncReleaseFmt, relDir)
 		}
 	}
 
@@ -387,22 +388,22 @@ func mapKeys(m map[string]string) []string {
 // Farklı boyuttaki veya sunucuda olmayan dosyalar yükleme listesine girer.
 // Sunucuya bağlanılamazsa güvenli taraf: tüm dosyalar yüklenir.
 func smartFirstSync(srv config.Server, current map[string]string, byRel map[string]scanner.File, st *state.State, cfg *config.Config) []string {
-	fmt.Println("  İlk sync: sunucu taranıyor, mevcut dosyalar karşılaştırılıyor...")
+	fmt.Println(lang.L.SmartSyncScanning)
 
 	client, err := ftpclient.Connect(srv)
 	if err != nil {
-		fmt.Printf("  ! Sunucuya bağlanılamadı (%v) — tüm dosyalar yüklenecek\n", err)
+		fmt.Printf(lang.L.SmartSyncConnErr, err)
 		return mapKeys(current)
 	}
 	defer client.Close()
 
 	remoteFiles, err := client.ListRecursive(srv.RemotePath)
 	if err != nil {
-		fmt.Printf("  ! Uzak dizin okunamadı (%v) — tüm dosyalar yüklenecek\n", err)
+		fmt.Printf(lang.L.SmartSyncListErr, err)
 		return mapKeys(current)
 	}
 
-	fmt.Printf("  Sunucuda %d dosya bulundu\n", len(remoteFiles))
+	fmt.Printf(lang.L.SmartSyncFoundFmt, len(remoteFiles))
 
 	var toUpload []string
 	alreadySynced := 0
@@ -428,7 +429,7 @@ func smartFirstSync(srv config.Server, current map[string]string, byRel map[stri
 	}
 
 	new := len(toUpload)
-	fmt.Printf("  Sonuç: %d güncel (yüklenmeyecek)  |  %d farklı/eksik (yüklenecek)\n", alreadySynced, new)
+	fmt.Printf(lang.L.SmartSyncResultFmt, alreadySynced, new)
 
 	return toUpload
 }

@@ -11,6 +11,7 @@ import (
 
 	"syncftp/internal/config"
 	"syncftp/internal/ignore"
+	"syncftp/internal/lang"
 	"syncftp/internal/scanner"
 	"syncftp/internal/state"
 )
@@ -64,29 +65,29 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(effectiveInclude) > 0 {
-		fmt.Printf("Whitelist (%d yol): yalnızca bu yollar gösterilecek\n", len(effectiveInclude))
+		fmt.Printf(lang.L.StatusWhitelistFmt, len(effectiveInclude))
 		for _, p := range effectiveInclude {
 			fmt.Printf("  + %s\n", p)
 		}
 		fmt.Println()
 	}
 	if len(statusFlagExclude) > 0 {
-		fmt.Printf("Exclude (%d yol): bu yollar sonuçtan hariç tutulacak\n", len(statusFlagExclude))
+		fmt.Printf(lang.L.StatusExcludeFmt, len(statusFlagExclude))
 		for _, p := range statusFlagExclude {
 			fmt.Printf("  - %s\n", p)
 		}
 		fmt.Println()
 	}
 
-	fmt.Printf("Proje : %s\n", cfg.Project.Name)
-	fmt.Printf("Dizin : %s\n", projectDir)
-	fmt.Printf("Dosya : %d adet\n", len(files))
+	fmt.Printf(lang.L.StatusProjectFmt, cfg.Project.Name)
+	fmt.Printf(lang.L.StatusDirFmt, projectDir)
+	fmt.Printf(lang.L.StatusFileFmt, len(files))
 	fmt.Println()
 
 	for _, srv := range cfg.EnabledServers() {
 		st, err := state.Load(dir, srv.Name)
 		if err != nil {
-			fmt.Printf("[%s] State yüklenemedi: %v\n\n", srv.Name, err)
+			fmt.Printf(lang.L.StatusStateErr, srv.Name, err)
 			continue
 		}
 
@@ -108,18 +109,18 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		fmt.Printf("── %s (%s) ──\n", srv.Name, srv.Host)
 
 		if !st.FirstSyncDone {
-			fmt.Println("  Henüz ilk sync yapılmadı")
+			fmt.Println(lang.L.StatusNoFirstSync)
 		} else if len(newFiles)+len(changedFiles)+len(deletedFiles) == 0 {
 			if len(effectiveInclude)+len(statusFlagExclude) > 0 {
-				fmt.Println("  Belirtilen filtre kapsamında değişiklik yok")
+				fmt.Println(lang.L.StatusFilteredUpToDate)
 			} else {
-				fmt.Println("  Değişiklik yok — sunucu güncel")
+				fmt.Println(lang.L.StatusUpToDate)
 			}
 		}
 
-		printFileList("  + YENİ", newFiles)
-		printFileList("  ~ DEĞİŞEN", changedFiles)
-		printFileList("  - SİLİNEN (FTP'den silinmez, sadece bilgi)", deletedFiles)
+		printFileList(lang.L.StatusNewHeader, newFiles)
+		printFileList(lang.L.StatusChangedHeader, changedFiles)
+		printFileList(lang.L.StatusDeletedHeader, deletedFiles)
 		fmt.Println()
 	}
 

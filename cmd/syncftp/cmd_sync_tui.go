@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	ftpclient "syncftp/internal/ftp"
+	"syncftp/internal/lang"
 )
 
 // ── stiller ───────────────────────────────────────────────────────────────────
@@ -132,18 +133,18 @@ func (m syncTUIModel) View() string {
 	b.WriteString(stServerName.Render("  ══ "+m.serverName+" ══") + "\n\n")
 
 	if m.dryRun {
-		b.WriteString(stDryRun.Render("  [DRY RUN] Yüklenecekler:") + "\n\n")
+		b.WriteString(stDryRun.Render(lang.L.SyncDryRunTitle) + "\n\n")
 		for _, f := range m.dryFiles {
 			b.WriteString(stDim.Render("    → ") + f + "\n")
 		}
 		b.WriteString("\n")
-		b.WriteString(stDim.Render(fmt.Sprintf("  %d dosya — herhangi bir tuşa basın", len(m.dryFiles))) + "\n")
+		b.WriteString(stDim.Render(fmt.Sprintf(lang.L.SyncDryRunFmt, len(m.dryFiles))) + "\n")
 		return b.String()
 	}
 
 	if m.total == 0 {
-		b.WriteString(stOK.Render("  ✓ Değişiklik yok — güncel") + "\n")
-		b.WriteString("\n" + stDim.Render("  Herhangi bir tuşa basın") + "\n")
+		b.WriteString(stOK.Render(lang.L.SyncNoChange) + "\n")
+		b.WriteString("\n" + stDim.Render(lang.L.SyncAnyKey) + "\n")
 		return b.String()
 	}
 
@@ -170,7 +171,7 @@ func (m syncTUIModel) View() string {
 		spin := spinnerFrames[m.spinner]
 		cur := m.current
 		if cur == "" {
-			cur = "bağlanıyor..."
+			cur = lang.L.SyncConnecting
 		}
 		maxLen := w - 10
 		if len(cur) > maxLen {
@@ -190,14 +191,14 @@ func (m syncTUIModel) View() string {
 		if r.Err != nil {
 			retry := ""
 			if r.Attempts > 1 {
-				retry = stDim.Render(fmt.Sprintf(" (%d deneme)", r.Attempts))
+				retry = stDim.Render(fmt.Sprintf(lang.L.SyncRetryFmt, r.Attempts))
 			}
 			b.WriteString(fmt.Sprintf("  %s %s%s\n",
 				stFail.Render("✗"), r.RelPath, retry))
 		} else {
 			retry := ""
 			if r.Attempts > 1 {
-				retry = stDim.Render(fmt.Sprintf(" (%d. denemede)", r.Attempts))
+				retry = stDim.Render(fmt.Sprintf(lang.L.SyncRetryOkFmt, r.Attempts))
 			}
 			b.WriteString(fmt.Sprintf("  %s %s%s\n",
 				stOK.Render("✓"), r.RelPath, retry))
@@ -207,13 +208,12 @@ func (m syncTUIModel) View() string {
 	// Özet
 	if m.finished {
 		b.WriteString("\n")
-		summary := fmt.Sprintf("  Tamamlandı: %s yüklendi",
-			stOK.Render(fmt.Sprintf("%d", m.done)))
+		summary := fmt.Sprintf(lang.L.SyncDoneFmt, stOK.Render(fmt.Sprintf("%d", m.done)))
 		if m.failed > 0 {
-			summary += fmt.Sprintf(", %s hata", stFail.Render(fmt.Sprintf("%d", m.failed)))
+			summary += fmt.Sprintf(lang.L.SyncDoneFailFmt, stFail.Render(fmt.Sprintf("%d", m.failed)))
 		}
 		b.WriteString(stBold.Render(summary) + "\n")
-		b.WriteString("\n" + stDim.Render("  Herhangi bir tuşa basın") + "\n")
+		b.WriteString("\n" + stDim.Render(lang.L.SyncAnyKey) + "\n")
 	}
 
 	return b.String()

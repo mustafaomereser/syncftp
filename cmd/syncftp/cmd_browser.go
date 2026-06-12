@@ -12,6 +12,7 @@ import (
 
 	"syncftp/internal/config"
 	ftpclient "syncftp/internal/ftp"
+	"syncftp/internal/lang"
 )
 
 // ── stiller ───────────────────────────────────────────────────────────────────
@@ -312,9 +313,9 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			errText := msg.err.Error()
 			if isConnectionError(msg.err) {
-				m.previewLines = []string{"⚠ Bağlantı kesildi", "", errText, "", "r tuşuna basarak yeniden bağlanabilirsiniz"}
+				m.previewLines = []string{lang.L.BrowserConnLost, "", errText, "", lang.L.BrowserConnLostHint}
 			} else {
-				m.previewLines = []string{"⚠ Önizleme alınamadı", "", errText}
+				m.previewLines = []string{lang.L.BrowserPreviewFailed, "", errText}
 			}
 			m.preview = ""
 		} else {
@@ -344,7 +345,7 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case reconnectDoneMsg:
 		if msg.err != nil {
-			m.err = fmt.Errorf("yeniden bağlanılamadı: %w", msg.err)
+			m.err = fmt.Errorf(lang.L.BrowserReconnectFailed, msg.err)
 		} else {
 			if m.client != nil {
 				m.client.Close()
@@ -747,48 +748,48 @@ func (m browserModel) View() string {
 	var hintLine string
 	if m.searching {
 		hintLine = styleSearch.Render(fmt.Sprintf("  /%s_", m.searchText)) +
-			styleHint.Render("  Enter=Tümünü Ara  ESC=İptal")
+			styleHint.Render(lang.L.BrowserSearchPrompt)
 	} else if m.recursiveLoading {
-		hintLine = styleSearch.Render(fmt.Sprintf("  Aranıyor: %q ...", m.searchText))
+		hintLine = styleSearch.Render(fmt.Sprintf(lang.L.BrowserSearching, m.searchText))
 	} else if m.recursiveSearch && m.searchText != "" {
 		hintLine = styleSearch.Render(fmt.Sprintf("  /%s", m.searchText)) +
-			styleHint.Render(fmt.Sprintf("  (tüm sunucu, %d sonuç)  ESC temizle", len(vis)))
+			styleHint.Render(fmt.Sprintf(lang.L.BrowserSearchResults, len(vis)))
 	} else if m.pickDirMode {
-		hintLine = styleCursor.Render("  HEDEF DİZİN SEÇ") +
-			sep + styleHint.Render("Enter=Bu Klasörü Seç") +
-			sep + styleHint.Render("→ Gir") +
-			sep + styleHint.Render("← Üst") +
-			sep + styleHint.Render("q İptal")
+		hintLine = styleCursor.Render(lang.L.BrowserPickDirTitle) +
+			sep + styleHint.Render(lang.L.BrowserPickDirEnter) +
+			sep + styleHint.Render(lang.L.BrowserHintRight) +
+			sep + styleHint.Render(lang.L.BrowserHintLeft) +
+			sep + styleHint.Render(lang.L.BrowserHintQuit)
 	} else if len(m.marked) > 0 {
-		hintLine = styleMarked.Render(fmt.Sprintf("  ✓ %d işaretli", len(m.marked))) +
-			sep + styleHint.Render("d=Sil") +
-			sep + styleHint.Render("m=Taşı") +
-			sep + styleHint.Render("a=Tümünü kaldır") +
-			sep + styleHint.Render("ESC=İptal")
+		hintLine = styleMarked.Render(fmt.Sprintf(lang.L.BrowserMarkedCount, len(m.marked))) +
+			sep + styleHint.Render(lang.L.BrowserMarkedHintDelete) +
+			sep + styleHint.Render(lang.L.BrowserMarkedHintMove) +
+			sep + styleHint.Render(lang.L.BrowserMarkedHintAll) +
+			sep + styleHint.Render(lang.L.BrowserMarkedHintCancel)
 	} else if m.searchText != "" {
-		hintLine = styleSearch.Render("  /"+m.searchText) + styleHint.Render("  ESC temizle")
+		hintLine = styleSearch.Render("  /"+m.searchText) + styleHint.Render(lang.L.BrowserSearchClear)
 	} else {
-		hintLine = styleHint.Render("  ↑↓ Gezin") +
-			sep + styleHint.Render("Enter Gir/Seç") +
-			sep + styleHint.Render("→ Önizle") +
-			sep + styleHint.Render("← Üst") +
-			sep + styleHint.Render("Space İşaretle") +
-			sep + styleHint.Render("/ Ara") +
-			sep + styleHint.Render("q Çık")
+		hintLine = styleHint.Render(lang.L.BrowserHintNav) +
+			sep + styleHint.Render(lang.L.BrowserHintEnter) +
+			sep + styleHint.Render(lang.L.BrowserHintPreview) +
+			sep + styleHint.Render(lang.L.BrowserHintLeft) +
+			sep + styleHint.Render(lang.L.BrowserHintSpace) +
+			sep + styleHint.Render(lang.L.BrowserHintSearch) +
+			sep + styleHint.Render(lang.L.BrowserHintQuitKey)
 	}
 
 	divider := styleHint.Render(strings.Repeat("─", listW))
 
 	if m.loading {
-		return "\n" + header + "\n" + hintLine + "\n" + divider + "\n\n  Yükleniyor...\n"
+		return "\n" + header + "\n" + hintLine + "\n" + divider + "\n\n" + lang.L.BrowserLoading + "\n"
 	}
 	if m.err != nil {
 		reconnectHint := ""
 		if m.server != nil {
-			reconnectHint = "   " + styleHint.Render("r = Yeniden Bağlan  |  q = Çık")
+			reconnectHint = "   " + styleHint.Render(lang.L.BrowserReconnectHint)
 		}
 		return "\n" + header + "\n" + divider + "\n\n" +
-			styleErr.Render("  Hata: "+m.err.Error()) + "\n" +
+			styleErr.Render(lang.L.BrowserErrPrefix+m.err.Error()) + "\n" +
 			reconnectHint + "\n"
 	}
 
@@ -832,9 +833,9 @@ func (m browserModel) View() string {
 		if e.selectMe {
 			if i == m.cursor {
 				listBuf.WriteString(styleCursor.Render("▶ ") +
-					styleSelected.Bold(true).Render("[ Bu dizini seç: "+m.cwd+" ]") + "\n")
+					styleSelected.Bold(true).Render(lang.L.BrowserSelectThisPrefix+m.cwd+lang.L.BrowserSelectThisSuffix) + "\n")
 			} else {
-				listBuf.WriteString("  " + styleHint.Render("[ Bu dizini seç: "+m.cwd+" ]") + "\n")
+				listBuf.WriteString("  " + styleHint.Render(lang.L.BrowserSelectThisPrefix+m.cwd+lang.L.BrowserSelectThisSuffix) + "\n")
 			}
 			continue
 		}
@@ -868,7 +869,7 @@ func (m browserModel) View() string {
 			if count, ok := m.childCounts[e.entry.Name]; ok {
 				switch count {
 				case -1:
-					metaStr = "çok boyutlu"
+					metaStr = lang.L.BrowserCountMany
 				case -2:
 					metaStr = "?"
 				default:
@@ -939,9 +940,9 @@ func (m browserModel) View() string {
 	if total == 0 {
 		pos = 0
 	}
-	footerText := fmt.Sprintf("  %d klasör, %d dosya  ·  %d/%d", nDirs, nFiles, pos, total)
+	footerText := fmt.Sprintf(lang.L.BrowserFooterFmt, nDirs, nFiles, pos, total)
 	if m.searchText != "" {
-		footerText += styleSearch.Render(fmt.Sprintf("  ara:%q %d eşleşme", m.searchText, len(vis)))
+		footerText += styleSearch.Render(fmt.Sprintf(lang.L.BrowserSearchMatchFmt, m.searchText, len(vis)))
 	}
 	footer := styleHint.Render(footerText)
 
@@ -957,9 +958,9 @@ func (m browserModel) viewPreview(w, h int) string {
 		"   " + styleMeta.Render(m.previewMeta)
 
 	if m.previewLoading || m.previewLines == nil {
-		hint := styleHint.Render("  ESC/q geri")
+		hint := styleHint.Render(lang.L.BrowserPreviewBack)
 		return "\n" + header + "\n" + divider + "\n\n" +
-			styleHint.Render("  Yükleniyor...") + "\n\n" +
+			styleHint.Render(lang.L.BrowserPreviewLoading) + "\n\n" +
 			divider + "\n" + hint + "\n"
 	}
 
@@ -1008,15 +1009,15 @@ func (m browserModel) viewPreview(w, h int) string {
 
 	var posText string
 	if total == 0 {
-		posText = "(boş dosya)"
+		posText = lang.L.BrowserPreviewEmpty
 	} else {
-		posText = fmt.Sprintf("%d-%d / %d satır", scroll+1, endLine, total)
+		posText = fmt.Sprintf(lang.L.BrowserPreviewLineFmt, scroll+1, endLine, total)
 	}
 
-	hint := styleHint.Render("  ESC/q geri") +
-		sep + styleHint.Render("↑↓ kaydır") +
-		sep + styleHint.Render("PgUp/PgDn") +
-		sep + styleHint.Render("g başa  G sona") +
+	hint := styleHint.Render(lang.L.BrowserPreviewBack) +
+		sep + styleHint.Render(lang.L.BrowserPreviewScrollHint) +
+		sep + styleHint.Render(lang.L.BrowserPreviewPageHint) +
+		sep + styleHint.Render(lang.L.BrowserPreviewGGHint) +
 		"   " + styleMeta.Render(posText)
 
 	return "\n" + header + "\n" + divider + "\n" +

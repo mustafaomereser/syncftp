@@ -11,6 +11,8 @@ A Go CLI tool that detects changed files via SHA256 hashing and distributes them
 - **HTTP API** — built-in local API server for PHP/web UI integration (`syncftp serve`)
 - **Interactive shell** — run `syncftp` with no arguments for a full TUI shell with arrow-key file browser, server picker, and action menus
 
+The UI defaults to **English**. Set `SYNCFTP_LANG=tr` to switch to Turkish.
+
 ---
 
 ## Installation
@@ -223,9 +225,9 @@ Scanning: /home/user/my-project
 142 files found
 
 ══ production (ftp.example.com) ══
-  İlk sync: sunucu taranıyor, mevcut dosyalar karşılaştırılıyor...
-  Sunucuda 139 dosya bulundu
-  Sonuç: 139 güncel (yüklenmeyecek)  |  3 farklı/eksik (yüklenecek)
+  First sync: scanning server, comparing existing files...
+  139 files found on server
+  Result: 139 up-to-date (skipped)  |  3 different/missing (uploading)
   3 files to process
   Connection pool: 3 / Retry: 2
     ✓ js/utils.js
@@ -375,17 +377,17 @@ Opened by `ls`, or automatically when `cat`/`get`/`rm` receive no path argument.
 
 ```
   📁 /public_html/assets
-  ↑↓ Gezin  |  Enter Gir/Seç  |  → Önizle  |  ← Üst  |  Space İşaretle  |  / Ara  |  q Çık
+  ↑↓ Navigate  |  Enter Open/Select  |  → Preview  |  ← Up  |  Space Mark  |  / Search  |  q Quit
   ────────────────────────────────────────────────────────────────────────────────────────────
 
- ▶ 📁  css/                              3 öğe          2026-06-11
-    📁  js/                               12 öğe         2026-06-10
-    📁  uploads/                          çok boyutlu    2026-06-09
+ ▶ 📁  css/                              3 items        2026-06-11
+    📁  js/                               12 items       2026-06-10
+    📁  uploads/                          1000+ items    2026-06-09
     ·············································
     📄  style.css                         4.2 KB         2026-06-10
     📄  app.js                            18.7 KB        2026-06-09
 
-  3 klasör, 2 dosya  ·  1/5
+  3 folders, 2 files  ·  1/5
 ```
 
 | Key | Action |
@@ -403,7 +405,7 @@ Opened by `ls`, or automatically when `cat`/`get`/`rm` receive no path argument.
 | `q` | Close browser / cancel |
 
 - **Folders first** (alphabetical), then files (alphabetical), dotted separator between them
-- **Folder item counts** loaded in background: `...` → `N öğe` or `çok boyutlu` (1000+) or `?` on error
+- **Folder item counts** loaded in background: `...` → `N items` or `1000+ items` (1000+) or `?` on error
 - **Preview panel** on terminals ≥ 120 chars wide — press `→` on a file to load; on-demand only, no FTP request on cursor moves
 - **Recursive search** with `/` + `Enter`: scans all subdirectories on the server, results show the relative path so you know where each file lives
 - **Mark & act**: `Space` marks files and folders, hint bar changes to `d=Sil  |  m=Taşı  |  a=Tümünü kaldır`
@@ -440,12 +442,12 @@ When `sync` runs, a full-screen progress view is shown:
 Used by `servers`, `server`, `sync` (multi-select), and `remote` commands.
 
 ```
-  Sunucular
+  Servers
   ─────────────────────────────────────────────────────
-  Harf yaz → filtrele
+  Type to filter
   ─────────────────────────────────────────────────────
 
-▶ [1] ✅  production    ftp.example.com:21  conn:3  (bağlı)
+▶ [1] ✅  production    ftp.example.com:21  conn:3  (connected)
   [2] 🖥  staging       ftp2.example.com:21  conn:1
 ```
 

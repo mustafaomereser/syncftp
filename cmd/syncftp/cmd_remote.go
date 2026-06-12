@@ -14,6 +14,7 @@ import (
 
 	"syncftp/internal/config"
 	ftpclient "syncftp/internal/ftp"
+	"syncftp/internal/lang"
 )
 
 var remoteServer string
@@ -55,8 +56,8 @@ var remoteLsCmd = &cobra.Command{
 			remotePath = resolveRemotePath(srv, args[0])
 		}
 
-		fmt.Printf("Sunucu : %s (%s)\n", srv.Name, srv.Host)
-		fmt.Printf("Dizin  : %s\n\n", remotePath)
+		fmt.Printf(lang.L.RemoteServerFmt, srv.Name, srv.Host)
+		fmt.Printf(lang.L.RemoteDirFmt, remotePath)
 
 		return listDir(client, remotePath, "", remoteLsRecursive)
 	},
@@ -90,7 +91,7 @@ func listDir(client *ftpclient.Client, remotePath, indent string, recursive bool
 				subPath := path.Join(remotePath, e.Name)
 				fmt.Printf("\n%s  %s/\n", indent, e.Name)
 				if err := listDir(client, subPath, indent+"  ", true); err != nil {
-					fmt.Printf("%s  ! listelenemedi: %v\n", indent, err)
+					fmt.Printf(lang.L.RemoteListErr, indent, err)
 				}
 			}
 		}
@@ -136,16 +137,16 @@ var remoteGetCmd = &cobra.Command{
 			localDest = args[1]
 		}
 
-		fmt.Printf("İndiriliyor: %s → %s\n", remotePath, localDest)
+		fmt.Printf(lang.L.RemoteDownloading, remotePath, localDest)
 		if err := client.Download(remotePath, localDest); err != nil {
 			return err
 		}
 
 		info, _ := os.Stat(localDest)
 		if info != nil {
-			fmt.Printf("✓ İndirildi (%s)\n", formatSize(uint64(info.Size())))
+			fmt.Printf(lang.L.RemoteDownloaded, formatSize(uint64(info.Size())))
 		} else {
-			fmt.Println("✓ İndirildi")
+			fmt.Println(lang.L.RemoteDownloadedBare)
 		}
 		return nil
 	},
@@ -193,23 +194,23 @@ var remoteRmCmd = &cobra.Command{
 		entries, err := client.List(remotePath)
 		isDir := err == nil && entries != nil // List başarılıysa dizindir
 
-		label := "dosya"
+		label := lang.L.RemoteFileLabel
 		if isDir {
-			label = "dizin"
+			label = lang.L.RemoteDirLabel
 			if remoteRmRecursive {
-				label = "dizin (içeriğiyle)"
+				label = lang.L.RemoteDirRecLabel
 			}
 		}
 
-		fmt.Printf("Silinecek %s: %s\n", label, remotePath)
+		fmt.Printf(lang.L.RemoteDeleteLabel, label, remotePath)
 
 		if !remoteRmForce {
-			fmt.Print("Silmek istediğinizden emin misiniz? [y/N]: ")
+			fmt.Print(lang.L.RemoteDeleteConfirm)
 			reader := bufio.NewReader(os.Stdin)
 			answer, _ := reader.ReadString('\n')
 			answer = strings.TrimSpace(strings.ToLower(answer))
 			if answer != "y" && answer != "yes" && answer != "e" && answer != "evet" {
-				fmt.Println("İptal edildi.")
+				fmt.Println(lang.L.RemoteDeleteCancel)
 				return nil
 			}
 		}
@@ -224,7 +225,7 @@ var remoteRmCmd = &cobra.Command{
 			}
 		}
 
-		fmt.Printf("✓ Silindi: %s\n", remotePath)
+		fmt.Printf(lang.L.RemoteDeletedFmt, remotePath)
 		return nil
 	},
 }
@@ -276,7 +277,7 @@ var remoteCatCmd = &cobra.Command{
 			fmt.Println()
 		}
 		if int64(len(data)) == maxBytes {
-			fmt.Printf("\n[İlk %d KB gösterildi — tamamını indirmek için: syncftp remote get %s]\n", remoteCatMaxKB, args[0])
+			fmt.Printf(lang.L.RemoteCatTruncFmt, remoteCatMaxKB, args[0])
 		}
 		return nil
 	},
@@ -320,7 +321,7 @@ func connectRemote() (config.Server, *ftpclient.Client, error) {
 		}
 	}
 
-	fmt.Printf("Bağlanıyor: %s (%s)...\n", srv.Name, srv.Host)
+	fmt.Printf(lang.L.RemoteConnecting, srv.Name, srv.Host)
 	client, err := ftpclient.Connect(srv)
 	if err != nil {
 		return config.Server{}, nil, err
@@ -336,7 +337,7 @@ func pickServer(servers []config.Server) (config.Server, error) {
 		return config.Server{}, err
 	}
 	if srv == nil {
-		return config.Server{}, fmt.Errorf("sunucu seçilmedi")
+		return config.Server{}, fmt.Errorf("%s", lang.L.RemoteNoServerSel)
 	}
 	return *srv, nil
 }
@@ -350,7 +351,7 @@ func pickRemoteFile(client *ftpclient.Client, startPath string) (string, error) 
 	for {
 		entries, err := client.List(current)
 		if err != nil {
-			return "", fmt.Errorf("dizin listelenemedi: %w", err)
+			return "", fmt.Errorf(lang.L.RemotePickDirErr, err)
 		}
 
 		// Filtrele . ve ..
@@ -364,7 +365,7 @@ func pickRemoteFile(client *ftpclient.Client, startPath string) (string, error) 
 		fmt.Printf("\n  %s\n", current)
 		fmt.Println("  ─────────────────────────")
 		if current != "/" && current != startPath {
-			fmt.Println("  [0] .. (üst dizin)")
+			fmt.Println(lang.L.RemotePickUpDir)
 		}
 		for i, e := range items {
 			switch e.Type {
@@ -374,7 +375,7 @@ func pickRemoteFile(client *ftpclient.Client, startPath string) (string, error) 
 				fmt.Printf("  [%d] %s  (%s)\n", i+1, e.Name, formatSize(e.Size))
 			}
 		}
-		fmt.Printf("  Seçim [0-%d, q=iptal]: ", len(items))
+		fmt.Printf(lang.L.RemotePickPromptFmt, len(items))
 
 		line, _ := reader.ReadString('\n')
 		line = strings.TrimSpace(line)
@@ -393,7 +394,7 @@ func pickRemoteFile(client *ftpclient.Client, startPath string) (string, error) 
 
 		var n int
 		if _, err := fmt.Sscanf(line, "%d", &n); err != nil || n < 1 || n > len(items) {
-			fmt.Printf("  Geçersiz seçim: %q\n", line)
+			fmt.Printf(lang.L.RemotePickInvalid, line)
 			continue
 		}
 
@@ -405,7 +406,7 @@ func pickRemoteFile(client *ftpclient.Client, startPath string) (string, error) 
 			continue
 		}
 
-		fmt.Printf("  Seçildi: %s\n\n", selected)
+		fmt.Printf(lang.L.RemotePickSelected, selected)
 		return selected, nil
 	}
 }

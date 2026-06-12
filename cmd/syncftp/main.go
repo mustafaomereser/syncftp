@@ -5,6 +5,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"syncftp/internal/lang"
 )
 
 var rootCmd = &cobra.Command{
@@ -20,6 +22,7 @@ Sunucu tarafındaki config dosyaları (protect listesi) korunur, üzerine yazıl
 }
 
 func main() {
+	lang.Init()
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

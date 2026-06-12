@@ -6,6 +6,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"syncftp/internal/lang"
 )
 
 // ── stiller ───────────────────────────────────────────────────────────────────
@@ -139,9 +141,9 @@ func (m pickerModel) View() string {
 	// Arama kutusu
 	if m.search != "" {
 		b.WriteString(stylePickerSelected.Render(fmt.Sprintf("  🔍 %s", m.search)) +
-			stylePickerDesc.Render(fmt.Sprintf("  (%d eşleşme)", len(m.filtered))) + "\n")
+			stylePickerDesc.Render(fmt.Sprintf(lang.L.PickerMatchFmt, len(m.filtered))) + "\n")
 	} else {
-		b.WriteString(stylePickerHint.Render("  Harf yaz → filtrele") + "\n")
+		b.WriteString(stylePickerHint.Render(lang.L.PickerFilterHint) + "\n")
 	}
 	b.WriteString(stylePickerDivider.Render("  "+strings.Repeat("─", w)) + "\n\n")
 
@@ -164,11 +166,11 @@ func (m pickerModel) View() string {
 	}
 
 	if len(m.filtered) == 0 {
-		b.WriteString(stylePickerHint.Render("  (eşleşme yok — Backspace ile sil)") + "\n")
+		b.WriteString(stylePickerHint.Render(lang.L.PickerNoMatch) + "\n")
 	}
 
 	b.WriteString("\n")
-	b.WriteString(stylePickerHint.Render("↑↓/jk gezin   Enter seç   [1-9] hızlı   Backspace sil   q iptal") + "\n")
+	b.WriteString(stylePickerHint.Render(lang.L.PickerNavHint) + "\n")
 	return b.String()
 }
 
@@ -292,7 +294,7 @@ func (m multiPickerModel) View() string {
 	}
 
 	b.WriteString("\n")
-	b.WriteString(stylePickerHint.Render("↑↓ gezin   Space işaretle   a hepsini   Enter onayla   q iptal") + "\n")
+	b.WriteString(stylePickerHint.Render(lang.L.MultiPickerNavHint) + "\n")
 	return b.String()
 }
 
@@ -325,8 +327,8 @@ func RunMultiPicker(title, subtitle string, items []PickerItem) ([]string, error
 // RunConfirm evet/hayır seçimi sunar. true = onaylandı.
 func RunConfirm(title, subtitle string) (bool, error) {
 	items := []PickerItem{
-		{Icon: "✓", Label: "Evet", Value: "yes"},
-		{Icon: "✕", Label: "Hayır, iptal", Value: "no"},
+		{Icon: "✓", Label: lang.L.ConfirmYes, Value: "yes"},
+		{Icon: "✕", Label: lang.L.ConfirmNo, Value: "no"},
 	}
 	val, err := RunPicker(title, subtitle, items)
 	if err != nil {

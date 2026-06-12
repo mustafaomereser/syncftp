@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"syncftp/internal/lang"
 )
 
 func init() {
@@ -39,21 +41,21 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return line
 	}
 
-	fmt.Println("=== syncFTP Kurulum Sihirbazı ===")
+	fmt.Println(lang.L.InitWizardTitle)
 	fmt.Println()
 
 	dir, _ := os.Getwd()
-	projectName := ask("Proje adı", filepath.Base(dir))
-	localPath := ask("Yerel dizin", ".")
+	projectName := ask(lang.L.InitProjectName, filepath.Base(dir))
+	localPath := ask(lang.L.InitLocalDir, ".")
 
 	fmt.Println()
-	fmt.Println("FTP Sunucu bilgileri:")
-	serverName := ask("Sunucu adı", "production")
-	host := ask("FTP host", "")
-	port := ask("Port", "21")
-	user := ask("Kullanıcı adı", "")
-	password := ask("Şifre", "")
-	remotePath := ask("Uzak dizin", "/public_html")
+	fmt.Println(lang.L.InitFTPHeader)
+	serverName := ask(lang.L.InitServerName, "production")
+	host := ask(lang.L.InitHost, "")
+	port := ask(lang.L.InitPort, "21")
+	user := ask(lang.L.InitUser, "")
+	password := ask(lang.L.InitPassword, "")
+	remotePath := ask(lang.L.InitRemotePath, "/public_html")
 
 	portNum := 21
 	fmt.Sscanf(port, "%d", &portNum)
@@ -96,12 +98,12 @@ func runInit(cmd *cobra.Command, args []string) error {
 	if err := os.WriteFile("syncftp.json", data, 0600); err != nil {
 		return fmt.Errorf("syncftp.json yazılamadı: %w", err)
 	}
-	fmt.Println("✓ syncftp.json oluşturuldu (izinler: 600)")
+	fmt.Println(lang.L.InitCreated)
 
 	addToIgnoreFile(dir)
 
 	fmt.Println()
-	fmt.Printf("Hazır! 'syncftp sync' komutu ile %q projesini senkronize edebilirsiniz.\n", projectName)
+	fmt.Printf(lang.L.InitReadyFmt, projectName)
 	return nil
 }
 
@@ -115,7 +117,7 @@ func addToIgnoreFile(dir string) {
 		if _, err := os.Stat(p); err == nil {
 			content, _ := os.ReadFile(p)
 			if strings.Contains(string(content), "syncftp.json") {
-				fmt.Printf("  (syncFTP girdileri zaten %s içinde)\n", name)
+				fmt.Printf(lang.L.InitIgnoreExists, name)
 				return
 			}
 			f, err := os.OpenFile(p, os.O_APPEND|os.O_WRONLY, 0644)
@@ -124,13 +126,13 @@ func addToIgnoreFile(dir string) {
 			}
 			defer f.Close()
 			fmt.Fprint(f, block)
-			fmt.Printf("✓ syncftp.json, syncftp.exe → %s'e eklendi\n", name)
+			fmt.Printf(lang.L.InitIgnoreAdded, name)
 			return
 		}
 	}
 
 	content := "# syncFTP — do not commit\nsyncftp.json\nsyncftp.exe\n\n# syncFTP runtime\n.syncftp/\n.git/\n"
 	if err := os.WriteFile(filepath.Join(dir, "syncftp.ignore"), []byte(content), 0644); err == nil {
-		fmt.Println("✓ syncftp.ignore oluşturuldu (syncftp.json, syncftp.exe eklendi)")
+		fmt.Println(lang.L.InitIgnoreCreated)
 	}
 }

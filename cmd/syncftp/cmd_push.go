@@ -13,6 +13,7 @@ import (
 	"syncftp/internal/failed"
 	ftpclient "syncftp/internal/ftp"
 	"syncftp/internal/ignore"
+	"syncftp/internal/lang"
 	"syncftp/internal/release"
 	"syncftp/internal/scanner"
 	"syncftp/internal/state"
@@ -79,8 +80,8 @@ func runPush(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Kaynak  : %s\n", localDir)
-	fmt.Printf("Hedef   : %s:%d%s\n", srv.Host, srv.Port, srv.RemotePath)
+	fmt.Printf(lang.L.PushSourceFmt, localDir)
+	fmt.Printf(lang.L.PushTargetFmt, srv.Host, srv.Port, srv.RemotePath)
 	fmt.Println()
 
 	// Tara
@@ -88,12 +89,12 @@ func runPush(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("ignore dosyası yüklenemedi: %w", err)
 	}
-	fmt.Printf("Taranıyor...")
+	fmt.Print(lang.L.PushScanning)
 	files, err := scanner.Scan(localDir, matcher)
 	if err != nil {
 		return fmt.Errorf("tarama başarısız: %w", err)
 	}
-	fmt.Printf(" %d dosya\n\n", len(files))
+	fmt.Printf(lang.L.PushScannedFmt, len(files))
 
 	current := make(map[string]string, len(files))
 	byRel := make(map[string]scanner.File, len(files))
@@ -113,17 +114,17 @@ func runPush(cmd *cobra.Command, args []string) error {
 	var toUpload []string
 
 	if !st.FirstSyncDone || pushFull {
-		label := "İlk push"
+		label := lang.L.PushFirstPush
 		if pushFull && st.FirstSyncDone {
-			label = "Tam push (--full)"
+			label = lang.L.PushFullPush
 		}
-		fmt.Printf("  %s — tüm dosyalar yüklenecek\n", label)
+		fmt.Printf(lang.L.PushFirstFmt, label)
 		toUpload = mapKeys(current)
 	} else {
 		diff := state.Diff(st, current)
 		if len(diff.Deleted) > 0 {
 			sort.Strings(diff.Deleted)
-			fmt.Printf("  ! SİLİNEN dosyalar (FTP'de bırakıldı):\n")
+			fmt.Print(lang.L.PushDeletedHeader)
 			for _, p := range diff.Deleted {
 				fmt.Printf("      - %s\n", p)
 			}
@@ -138,21 +139,21 @@ func runPush(cmd *cobra.Command, args []string) error {
 	sort.Strings(toUpload)
 
 	if len(toUpload) == 0 {
-		fmt.Println("  Değişiklik yok — hedef güncel")
+		fmt.Println(lang.L.PushNoChange)
 		return nil
 	}
 
-	fmt.Printf("  %d dosya işlenecek\n", len(toUpload))
+	fmt.Printf(lang.L.PushProcessingFmt, len(toUpload))
 
 	if pushDryRun {
-		fmt.Println("\n[DRY RUN] Yüklenecekler:")
+		fmt.Println(lang.L.PushDryRunHeader)
 		for _, rel := range toUpload {
 			fmt.Printf("    %s\n", rel)
 		}
 		return nil
 	}
 
-	fmt.Printf("  Bağlantı: %d / Retry: %d\n", srv.MaxConnections, srv.MaxRetries)
+	fmt.Printf(lang.L.PushConnFmt, srv.MaxConnections, srv.MaxRetries)
 
 	pool, err := ftpclient.NewPool(srv)
 	if err != nil {
@@ -175,28 +176,28 @@ func runPush(cmd *cobra.Command, args []string) error {
 	for _, r := range results {
 		if r.Err != nil {
 			if r.Attempts > 1 {
-				fmt.Printf("    ✗ %s (%d deneme): %v\n", r.RelPath, r.Attempts, r.Err)
+				fmt.Printf(lang.L.PushAttemptsFmt, r.RelPath, r.Attempts, r.Err)
 			} else {
-				fmt.Printf("    ✗ %s: %v\n", r.RelPath, r.Err)
+				fmt.Printf(lang.L.PushUploadErrFmt, r.RelPath, r.Err)
 			}
 			failedPaths = append(failedPaths, r.RelPath)
 			failedCount++
 		} else {
 			if r.Attempts > 1 {
-				fmt.Printf("    ✓ %s (%d. denemede)\n", r.RelPath, r.Attempts)
+				fmt.Printf(lang.L.PushAttemptOkFmt, r.RelPath, r.Attempts)
 			} else {
-				fmt.Printf("    ✓ %s\n", r.RelPath)
+				fmt.Printf(lang.L.PushUploadOkFmt, r.RelPath)
 			}
 			successFiles[r.RelPath] = r.Hash
 			uploaded++
 		}
 	}
 
-	fmt.Printf("\n  Tamamlandı: %d yüklendi, %d hata\n", uploaded, failedCount)
+	fmt.Printf(lang.L.PushDoneFmt, uploaded, failedCount)
 
 	if len(failedPaths) > 0 {
 		if err := failed.Save(stateDir, srv.Name, failedPaths); err == nil {
-			fmt.Printf("  ! Başarısız dosyalar kaydedildi — tekrar: syncftp push %s --server %s --full\n", args[0], srv.Name)
+			fmt.Printf(lang.L.PushFailedHint, args[0], srv.Name)
 		}
 	} else {
 		failed.Clear(stateDir, srv.Name)
@@ -213,12 +214,12 @@ func runPush(cmd *cobra.Command, args []string) error {
 	}
 	st.FirstSyncDone = true
 	if err := state.Save(stateDir, st); err != nil {
-		fmt.Printf("  ! State kaydedilemedi: %v\n", err)
+		fmt.Printf(lang.L.PushStateErr, err)
 	}
 
 	if len(successFiles) > 0 {
 		if relDir, err := release.Create(stateDir, srv.Name, successFiles); err == nil {
-			fmt.Printf("  Release: %s\n", relDir)
+			fmt.Printf(lang.L.PushReleaseFmt, relDir)
 		}
 	}
 

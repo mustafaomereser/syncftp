@@ -15,6 +15,7 @@ import (
 	"syncftp/internal/failed"
 	ftpclient "syncftp/internal/ftp"
 	"syncftp/internal/ignore"
+	"syncftp/internal/lang"
 	"syncftp/internal/release"
 	"syncftp/internal/scanner"
 	"syncftp/internal/state"
@@ -61,8 +62,8 @@ func runShell() error {
 	sh.printWelcome()
 
 	if sh.srv == nil && len(servers) > 1 {
-		fmt.Println("Birden fazla sunucu var — bağlanmak için: server <ad>")
-		fmt.Println("Sunucular:", serverNames(servers))
+		fmt.Println(lang.L.ShellMultiServer)
+		fmt.Println(lang.L.ShellServersLabel, serverNames(servers))
 		fmt.Println()
 	}
 
@@ -70,7 +71,7 @@ func runShell() error {
 		rl.SetPrompt(sh.prompt())
 		line, err := rl.Readline()
 		if err == readline.ErrInterrupt {
-			fmt.Println("(Ctrl+C — çıkmak için 'exit')")
+			fmt.Println(lang.L.ShellCtrlCHint)
 			continue
 		}
 		if err == io.EOF {
@@ -88,7 +89,7 @@ func runShell() error {
 
 		switch cmd {
 		case "exit", "quit", "q":
-			fmt.Println("Görüşürüz.")
+			fmt.Println(lang.L.ShellExit)
 			return nil
 
 		case "help", "?":
@@ -128,7 +129,7 @@ func runShell() error {
 			sh.cmdSync(args)
 
 		default:
-			fmt.Printf("Bilinmeyen komut: %q  (yardım için 'help')\n", cmd)
+			fmt.Printf(lang.L.ShellUnknownCmd, cmd)
 		}
 	}
 	return nil
@@ -166,7 +167,7 @@ func (sh *shellState) printWelcome() {
 	fmt.Println()
 	fmt.Println("╔══════════════════════════════════════════════╗")
 	fmt.Printf("║%-44s║\n", inner)
-	fmt.Println("║  'help' yazın, çıkmak için 'exit'            ║")
+	fmt.Printf("║%-44s║\n", lang.L.ShellWelcomeHint)
 	fmt.Println("╚══════════════════════════════════════════════╝")
 	fmt.Println()
 }
@@ -178,10 +179,10 @@ func (sh *shellState) connectServer(srv config.Server) {
 		sh.client.Close()
 		sh.client = nil
 	}
-	fmt.Printf("Bağlanıyor: %s (%s)...", srv.Name, srv.Host)
+	fmt.Printf(lang.L.ShellConnecting, srv.Name, srv.Host)
 	client, err := ftpclient.Connect(srv)
 	if err != nil {
-		fmt.Printf(" hata: %v\n", err)
+		fmt.Printf(lang.L.ShellConnectErr, err)
 		return
 	}
 	sh.srv = &srv
@@ -194,7 +195,7 @@ func (sh *shellState) ensureConnected() bool {
 	if sh.client != nil {
 		return true
 	}
-	fmt.Println("Bağlı değil. 'server <ad>' ile bağlanın.")
+	fmt.Println(lang.L.ShellNotConnected)
 	return false
 }
 
@@ -208,7 +209,7 @@ func (sh *shellState) cmdClear() {
 func (sh *shellState) cmdServers() {
 	servers := sh.cfg.EnabledServers()
 	if len(servers) == 0 {
-		fmt.Println("Aktif sunucu yok.")
+		fmt.Println(lang.L.ShellNoServers)
 		return
 	}
 	current := ""
@@ -225,12 +226,12 @@ func (sh *shellState) cmdServers() {
 		}
 		items[i] = PickerItem{Icon: icon, Label: s.Name, Desc: desc, Value: s.Name}
 	}
-	val, err := RunPicker("Sunucular", "Seçince bağlanır — q ile sadece kapat", items)
+	val, err := RunPicker(lang.L.ShellServersFmt, lang.L.ShellServersSubtitle, items)
 	if err != nil || val == "" {
 		return
 	}
 	if val == current {
-		fmt.Printf("Zaten bağlı: %s\n", val)
+		fmt.Printf(lang.L.ShellAlreadyConn, val)
 		return
 	}
 	for _, s := range servers {
@@ -245,7 +246,7 @@ func (sh *shellState) cmdServer(args []string) {
 	servers := sh.cfg.EnabledServers()
 	if len(args) == 0 {
 		if len(servers) == 0 {
-			fmt.Println("Aktif sunucu yok.")
+			fmt.Println(lang.L.ShellNoServers)
 			return
 		}
 		srv, err := pickServerTUI(servers)
@@ -262,7 +263,7 @@ func (sh *shellState) cmdServer(args []string) {
 			return
 		}
 	}
-	fmt.Printf("Sunucu bulunamadı: %q\n", name)
+	fmt.Printf(lang.L.ShellServerNotFound, name)
 }
 
 func (sh *shellState) cmdPwd() {
@@ -284,7 +285,7 @@ func (sh *shellState) cmdLs(args []string) {
 
 	result, err := RunBrowser(sh.client, startPath, sh.srv.RemotePath, sh.srv)
 	if err != nil {
-		fmt.Printf("Browser hatası: %v\n", err)
+		fmt.Printf(lang.L.ShellBrowserErr, err)
 		return
 	}
 	sh.remoteCwd = result.CWD
@@ -311,16 +312,16 @@ func (sh *shellState) browserDelete(files []string) {
 		fmt.Printf("  - %s\n", f)
 	}
 	ok, err := RunConfirm(
-		fmt.Sprintf("%d dosyayı sil", len(files)),
-		"Bu işlem geri alınamaz. FTP sunucusundan kalıcı olarak silinir.",
+		fmt.Sprintf(lang.L.ShellDeleteTitle, len(files)),
+		lang.L.ShellDeleteSubtitle,
 	)
 	if err != nil || !ok {
-		fmt.Println("İptal edildi.")
+		fmt.Println(lang.L.ShellCancelled)
 		return
 	}
-	ok2, _ := RunConfirm("Emin misiniz?", "Onaylamak için Evet seçin.")
+	ok2, _ := RunConfirm(lang.L.ShellConfirmSure, lang.L.ShellConfirmSureBody)
 	if !ok2 {
-		fmt.Println("İptal edildi.")
+		fmt.Println(lang.L.ShellCancelled)
 		return
 	}
 	deleted, failed := 0, 0
@@ -342,7 +343,7 @@ func (sh *shellState) browserDelete(files []string) {
 			deleted++
 		}
 	}
-	fmt.Printf("\n%d silindi, %d başarısız\n", deleted, failed)
+	fmt.Printf(lang.L.ShellDeletedFmt, deleted, failed)
 }
 
 // browserMove işaretli dosyaları seçilen hedef dizine taşır.
@@ -350,19 +351,19 @@ func (sh *shellState) browserMove(files []string) {
 	if len(files) == 0 {
 		return
 	}
-	fmt.Printf("\n%d dosya taşınacak. Hedef klasörü seçin (Enter = bu klasörü seç):\n", len(files))
+	fmt.Printf(lang.L.ShellMovingFmt, len(files))
 
 	destDir, err := RunBrowserPickDir(sh.client, sh.remoteCwd, sh.srv.RemotePath, sh.srv)
 	if err != nil {
-		fmt.Printf("Browser hatası: %v\n", err)
+		fmt.Printf(lang.L.ShellBrowserErr, err)
 		return
 	}
 	if destDir == "" {
-		fmt.Println("İptal edildi.")
+		fmt.Println(lang.L.ShellCancelled)
 		return
 	}
 
-	fmt.Printf("Hedef: %s\n\n", destDir)
+	fmt.Printf(lang.L.ShellMoveTarget, destDir)
 	moved, failedCount := 0, 0
 	for _, f := range files {
 		filename := path.Base(f)
@@ -375,7 +376,7 @@ func (sh *shellState) browserMove(files []string) {
 			moved++
 		}
 	}
-	fmt.Printf("\n%d taşındı, %d başarısız\n", moved, failedCount)
+	fmt.Printf(lang.L.ShellMovedFmt, moved, failedCount)
 }
 
 func (sh *shellState) cmdCd(args []string) {
@@ -395,7 +396,7 @@ func (sh *shellState) cmdCd(args []string) {
 	resolved := sh.resolvePath(target)
 	entries, err := sh.client.List(resolved)
 	if err != nil || entries == nil {
-		fmt.Printf("Dizin bulunamadı: %s\n", resolved)
+		fmt.Printf(lang.L.ShellDirNotFound, resolved)
 		return
 	}
 	sh.remoteCwd = resolved
@@ -447,7 +448,7 @@ func (sh *shellState) catFile(filePath string, maxKB int) {
 	maxBytes := int64(maxKB) * 1024
 	data, err := sh.client.Preview(filePath, maxBytes)
 	if err != nil {
-		fmt.Printf("Hata: %v\n", err)
+		fmt.Printf(lang.L.ShellErrFmt, err)
 		return
 	}
 	fmt.Printf("\n── %s ──\n", filePath)
@@ -456,7 +457,7 @@ func (sh *shellState) catFile(filePath string, maxKB int) {
 		fmt.Println()
 	}
 	if int64(len(data)) == maxBytes {
-		fmt.Printf("[İlk %d KB — tamamı için: get %s]\n", maxKB, filePath)
+		fmt.Printf(lang.L.ShellFileTruncFmt, maxKB, filePath)
 	}
 }
 
@@ -501,16 +502,16 @@ func (sh *shellState) getFile(remotePath, localDest string) {
 	if localDest == "" {
 		localDest = filepath.Base(remotePath)
 	}
-	fmt.Printf("İndiriliyor: %s → %s\n", remotePath, localDest)
+	fmt.Printf(lang.L.ShellDownloading, remotePath, localDest)
 	if err := sh.client.Download(remotePath, localDest); err != nil {
-		fmt.Printf("Hata: %v\n", err)
+		fmt.Printf(lang.L.ShellErrFmt, err)
 		return
 	}
 	info, _ := os.Stat(localDest)
 	if info != nil {
-		fmt.Printf("✓ İndirildi (%s)\n", formatSize(uint64(info.Size())))
+		fmt.Printf(lang.L.ShellDownloaded, formatSize(uint64(info.Size())))
 	} else {
-		fmt.Println("✓ İndirildi")
+		fmt.Println(lang.L.ShellDownloadedBare)
 	}
 }
 
@@ -557,22 +558,22 @@ func (sh *shellState) cmdRm(args []string) {
 	entries, err := sh.client.List(remotePath)
 	isDir := err == nil && entries != nil
 
-	label := "dosya"
+	label := lang.L.RemoteFileLabel
 	if isDir {
 		if recursive {
-			label = "dizin (içeriğiyle)"
+			label = lang.L.RemoteDirRecLabel
 		} else {
-			label = "dizin"
+			label = lang.L.RemoteDirLabel
 		}
 	}
 
 	if !force {
 		confirmed, err := RunConfirm(
-			"Silme Onayı",
+			lang.L.ShellDeleteConfTitle,
 			fmt.Sprintf("%s silinecek: %s", label, remotePath),
 		)
 		if err != nil || !confirmed {
-			fmt.Println("İptal.")
+			fmt.Println(lang.L.ShellCancelShort)
 			return
 		}
 	}
@@ -584,11 +585,11 @@ func (sh *shellState) cmdRm(args []string) {
 		}
 	} else {
 		if err := sh.client.DeleteFile(remotePath); err != nil {
-			fmt.Printf("Hata: %v\n", err)
+			fmt.Printf(lang.L.ShellErrFmt, err)
 			return
 		}
 	}
-	fmt.Printf("✓ Silindi: %s\n", remotePath)
+	fmt.Printf(lang.L.ShellDeletedShort, remotePath)
 }
 
 func (sh *shellState) cmdStatus() {
@@ -597,12 +598,12 @@ func (sh *shellState) cmdStatus() {
 
 	matcher, err := ignore.Load(projectDir)
 	if err != nil {
-		fmt.Printf("Hata: %v\n", err)
+		fmt.Printf(lang.L.ShellErrFmt, err)
 		return
 	}
 	files, err := scanner.Scan(projectDir, matcher)
 	if err != nil {
-		fmt.Printf("Hata: %v\n", err)
+		fmt.Printf(lang.L.ShellErrFmt, err)
 		return
 	}
 	current := make(map[string]string, len(files))
@@ -612,19 +613,19 @@ func (sh *shellState) cmdStatus() {
 
 	servers := cfg.EnabledServers()
 	if len(servers) == 0 {
-		fmt.Println("Aktif sunucu yok.")
+		fmt.Println(lang.L.ShellNoServers)
 		return
 	}
 
 	for _, srv := range servers {
 		st, err := state.Load(sh.configDir, srv.Name)
 		if err != nil {
-			fmt.Printf("[%s] state okunamadı: %v\n", srv.Name, err)
+			fmt.Printf(lang.L.ShellStatusStateErr, srv.Name, err)
 			continue
 		}
 		diff := state.Diff(st, current)
 		total := len(diff.New) + len(diff.Changed) + len(diff.Deleted)
-		fmt.Printf("\n[%s]  %d değişiklik\n", srv.Name, total)
+		fmt.Printf("\n[%s]  "+lang.L.ShellStatusNoChange, srv.Name, total)
 		for _, p := range diff.New {
 			fmt.Printf("  + %s\n", p)
 		}
@@ -632,10 +633,10 @@ func (sh *shellState) cmdStatus() {
 			fmt.Printf("  ~ %s\n", p)
 		}
 		for _, p := range diff.Deleted {
-			fmt.Printf("  - %s (yerel silinmiş)\n", p)
+			fmt.Printf(lang.L.ShellStatusDeleted, p)
 		}
 		if total == 0 {
-			fmt.Println("  Güncel")
+			fmt.Println(lang.L.ShellStatusUpToDate)
 		}
 	}
 }
@@ -664,16 +665,16 @@ func (sh *shellState) cmdSync(args []string) {
 
 	matcher, err := ignore.Load(projectDir)
 	if err != nil {
-		fmt.Printf("Hata: %v\n", err)
+		fmt.Printf(lang.L.ShellErrFmt, err)
 		return
 	}
-	fmt.Print("Taranıyor...")
+	fmt.Print(lang.L.ShellScanning)
 	files, err := scanner.Scan(projectDir, matcher)
 	if err != nil {
-		fmt.Printf(" hata: %v\n", err)
+		fmt.Printf(lang.L.ShellConnectErr, err)
 		return
 	}
-	fmt.Printf(" %d dosya\n", len(files))
+	fmt.Printf(lang.L.ShellScannedFmt, len(files))
 
 	current := make(map[string]string, len(files))
 	byRel := make(map[string]scanner.File, len(files))
@@ -694,13 +695,13 @@ func (sh *shellState) cmdSync(args []string) {
 	} else if !all && len(servers) > 1 {
 		selected, err := pickServerMultiTUI(servers)
 		if err != nil || selected == nil {
-			fmt.Println("İptal.")
+			fmt.Println(lang.L.ShellSyncCancelled)
 			return
 		}
 		servers = selected
 	}
 	if len(servers) == 0 {
-		fmt.Println("Aktif sunucu yok.")
+		fmt.Println(lang.L.ShellNoServers)
 		return
 	}
 
@@ -713,7 +714,7 @@ func (sh *shellState) cmdSync(args []string) {
 func (sh *shellState) shellSyncServer(srv config.Server, current map[string]string, byRel map[string]scanner.File, full, dryRun bool) {
 	st, err := state.Load(sh.configDir, srv.Name)
 	if err != nil {
-		fmt.Printf("  State okunamadı: %v\n", err)
+		fmt.Printf(lang.L.ShellStateReadErr, err)
 		return
 	}
 
@@ -740,7 +741,7 @@ func (sh *shellState) shellSyncServer(srv config.Server, current map[string]stri
 
 	pool, err := ftpclient.NewPool(srv)
 	if err != nil {
-		fmt.Printf("  Bağlantı hatası: %v\n", err)
+		fmt.Printf(lang.L.ShellConnPoolErr, err)
 		return
 	}
 	defer pool.Close()
@@ -783,7 +784,7 @@ func (sh *shellState) shellSyncServer(srv config.Server, current map[string]stri
 
 	if len(successFiles) > 0 {
 		if relDir, err := release.Create(sh.configDir, srv.Name, successFiles); err == nil {
-			fmt.Printf("  Release: %s\n", relDir)
+			fmt.Printf(lang.L.ShellReleaseFmt, relDir)
 		}
 	}
 }
@@ -809,27 +810,7 @@ func (sh *shellState) resolvePath(p string) string {
 }
 
 func (sh *shellState) printHelp() {
-	fmt.Println(`
-Uzak sunucu komutları:
-  ls [dizin]              İnteraktif dosya tarayıcısı (↑↓ gezin, → gir, ← çık)
-  cd <dizin>              Uzak dizin değiştir  (cd .. ile üste çık)
-  cat [dosya]             Dosya içeriğini görüntüle (arg verilmezse tarayıcı açılır)
-  get [dosya] [hedef]     Dosya indir (arg verilmezse tarayıcı açılır)
-  rm [-f] [-r] [dosya]    Dosya/dizin sil  (-f onay istemez, -r klasör içeriğiyle)
-  pwd                     Uzak dizini göster
-
-Senkronizasyon:
-  status                  Yerel değişiklikleri göster
-  sync [--all] [--full] [--dry-run] [--server ad]   FTP'ye yükle
-
-Sunucu yönetimi:
-  servers                 Sunucu listesi
-  server [ad]             Sunucu seç / bağlan
-
-Diğer:
-  clear / cls             Ekranı temizle
-  help / ?                Bu yardım
-  exit / quit             Çıkış`)
+	fmt.Println(lang.L.ShellHelp)
 }
 
 func splitArgs(s string) []string {
@@ -839,13 +820,13 @@ func splitArgs(s string) []string {
 // fileActionMenu — dosya seçilince işlem menüsü açar.
 func (sh *shellState) fileActionMenu(filePath string) {
 	action, err := RunPicker(
-		"Dosya İşlemi",
+		lang.L.ShellFileActionTitle,
 		filePath,
 		[]PickerItem{
-			{Icon: "👁", Label: "İçeriği Görüntüle", Desc: "cat", Value: "cat"},
-			{Icon: "⬇", Label: "İndir", Desc: "get", Value: "get"},
-			{Icon: "🗑", Label: "Sil", Desc: "rm", Value: "rm"},
-			{Icon: "✕", Label: "İptal", Desc: "", Value: ""},
+			{Icon: "👁", Label: lang.L.ShellFileActionView, Desc: "cat", Value: "cat"},
+			{Icon: "⬇", Label: lang.L.ShellFileActionGet, Desc: "get", Value: "get"},
+			{Icon: "🗑", Label: lang.L.ShellFileActionDel, Desc: "rm", Value: "rm"},
+			{Icon: "✕", Label: lang.L.ShellFileActionCancel, Desc: "", Value: ""},
 		},
 	)
 	if err != nil || action == "" {
@@ -864,17 +845,17 @@ func (sh *shellState) fileActionMenu(filePath string) {
 // deleteFile — onay alıp dosyayı siler.
 func (sh *shellState) deleteFile(remotePath string, force bool) {
 	if !force {
-		confirmed, err := RunConfirm("Silme Onayı", remotePath+" silinecek")
+		confirmed, err := RunConfirm(lang.L.ShellDeleteConfTitle, remotePath+" silinecek")
 		if err != nil || !confirmed {
-			fmt.Println("İptal.")
+			fmt.Println(lang.L.ShellCancelShort)
 			return
 		}
 	}
 	if err := sh.client.DeleteFile(remotePath); err != nil {
-		fmt.Printf("Hata: %v\n", err)
+		fmt.Printf(lang.L.ShellErrFmt, err)
 		return
 	}
-	fmt.Printf("✓ Silindi: %s\n", remotePath)
+	fmt.Printf(lang.L.ShellDeletedShort, remotePath)
 }
 
 // pickServerTUI — tek seçimli sunucu picker'ı.
@@ -888,7 +869,7 @@ func pickServerTUI(servers []config.Server) (*config.Server, error) {
 			Value: s.Name,
 		}
 	}
-	val, err := RunPicker("Sunucu Seç", "", items)
+	val, err := RunPicker(lang.L.ShellPickServerTitle, "", items)
 	if err != nil || val == "" {
 		return nil, err
 	}
@@ -911,7 +892,7 @@ func pickServerMultiTUI(servers []config.Server) ([]config.Server, error) {
 			Value: s.Name,
 		}
 	}
-	vals, err := RunMultiPicker("Sync Edilecek Sunucular", "Space ile işaretle, Enter ile onayla", items)
+	vals, err := RunMultiPicker(lang.L.ShellSyncServers, lang.L.ShellSyncPickSub, items)
 	if err != nil || vals == nil {
 		return nil, err
 	}
