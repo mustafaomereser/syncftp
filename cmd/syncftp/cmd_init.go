@@ -62,8 +62,8 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	cfg := map[string]any{
 		"project": map[string]any{
-			"name":       projectName,
-			"local_path": localPath,
+			"name":         projectName,
+			"default_path": localPath,
 		},
 		"sync": map[string]any{
 			"protect": []string{".env"},

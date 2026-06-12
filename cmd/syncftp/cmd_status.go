@@ -41,24 +41,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	projectDir := filepath.Join(dir, cfg.Project.LocalPath)
-
-	matcher, err := ignore.Load(projectDir, cfg.Sync.IgnoreFiles)
-	if err != nil {
-		return fmt.Errorf("ignore dosyası yüklenemedi: %w", err)
-	}
-
-	files, err := scanner.Scan(projectDir, matcher)
-	if err != nil {
-		return fmt.Errorf("tarama başarısız: %w", err)
-	}
-
-	current := make(map[string]string, len(files))
-	for _, f := range files {
-		current[f.RelPath] = f.Hash
-	}
-
-	// CLI --include varsa TOML sync.include'u geçersiz kılar
+	// CLI --include varsa sync.include'u geçersiz kılar
 	effectiveInclude := cfg.Sync.Include
 	if len(statusFlagInclude) > 0 {
 		effectiveInclude = statusFlagInclude
@@ -80,11 +63,25 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf(lang.L.StatusProjectFmt, cfg.Project.Name)
-	fmt.Printf(lang.L.StatusDirFmt, projectDir)
-	fmt.Printf(lang.L.StatusFileFmt, len(files))
-	fmt.Println()
 
 	for _, srv := range cfg.EnabledServers() {
+		localPath := srv.EffectiveLocalPath(cfg.Project)
+		localDir := filepath.Join(dir, localPath)
+		matcher, err := ignore.Load(localDir, cfg.Sync.IgnoreFiles)
+		if err != nil {
+			fmt.Printf("  ignore hatası: %v\n", err)
+			continue
+		}
+		files, err := scanner.Scan(localDir, matcher)
+		if err != nil {
+			fmt.Printf("  tarama hatası: %v\n", err)
+			continue
+		}
+		current := make(map[string]string)
+		for _, f := range files {
+			current[f.RelPath] = f.Hash
+		}
+
 		st, err := state.Load(dir, srv.Name)
 		if err != nil {
 			fmt.Printf(lang.L.StatusStateErr, srv.Name, err)
@@ -107,6 +104,8 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		deletedFiles := applyStatusFilters(diff.Deleted, srvInclude, srvExclude)
 
 		fmt.Printf("── %s (%s) ──\n", srv.Name, srv.Host)
+		fmt.Printf(lang.L.StatusDirFmt, filepath.Join(dir, localPath))
+		fmt.Printf(lang.L.StatusFileFmt, len(current))
 
 		if !st.FirstSyncDone {
 			fmt.Println(lang.L.StatusNoFirstSync)

@@ -55,27 +55,6 @@ func runSync(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	projectDir := filepath.Join(dir, cfg.Project.LocalPath)
-
-	matcher, err := ignore.Load(projectDir, cfg.Sync.IgnoreFiles)
-	if err != nil {
-		return fmt.Errorf("ignore dosyası yüklenemedi: %w", err)
-	}
-
-	fmt.Printf("Taranıyor: %s\n", projectDir)
-	files, err := scanner.Scan(projectDir, matcher)
-	if err != nil {
-		return fmt.Errorf("tarama başarısız: %w", err)
-	}
-	fmt.Printf("%d dosya bulundu\n\n", len(files))
-
-	current := make(map[string]string, len(files))
-	byRel := make(map[string]scanner.File, len(files))
-	for _, f := range files {
-		current[f.RelPath] = f.Hash
-		byRel[f.RelPath] = f
-	}
-
 	servers := cfg.EnabledServers()
 	if flagServer != "" {
 		var found []config.Server
@@ -121,7 +100,31 @@ func runSync(cmd *cobra.Command, args []string) error {
 
 	for _, srv := range servers {
 		fmt.Printf("══ %s (%s) ══\n", srv.Name, srv.Host)
-		if err := syncToServer(dir, cfg, srv, current, byRel, flagInclude, flagExclude); err != nil {
+
+		localPath := srv.EffectiveLocalPath(cfg.Project)
+		localDir := filepath.Join(dir, localPath)
+		fmt.Printf("  Taranıyor: %s\n", localPath)
+
+		matcher, err := ignore.Load(localDir, cfg.Sync.IgnoreFiles)
+		if err != nil {
+			fmt.Printf("  Tarama hatası: %v\n\n", err)
+			continue
+		}
+		files, err := scanner.Scan(localDir, matcher)
+		if err != nil {
+			fmt.Printf("  Tarama hatası: %v\n\n", err)
+			continue
+		}
+
+		current := make(map[string]string)
+		byKey := make(map[string]scanner.File)
+		for _, f := range files {
+			current[f.RelPath] = f.Hash
+			byKey[f.RelPath] = f
+		}
+		fmt.Printf("  %d dosya\n\n", len(current))
+
+		if err := syncToServer(dir, cfg, srv, current, byKey, flagInclude, flagExclude); err != nil {
 			fmt.Printf(lang.L.SyncServerErrFmt, err)
 		}
 		fmt.Println()
@@ -130,7 +133,7 @@ func runSync(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func syncToServer(configDir string, cfg *config.Config, srv config.Server, current map[string]string, byRel map[string]scanner.File, cliInclude, cliExclude []string) error {
+func syncToServer(configDir string, cfg *config.Config, srv config.Server, current map[string]string, byKey map[string]scanner.File, cliInclude, cliExclude []string) error {
 	st, err := state.Load(configDir, srv.Name)
 	if err != nil {
 		return err
@@ -178,7 +181,7 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 				toUpload = mapKeys(current)
 			} else {
 				// Akıllı ilk sync: sunucudaki dosyaları boyutla karşılaştır
-				toUpload = smartFirstSync(srv, current, byRel, st, cfg)
+				toUpload = smartFirstSync(srv, current, byKey, st, cfg)
 			}
 
 			if len(effectiveInclude) > 0 {
@@ -230,14 +233,15 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 	}
 
 	// Korunan dosyaları ayır
+	// protect kalıpları hem stateKey'e hem kaynak-içi RelPath'e karşı kontrol edilir
 	var tasks []ftpclient.UploadTask
 	skipped := 0
 	for _, rel := range toUpload {
-		if ftpclient.IsProtected(rel, cfg.Sync.Protect) {
+		f := byKey[rel]
+		if ftpclient.IsProtected(rel, cfg.Sync.Protect) || ftpclient.IsProtected(rel, srv.Protect) {
 			skipped++
 			continue
 		}
-		f := byRel[rel]
 		tasks = append(tasks, ftpclient.UploadTask{LocalPath: f.AbsPath, RelPath: rel, Hash: current[rel]})
 	}
 
@@ -250,7 +254,9 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 
 	if flagDryRun {
 		for _, rel := range toUpload {
-			if ftpclient.IsProtected(rel, cfg.Sync.Protect) {
+			f := byKey[rel]
+			if ftpclient.IsProtected(rel, cfg.Sync.Protect) || ftpclient.IsProtected(f.RelPath, cfg.Sync.Protect) ||
+				ftpclient.IsProtected(rel, srv.Protect) || ftpclient.IsProtected(f.RelPath, srv.Protect) {
 				fmt.Printf(lang.L.SyncProtectedLabel, rel)
 			} else {
 				fmt.Printf(lang.L.SyncUploadLabel, rel)
@@ -279,7 +285,7 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 
 	// Korunan dosyaları logla
 	for _, rel := range toUpload {
-		if ftpclient.IsProtected(rel, cfg.Sync.Protect) {
+		if ftpclient.IsProtected(rel, cfg.Sync.Protect) || ftpclient.IsProtected(rel, srv.Protect) {
 			fmt.Printf(lang.L.SyncProtectedLabel, rel)
 		}
 	}
@@ -406,7 +412,9 @@ func mapKeys(m map[string]string) []string {
 // Eşleşen dosyalar state'e "zaten senkron" olarak kaydedilir, yüklenmez.
 // Farklı boyuttaki veya sunucuda olmayan dosyalar yükleme listesine girer.
 // Sunucuya bağlanılamazsa güvenli taraf: tüm dosyalar yüklenir.
-func smartFirstSync(srv config.Server, current map[string]string, byRel map[string]scanner.File, st *state.State, cfg *config.Config) []string {
+// smartFirstSync stateKey'leri doğrudan FTP listeleme sonuçlarıyla karşılaştırır.
+// stateKey = srcKey(source.Remote, relPath) olduğundan FTP göreli yoluyla birebir eşleşir.
+func smartFirstSync(srv config.Server, current map[string]string, byKey map[string]scanner.File, st *state.State, cfg *config.Config) []string {
 	fmt.Println(lang.L.SmartSyncScanning)
 
 	client, err := ftpclient.Connect(srv)
@@ -427,28 +435,27 @@ func smartFirstSync(srv config.Server, current map[string]string, byRel map[stri
 	var toUpload []string
 	alreadySynced := 0
 
-	for rel, hash := range current {
-		f := byRel[rel]
+	for key, hash := range current {
+		f := byKey[key]
 
 		localInfo, err := os.Stat(f.AbsPath)
 		if err != nil {
-			toUpload = append(toUpload, rel)
+			toUpload = append(toUpload, key)
 			continue
 		}
 		localSize := uint64(localInfo.Size())
 
-		remoteSize, exists := remoteFiles[rel]
+		remoteSize, exists := remoteFiles[key]
 		if !exists || remoteSize != localSize {
-			toUpload = append(toUpload, rel)
+			toUpload = append(toUpload, key)
 		} else {
 			// Boyut eşleşiyor → zaten güncel, state'e kaydet
-			st.Files[rel] = hash
+			st.Files[key] = hash
 			alreadySynced++
 		}
 	}
 
-	new := len(toUpload)
-	fmt.Printf(lang.L.SmartSyncResultFmt, alreadySynced, new)
+	fmt.Printf(lang.L.SmartSyncResultFmt, alreadySynced, len(toUpload))
 
 	return toUpload
 }

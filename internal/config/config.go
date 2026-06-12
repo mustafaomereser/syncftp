@@ -15,8 +15,20 @@ type Config struct {
 }
 
 type Project struct {
-	Name      string `json:"name"`
-	LocalPath string `json:"local_path"`
+	Name        string `json:"name"`
+	DefaultPath string `json:"default_path,omitempty"` // global varsayılan yerel dizin
+	LocalPath   string `json:"local_path,omitempty"`   // deprecated: geriye dönük uyumluluk
+}
+
+// EffectiveLocalPath global varsayılan yerel dizini döndürür.
+func (p Project) EffectiveLocalPath() string {
+	if p.DefaultPath != "" {
+		return p.DefaultPath
+	}
+	if p.LocalPath != "" {
+		return p.LocalPath
+	}
+	return "."
 }
 
 type Sync struct {
@@ -37,15 +49,24 @@ type Server struct {
 	User           string   `json:"user"`
 	Password       string   `json:"password"`
 	RemotePath     string   `json:"remote_path"`
+	LocalPath      string   `json:"local_path,omitempty"` // per-server yerel dizin; boşsa project.DefaultPath
 	Passive        bool     `json:"passive"`
-	DisableEPSV    bool     `json:"disable_epsv"`    // EPSV'yi kapat, sadece PASV kullan
-	NATWorkaround  bool     `json:"nat_workaround"`  // PASV yanıtındaki IP'yi yoksay, sunucu IP'sini kullan
+	DisableEPSV    bool     `json:"disable_epsv"`
+	NATWorkaround  bool     `json:"nat_workaround"`
 	Enabled        bool     `json:"enabled"`
-	MaxConnections int      `json:"max_connections"` // default 1
-	MaxRetries     int      `json:"max_retries"`     // default 2
+	MaxConnections int      `json:"max_connections"`
+	MaxRetries     int      `json:"max_retries"`
 	Include        []string `json:"include"`
 	Exclude        []string `json:"exclude"`
 	Protect        []string `json:"protect"`
+}
+
+// EffectiveLocalPath sunucunun kendi LocalPath'i varsa onu, yoksa proje defaultunu döndürür.
+func (s Server) EffectiveLocalPath(proj Project) string {
+	if s.LocalPath != "" {
+		return s.LocalPath
+	}
+	return proj.EffectiveLocalPath()
 }
 
 // Load reads syncftp.json and returns the parsed config.
@@ -66,9 +87,11 @@ func Load(dir string) (*Config, error) {
 		}
 	}
 
-	if cfg.Project.LocalPath == "" {
-		cfg.Project.LocalPath = "."
+	// Eski project.local_path → default_path göçü
+	if cfg.Project.DefaultPath == "" && cfg.Project.LocalPath != "" {
+		cfg.Project.DefaultPath = cfg.Project.LocalPath
 	}
+	cfg.Project.LocalPath = ""
 
 	return &cfg, nil
 }

@@ -419,7 +419,7 @@ Remote server commands:
   pwd                     Show remote directory
 
 Sync:
-  status                  Show local changes
+  status                  Show local changes per server
   sync [--all] [--full] [--dry-run] [--server name]   Upload to FTP
   freeze [--server name]  Manage freeze list — mark files to never upload
 
@@ -428,9 +428,11 @@ Server management:
   server [name]           Select / connect to server
   config                  Add, edit or delete servers — full TUI field navigator
                             ↑↓ = select field  |  Enter = edit  |  Space = toggle bool
-                            b = local file browser for include / exclude / protect
+                            b = local file browser for include / exclude / protect / local dir
                             s = save  |  q = cancel
-                            Top row: Global Settings (protect, include, exclude, ignore_files)
+                            Global Settings → Default dir: project-wide local directory
+                            Server edit → Local dir: per-server local directory
+                              "(project default)" = inherits from global Default dir
 
 Other:
   lang [en|tr]            Show or change display language
@@ -698,7 +700,9 @@ Sunucu yönetimi:
                             ↑↓ = alan seç  |  Enter = düzenle  |  Space = bool toggle
                             b = include / exclude / protect için yerel dosya tarayıcısı
                             s = kaydet  |  q = iptal
-                            İlk satır: Global Ayarlar (protect, include, exclude, ignore_files)
+                            Global Ayarlar → Varsayılan dizin: proje geneli yerel dizin
+                            Sunucu düzenle → Yerel dizin: sunucuya özel yerel dizin
+                              "(project default)" = global varsayılan dizinden miras alır
 
 Diğer:
   lang [en|tr]            Dili göster veya değiştir

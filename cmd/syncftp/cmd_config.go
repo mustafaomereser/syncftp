@@ -230,7 +230,7 @@ func runServerMgr(configDir string) error {
 		if err != nil {
 			return err
 		}
-		projectDir := filepath.Join(configDir, cfg.Project.LocalPath)
+		projectDir := configDir
 
 		p := tea.NewProgram(newServerMgrModel(cfg.Servers), tea.WithAltScreen())
 		raw, err := p.Run()
@@ -244,7 +244,7 @@ func runServerMgr(configDir string) error {
 
 		switch fm.action {
 		case "edit-global":
-			if runGlobalEdit(&cfg.Sync, projectDir) {
+			if runGlobalEdit(&cfg.Project, &cfg.Sync, projectDir) {
 				if e := config.Save(configDir, cfg); e != nil {
 					fmt.Printf("Kayıt hatası: %v\n", e)
 				}
@@ -313,6 +313,7 @@ var serverFields = []srvField{
 	{"Kullanıcı", "text", ""},
 	{"Şifre", "pass", ""},
 	{"Uzak dizin", "text", ""},
+	{"Yerel dizin", "localdir", ""},
 	{"Aktif", "bool", ""},
 	{"Passive mode", "bool", ""},
 	{"EPSV devre dışı", "bool", ""},
@@ -359,22 +360,27 @@ func (m *serverEditModel) getDisplayValue(i int) string {
 	case 5:
 		return m.srv.RemotePath
 	case 6:
-		return boolIcon(m.srv.Enabled)
+		if m.srv.LocalPath != "" {
+			return m.srv.LocalPath
+		}
+		return "(project default)"
 	case 7:
-		return boolIcon(m.srv.Passive)
+		return boolIcon(m.srv.Enabled)
 	case 8:
-		return boolIcon(m.srv.DisableEPSV)
+		return boolIcon(m.srv.Passive)
 	case 9:
-		return boolIcon(m.srv.NATWorkaround)
+		return boolIcon(m.srv.DisableEPSV)
 	case 10:
-		return strconv.Itoa(m.srv.MaxConnections)
+		return boolIcon(m.srv.NATWorkaround)
 	case 11:
-		return strconv.Itoa(m.srv.MaxRetries)
+		return strconv.Itoa(m.srv.MaxConnections)
 	case 12:
-		return listDisplay(m.srv.Include)
+		return strconv.Itoa(m.srv.MaxRetries)
 	case 13:
-		return listDisplay(m.srv.Exclude)
+		return listDisplay(m.srv.Include)
 	case 14:
+		return listDisplay(m.srv.Exclude)
+	case 15:
 		return listDisplay(m.srv.Protect)
 	}
 	return ""
@@ -394,15 +400,17 @@ func (m *serverEditModel) getEditableValue(i int) string {
 		return m.srv.Password
 	case 5:
 		return m.srv.RemotePath
-	case 10:
-		return strconv.Itoa(m.srv.MaxConnections)
+	case 6:
+		return m.srv.LocalPath
 	case 11:
-		return strconv.Itoa(m.srv.MaxRetries)
+		return strconv.Itoa(m.srv.MaxConnections)
 	case 12:
-		return strings.Join(m.srv.Include, ", ")
+		return strconv.Itoa(m.srv.MaxRetries)
 	case 13:
-		return strings.Join(m.srv.Exclude, ", ")
+		return strings.Join(m.srv.Include, ", ")
 	case 14:
+		return strings.Join(m.srv.Exclude, ", ")
+	case 15:
 		return strings.Join(m.srv.Protect, ", ")
 	}
 	return ""
@@ -424,32 +432,34 @@ func (m *serverEditModel) applyValue(i int, val string) {
 		m.srv.Password = val
 	case 5:
 		m.srv.RemotePath = val
-	case 10:
+	case 6:
+		m.srv.LocalPath = val
+	case 11:
 		if n, e := strconv.Atoi(val); e == nil {
 			m.srv.MaxConnections = n
 		}
-	case 11:
+	case 12:
 		if n, e := strconv.Atoi(val); e == nil {
 			m.srv.MaxRetries = n
 		}
-	case 12:
-		m.srv.Include = parseList(val)
 	case 13:
-		m.srv.Exclude = parseList(val)
+		m.srv.Include = parseList(val)
 	case 14:
+		m.srv.Exclude = parseList(val)
+	case 15:
 		m.srv.Protect = parseList(val)
 	}
 }
 
 func (m *serverEditModel) toggleBool(i int) {
 	switch i {
-	case 6:
-		m.srv.Enabled = !m.srv.Enabled
 	case 7:
-		m.srv.Passive = !m.srv.Passive
+		m.srv.Enabled = !m.srv.Enabled
 	case 8:
-		m.srv.DisableEPSV = !m.srv.DisableEPSV
+		m.srv.Passive = !m.srv.Passive
 	case 9:
+		m.srv.DisableEPSV = !m.srv.DisableEPSV
+	case 10:
 		m.srv.NATWorkaround = !m.srv.NATWorkaround
 	}
 }
@@ -515,10 +525,6 @@ func (m serverEditModel) handleNavKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch f.kind {
 		case "bool":
 			m.toggleBool(m.cursor)
-		case "list":
-			// Enter → text edit (virgülle ayır)
-			m.editBuf = m.getEditableValue(m.cursor)
-			m.editing = true
 		default:
 			m.editBuf = m.getEditableValue(m.cursor)
 			m.editing = true
@@ -528,6 +534,10 @@ func (m serverEditModel) handleNavKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.toggleBool(m.cursor)
 		}
 	case "b", "B":
+		if f.kind == "localdir" && m.projectDir != "" {
+			m.action = "browse-localpath"
+			return m, tea.Quit
+		}
 		if f.kind == "list" && m.projectDir != "" {
 			m.browseFor = f.browseID
 			m.action = "browse"
@@ -569,6 +579,11 @@ func (m serverEditModel) View() string {
 					valStr = cfgEnabled.Render(raw)
 				} else {
 					valStr = cfgDisabled.Render(raw)
+				}
+			case "localdir":
+				valStr = cfgValue.Render(raw)
+				if m.projectDir != "" {
+					valStr += "  " + cfgBrowse.Render("[b=gözat]")
 				}
 			case "list":
 				valStr = cfgValue.Render(raw)
@@ -617,13 +632,13 @@ func runServerEdit(srv *config.Server, projectDir string, isNew bool) (saved boo
 			switch fm.browseFor {
 			case "include":
 				current = srv.Include
-				cursor = 12
+				cursor = 13
 			case "exclude":
 				current = srv.Exclude
-				cursor = 13
+				cursor = 14
 			case "protect":
 				current = srv.Protect
-				cursor = 14
+				cursor = 15
 			}
 			selected, ok := runLocalBrowser(projectDir, current)
 			if ok {
@@ -635,6 +650,13 @@ func runServerEdit(srv *config.Server, projectDir string, isNew bool) (saved boo
 				case "protect":
 					srv.Protect = selected
 				}
+			}
+		case "browse-localpath":
+			*srv = fm.srv
+			cursor = 6
+			selected, ok := runLocalDirPicker(projectDir)
+			if ok {
+				srv.LocalPath = selected
 			}
 		}
 	}
@@ -651,6 +673,7 @@ type globalField struct {
 }
 
 var globalFields = []globalField{
+	{"Varsayılan dizin", "localdir", ""},
 	{"Protect", "list", "protect"},
 	{"Include (global)", "list", "include"},
 	{"Exclude (global)", "list", "exclude"},
@@ -658,30 +681,36 @@ var globalFields = []globalField{
 }
 
 type globalEditModel struct {
+	project    config.Project
 	sync       config.Sync
 	projectDir string
 	cursor     int
 	editing    bool
 	editBuf    string
-	action     string
+	action     string // "save","cancel","browse","browse-localpath"
 	browseFor  string
 	width      int
 	height     int
 }
 
-func newGlobalEditModel(s config.Sync, projectDir string, cursor int) globalEditModel {
-	return globalEditModel{sync: s, projectDir: projectDir, cursor: cursor}
+func newGlobalEditModel(proj config.Project, s config.Sync, projectDir string, cursor int) globalEditModel {
+	return globalEditModel{project: proj, sync: s, projectDir: projectDir, cursor: cursor}
 }
 
 func (m *globalEditModel) getDisplayValue(i int) string {
 	switch i {
 	case 0:
-		return listDisplay(m.sync.Protect)
+		if m.project.DefaultPath != "" {
+			return m.project.DefaultPath
+		}
+		return "(boş = çalışma dizini)"
 	case 1:
-		return listDisplay(m.sync.Include)
+		return listDisplay(m.sync.Protect)
 	case 2:
-		return listDisplay(m.sync.Exclude)
+		return listDisplay(m.sync.Include)
 	case 3:
+		return listDisplay(m.sync.Exclude)
+	case 4:
 		if len(m.sync.IgnoreFiles) == 0 {
 			return "(varsayılan: .gitignore + syncftp.ignore)"
 		}
@@ -693,12 +722,14 @@ func (m *globalEditModel) getDisplayValue(i int) string {
 func (m *globalEditModel) getEditableValue(i int) string {
 	switch i {
 	case 0:
-		return strings.Join(m.sync.Protect, ", ")
+		return m.project.DefaultPath
 	case 1:
-		return strings.Join(m.sync.Include, ", ")
+		return strings.Join(m.sync.Protect, ", ")
 	case 2:
-		return strings.Join(m.sync.Exclude, ", ")
+		return strings.Join(m.sync.Include, ", ")
 	case 3:
+		return strings.Join(m.sync.Exclude, ", ")
+	case 4:
 		return strings.Join(m.sync.IgnoreFiles, ", ")
 	}
 	return ""
@@ -707,12 +738,14 @@ func (m *globalEditModel) getEditableValue(i int) string {
 func (m *globalEditModel) applyValue(i int, val string) {
 	switch i {
 	case 0:
-		m.sync.Protect = parseList(val)
+		m.project.DefaultPath = val
 	case 1:
-		m.sync.Include = parseList(val)
+		m.sync.Protect = parseList(val)
 	case 2:
-		m.sync.Exclude = parseList(val)
+		m.sync.Include = parseList(val)
 	case 3:
+		m.sync.Exclude = parseList(val)
+	case 4:
 		m.sync.IgnoreFiles = parseList(val)
 	}
 }
@@ -767,8 +800,13 @@ func (m globalEditModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.editBuf = m.getEditableValue(m.cursor)
 			m.editing = true
 		case "b", "B":
-			if globalFields[m.cursor].browseID != "" {
-				m.browseFor = globalFields[m.cursor].browseID
+			f := globalFields[m.cursor]
+			if f.kind == "localdir" && m.projectDir != "" {
+				m.action = "browse-localpath"
+				return m, tea.Quit
+			}
+			if f.browseID != "" {
+				m.browseFor = f.browseID
 				m.action = "browse"
 				return m, tea.Quit
 			}
@@ -786,7 +824,7 @@ func (m globalEditModel) View() string {
 	var b strings.Builder
 	b.WriteString("\n")
 	b.WriteString(cfgTitle.Render("⚙  Global Ayarlar") + "\n")
-	b.WriteString(cfgHint.Render("  ↑↓ gezin  |  Enter = düzenle (virgülle ayır)  |  b = yerel dosya gözat  |  s = kaydet  |  q = iptal") + "\n")
+	b.WriteString(cfgHint.Render("  ↑↓ gezin  |  Enter = düzenle/aç  |  b = yerel dosya gözat  |  s = kaydet  |  q = iptal") + "\n")
 	b.WriteString(div + "\n\n")
 
 	for i, f := range globalFields {
@@ -797,7 +835,9 @@ func (m globalEditModel) View() string {
 		} else {
 			raw := m.getDisplayValue(i)
 			valStr = cfgValue.Render(raw)
-			if f.browseID != "" && m.projectDir != "" {
+			if f.kind == "localdir" && m.projectDir != "" {
+				valStr += "  " + cfgBrowse.Render("[b=gözat]")
+			} else if f.browseID != "" && m.projectDir != "" {
 				valStr += "  " + cfgBrowse.Render("[b=gözat]")
 			}
 		}
@@ -814,37 +854,48 @@ func (m globalEditModel) View() string {
 	return b.String()
 }
 
-func runGlobalEdit(s *config.Sync, projectDir string) bool {
+func runGlobalEdit(proj *config.Project, s *config.Sync, projectDir string) bool {
 	cursor := 0
+	changed := false
 	for {
-		m := newGlobalEditModel(*s, projectDir, cursor)
+		m := newGlobalEditModel(*proj, *s, projectDir, cursor)
 		p := tea.NewProgram(m, tea.WithAltScreen())
 		raw, err := p.Run()
 		if err != nil {
-			return false
+			return changed
 		}
 		fm := raw.(globalEditModel)
 		cursor = fm.cursor
 
 		switch fm.action {
 		case "save":
+			*proj = fm.project
 			*s = fm.sync
 			return true
 		case "cancel":
-			return false
+			return changed
+		case "browse-localpath":
+			*proj = fm.project
+			*s = fm.sync
+			selected, ok := runLocalDirPicker(projectDir)
+			if ok {
+				proj.DefaultPath = selected
+				changed = true
+			}
+			cursor = 0
 		case "browse":
 			*s = fm.sync
 			var current []string
 			switch fm.browseFor {
 			case "protect":
 				current = s.Protect
-				cursor = 0
+				cursor = 1
 			case "include":
 				current = s.Include
-				cursor = 1
+				cursor = 2
 			case "exclude":
 				current = s.Exclude
-				cursor = 2
+				cursor = 3
 			}
 			selected, ok := runLocalBrowser(projectDir, current)
 			if ok {
@@ -859,6 +910,28 @@ func runGlobalEdit(s *config.Sync, projectDir string) bool {
 			}
 		}
 	}
+}
+
+// runLocalDirPicker yerel dosya sisteminde tek bir dizin seçtirir.
+// Döner: seçilen dizinin projectDir'e göreceli yolu.
+func runLocalDirPicker(projectDir string) (string, bool) {
+	m := newLocalBrowserModel(projectDir, nil)
+	m.dirPickMode = true
+	p := tea.NewProgram(m, tea.WithAltScreen())
+	raw, err := p.Run()
+	if err != nil {
+		return "", false
+	}
+	fm := raw.(localBrowserModel)
+	if fm.quit || !fm.done {
+		return "", false
+	}
+	// Seçilen dizin = cwd (not relative)
+	rel, err := filepath.Rel(projectDir, fm.cwd)
+	if err != nil {
+		return fm.cwd, true
+	}
+	return filepath.ToSlash(rel), true
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -881,6 +954,7 @@ type localBrowserModel struct {
 	cursor     int
 	done       bool
 	quit       bool
+	dirPickMode bool // true = sadece dizin seç (s/Enter ile cwd döner)
 	width      int
 	height     int
 }
@@ -960,6 +1034,9 @@ func (m localBrowserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cwd = filepath.Dir(m.cwd)
 				m.entries = m.loadEntries()
 				m.cursor = 0
+			} else if m.dirPickMode {
+				m.quit = true
+				return m, tea.Quit
 			}
 		case "up", "k":
 			if m.cursor > 0 {
@@ -970,6 +1047,21 @@ func (m localBrowserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 		case "enter", "right", "l":
+			if m.dirPickMode {
+				// dirPickMode: Enter = bu dizini seç (içine girme); dizin üzerindeyse gir
+				if len(m.entries) > 0 {
+					e := m.entries[m.cursor]
+					if e.isDir {
+						m.cwd = filepath.Join(m.cwd, e.name)
+						m.entries = m.loadEntries()
+						m.cursor = 0
+						break
+					}
+				}
+				// Dosya veya boş = geçerli cwd'yi seç
+				m.done = true
+				return m, tea.Quit
+			}
 			if len(m.entries) == 0 {
 				break
 			}
@@ -982,6 +1074,11 @@ func (m localBrowserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.marked[e.rel] = !m.marked[e.rel]
 			}
 		case " ":
+			if m.dirPickMode {
+				// dirPickMode'da space = bu dizini seç
+				m.done = true
+				return m, tea.Quit
+			}
 			if len(m.entries) > 0 {
 				e := m.entries[m.cursor]
 				m.marked[e.rel] = !m.marked[e.rel]
@@ -990,15 +1087,17 @@ func (m localBrowserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "a", "A":
-			allMarked := true
-			for _, e := range m.entries {
-				if !m.marked[e.rel] {
-					allMarked = false
-					break
+			if !m.dirPickMode {
+				allMarked := true
+				for _, e := range m.entries {
+					if !m.marked[e.rel] {
+						allMarked = false
+						break
+					}
 				}
-			}
-			for _, e := range m.entries {
-				m.marked[e.rel] = !allMarked
+				for _, e := range m.entries {
+					m.marked[e.rel] = !allMarked
+				}
 			}
 		case "s", "S", "d", "D":
 			m.done = true
@@ -1035,7 +1134,11 @@ func (m localBrowserModel) View() string {
 	var b strings.Builder
 	b.WriteString("\n")
 	b.WriteString(cfgTitle.Render("  📁 " + m.relCwd()) + "\n")
-	b.WriteString(cfgHint.Render("  Space=işaretle  |  Enter/→=gir  |  ←/Esc=çık  |  a=tümü  |  s=kaydet  |  q=iptal") + "\n")
+	if m.dirPickMode {
+		b.WriteString(cfgHint.Render("  ↑↓ gezin  |  Enter/→=klasöre gir  |  Space/s=bu dizini seç  |  ←/Esc=çık  |  q=iptal") + "\n")
+	} else {
+		b.WriteString(cfgHint.Render("  Space=işaretle  |  Enter/→=gir  |  ←/Esc=çık  |  a=tümü  |  s=kaydet  |  q=iptal") + "\n")
+	}
 	b.WriteString(div + "\n")
 
 	visRows := h - 7
@@ -1087,7 +1190,11 @@ func (m localBrowserModel) View() string {
 	}
 
 	b.WriteString(div + "\n")
-	b.WriteString(cfgHint.Render(fmt.Sprintf("  ✓ %d işaretli", markedCount)) + "\n")
+	if m.dirPickMode {
+		b.WriteString(cfgHint.Render("  Şu an: "+m.relCwd()+"  |  Space veya s = bu dizini seç") + "\n")
+	} else {
+		b.WriteString(cfgHint.Render(fmt.Sprintf("  ✓ %d işaretli", markedCount)) + "\n")
+	}
 	return b.String()
 }
 

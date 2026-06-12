@@ -51,8 +51,34 @@ Created by `syncftp init`. Stored with permission `600`. Added to `.gitignore` a
 {
   "project": {
     "name": "my-project",
-    "local_path": "."
+    "default_path": "."
   },
+```
+
+> **Multi-source** — to sync multiple local directories in one command, replace `default_path` with `sources`:
+>
+> ```json
+> "project": {
+>   "name": "my-project",
+>   "sources": [
+>     { "local": ".",         "remote": "" },
+>     { "local": "../admin",  "remote": "admin/" },
+>     { "local": "../assets", "remote": "static/img/" }
+>   ]
+> }
+> ```
+> Each source is scanned independently. `remote` is a path prefix appended under the server's `remote_path`. An empty `remote` means files go directly to the FTP root. `default_path` (single string, old name was `local_path`) is kept for backward compatibility — if `sources` is present it takes priority.
+>
+> **Per-server sources** — a server can override the project sources with its own list. Useful when one server deploys only a subset of the project:
+>
+> ```json
+> { "name": "assets-only", "sources": [{ "local": "../assets", "remote": "static/" }], ... }
+> ```
+> If a server has no `sources`, it inherits the project-level sources (or `default_path`).  
+> Sources are managed interactively from `syncftp config` → server edit → **Kaynaklar** field.
+
+```json
+{
   "sync": {
     "protect": [".env", "config/database.php", "storage/"],
     "include": [],
@@ -76,7 +102,8 @@ Created by `syncftp init`. Stored with permission `600`. Added to `.gitignore` a
       "max_retries": 2,
       "include": [],
       "exclude": [],
-      "protect": []
+      "protect": [],
+      "sources": []
     },
     {
       "name": "staging",
@@ -101,12 +128,15 @@ Created by `syncftp init`. Stored with permission `600`. Added to `.gitignore` a
 
 | Field | Default | Description |
 |---|---|---|
-| `project.local_path` | `"."` | Local directory to scan, relative to config file |
-| `sync.protect` | `[]` | Files/dirs that are **never** overwritten on the FTP server |
+| `project.default_path` | `"."` | Single local directory to scan (set via `syncftp init`; ignored when `sources` is set) |
+| `project.local_path` | — | **Deprecated** — old name for `default_path`; auto-migrated on first load |
+| `project.sources` | `[]` | Global multi-source list — each: `{ "local": "dir", "remote": "prefix/" }` |
+| `sync.protect` | `[]` | Files/dirs that are **never** overwritten on the FTP server (all servers) |
 | `sync.include` | `[]` | Global whitelist — sync only these paths (empty = all) |
 | `sync.exclude` | `[]` | Global blacklist — always skip these paths |
 | `sync.ignore_files` | `[]` | Which ignore files to load — empty means both `.gitignore` and `syncftp.ignore` |
 | `first_sync.full` | `false` | `true` = force upload everything on first sync; `false` = smart comparison (recommended) |
+| `server.sources` | `[]` | **Per-server** source override — if set, replaces the global sources for this server only |
 | `server.disable_epsv` | `false` | Disable EPSV, use PASV only — fixes some NAT/firewall setups |
 | `server.nat_workaround` | `false` | Ignore the IP in PASV response, use server host instead |
 | `server.max_connections` | `1` | Parallel FTP connections for this server |
@@ -432,7 +462,28 @@ Inside the interactive shell, use `config` without the `syncftp` prefix.
 | `n` | Add new server |
 | `q` / `Esc` | Close |
 
-The first row opens **Global Settings** (protect, include, exclude, ignore_files). The last row adds a new server.
+The first row opens **Global Settings** (Kaynaklar, protect, include, exclude, ignore_files). The last row adds a new server.
+
+#### Global Settings — Kaynaklar (Sources)
+
+Selecting "Global Ayarlar" and pressing `Enter` on the **Kaynaklar** field opens the source manager TUI:
+
+```
+📂 Proje Kaynakları
+  ↑↓ gezin | Enter/e = düzenle | n = yeni | d = sil | s/q = kaydet & çık
+  ────────────────────────────────────────────────────
+▶ .                             →  (kök)
+  ../admin                      →  admin/
+  ../assets                     →  static/img/
+  + Kaynak ekle
+```
+
+Each source has two fields — press `Enter` to edit inline or `b` to open a local directory browser:
+
+| Field | Description |
+|---|---|
+| **Yerel dizin** | Local path relative to `syncftp.json` — `b` opens a dir picker |
+| **FTP prefix** | Sub-path appended under `server.remote_path` — empty = files go to root |
 
 #### Field navigator (edit screen)
 
@@ -457,7 +508,10 @@ All fields are listed in a single screen. Navigate with arrow keys; no sequentia
   Include           (boş)  [b=gözat]
   Exclude           vendor/  [b=gözat]
   Protect           .env, config/db.php  [b=gözat]
+  Kaynaklar         (project default)  [Enter=yönet]
 ```
+
+The **Kaynaklar** field at the bottom opens the same source manager TUI as in Global Settings. If the server has no sources, it shows `(project default)` and inherits from `project.sources` / `project.default_path`. Once you add sources, only those directories are scanned and uploaded for this server.
 
 | Key | Action |
 |---|---|
