@@ -17,8 +17,6 @@ import (
 
 var (
 	styleCursor   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
-	styleDir      = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("4"))
-	styleFile     = lipgloss.NewStyle().Foreground(lipgloss.Color("7"))
 	styleHeader   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("5"))
 	styleHint     = lipgloss.NewStyle().Faint(true)
 	styleSelected = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("2"))
@@ -27,7 +25,6 @@ var (
 	styleMarked   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("3"))
 	styleSearch   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11"))
 	stylePreview  = lipgloss.NewStyle().Faint(true)
-	stylePanelDiv = lipgloss.NewStyle().Faint(true).Foreground(lipgloss.Color("8"))
 )
 
 // ── sonuç ─────────────────────────────────────────────────────────────────────
@@ -110,6 +107,13 @@ type browserModel struct {
 	previewLoading bool
 	previewFile    string
 
+	// Tam ekran önizleme modu
+	previewMode   bool
+	previewLines  []string
+	previewScroll int
+	previewName   string
+	previewMeta   string // "4.2 KB  2026-06-11 14:30"
+
 	// Mod: klasör seçme (taşıma için)
 	pickDirMode bool
 }
@@ -184,7 +188,7 @@ func (m browserModel) fetchChildCounts(entries []sortedEntry) tea.Cmd {
 func (m browserModel) fetchPreview(filePath string) tea.Cmd {
 	client := m.client
 	return func() tea.Msg {
-		data, err := client.Preview(filePath, 4096)
+		data, err := client.Preview(filePath, 256*1024)
 		if err != nil {
 			return previewLoadedMsg{"(önizleme alınamadı)"}
 		}
@@ -285,6 +289,11 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case previewLoadedMsg:
 		m.previewLoading = false
 		m.preview = msg.content
+		m.previewLines = strings.Split(msg.content, "\n")
+		// split sondaki boş satırı temizle
+		if len(m.previewLines) > 0 && m.previewLines[len(m.previewLines)-1] == "" {
+			m.previewLines = m.previewLines[:len(m.previewLines)-1]
+		}
 
 	case recursiveSearchMsg:
 		m.recursiveLoading = false
@@ -309,6 +318,48 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 			break
+		}
+
+		// Tam ekran önizleme modu — tüm tuşlar burada tüketilir
+		if m.previewMode {
+			previewRows := m.height - 6
+			if previewRows < 2 {
+				previewRows = 2
+			}
+			maxScroll := len(m.previewLines) - previewRows
+			if maxScroll < 0 {
+				maxScroll = 0
+			}
+			switch msg.String() {
+			case "ctrl+c":
+				m.result = &BrowserResult{CWD: m.cwd, Quit: true}
+				return m, tea.Quit
+			case "esc", "q", "Q", "left", "h":
+				m.previewMode = false
+			case "up", "k":
+				if m.previewScroll > 0 {
+					m.previewScroll--
+				}
+			case "down", "j":
+				if m.previewScroll < maxScroll {
+					m.previewScroll++
+				}
+			case "pgup":
+				m.previewScroll -= previewRows - 2
+				if m.previewScroll < 0 {
+					m.previewScroll = 0
+				}
+			case "pgdown":
+				m.previewScroll += previewRows - 2
+				if m.previewScroll > maxScroll {
+					m.previewScroll = maxScroll
+				}
+			case "g":
+				m.previewScroll = 0
+			case "G":
+				m.previewScroll = maxScroll
+			}
+			return m, nil
 		}
 
 		// Arama modu — tüm tuşlar burada tüketilir, outer switch'e düşmez
@@ -411,9 +462,6 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				break // sanal giriş — sağ ok'ta bir şey yapma
 			}
 			if e.entry.Type == goftp.EntryTypeFolder {
-				if m.pickDirMode {
-					// Klasör seç modunda → sağ ok klasöre girer
-				}
 				dirPath := path.Join(m.cwd, e.entry.Name)
 				if e.dir != "" {
 					dirPath = path.Join(e.dir, e.entry.Name)
@@ -427,7 +475,20 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.searchText = ""
 				return m, m.fetchEntries()
 			}
-			return m, m.maybeLoadPreview()
+			// Dosya: tam ekran önizleme moduna geç
+			fullPath := m.entryFullPath(e)
+			m.previewMode = true
+			m.previewScroll = 0
+			m.previewName = e.entry.Name
+			m.previewMeta = formatSize(e.entry.Size) + "   " + e.entry.Time.Format("2006-01-02 15:04")
+			if fullPath != m.previewFile {
+				m.previewFile = fullPath
+				m.previewLoading = true
+				m.preview = ""
+				m.previewLines = nil
+				return m, m.fetchPreview(fullPath)
+			}
+			return m, nil
 
 		case "enter":
 			vis := m.visible()
@@ -557,25 +618,6 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// maybeLoadPreview dosya üzerindeyse önizleme yükler.
-func (m browserModel) maybeLoadPreview() tea.Cmd {
-	vis := m.visible()
-	if len(vis) == 0 || m.cursor >= len(vis) {
-		return nil
-	}
-	e := vis[m.cursor]
-	if e.selectMe || e.entry == nil || e.entry.Type == goftp.EntryTypeFolder {
-		return nil
-	}
-	fullPath := path.Join(m.cwd, e.entry.Name)
-	if fullPath == m.previewFile {
-		return nil // zaten yüklü
-	}
-	m.previewFile = fullPath
-	m.previewLoading = true
-	m.preview = ""
-	return m.fetchPreview(fullPath)
-}
 
 func (m browserModel) markedList() []string {
 	var out []string
@@ -602,7 +644,6 @@ func (m browserModel) goUp() (tea.Model, tea.Cmd) {
 // ── View ──────────────────────────────────────────────────────────────────────
 
 func (m browserModel) View() string {
-	vis := m.visible()
 	w := m.width
 	if w < 40 {
 		w = 80
@@ -612,13 +653,13 @@ func (m browserModel) View() string {
 		h = 24
 	}
 
-	showPreview := w >= 120
-	listW := w
-	previewW := 0
-	if showPreview {
-		listW = w * 55 / 100
-		previewW = w - listW - 2
+	// Tam ekran önizleme modu
+	if m.previewMode {
+		return m.viewPreview(w, h)
 	}
+
+	vis := m.visible()
+	listW := w
 
 	// ── kolon genişlikleri ──
 	// Satır düzeni (görsel kolon sayısı):
@@ -811,22 +852,7 @@ func (m browserModel) View() string {
 		}
 	}
 
-	// ── önizleme paneli ──
-	var body string
-	if showPreview {
-		listPane := lipgloss.NewStyle().Width(listW).Render(listBuf.String())
-		prevContent := m.buildPreviewText(previewW-2, visibleRows+2)
-		prevPane := lipgloss.NewStyle().
-			Width(previewW).
-			PaddingLeft(1).
-			BorderLeft(true).
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("8")).
-			Render(prevContent)
-		body = lipgloss.JoinHorizontal(lipgloss.Top, listPane, prevPane)
-	} else {
-		body = listBuf.String()
-	}
+	body := listBuf.String()
 
 	// ── alt bilgi ──
 	nDirs, nFiles := 0, 0
@@ -851,65 +877,70 @@ func (m browserModel) View() string {
 	return "\n" + header + "\n" + hintLine + "\n" + divider + "\n" + body + "\n" + footer + "\n"
 }
 
-// buildPreviewText önizleme paneli içeriğini tek string olarak döner.
-func (m browserModel) buildPreviewText(w, maxLines int) string {
-	vis := m.visible()
-	if len(vis) == 0 || m.cursor >= len(vis) {
-		return styleHint.Render("(seçili öğe yok)")
-	}
-	e := vis[m.cursor]
+// viewPreview tam ekran önizleme görünümünü döner.
+func (m browserModel) viewPreview(w, h int) string {
+	sep := styleHint.Render("  |  ")
+	divider := styleHint.Render(strings.Repeat("─", w))
 
-	// selectMe sanal girişi — entry nil, önizleme yok
-	if e.selectMe {
-		return styleHint.Render("(hedef dizin seçmek için Enter)")
-	}
-
-	var b strings.Builder
-	b.WriteString(styleHeader.Render(truncatePad(e.entry.Name, w)) + "\n")
-
-	if e.entry.Type == goftp.EntryTypeFolder {
-		b.WriteString(styleHint.Render("(klasör)") + "\n")
-		if count, ok := m.childCounts[e.entry.Name]; ok {
-			switch count {
-			case -1:
-				b.WriteString(styleMeta.Render("çok boyutlu") + "\n")
-			case -2:
-				b.WriteString(styleMeta.Render("okunamadı") + "\n")
-			default:
-				b.WriteString(styleMeta.Render(fmt.Sprintf("%d öğe", count)) + "\n")
-			}
-		}
-		b.WriteString(styleMeta.Render(e.entry.Time.Format("2006-01-02 15:04")) + "\n")
-		return b.String()
-	}
-
-	b.WriteString(styleMeta.Render(formatSize(e.entry.Size)+"  "+e.entry.Time.Format("2006-01-02 15:04")) + "\n")
-	b.WriteString(styleHint.Render(strings.Repeat("─", w)) + "\n")
+	header := styleHeader.Render("  📄 "+m.previewName) +
+		"   " + styleMeta.Render(m.previewMeta)
 
 	if m.previewLoading {
-		b.WriteString(styleHint.Render("yükleniyor...") + "\n")
-		return b.String()
-	}
-	if m.preview == "" {
-		return b.String()
+		hint := styleHint.Render("  ESC/q geri")
+		return "\n" + header + "\n" + divider + "\n\n" +
+			styleHint.Render("  Yükleniyor...") + "\n\n" +
+			divider + "\n" + hint + "\n"
 	}
 
-	content := m.preview
-	lineCount := 0
-	for _, l := range strings.Split(content, "\n") {
-		if lineCount >= maxLines-3 {
-			b.WriteString(styleHint.Render("...") + "\n")
-			break
-		}
-		// Görsel genişliği aş olan satırları kes
-		runes := []rune(l)
-		if len(runes) > w {
-			runes = runes[:w]
-		}
-		b.WriteString(stylePreview.Render(string(runes)) + "\n")
-		lineCount++
+	// Görünür satır sayısı: \n(1) header(1) divider(1) body hint(1) divider(1) hint(1) = 6 sabit
+	previewRows := h - 6
+	if previewRows < 2 {
+		previewRows = 2
 	}
-	return b.String()
+
+	lines := m.previewLines
+	total := len(lines)
+	maxScroll := total - previewRows
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	scroll := m.previewScroll
+	if scroll > maxScroll {
+		scroll = maxScroll
+	}
+	if scroll < 0 {
+		scroll = 0
+	}
+
+	endLine := scroll + previewRows
+	if endLine > total {
+		endLine = total
+	}
+
+	var bodyBuf strings.Builder
+	for _, line := range lines[scroll:endLine] {
+		runes := []rune(line)
+		if len(runes) > w-2 && w > 4 {
+			runes = runes[:w-2]
+		}
+		bodyBuf.WriteString("  " + stylePreview.Render(string(runes)) + "\n")
+	}
+
+	var posText string
+	if total == 0 {
+		posText = "(boş dosya)"
+	} else {
+		posText = fmt.Sprintf("%d-%d / %d satır", scroll+1, endLine, total)
+	}
+
+	hint := styleHint.Render("  ESC/q geri") +
+		sep + styleHint.Render("↑↓ kaydır") +
+		sep + styleHint.Render("PgUp/PgDn") +
+		sep + styleHint.Render("g başa  G sona") +
+		"   " + styleMeta.Render(posText)
+
+	return "\n" + header + "\n" + divider + "\n" +
+		bodyBuf.String() + divider + "\n" + hint + "\n"
 }
 
 // isConnectionError bağlantı protokolünün bozulduğunu gösteren hataları tanır.
