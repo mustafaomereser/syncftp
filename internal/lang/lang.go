@@ -1,6 +1,10 @@
 package lang
 
-import "os"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+)
 
 // StringSet holds all user-visible strings for one locale.
 type StringSet struct {
@@ -215,6 +219,13 @@ type StringSet struct {
 	RemoteListErr       string // "%s  ! listelenemedi: %v\n"
 	RemoteNoServerSel   string // "sunucu seçilmedi"
 
+	// ── lang command ─────────────────────────────────────────────────────────
+	LangCurrentFmt  string // "Language: %s\n"
+	LangSwitchedFmt string // "Language set to: %s\n"
+	LangSavedFmt    string // "Saved to .syncftp/lang\n"
+	LangInvalid     string // "Unknown language: %q — use 'en' or 'tr'\n"
+	LangAlreadyFmt  string // "Already using %s\n"
+
 	// ── cmd_init ─────────────────────────────────────────────────────────────
 	InitWizardTitle     string // "=== syncFTP Kurulum Sihirbazı ==="
 	InitProjectName     string // "Proje adı"
@@ -233,15 +244,48 @@ type StringSet struct {
 	InitIgnoreCreated   string // "✓ syncftp.ignore oluşturuldu (syncftp.json, syncftp.exe eklendi)"
 }
 
-// L is the active locale. Defaults to English; call Init() to apply SYNCFTP_LANG.
+// L is the active locale. Defaults to English.
 var L = En
 
-// Init reads SYNCFTP_LANG and sets L accordingly.
+var currentLang = "en"
+
+// Init reads language preference: .syncftp/lang file, then SYNCFTP_LANG env var.
 // Call once from main() before any output.
-func Init() {
-	if os.Getenv("SYNCFTP_LANG") == "tr" {
-		L = Tr
+func Init(configDir string) {
+	l := "en"
+	// 1. saved preference
+	if data, err := os.ReadFile(filepath.Join(configDir, ".syncftp", "lang")); err == nil {
+		l = strings.TrimSpace(string(data))
 	}
+	// 2. env var overrides file
+	if env := os.Getenv("SYNCFTP_LANG"); env != "" {
+		l = env
+	}
+	Set(l)
+}
+
+// Set switches the active language at runtime.
+func Set(l string) {
+	switch strings.ToLower(l) {
+	case "tr":
+		L = Tr
+		currentLang = "tr"
+	default:
+		L = En
+		currentLang = "en"
+	}
+}
+
+// Current returns the active language code ("en" or "tr").
+func Current() string { return currentLang }
+
+// Save writes the language preference to .syncftp/lang.
+func Save(configDir, l string) error {
+	dir := filepath.Join(configDir, ".syncftp")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, "lang"), []byte(l), 0600)
 }
 
 // ── English ──────────────────────────────────────────────────────────────────
@@ -379,9 +423,17 @@ Server management:
   server [name]           Select / connect to server
 
 Other:
+  lang [en|tr]            Show or change display language
   clear / cls             Clear screen
   help / ?                This help
   exit / quit             Exit`,
+
+	// lang command (En)
+	LangCurrentFmt:  "Language: %s\n",
+	LangSwitchedFmt: "Language set to: %s\n",
+	LangSavedFmt:    "Saved to .syncftp/lang\n",
+	LangInvalid:     "Unknown language: %q — use 'en' or 'tr'\n",
+	LangAlreadyFmt:  "Already using %s\n",
 
 	// cmd_sync
 	SyncCancelled:        "Cancelled.",
@@ -630,9 +682,17 @@ Sunucu yönetimi:
   server [ad]             Sunucu seç / bağlan
 
 Diğer:
+  lang [en|tr]            Dili göster veya değiştir
   clear / cls             Ekranı temizle
   help / ?                Bu yardım
   exit / quit             Çıkış`,
+
+	// lang command (Tr)
+	LangCurrentFmt:  "Dil: %s\n",
+	LangSwitchedFmt: "Dil değiştirildi: %s\n",
+	LangSavedFmt:    ".syncftp/lang dosyasına kaydedildi\n",
+	LangInvalid:     "Bilinmeyen dil: %q — 'en' veya 'tr' kullanın\n",
+	LangAlreadyFmt:  "Zaten %s dili kullanılıyor\n",
 
 	// cmd_sync
 	SyncCancelled:        "İptal.",

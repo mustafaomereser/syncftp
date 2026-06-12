@@ -95,6 +95,9 @@ func runShell() error {
 		case "help", "?":
 			sh.printHelp()
 
+		case "lang":
+			sh.cmdLang(args)
+
 		case "clear", "cls":
 			sh.cmdClear()
 
@@ -200,6 +203,29 @@ func (sh *shellState) ensureConnected() bool {
 }
 
 // ── komutlar ──────────────────────────────────────────────────────────────────
+
+func (sh *shellState) cmdLang(args []string) {
+	if len(args) == 0 {
+		fmt.Printf(lang.L.LangCurrentFmt, lang.Current())
+		return
+	}
+	l := args[0]
+	if l != "en" && l != "tr" {
+		fmt.Printf(lang.L.LangInvalid, l)
+		return
+	}
+	if l == lang.Current() {
+		fmt.Printf(lang.L.LangAlreadyFmt, l)
+		return
+	}
+	lang.Set(l)
+	fmt.Printf(lang.L.LangSwitchedFmt, l)
+	if err := lang.Save(sh.configDir, l); err != nil {
+		fmt.Printf("Warning: could not save: %v\n", err)
+	} else {
+		fmt.Print(lang.L.LangSavedFmt)
+	}
+}
 
 func (sh *shellState) cmdClear() {
 	fmt.Print("\033[H\033[2J\033[3J")

@@ -22,7 +22,8 @@ Sunucu tarafındaki config dosyaları (protect listesi) korunur, üzerine yazıl
 }
 
 func main() {
-	lang.Init()
+	dir, _ := os.Getwd()
+	lang.Init(dir)
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
