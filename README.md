@@ -11,7 +11,7 @@ A Go CLI tool that detects changed files via SHA256 hashing and distributes them
 - **HTTP API** — built-in local API server for PHP/web UI integration (`syncftp serve`)
 - **Interactive shell** — run `syncftp` with no arguments for a full TUI shell with arrow-key file browser, server picker, and action menus
 
-The UI defaults to **English**. Set `SYNCFTP_LANG=tr` to switch to Turkish.
+The UI defaults to **English**. Switch languages with `syncftp lang tr` (or `lang tr` inside the shell). The preference is saved to `.syncftp/lang` and persists across restarts. Use `SYNCFTP_LANG=tr` to override for a single session without saving.
 
 ---
 
@@ -456,6 +456,20 @@ Used by `servers`, `server`, `sync` (multi-select), and `remote` commands.
 - `↑↓` navigate · `Enter` select · `[1-9]` quick select · `q` cancel
 
 For `sync` with multiple servers, a **multi-select picker** is shown (`Space` to toggle, `a` to select all, `Enter` to confirm).
+
+---
+
+### `syncftp lang`
+
+Show or change the display language. The preference is saved to `.syncftp/lang` and persists across restarts.
+
+```bash
+syncftp lang        # show current language
+syncftp lang en     # switch to English
+syncftp lang tr     # switch to Turkish
+```
+
+Inside the interactive shell, use `lang en` / `lang tr` without the `syncftp` prefix.
 
 ---
 
