@@ -322,6 +322,209 @@ func RunMultiPicker(title, subtitle string, items []PickerItem) ([]string, error
 	return fm.result, nil
 }
 
+// ── freeze seçici ─────────────────────────────────────────────────────────────
+
+type freezePickerModel struct {
+	title     string
+	all       []PickerItem
+	filtered  []PickerItem
+	checked   map[string]bool // value → frozen (filter değişse de korunur)
+	search    string
+	cursor    int
+	scroll    int
+	confirmed bool
+	quit      bool
+	width     int
+	height    int
+}
+
+func newFreezePickerModel(title string, items []PickerItem, preSelected map[string]bool) freezePickerModel {
+	checked := make(map[string]bool, len(preSelected))
+	for k, v := range preSelected {
+		checked[k] = v
+	}
+	return freezePickerModel{
+		title:    title,
+		all:      items,
+		filtered: items,
+		checked:  checked,
+	}
+}
+
+func (m *freezePickerModel) applySearch() {
+	if m.search == "" {
+		m.filtered = m.all
+		m.cursor = 0
+		return
+	}
+	q := strings.ToLower(m.search)
+	m.filtered = nil
+	for _, item := range m.all {
+		if strings.Contains(strings.ToLower(item.Label), q) {
+			m.filtered = append(m.filtered, item)
+		}
+	}
+	m.cursor = 0
+	m.scroll = 0
+}
+
+func (m freezePickerModel) Init() tea.Cmd { return nil }
+
+func (m freezePickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "esc", "q", "Q":
+			m.quit = true
+			return m, tea.Quit
+		case "up", "k":
+			if m.cursor > 0 {
+				m.cursor--
+				if m.cursor < m.scroll {
+					m.scroll = m.cursor
+				}
+			}
+		case "down", "j":
+			if m.cursor < len(m.filtered)-1 {
+				m.cursor++
+				rows := m.visibleRows()
+				if m.cursor >= m.scroll+rows {
+					m.scroll = m.cursor - rows + 1
+				}
+			}
+		case " ":
+			if len(m.filtered) > 0 {
+				v := m.filtered[m.cursor].Value
+				m.checked[v] = !m.checked[v]
+			}
+		case "a", "A":
+			// tümünü seç veya kaldır (filtrelenmiş liste üzerinde)
+			allChecked := true
+			for _, item := range m.filtered {
+				if !m.checked[item.Value] {
+					allChecked = false
+					break
+				}
+			}
+			for _, item := range m.filtered {
+				m.checked[item.Value] = !allChecked
+			}
+		case "enter":
+			m.confirmed = true
+			return m, tea.Quit
+		case "backspace":
+			r := []rune(m.search)
+			if len(r) > 0 {
+				m.search = string(r[:len(r)-1])
+				m.applySearch()
+			}
+		default:
+			s := msg.String()
+			for strings.HasPrefix(s, "alt+") {
+				s = strings.TrimPrefix(s, "alt+")
+			}
+			r := []rune(s)
+			if len(r) == 1 && r[0] >= 0x20 && r[0] != 0x7F {
+				m.search += s
+				m.applySearch()
+			}
+		}
+	}
+	return m, nil
+}
+
+func (m freezePickerModel) visibleRows() int {
+	h := m.height
+	if h < 12 {
+		h = 24
+	}
+	return h - 8
+}
+
+func (m freezePickerModel) View() string {
+	var b strings.Builder
+	w := 60
+	if m.width > 10 {
+		w = m.width - 4
+	}
+
+	b.WriteString("\n")
+	b.WriteString(stylePickerTitle.Render("🧊 "+m.title) + "\n")
+
+	// Arama
+	if m.search != "" {
+		b.WriteString(stylePickerSelected.Render(fmt.Sprintf("  🔍 %s", m.search)) +
+			stylePickerDesc.Render(fmt.Sprintf("  (%d match)", len(m.filtered))) + "\n")
+	} else {
+		b.WriteString(stylePickerHint.Render("  Type to filter  |  Space = freeze/unfreeze  |  a = toggle all  |  Enter = save  |  q = cancel") + "\n")
+	}
+	b.WriteString(stylePickerDivider.Render("  "+strings.Repeat("─", w)) + "\n")
+
+	rows := m.visibleRows()
+	end := m.scroll + rows
+	if end > len(m.filtered) {
+		end = len(m.filtered)
+	}
+
+	for i := m.scroll; i < end; i++ {
+		item := m.filtered[i]
+		frozen := m.checked[item.Value]
+		check := styleCheckOff.Render("[ ]")
+		lbl := stylePickerNormal.Render(item.Label)
+		if frozen {
+			check = styleCheckOn.Render("[❄]")
+			lbl = stylePickerSelected.Render(item.Label)
+		}
+		if i == m.cursor {
+			cur := stylePickerCursor.Render("▶")
+			b.WriteString(fmt.Sprintf(" %s %s  %s\n", cur, check, lbl))
+		} else {
+			b.WriteString(fmt.Sprintf("    %s  %s\n", check, lbl))
+		}
+	}
+
+	if len(m.filtered) == 0 {
+		b.WriteString(stylePickerHint.Render("  (no match)") + "\n")
+	}
+
+	// Footer
+	frozenCount := 0
+	for _, v := range m.checked {
+		if v {
+			frozenCount++
+		}
+	}
+	b.WriteString(stylePickerDivider.Render("  "+strings.Repeat("─", w)) + "\n")
+	b.WriteString(stylePickerHint.Render(fmt.Sprintf("  ❄ %d frozen  ·  %d/%d shown", frozenCount, len(m.filtered), len(m.all))) + "\n")
+	return b.String()
+}
+
+// RunFreezeList dosya listesini gösterir, kullanıcı freeze/unfreeze işaretler.
+// preSelected: daha önce freeze edilmiş dosyalar.
+// Döner: seçilen (frozen) value listesi, nil = iptal.
+func RunFreezeList(title string, items []PickerItem, preSelected map[string]bool) ([]string, error) {
+	m := newFreezePickerModel(title, items, preSelected)
+	p := tea.NewProgram(m, tea.WithAltScreen())
+	final, err := p.Run()
+	if err != nil {
+		return nil, err
+	}
+	fm := final.(freezePickerModel)
+	if fm.quit || !fm.confirmed {
+		return nil, nil
+	}
+	var result []string
+	for _, item := range fm.all {
+		if fm.checked[item.Value] {
+			result = append(result, item.Value)
+		}
+	}
+	return result, nil
+}
+
 // ── onay ekranı ───────────────────────────────────────────────────────────────
 
 // RunConfirm evet/hayır seçimi sunar. true = onaylandı.

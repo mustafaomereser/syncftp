@@ -14,6 +14,7 @@ import (
 	"syncftp/internal/config"
 	"syncftp/internal/failed"
 	ftpclient "syncftp/internal/ftp"
+	"syncftp/internal/frozen"
 	"syncftp/internal/ignore"
 	"syncftp/internal/lang"
 	"syncftp/internal/release"
@@ -97,6 +98,9 @@ func runShell() error {
 
 		case "lang":
 			sh.cmdLang(args)
+
+		case "freeze":
+			sh.cmdFreeze(args)
 
 		case "clear", "cls":
 			sh.cmdClear()
@@ -203,6 +207,42 @@ func (sh *shellState) ensureConnected() bool {
 }
 
 // ── komutlar ──────────────────────────────────────────────────────────────────
+
+func (sh *shellState) cmdFreeze(args []string) {
+	if sh.srv == nil {
+		fmt.Println("Not connected. Use 'server <name>' first.")
+		return
+	}
+	items, err := buildFreezeItems(sh.configDir, &sh.cfg)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+	fl, _ := frozen.Load(sh.configDir, sh.srv.Name)
+	var preSelected map[string]bool
+	if fl != nil {
+		preSelected = fl.Files
+	}
+
+	selected, err := RunFreezeList(
+		fmt.Sprintf("Freeze list — %s", sh.srv.Name),
+		items,
+		preSelected,
+	)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+	if selected == nil {
+		fmt.Println("Cancelled.")
+		return
+	}
+	if err := frozen.Save(sh.configDir, sh.srv.Name, selected); err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+	fmt.Printf("✓ %d files frozen for [%s]\n", len(selected), sh.srv.Name)
+}
 
 func (sh *shellState) cmdLang(args []string) {
 	if len(args) == 0 {

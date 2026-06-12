@@ -12,6 +12,7 @@ import (
 	"syncftp/internal/config"
 	"syncftp/internal/failed"
 	ftpclient "syncftp/internal/ftp"
+	"syncftp/internal/frozen"
 	"syncftp/internal/ignore"
 	"syncftp/internal/lang"
 	"syncftp/internal/release"
@@ -201,6 +202,24 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 		}
 
 		toUpload = filterByExclude(toUpload, effectiveExclude)
+	}
+
+	// Frozen dosyaları atla
+	fl, _ := frozen.Load(configDir, srv.Name)
+	if fl != nil && len(fl.Files) > 0 {
+		var unfrozen []string
+		frozenSkipped := 0
+		for _, rel := range toUpload {
+			if frozen.IsFrozen(fl, rel) {
+				frozenSkipped++
+			} else {
+				unfrozen = append(unfrozen, rel)
+			}
+		}
+		if frozenSkipped > 0 {
+			fmt.Printf("  ❄ %d frozen (skipped)\n", frozenSkipped)
+		}
+		toUpload = unfrozen
 	}
 
 	sort.Strings(toUpload)
