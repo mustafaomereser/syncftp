@@ -25,7 +25,7 @@ var (
 	styleMeta     = lipgloss.NewStyle().Faint(true).Foreground(lipgloss.Color("3"))
 	styleMarked   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("3"))
 	styleSearch   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11"))
-	stylePreview  = lipgloss.NewStyle().Faint(true)
+	stylePreview  = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
 )
 
 // ── sonuç ─────────────────────────────────────────────────────────────────────
@@ -319,7 +319,10 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.preview = ""
 		} else {
 			m.preview = msg.content
-			m.previewLines = strings.Split(msg.content, "\n")
+			// \r\n → \n normalize et; aksi halde \r cursor'ı başa çeker, satır kaybolur
+			normalized := strings.ReplaceAll(msg.content, "\r\n", "\n")
+			normalized = strings.ReplaceAll(normalized, "\r", "\n")
+			m.previewLines = strings.Split(normalized, "\n")
 			if len(m.previewLines) > 0 && m.previewLines[len(m.previewLines)-1] == "" {
 				m.previewLines = m.previewLines[:len(m.previewLines)-1]
 			}
@@ -987,6 +990,9 @@ func (m browserModel) viewPreview(w, h int) string {
 
 	var bodyBuf strings.Builder
 	isErrContent := len(lines) > 0 && strings.HasPrefix(lines[0], "⚠")
+	previewColor := "\033[38;5;245m"
+	errColor := "\033[31m"
+	reset := "\033[0m"
 	for _, line := range lines[scroll:endLine] {
 		runes := []rune(line)
 		if len(runes) > w-2 && w > 4 {
@@ -994,9 +1000,9 @@ func (m browserModel) viewPreview(w, h int) string {
 		}
 		s := string(runes)
 		if isErrContent {
-			bodyBuf.WriteString("  " + styleErr.Render(s) + "\n")
+			bodyBuf.WriteString(errColor + "  " + s + reset + "\n")
 		} else {
-			bodyBuf.WriteString("  " + stylePreview.Render(s) + "\n")
+			bodyBuf.WriteString(previewColor + "  " + s + reset + "\n")
 		}
 	}
 
