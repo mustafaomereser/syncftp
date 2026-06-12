@@ -68,6 +68,37 @@ func (p *Pool) Close() {
 	}
 }
 
+// UploadCh distributes tasks across workers and streams results one-by-one via a channel.
+// The channel is closed when all uploads finish.
+func (p *Pool) UploadCh(tasks []UploadTask) <-chan UploadResult {
+	ch := make(chan UploadResult, len(p.clients))
+	if len(tasks) == 0 {
+		close(ch)
+		return ch
+	}
+
+	jobs := make(chan UploadTask, len(tasks))
+	var wg sync.WaitGroup
+	for _, c := range p.clients {
+		wg.Add(1)
+		go func(client *Client) {
+			defer wg.Done()
+			for task := range jobs {
+				ch <- p.uploadWithRetry(client, task)
+			}
+		}(c)
+	}
+	for _, t := range tasks {
+		jobs <- t
+	}
+	close(jobs)
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+	return ch
+}
+
 // Upload distributes tasks across all workers and returns one result per task.
 // Failed uploads are retried up to MaxRetries times on the same worker before
 // being reported as failed.

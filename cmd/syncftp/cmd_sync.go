@@ -20,6 +20,7 @@ import (
 
 var (
 	flagFull        bool
+	flagAll         bool
 	flagServer      string
 	flagDryRun      bool
 	flagInclude     []string
@@ -29,6 +30,7 @@ var (
 
 func init() {
 	syncCmd.Flags().BoolVar(&flagFull, "full", false, "State'i yoksay, tüm dosyaları yükle")
+	syncCmd.Flags().BoolVar(&flagAll, "all", false, "Tüm aktif sunuculara sync et (seçici açılmaz)")
 	syncCmd.Flags().StringVar(&flagServer, "server", "", "Sadece belirtilen sunucuya yükle")
 	syncCmd.Flags().BoolVar(&flagDryRun, "dry-run", false, "Ne yükleneceğini göster, gerçekten yükleme")
 	syncCmd.Flags().StringArrayVar(&flagInclude, "include", nil, "Sadece bu yol/klasörleri sync et (whitelist; JSON include'u geçersiz kılar)")
@@ -84,6 +86,16 @@ func runSync(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("sunucu bulunamadı: %q (mevcut: %v)", flagServer, serverNames(servers))
 		}
 		servers = found
+	} else if !flagAll && len(servers) > 1 {
+		selected, err := pickServerMultiTUI(servers)
+		if err != nil {
+			return err
+		}
+		if selected == nil {
+			fmt.Println("İptal.")
+			return nil
+		}
+		servers = selected
 	}
 
 	if flagDryRun {
@@ -159,16 +171,16 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 		isFirst := !st.FirstSyncDone || flagFull
 
 		if isFirst {
-			label := "İlk sync"
 			if flagFull && st.FirstSyncDone {
-				label = "Tam sync (--full)"
-			}
-			fmt.Printf("  %s\n", label)
-
-			if cfg.FirstSync.Full || flagFull {
+				fmt.Println("  Tam sync (--full): tüm dosyalar yüklenecek")
 				toUpload = mapKeys(current)
 			} else {
-				toUpload = filterByInclude(mapKeys(current), effectiveInclude)
+				// Akıllı ilk sync: sunucudaki dosyaları boyutla karşılaştır
+				toUpload = smartFirstSync(srv, current, byRel, st, cfg)
+			}
+
+			if len(effectiveInclude) > 0 {
+				toUpload = filterByInclude(toUpload, effectiveInclude)
 			}
 		} else {
 			diff := state.Diff(st, current)
@@ -368,6 +380,57 @@ func mapKeys(m map[string]string) []string {
 		out = append(out, k)
 	}
 	return out
+}
+
+// smartFirstSync sunucudaki dosyaları local boyutlarla karşılaştırır.
+// Eşleşen dosyalar state'e "zaten senkron" olarak kaydedilir, yüklenmez.
+// Farklı boyuttaki veya sunucuda olmayan dosyalar yükleme listesine girer.
+// Sunucuya bağlanılamazsa güvenli taraf: tüm dosyalar yüklenir.
+func smartFirstSync(srv config.Server, current map[string]string, byRel map[string]scanner.File, st *state.State, cfg *config.Config) []string {
+	fmt.Println("  İlk sync: sunucu taranıyor, mevcut dosyalar karşılaştırılıyor...")
+
+	client, err := ftpclient.Connect(srv)
+	if err != nil {
+		fmt.Printf("  ! Sunucuya bağlanılamadı (%v) — tüm dosyalar yüklenecek\n", err)
+		return mapKeys(current)
+	}
+	defer client.Close()
+
+	remoteFiles, err := client.ListRecursive(srv.RemotePath)
+	if err != nil {
+		fmt.Printf("  ! Uzak dizin okunamadı (%v) — tüm dosyalar yüklenecek\n", err)
+		return mapKeys(current)
+	}
+
+	fmt.Printf("  Sunucuda %d dosya bulundu\n", len(remoteFiles))
+
+	var toUpload []string
+	alreadySynced := 0
+
+	for rel, hash := range current {
+		f := byRel[rel]
+
+		localInfo, err := os.Stat(f.AbsPath)
+		if err != nil {
+			toUpload = append(toUpload, rel)
+			continue
+		}
+		localSize := uint64(localInfo.Size())
+
+		remoteSize, exists := remoteFiles[rel]
+		if !exists || remoteSize != localSize {
+			toUpload = append(toUpload, rel)
+		} else {
+			// Boyut eşleşiyor → zaten güncel, state'e kaydet
+			st.Files[rel] = hash
+			alreadySynced++
+		}
+	}
+
+	new := len(toUpload)
+	fmt.Printf("  Sonuç: %d güncel (yüklenmeyecek)  |  %d farklı/eksik (yüklenecek)\n", alreadySynced, new)
+
+	return toUpload
 }
 
 func serverNames(servers []config.Server) []string {

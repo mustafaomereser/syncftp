@@ -3,9 +3,11 @@ package ftp
 import (
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	goftp "github.com/jlaffaye/ftp"
@@ -14,15 +16,35 @@ import (
 )
 
 // Client wraps an active FTP connection for a single server.
+// mu serialize eder — aynı bağlantıya eş zamanlı erişim
+// "short response" hatalarına yol açar.
 type Client struct {
 	conn   *goftp.ServerConn
 	server config.Server
+	mu     sync.Mutex
 }
 
 // Connect dials and authenticates an FTP connection.
 func Connect(srv config.Server) (*Client, error) {
 	addr := fmt.Sprintf("%s:%d", srv.Host, srv.Port)
-	conn, err := goftp.Dial(addr, goftp.DialWithTimeout(30*time.Second))
+
+	opts := []goftp.DialOption{
+		goftp.DialWithTimeout(30 * time.Second),
+		goftp.DialWithDisabledEPSV(srv.DisableEPSV || srv.NATWorkaround),
+	}
+
+	if srv.NATWorkaround {
+		serverHost := srv.Host
+		opts = append(opts, goftp.DialWithDialFunc(func(network, address string) (net.Conn, error) {
+			_, port, splitErr := net.SplitHostPort(address)
+			if splitErr != nil {
+				return net.Dial(network, address)
+			}
+			return net.DialTimeout(network, net.JoinHostPort(serverHost, port), 15*time.Second)
+		}))
+	}
+
+	conn, err := goftp.Dial(addr, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("bağlantı kurulamadı (%s): %w", addr, err)
 	}
@@ -35,16 +57,20 @@ func Connect(srv config.Server) (*Client, error) {
 
 // Close gracefully disconnects from the FTP server.
 func (c *Client) Close() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	_ = c.conn.Quit()
 }
 
-// Upload sends a local file to the remote server, creating any missing directories first.
-// relPath is the forward-slash relative path (e.g. "css/style.css").
+// Upload sends a local file to the remote server.
 func (c *Client) Upload(localPath, relPath string) error {
 	remoteFull := path.Join(c.server.RemotePath, relPath)
 	remoteDir := path.Dir(remoteFull)
 
-	if err := c.mkdirAll(remoteDir); err != nil {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if err := c.mkdirAllLocked(remoteDir); err != nil {
 		return fmt.Errorf("dizin oluşturulamadı (%s): %w", remoteDir, err)
 	}
 
@@ -60,9 +86,8 @@ func (c *Client) Upload(localPath, relPath string) error {
 	return nil
 }
 
-// mkdirAll ensures that the full remote path exists, creating directories one level at a time.
-// Errors from MakeDir are silently ignored since the directory may already exist.
-func (c *Client) mkdirAll(remotePath string) error {
+// mkdirAllLocked — mu alınmış durumda çağrılmalı.
+func (c *Client) mkdirAllLocked(remotePath string) error {
 	parts := strings.Split(strings.TrimPrefix(remotePath, "/"), "/")
 	current := "/"
 	for _, part := range parts {
@@ -76,16 +101,32 @@ func (c *Client) mkdirAll(remotePath string) error {
 }
 
 // List returns entries at the given remote directory path.
+// 550 hatası (yok/boş dizin) → boş liste döner, hata yok.
 func (c *Client) List(remotePath string) ([]*goftp.Entry, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	entries, err := c.conn.List(remotePath)
 	if err != nil {
+		// Bazı sunucular boş veya mevcut olmayan dizin için 550 döndürür.
+		// Bu durumda boş liste döndür, fatal hata değil.
+		if strings.Contains(err.Error(), "550") ||
+			strings.Contains(err.Error(), "No such file") ||
+			strings.Contains(err.Error(), "doesn't exist") ||
+			strings.Contains(err.Error(), "not found") {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("listeleme başarısız (%s): %w", remotePath, err)
 	}
 	return entries, nil
 }
 
 // Download saves a remote file to localDest.
+// Mutex okuma boyunca tutulur — Retr sonrası bırakmak data stream'i bozar.
 func (c *Client) Download(remotePath, localDest string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	resp, err := c.conn.Retr(remotePath)
 	if err != nil {
 		return fmt.Errorf("dosya alınamadı (%s): %w", remotePath, err)
@@ -107,6 +148,8 @@ func (c *Client) Download(remotePath, localDest string) error {
 
 // DeleteFile removes a single remote file.
 func (c *Client) DeleteFile(remotePath string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if err := c.conn.Delete(remotePath); err != nil {
 		return fmt.Errorf("silme başarısız (%s): %w", remotePath, err)
 	}
@@ -114,8 +157,9 @@ func (c *Client) DeleteFile(remotePath string) error {
 }
 
 // DeleteDir removes a remote directory.
-// Set recursive=true to delete non-empty directories.
 func (c *Client) DeleteDir(remotePath string, recursive bool) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if recursive {
 		if err := c.conn.RemoveDirRecur(remotePath); err != nil {
 			return fmt.Errorf("dizin silme başarısız (%s): %w", remotePath, err)
@@ -129,7 +173,11 @@ func (c *Client) DeleteDir(remotePath string, recursive bool) error {
 }
 
 // Preview reads up to maxBytes from a remote file and returns the content.
+// Mutex Retr + okuma boyunca tutulur — erken bırakmak "short response" üretir.
 func (c *Client) Preview(remotePath string, maxBytes int64) ([]byte, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	resp, err := c.conn.Retr(remotePath)
 	if err != nil {
 		return nil, fmt.Errorf("dosya alınamadı (%s): %w", remotePath, err)
@@ -144,13 +192,52 @@ func (c *Client) Preview(remotePath string, maxBytes int64) ([]byte, error) {
 	return buf[:n], nil
 }
 
+// ListRecursive remotePath altındaki tüm dosyaları rekürsif listeler.
+// relPath → boyut (byte). Her List çağrısı ayrı mu ile serialize edilir.
+func (c *Client) ListRecursive(remotePath string) (map[string]uint64, error) {
+	result := make(map[string]uint64)
+	var walk func(dir, rel string)
+	walk = func(dir, rel string) {
+		c.mu.Lock()
+		entries, err := c.conn.List(dir)
+		c.mu.Unlock()
+		if err != nil {
+			return
+		}
+		for _, e := range entries {
+			if e.Name == "." || e.Name == ".." {
+				continue
+			}
+			entryRel := e.Name
+			if rel != "" {
+				entryRel = rel + "/" + e.Name
+			}
+			if e.Type == goftp.EntryTypeFolder {
+				walk(path.Join(dir, e.Name), entryRel)
+			} else {
+				result[entryRel] = e.Size
+			}
+		}
+	}
+	walk(remotePath, "")
+	return result, nil
+}
+
+// Rename moves a remote file or directory from oldPath to newPath.
+func (c *Client) Rename(oldPath, newPath string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if err := c.conn.Rename(oldPath, newPath); err != nil {
+		return fmt.Errorf("taşıma başarısız (%s → %s): %w", oldPath, newPath, err)
+	}
+	return nil
+}
+
 // IsProtected returns true if relPath matches any protect pattern.
-// Patterns ending with "/" are treated as directory prefixes.
 func IsProtected(relPath string, protect []string) bool {
 	for _, pattern := range protect {
 		pattern = strings.TrimPrefix(pattern, "/")
 		if strings.HasSuffix(pattern, "/") {
-			// directory prefix match
 			if strings.HasPrefix(relPath, pattern) {
 				return true
 			}

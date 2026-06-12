@@ -37,6 +37,8 @@ type Server struct {
 	Password       string   `json:"password"`
 	RemotePath     string   `json:"remote_path"`
 	Passive        bool     `json:"passive"`
+	DisableEPSV    bool     `json:"disable_epsv"`    // EPSV'yi kapat, sadece PASV kullan
+	NATWorkaround  bool     `json:"nat_workaround"`  // PASV yanıtındaki IP'yi yoksay, sunucu IP'sini kullan
 	Enabled        bool     `json:"enabled"`
 	MaxConnections int      `json:"max_connections"` // default 1
 	MaxRetries     int      `json:"max_retries"`     // default 2

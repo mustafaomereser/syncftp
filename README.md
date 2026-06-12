@@ -98,7 +98,9 @@ Created by `syncftp init`. Stored with permission `600`. Added to `.gitignore` a
 | `sync.protect` | `[]` | Files/dirs that are **never** overwritten on the FTP server |
 | `sync.include` | `[]` | Global whitelist — sync only these paths (empty = all) |
 | `sync.exclude` | `[]` | Global blacklist — always skip these paths |
-| `first_sync.full` | `true` | On first sync: upload all files (`true`) or only `include` list (`false`) |
+| `first_sync.full` | `false` | `true` = force upload everything on first sync; `false` = smart comparison (recommended) |
+| `server.disable_epsv` | `false` | Disable EPSV, use PASV only — fixes some NAT/firewall setups |
+| `server.nat_workaround` | `false` | Ignore the IP in PASV response, use server host instead — fixes NAT traversal issues |
 | `server.max_connections` | `1` | Parallel FTP connections for this server |
 | `server.max_retries` | `2` | Retry count on upload failure (0 = no retry) |
 | `server.include` | `[]` | Per-server whitelist — overrides global `sync.include` |
@@ -185,12 +187,15 @@ Files   : 142
 Uploads changed files to all enabled servers.
 
 ```bash
-syncftp sync                          # all enabled servers
+syncftp sync                          # server picker opens if multiple servers configured
+syncftp sync --all                    # skip picker, sync to all enabled servers
 syncftp sync --server production      # one specific server
 syncftp sync --full                   # ignore state, re-upload everything
-syncftp sync --dry-run                # preview what would be uploaded
+syncftp sync --dry-run                # preview what would be uploaded (TUI)
 syncftp sync --retry-failed           # re-upload files that failed in the last run
 ```
+
+**Smart first sync** — on the very first run, syncFTP does not blindly upload everything. Instead it lists all files already on the FTP server and compares sizes with local files. Only files that are missing or have a different size are uploaded. This is safe to use when syncFTP is added to an already-deployed project. Use `--full` to force a complete re-upload regardless.
 
 **Filtering:**
 
@@ -211,7 +216,26 @@ syncftp sync --include css --dry-run
 syncftp sync --include css
 ```
 
-**Example output:**
+**Example output — first sync (smart comparison):**
+
+```
+Scanning: /home/user/my-project
+142 files found
+
+══ production (ftp.example.com) ══
+  İlk sync: sunucu taranıyor, mevcut dosyalar karşılaştırılıyor...
+  Sunucuda 139 dosya bulundu
+  Sonuç: 139 güncel (yüklenmeyecek)  |  3 farklı/eksik (yüklenecek)
+  3 files to process
+  Connection pool: 3 / Retry: 2
+    ✓ js/utils.js
+    ✓ css/dark-mode.css
+    ✓ index.php
+  Done: 3 uploaded, 0 protected, 0 failed
+  Release: .syncftp/releases/production/20260612-143012
+```
+
+**Example output — incremental sync:**
 
 ```
 Scanning: /home/user/my-project
@@ -338,7 +362,7 @@ syncftp [production:/public_html]>
 | `rm [-f] [-r] [file]` | Delete file/dir — opens browser if no path given, TUI confirmation |
 | `pwd` | Show current remote path |
 | `status` | Show local changes per server |
-| `sync [--full] [--dry-run] [--server name]` | Upload to FTP (multi-select server picker if multiple) |
+| `sync [--all] [--full] [--dry-run] [--server name]` | Upload to FTP — TUI progress view, multi-select picker if multiple servers |
 | `servers` | TUI server list — select to connect |
 | `server [name]` | Connect to a server (TUI picker if no name given) |
 | `clear` / `cls` | Clear screen and show welcome banner |
@@ -350,24 +374,66 @@ syncftp [production:/public_html]>
 Opened by `ls`, or automatically when `cat`/`get`/`rm` receive no path argument.
 
 ```
-  📁 /public_html
-  ──────────────────────────────────────────────────────────────────────
-  ↑↓/jk  Gezin    →/Enter  Gir/Seç    ←/ESC  Üst dizin    g/G  İlk/Son    q  Çık
+  📁 /public_html/assets
+  ↑↓ Gezin  |  Enter Gir/Seç  |  → Önizle  |  ← Üst  |  Space İşaretle  |  / Ara  |  q Çık
+  ────────────────────────────────────────────────────────────────────────────────────────────
 
- ▶ 📁  assets/                                    3 öğe          2026-06-11
-    📁  uploads/                                   çok boyutlu    2026-06-10
-    📁  cache/                                     0 öğe          2026-06-09
-    ·····················································
-    📄  index.php                                  4.2 KB         2026-06-10
-    📄  config.php                                 1.1 KB         2026-06-09
+ ▶ 📁  css/                              3 öğe          2026-06-11
+    📁  js/                               12 öğe         2026-06-10
+    📁  uploads/                          çok boyutlu    2026-06-09
+    ·············································
+    📄  style.css                         4.2 KB         2026-06-10
+    📄  app.js                            18.7 KB        2026-06-09
 
   3 klasör, 2 dosya  ·  1/5
 ```
 
-- Folders are always listed first (alphabetical), files below (alphabetical)
-- Folder item counts are loaded in the background — shows `...` then updates to `N öğe` or `çok boyutlu` (1000+)
-- Selecting a file in `ls` opens an action menu: **Cat / Get / Delete / Cancel**
-- Arrow key history is saved to `.syncftp/shell_history`
+| Key | Action |
+|---|---|
+| `↑` / `↓` or `j` / `k` | Navigate up/down |
+| `Enter` | Enter directory / select file |
+| `→` | Enter directory; on a **file**: load preview panel (on-demand, not on every cursor move) |
+| `←` / `ESC` | Go up one directory |
+| `g` / `G` | Jump to first / last item |
+| `/` | Search — type to filter current directory; press **Enter** to search entire server recursively |
+| `Space` | Toggle mark on file or folder |
+| `a` | Mark all / unmark all visible items (disabled during search) |
+| `d` | **Delete** all marked items (double confirmation) |
+| `m` | **Move** all marked items — opens a second browser to pick destination folder |
+| `q` | Close browser / cancel |
+
+- **Folders first** (alphabetical), then files (alphabetical), dotted separator between them
+- **Folder item counts** loaded in background: `...` → `N öğe` or `çok boyutlu` (1000+) or `?` on error
+- **Preview panel** on terminals ≥ 120 chars wide — press `→` on a file to load; on-demand only, no FTP request on cursor moves
+- **Recursive search** with `/` + `Enter`: scans all subdirectories on the server, results show the relative path so you know where each file lives
+- **Mark & act**: `Space` marks files and folders, hint bar changes to `d=Sil  |  m=Taşı  |  a=Tümünü kaldır`
+- **Move**: opens a second browser in "pick folder" mode — `Enter` selects the highlighted folder as destination (does not enter it); `→` still enters for navigation
+- Selecting a single file in `ls` opens an action menu: **Cat / Get / Delete / Cancel**
+- Command history saved to `.syncftp/shell_history` (arrow keys work)
+
+#### Sync Progress (TUI)
+
+When `sync` runs, a full-screen progress view is shown:
+
+```
+  ══ production ══
+
+  ████████████████░░░░░░░░░░░░░░░░  52%  13/25
+  
+  ⠙ css/components/button.css
+
+  ✓ index.php
+  ✓ js/app.js
+  ✓ css/style.css
+  ✗ img/hero.jpg: connection reset (3 deneme)
+  ✓ css/components/button.css
+```
+
+- Real-time per-file streaming as uploads complete
+- Progress bar with percentage and file count
+- Animated spinner showing current file
+- Scrolling log of last 12 results (✓ success, ✗ failure with attempt count)
+- Full summary on completion — press any key to return to shell
 
 #### Server Picker (TUI)
 
@@ -375,14 +441,19 @@ Used by `servers`, `server`, `sync` (multi-select), and `remote` commands.
 
 ```
   Sunucular
-  ────────────────────────────────────────────
+  ─────────────────────────────────────────────────────
+  Harf yaz → filtrele
+  ─────────────────────────────────────────────────────
+
 ▶ [1] ✅  production    ftp.example.com:21  conn:3  (bağlı)
   [2] 🖥  staging       ftp2.example.com:21  conn:1
 ```
 
-Keys: `↑↓` navigate · `Enter` select · `[1-9]` quick select · `q` cancel
+- Type any letter to **fuzzy-filter** the list instantly
+- `Backspace` to clear search
+- `↑↓` navigate · `Enter` select · `[1-9]` quick select · `q` cancel
 
-For `sync` with multiple servers, a **multi-select picker** is shown (Space to toggle, `a` to select all, Enter to confirm).
+For `sync` with multiple servers, a **multi-select picker** is shown (`Space` to toggle, `a` to select all, `Enter` to confirm).
 
 ---
 

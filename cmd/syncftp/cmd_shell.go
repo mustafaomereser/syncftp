@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -136,10 +137,23 @@ func runShell() error {
 // ── prompt + welcome ──────────────────────────────────────────────────────────
 
 func (sh *shellState) prompt() string {
+	// \001 ve \002 readline'ın görünmez karakterleri doğru hesaplaması için gerekli
+	reset := "\001\033[0m\002"
+	bold := "\001\033[1m\002"
+	cyan := "\001\033[36m\002"
+	blue := "\001\033[34m\002"
+	dim := "\001\033[2m\002"
+
 	if sh.srv == nil {
-		return "syncftp> "
+		return bold + "syncftp" + reset + dim + "> " + reset
 	}
-	return fmt.Sprintf("syncftp [%s:%s]> ", sh.srv.Name, sh.remoteCwd)
+	return bold + "syncftp" + reset +
+		dim + " [" + reset +
+		cyan + sh.srv.Name + reset +
+		dim + ":" + reset +
+		blue + sh.remoteCwd + reset +
+		dim + "]" + reset +
+		bold + "> " + reset
 }
 
 func (sh *shellState) printWelcome() {
@@ -274,9 +288,94 @@ func (sh *shellState) cmdLs(args []string) {
 		return
 	}
 	sh.remoteCwd = result.CWD
-	if result.Selected != "" {
-		sh.fileActionMenu(result.Selected)
+
+	switch result.Action {
+	case "delete":
+		sh.browserDelete(result.Marked)
+	case "move":
+		sh.browserMove(result.Marked)
+	default:
+		if result.Selected != "" {
+			sh.fileActionMenu(result.Selected)
+		}
 	}
+}
+
+// browserDelete işaretli dosyaları onay alarak FTP'den siler.
+func (sh *shellState) browserDelete(files []string) {
+	if len(files) == 0 {
+		return
+	}
+	fmt.Printf("\n%d dosya silinecek:\n", len(files))
+	for _, f := range files {
+		fmt.Printf("  - %s\n", f)
+	}
+	ok, err := RunConfirm(
+		fmt.Sprintf("%d dosyayı sil", len(files)),
+		"Bu işlem geri alınamaz. FTP sunucusundan kalıcı olarak silinir.",
+	)
+	if err != nil || !ok {
+		fmt.Println("İptal edildi.")
+		return
+	}
+	ok2, _ := RunConfirm("Emin misiniz?", "Onaylamak için Evet seçin.")
+	if !ok2 {
+		fmt.Println("İptal edildi.")
+		return
+	}
+	deleted, failed := 0, 0
+	for _, f := range files {
+		// Klasör mü dosya mı? Liste ile kontrol et
+		entries, listErr := sh.client.List(f)
+		var err error
+		if listErr == nil && entries != nil {
+			// Liste başarılıysa klasördür (recursive sil)
+			err = sh.client.DeleteDir(f, true)
+		} else {
+			err = sh.client.DeleteFile(f)
+		}
+		if err != nil {
+			fmt.Printf("  ✗ %s  (%v)\n", f, err)
+			failed++
+		} else {
+			fmt.Printf("  ✓ %s\n", f)
+			deleted++
+		}
+	}
+	fmt.Printf("\n%d silindi, %d başarısız\n", deleted, failed)
+}
+
+// browserMove işaretli dosyaları seçilen hedef dizine taşır.
+func (sh *shellState) browserMove(files []string) {
+	if len(files) == 0 {
+		return
+	}
+	fmt.Printf("\n%d dosya taşınacak. Hedef klasörü seçin (Enter = bu klasörü seç):\n", len(files))
+
+	destDir, err := RunBrowserPickDir(sh.client, sh.remoteCwd, sh.srv.RemotePath)
+	if err != nil {
+		fmt.Printf("Browser hatası: %v\n", err)
+		return
+	}
+	if destDir == "" {
+		fmt.Println("İptal edildi.")
+		return
+	}
+
+	fmt.Printf("Hedef: %s\n\n", destDir)
+	moved, failedCount := 0, 0
+	for _, f := range files {
+		filename := path.Base(f)
+		newPath := path.Join(destDir, filename)
+		if err := sh.client.Rename(f, newPath); err != nil {
+			fmt.Printf("  ✗ %s  (%v)\n", filename, err)
+			failedCount++
+		} else {
+			fmt.Printf("  ✓ %s  →  %s\n", filename, newPath)
+			moved++
+		}
+	}
+	fmt.Printf("\n%d taşındı, %d başarısız\n", moved, failedCount)
 }
 
 func (sh *shellState) cmdCd(args []string) {
@@ -542,7 +641,7 @@ func (sh *shellState) cmdStatus() {
 }
 
 func (sh *shellState) cmdSync(args []string) {
-	full, dryRun := false, false
+	full, dryRun, all := false, false, false
 	serverName := ""
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
@@ -550,6 +649,8 @@ func (sh *shellState) cmdSync(args []string) {
 			full = true
 		case "--dry-run":
 			dryRun = true
+		case "--all":
+			all = true
 		case "--server":
 			if i+1 < len(args) {
 				serverName = args[i+1]
@@ -590,8 +691,7 @@ func (sh *shellState) cmdSync(args []string) {
 			}
 		}
 		servers = filtered
-	} else if len(servers) > 1 {
-		// Birden fazla sunucu varsa multi-picker ile seçtir
+	} else if !all && len(servers) > 1 {
 		selected, err := pickServerMultiTUI(servers)
 		if err != nil || selected == nil {
 			fmt.Println("İptal.")
@@ -618,35 +718,23 @@ func (sh *shellState) shellSyncServer(srv config.Server, current map[string]stri
 	}
 
 	var toUpload []string
-
 	if !st.FirstSyncDone || full {
-		if full && st.FirstSyncDone {
-			fmt.Println("  Tam sync (--full)")
-		} else {
-			fmt.Println("  İlk sync — tüm dosyalar")
-		}
 		toUpload = mapKeys(current)
 	} else {
 		diff := state.Diff(st, current)
-		if len(diff.Deleted) > 0 {
-			fmt.Printf("  Silinen (FTP'de bırakıldı): %d dosya\n", len(diff.Deleted))
-		}
 		toUpload = append(diff.New, diff.Changed...)
 	}
-
 	sort.Strings(toUpload)
 
-	if len(toUpload) == 0 {
-		fmt.Println("  Değişiklik yok — güncel")
+	// Dry-run
+	if dryRun {
+		RunSyncTUI(srv.Name, len(toUpload), true, toUpload, nil)
 		return
 	}
 
-	fmt.Printf("  Yüklenecek: %d dosya\n", len(toUpload))
-
-	if dryRun {
-		for _, p := range toUpload {
-			fmt.Printf("    [dry] %s\n", p)
-		}
+	// Değişiklik yok
+	if len(toUpload) == 0 {
+		RunSyncTUI(srv.Name, 0, false, nil, nil)
 		return
 	}
 
@@ -663,29 +751,21 @@ func (sh *shellState) shellSyncServer(srv config.Server, current map[string]stri
 		tasks = append(tasks, ftpclient.UploadTask{LocalPath: f.AbsPath, RelPath: rel, Hash: current[rel]})
 	}
 
-	results := pool.Upload(tasks)
+	ch := pool.UploadCh(tasks)
+	tuiResults, _ := RunSyncTUI(srv.Name, len(tasks), false, nil, ch)
 
 	successFiles := make(map[string]string)
-	uploaded, failedCount := 0, 0
 	var failedPaths []string
-
-	for _, r := range results {
+	for _, r := range tuiResults {
 		if r.Err != nil {
-			fmt.Printf("    ✗ %s: %v\n", r.RelPath, r.Err)
 			failedPaths = append(failedPaths, r.RelPath)
-			failedCount++
 		} else {
-			fmt.Printf("    ✓ %s\n", r.RelPath)
 			successFiles[r.RelPath] = r.Hash
-			uploaded++
 		}
 	}
 
-	fmt.Printf("  Tamamlandı: %d yüklendi, %d hata\n", uploaded, failedCount)
-
 	if len(failedPaths) > 0 {
 		failed.Save(sh.configDir, srv.Name, failedPaths)
-		fmt.Println("  ! Başarısız dosyalar kaydedildi — tekrar: sync --server " + srv.Name)
 	} else {
 		failed.Clear(sh.configDir, srv.Name)
 	}
@@ -699,9 +779,7 @@ func (sh *shellState) shellSyncServer(srv config.Server, current map[string]stri
 		}
 	}
 	st.FirstSyncDone = true
-	if err := state.Save(sh.configDir, st); err != nil {
-		fmt.Printf("  ! State kaydedilemedi: %v\n", err)
-	}
+	state.Save(sh.configDir, st)
 
 	if len(successFiles) > 0 {
 		if relDir, err := release.Create(sh.configDir, srv.Name, successFiles); err == nil {
@@ -714,20 +792,20 @@ func (sh *shellState) shellSyncServer(srv config.Server, current map[string]stri
 
 func (sh *shellState) resolvePath(p string) string {
 	if strings.HasPrefix(p, "/") {
-		return p
+		// Mutlak yol — sadece temizle
+		return path.Clean(p)
 	}
 	if p == ".." {
-		parent := sh.remoteCwd
-		idx := strings.LastIndex(parent, "/")
-		if idx <= 0 {
+		parent := path.Dir(sh.remoteCwd)
+		if parent == "." {
 			return "/"
 		}
-		return parent[:idx]
+		return parent
 	}
 	if p == "." || p == "" {
 		return sh.remoteCwd
 	}
-	return sh.remoteCwd + "/" + p
+	return path.Join(sh.remoteCwd, p)
 }
 
 func (sh *shellState) printHelp() {
@@ -742,7 +820,7 @@ Uzak sunucu komutları:
 
 Senkronizasyon:
   status                  Yerel değişiklikleri göster
-  sync [--full] [--dry-run] [--server ad]   FTP'ye yükle
+  sync [--all] [--full] [--dry-run] [--server ad]   FTP'ye yükle
 
 Sunucu yönetimi:
   servers                 Sunucu listesi

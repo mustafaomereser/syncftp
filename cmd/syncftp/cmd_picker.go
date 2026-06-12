@@ -38,12 +38,34 @@ type PickerItem struct {
 type pickerModel struct {
 	title    string
 	subtitle string
-	items    []PickerItem
+	all      []PickerItem // tüm öğeler
+	filtered []PickerItem // arama sonrası
+	search   string
 	cursor   int
 	result   string
 	quit     bool
 	width    int
 	height   int
+}
+
+func newPickerModel(title, subtitle string, items []PickerItem) pickerModel {
+	return pickerModel{title: title, subtitle: subtitle, all: items, filtered: items}
+}
+
+func (m *pickerModel) applySearch() {
+	if m.search == "" {
+		m.filtered = m.all
+		return
+	}
+	q := strings.ToLower(m.search)
+	m.filtered = nil
+	for _, item := range m.all {
+		if strings.Contains(strings.ToLower(item.Label), q) ||
+			strings.Contains(strings.ToLower(item.Desc), q) {
+			m.filtered = append(m.filtered, item)
+		}
+	}
+	m.cursor = 0
 }
 
 func (m pickerModel) Init() tea.Cmd { return nil }
@@ -55,7 +77,7 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "q", "Q", "esc":
+		case "ctrl+c", "esc":
 			m.quit = true
 			return m, tea.Quit
 		case "up", "k":
@@ -63,17 +85,38 @@ func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor--
 			}
 		case "down", "j":
-			if m.cursor < len(m.items)-1 {
+			if m.cursor < len(m.filtered)-1 {
 				m.cursor++
 			}
 		case "enter", "right", "l":
-			m.result = m.items[m.cursor].Value
-			return m, tea.Quit
+			if len(m.filtered) > 0 {
+				m.result = m.filtered[m.cursor].Value
+				return m, tea.Quit
+			}
+		case "backspace":
+			if len(m.search) > 0 {
+				m.search = m.search[:len(m.search)-1]
+				m.applySearch()
+			}
 		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
 			n := int(msg.String()[0]-'0') - 1
-			if n >= 0 && n < len(m.items) {
-				m.result = m.items[n].Value
+			if n >= 0 && n < len(m.filtered) {
+				m.result = m.filtered[n].Value
 				return m, tea.Quit
+			}
+		default:
+			// Yazdırılabilir karakter → fuzzy search
+			if len(msg.String()) == 1 && msg.String() != "q" {
+				m.search += msg.String()
+				m.applySearch()
+			} else if msg.String() == "q" {
+				if m.search != "" {
+					m.search += "q"
+					m.applySearch()
+				} else {
+					m.quit = true
+					return m, tea.Quit
+				}
 			}
 		}
 	}
@@ -91,36 +134,48 @@ func (m pickerModel) View() string {
 	if m.width > 10 {
 		w = m.width - 4
 	}
+	b.WriteString(stylePickerDivider.Render("  "+strings.Repeat("─", w)) + "\n")
+
+	// Arama kutusu
+	if m.search != "" {
+		b.WriteString(stylePickerSelected.Render(fmt.Sprintf("  🔍 %s", m.search)) +
+			stylePickerDesc.Render(fmt.Sprintf("  (%d eşleşme)", len(m.filtered))) + "\n")
+	} else {
+		b.WriteString(stylePickerHint.Render("  Harf yaz → filtrele") + "\n")
+	}
 	b.WriteString(stylePickerDivider.Render("  "+strings.Repeat("─", w)) + "\n\n")
 
-	for i, item := range m.items {
+	for i, item := range m.filtered {
 		icon := item.Icon
 		if icon == "" {
 			icon = " "
 		}
+		num := stylePickerDesc.Render(fmt.Sprintf("[%d]", i+1))
 		if i == m.cursor {
 			cur := stylePickerCursor.Render("▶")
 			lbl := stylePickerSelected.Render(item.Label)
 			desc := stylePickerDesc.Render(item.Desc)
-			num := stylePickerDesc.Render(fmt.Sprintf("[%d]", i+1))
 			b.WriteString(fmt.Sprintf(" %s %s %s  %-30s  %s\n", cur, num, icon, lbl, desc))
 		} else {
 			lbl := stylePickerNormal.Render(item.Label)
 			desc := stylePickerDesc.Render(item.Desc)
-			num := stylePickerDesc.Render(fmt.Sprintf("[%d]", i+1))
 			b.WriteString(fmt.Sprintf("    %s %s  %-30s  %s\n", num, icon, lbl, desc))
 		}
 	}
 
+	if len(m.filtered) == 0 {
+		b.WriteString(stylePickerHint.Render("  (eşleşme yok — Backspace ile sil)") + "\n")
+	}
+
 	b.WriteString("\n")
-	b.WriteString(stylePickerHint.Render("↑↓ gezin   Enter seç   [1-9] hızlı seç   q iptal") + "\n")
+	b.WriteString(stylePickerHint.Render("↑↓/jk gezin   Enter seç   [1-9] hızlı   Backspace sil   q iptal") + "\n")
 	return b.String()
 }
 
 // RunPicker tek seçimli interaktif menü açar. Seçilen item'ın Value'sunu döner.
 // Kullanıcı q/ESC/Ctrl+C ile çıkarsa ("", nil) döner.
 func RunPicker(title, subtitle string, items []PickerItem) (string, error) {
-	m := pickerModel{title: title, subtitle: subtitle, items: items}
+	m := newPickerModel(title, subtitle, items)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	final, err := p.Run()
 	if err != nil {
