@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	goftp "github.com/jlaffaye/ftp"
 
+	"syncftp/internal/config"
 	ftpclient "syncftp/internal/ftp"
 )
 
@@ -72,16 +73,24 @@ func sortEntries(entries []*goftp.Entry) []sortedEntry {
 type entriesLoadedMsg struct{ entries []*goftp.Entry }
 type browseErrMsg struct{ err error }
 type childCountsMsg map[string]int
-type previewLoadedMsg struct{ content string }
+type previewLoadedMsg struct {
+	content string
+	err     error // gerçek hata, görünür hata mesajı için
+}
 type recursiveSearchMsg struct {
 	results []sortedEntry
 	err     error
+}
+type reconnectDoneMsg struct {
+	client *ftpclient.Client
+	err    error
 }
 
 // ── model ─────────────────────────────────────────────────────────────────────
 
 type browserModel struct {
 	client      *ftpclient.Client
+	server      *config.Server // yeniden bağlanma için
 	root        string
 	cwd         string
 	entries     []sortedEntry
@@ -118,9 +127,10 @@ type browserModel struct {
 	pickDirMode bool
 }
 
-func newBrowserModel(client *ftpclient.Client, startPath, root string) browserModel {
+func newBrowserModel(client *ftpclient.Client, startPath, root string, server *config.Server) browserModel {
 	return browserModel{
 		client:      client,
+		server:      server,
 		root:        root,
 		cwd:         startPath,
 		loading:     true,
@@ -190,9 +200,20 @@ func (m browserModel) fetchPreview(filePath string) tea.Cmd {
 	return func() tea.Msg {
 		data, err := client.Preview(filePath, 256*1024)
 		if err != nil {
-			return previewLoadedMsg{"(önizleme alınamadı)"}
+			return previewLoadedMsg{err: err}
 		}
-		return previewLoadedMsg{string(data)}
+		return previewLoadedMsg{content: string(data)}
+	}
+}
+
+func (m browserModel) reconnect() tea.Cmd {
+	if m.server == nil {
+		return nil
+	}
+	srv := *m.server
+	return func() tea.Msg {
+		client, err := ftpclient.Connect(srv)
+		return reconnectDoneMsg{client: client, err: err}
 	}
 }
 
@@ -288,11 +309,20 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case previewLoadedMsg:
 		m.previewLoading = false
-		m.preview = msg.content
-		m.previewLines = strings.Split(msg.content, "\n")
-		// split sondaki boş satırı temizle
-		if len(m.previewLines) > 0 && m.previewLines[len(m.previewLines)-1] == "" {
-			m.previewLines = m.previewLines[:len(m.previewLines)-1]
+		if msg.err != nil {
+			errText := msg.err.Error()
+			if isConnectionError(msg.err) {
+				m.previewLines = []string{"⚠ Bağlantı kesildi", "", errText, "", "r tuşuna basarak yeniden bağlanabilirsiniz"}
+			} else {
+				m.previewLines = []string{"⚠ Önizleme alınamadı", "", errText}
+			}
+			m.preview = ""
+		} else {
+			m.preview = msg.content
+			m.previewLines = strings.Split(msg.content, "\n")
+			if len(m.previewLines) > 0 && m.previewLines[len(m.previewLines)-1] == "" {
+				m.previewLines = m.previewLines[:len(m.previewLines)-1]
+			}
 		}
 
 	case recursiveSearchMsg:
@@ -308,6 +338,19 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case browseErrMsg:
 		m.loading = false
 		m.err = msg.err
+
+	case reconnectDoneMsg:
+		if msg.err != nil {
+			m.err = fmt.Errorf("yeniden bağlanılamadı: %w", msg.err)
+		} else {
+			if m.client != nil {
+				m.client.Close()
+			}
+			m.client = msg.client
+			m.err = nil
+			m.loading = true
+			return m, m.fetchEntries()
+		}
 
 	case tea.KeyMsg:
 		// Loading veya recursive arama sırasında bile çıkışa izin ver
@@ -358,6 +401,13 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.previewScroll = 0
 			case "G":
 				m.previewScroll = maxScroll
+			case "r", "R":
+				// Bağlantı kopuksa yeniden bağlan
+				if m.server != nil {
+					m.previewMode = false
+					m.loading = true
+					return m, m.reconnect()
+				}
 			}
 			return m, nil
 		}
@@ -617,6 +667,14 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.preview = ""
 			m.previewFile = ""
 			m.previewLoading = false
+
+		case "r", "R":
+			// Bağlantı kopuksa yeniden bağlan
+			if m.server != nil {
+				m.err = nil
+				m.loading = true
+				return m, m.reconnect()
+			}
 		}
 	}
 	return m, nil
@@ -722,7 +780,13 @@ func (m browserModel) View() string {
 		return "\n" + header + "\n" + hintLine + "\n" + divider + "\n\n  Yükleniyor...\n"
 	}
 	if m.err != nil {
-		return "\n" + header + "\n" + divider + "\n\n" + styleErr.Render("  Hata: "+m.err.Error()) + "\n"
+		reconnectHint := ""
+		if m.server != nil {
+			reconnectHint = "   " + styleHint.Render("r = Yeniden Bağlan  |  q = Çık")
+		}
+		return "\n" + header + "\n" + divider + "\n\n" +
+			styleErr.Render("  Hata: "+m.err.Error()) + "\n" +
+			reconnectHint + "\n"
 	}
 
 	// Görünür satır sayısı.
@@ -922,12 +986,18 @@ func (m browserModel) viewPreview(w, h int) string {
 	}
 
 	var bodyBuf strings.Builder
+	isErrContent := len(lines) > 0 && strings.HasPrefix(lines[0], "⚠")
 	for _, line := range lines[scroll:endLine] {
 		runes := []rune(line)
 		if len(runes) > w-2 && w > 4 {
 			runes = runes[:w-2]
 		}
-		bodyBuf.WriteString("  " + stylePreview.Render(string(runes)) + "\n")
+		s := string(runes)
+		if isErrContent {
+			bodyBuf.WriteString("  " + styleErr.Render(s) + "\n")
+		} else {
+			bodyBuf.WriteString("  " + stylePreview.Render(s) + "\n")
+		}
 	}
 
 	var posText string
@@ -989,8 +1059,8 @@ func buildBreadcrumb(cwd, root string, maxW int) string {
 }
 
 // RunBrowser tam ekran interaktif FTP dosya tarayıcısını başlatır.
-func RunBrowser(client *ftpclient.Client, startPath, root string) (*BrowserResult, error) {
-	m := newBrowserModel(client, startPath, root)
+func RunBrowser(client *ftpclient.Client, startPath, root string, server *config.Server) (*BrowserResult, error) {
+	m := newBrowserModel(client, startPath, root, server)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	final, err := p.Run()
 	if err != nil {
@@ -1005,8 +1075,8 @@ func RunBrowser(client *ftpclient.Client, startPath, root string) (*BrowserResul
 
 // RunBrowserPickDir hedef klasör seçmek için browser açar.
 // Enter tuşu klasöre girmek yerine onu seçer.
-func RunBrowserPickDir(client *ftpclient.Client, startPath, root string) (string, error) {
-	m := newBrowserModel(client, startPath, root)
+func RunBrowserPickDir(client *ftpclient.Client, startPath, root string, server *config.Server) (string, error) {
+	m := newBrowserModel(client, startPath, root, server)
 	m.pickDirMode = true
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	final, err := p.Run()
