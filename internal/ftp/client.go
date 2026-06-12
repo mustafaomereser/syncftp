@@ -86,10 +86,52 @@ func (c *Client) Upload(localPath, relPath string) error {
 	}
 	defer f.Close()
 
-	if err := c.conn.Stor(remoteFull, f); err != nil {
+	// FileZilla'nın yaptığı gibi: \r\n → \n normalize et, binary gönder.
+	// Sunucu ASCII modunu ignore etse bile dosya temiz kalır.
+	// Sadece satır sonları etkilenir — string içi boşluk/tab dokunulmaz.
+	if err := c.conn.Stor(remoteFull, newCRLFNormalizer(f)); err != nil {
 		return fmt.Errorf("yükleme başarısız (%s): %w", remoteFull, err)
 	}
 	return nil
+}
+
+// crlfNormalizer \r\n → \n dönüşümü yapan io.Reader wrapper'ı.
+type crlfNormalizer struct {
+	r      io.Reader
+	buf    []byte
+	out    []byte
+}
+
+func newCRLFNormalizer(r io.Reader) *crlfNormalizer {
+	return &crlfNormalizer{r: r, buf: make([]byte, 32*1024)}
+}
+
+func (c *crlfNormalizer) Read(p []byte) (int, error) {
+	if len(c.out) > 0 {
+		n := copy(p, c.out)
+		c.out = c.out[n:]
+		return n, nil
+	}
+	n, err := c.r.Read(c.buf)
+	if n == 0 {
+		return 0, err
+	}
+	// \r\n → \n
+	src := c.buf[:n]
+	dst := make([]byte, 0, n)
+	for i := 0; i < len(src); i++ {
+		if src[i] == '\r' && i+1 < len(src) && src[i+1] == '\n' {
+			continue // \r'ı atla, \n gelecek
+		}
+		// \r tek başına (son byte olabilir) — bir sonraki chunk'ta \n gelebilir,
+		// güvenli taraf: olduğu gibi bırak
+		dst = append(dst, src[i])
+	}
+	written := copy(p, dst)
+	if written < len(dst) {
+		c.out = dst[written:]
+	}
+	return written, err
 }
 
 // mkdirAllLocked — mu alınmış durumda çağrılmalı.
