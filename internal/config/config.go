@@ -20,9 +20,10 @@ type Project struct {
 }
 
 type Sync struct {
-	Protect []string `json:"protect"`
-	Include []string `json:"include"`
-	Exclude []string `json:"exclude"`
+	Protect     []string `json:"protect"`
+	Include     []string `json:"include"`
+	Exclude     []string `json:"exclude"`
+	IgnoreFiles []string `json:"ignore_files"` // nil/boş → [".gitignore","syncftp.ignore"] ikisi de yüklenir
 }
 
 type FirstSync struct {

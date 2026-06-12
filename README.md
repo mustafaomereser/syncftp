@@ -5,11 +5,13 @@ A Go CLI tool that detects changed files via SHA256 hashing and distributes them
 - **No git required** — change detection is hash-based, works in any directory
 - **Multi-server** — deploy to production and staging in a single command
 - **Server-side protection** — never overwrites `.env`, database configs, or any file you mark as protected
+- **Freeze list** — per-server list of files that are permanently skipped even when changed locally
 - **Parallel uploads** — configurable connection pool per server
 - **Auto-retry** — failed uploads are retried automatically and saved for manual re-runs
 - **Config-free mode** — sync any directory to any FTP without a project config (`syncftp push`)
 - **HTTP API** — built-in local API server for PHP/web UI integration (`syncftp serve`)
 - **Interactive shell** — run `syncftp` with no arguments for a full TUI shell with arrow-key file browser, server picker, and action menus
+- **CRLF normalization** — line endings are normalized before upload so PHP hosting servers don't inject blank lines
 
 The UI defaults to **English**. Switch languages with `syncftp lang tr` (or `lang tr` inside the shell). The preference is saved to `.syncftp/lang` and persists across restarts. Use `SYNCFTP_LANG=tr` to override for a single session without saving.
 
@@ -54,10 +56,11 @@ Created by `syncftp init`. Stored with permission `600`. Added to `.gitignore` a
   "sync": {
     "protect": [".env", "config/database.php", "storage/"],
     "include": [],
-    "exclude": []
+    "exclude": ["vendor/", "node_modules/"],
+    "ignore_files": []
   },
   "first_sync": {
-    "full": true
+    "full": false
   },
   "servers": [
     {
@@ -86,7 +89,7 @@ Created by `syncftp init`. Stored with permission `600`. Added to `.gitignore` a
       "max_connections": 1,
       "max_retries": 2,
       "include": ["css/", "js/"],
-      "exclude": ["vendor/"]
+      "exclude": []
     }
   ]
 }
@@ -100,9 +103,10 @@ Created by `syncftp init`. Stored with permission `600`. Added to `.gitignore` a
 | `sync.protect` | `[]` | Files/dirs that are **never** overwritten on the FTP server |
 | `sync.include` | `[]` | Global whitelist — sync only these paths (empty = all) |
 | `sync.exclude` | `[]` | Global blacklist — always skip these paths |
+| `sync.ignore_files` | `[]` | Which ignore files to load — empty means both `.gitignore` and `syncftp.ignore` |
 | `first_sync.full` | `false` | `true` = force upload everything on first sync; `false` = smart comparison (recommended) |
 | `server.disable_epsv` | `false` | Disable EPSV, use PASV only — fixes some NAT/firewall setups |
-| `server.nat_workaround` | `false` | Ignore the IP in PASV response, use server host instead — fixes NAT traversal issues |
+| `server.nat_workaround` | `false` | Ignore the IP in PASV response, use server host instead |
 | `server.max_connections` | `1` | Parallel FTP connections for this server |
 | `server.max_retries` | `2` | Retry count on upload failure (0 = no retry) |
 | `server.include` | `[]` | Per-server whitelist — overrides global `sync.include` |
@@ -113,18 +117,23 @@ Created by `syncftp init`. Stored with permission `600`. Added to `.gitignore` a
 
 ## Ignore Files
 
-syncFTP uses the first file it finds, in this order:
+syncFTP loads **both** `.gitignore` and `syncftp.ignore` if they exist and merges their patterns. You can control which files are loaded via `sync.ignore_files` in `syncftp.json`.
 
-1. `.gitignore` — used automatically if present
-2. `syncftp.ignore` — create this if you don't use git
+| `sync.ignore_files` value | Behavior |
+|---|---|
+| `[]` or field absent | Load `.gitignore` + `syncftp.ignore` (default) |
+| `[".gitignore"]` | Only `.gitignore` |
+| `["syncftp.ignore"]` | Only `syncftp.ignore` |
+| `[".gitignore", "syncftp.ignore"]` | Both (explicit) |
 
-Format is identical to `.gitignore`:
+**Typical setup** — keep `.gitignore` for git, add FTP-specific ignores to `syncftp.ignore`:
 
 ```gitignore
+# syncftp.ignore
+vendor/
 node_modules/
 *.log
 .DS_Store
-dist/
 uploads/
 ```
 
@@ -159,10 +168,9 @@ Remote directory [/public_html]:
 Shows what has changed since the last sync. **Nothing is uploaded.**
 
 ```bash
-syncftp status                                        # all servers
-syncftp status --include css                          # only show changes under css/
-syncftp status --exclude vendor                       # hide vendor/ changes
-syncftp status --include src --exclude src/__tests__  # combine
+syncftp status
+syncftp status --include css
+syncftp status --exclude vendor
 ```
 
 ```
@@ -193,32 +201,15 @@ syncftp sync                          # server picker opens if multiple servers 
 syncftp sync --all                    # skip picker, sync to all enabled servers
 syncftp sync --server production      # one specific server
 syncftp sync --full                   # ignore state, re-upload everything
-syncftp sync --dry-run                # preview what would be uploaded (TUI)
+syncftp sync --dry-run                # preview what would be uploaded
 syncftp sync --retry-failed           # re-upload files that failed in the last run
-```
-
-**Smart first sync** — on the very first run, syncFTP does not blindly upload everything. Instead it lists all files already on the FTP server and compares sizes with local files. Only files that are missing or have a different size are uploaded. This is safe to use when syncFTP is added to an already-deployed project. Use `--full` to force a complete re-upload regardless.
-
-**Filtering:**
-
-```bash
-# Whitelist — only sync specific paths (overrides syncftp.json include)
-syncftp sync --include css
 syncftp sync --include css --include js/app.js
-
-# Blacklist — exclude specific paths for this run only
-syncftp sync --exclude vendor
 syncftp sync --exclude vendor --exclude tests
-
-# Combine
-syncftp sync --include src/components --exclude src/components/__tests__
-
-# Always preview first
-syncftp sync --include css --dry-run
-syncftp sync --include css
 ```
 
-**Example output — first sync (smart comparison):**
+**Smart first sync** — on the very first run, syncFTP lists all files already on the FTP server and compares sizes with local files. Only missing or size-different files are uploaded. Safe to add to an already-deployed project. Use `--full` to force a complete re-upload.
+
+**Example output — first sync:**
 
 ```
 Scanning: /home/user/my-project
@@ -228,6 +219,7 @@ Scanning: /home/user/my-project
   First sync: scanning server, comparing existing files...
   139 files found on server
   Result: 139 up-to-date (skipped)  |  3 different/missing (uploading)
+  ❄ 2 frozen (skipped)
   3 files to process
   Connection pool: 3 / Retry: 2
     ✓ js/utils.js
@@ -237,22 +229,34 @@ Scanning: /home/user/my-project
   Release: .syncftp/releases/production/20260612-143012
 ```
 
-**Example output — incremental sync:**
+---
+
+### `syncftp freeze`
+
+Manages the **freeze list** for a server — files marked as frozen are permanently skipped during sync even if changed locally. Useful for files that differ intentionally between local and server (config overrides, server-specific assets, etc.).
+
+```bash
+syncftp freeze                        # server picker if multiple servers
+syncftp freeze --server production    # specific server
+```
+
+Opens a full-screen TUI where you can browse all local files, toggle freeze with `Space`, filter by typing, and save with `Enter`.
 
 ```
-Scanning: /home/user/my-project
-142 files found
-
-══ production (ftp.example.com) ══
-  3 files to process (1 protected)
-  Connection pool: 3 / Retry: 2
-    PROTECTED  .env
-    ✓ js/utils.js
-    ✓ css/dark-mode.css
-    ✓ index.php (2nd attempt)
-  Done: 3 uploaded, 1 protected, 0 failed
-  Release: .syncftp/releases/production/20260612-143012
+🧊 Freeze list — production
+  Type to filter  |  Space = freeze/unfreeze  |  a = toggle all  |  Enter = save  |  q = cancel
+  ──────────────────────────────────────────────────────────────────
+▶ [❄]  config/database.php
+  [❄]  config/smtp.php
+  [ ]  index.php
+  [ ]  js/app.js
+  ──────────────────────────────────────────────────────────────────
+  ❄ 2 frozen  ·  4/142 shown
 ```
+
+Freeze lists are stored per-server in `.syncftp/frozen/<server>.json`. To clear all freezes: open the TUI, press `a` to unmark all, then `Enter`.
+
+You can also toggle freeze directly from the **file browser** (`ls` command or `syncftp remote ls`) by pressing `f` on any file or folder. Pressing `f` on a folder freezes/unfreezes all files inside it recursively. Frozen files show `❄` icon, folders with frozen contents show `❄📁`.
 
 ---
 
@@ -260,31 +264,15 @@ Scanning: /home/user/my-project
 
 Syncs **any local directory** to an FTP server without needing a `syncftp.json`. Useful for one-off deployments or scripting.
 
-State is stored in `<local-dir>/.syncftp/` so subsequent runs only upload changed files.
-
 ```bash
-# Ad-hoc — provide credentials directly
 syncftp push ./website --host ftp.example.com --user admin --pass secret --remote /public_html
-
-# Use a server already defined in syncftp.json (only changes the local source dir)
+syncftp push ./website --host ftp.example.com --user admin --pass secret --remote /public_html --connections 3
 syncftp push ./another-project --server production
-
-# With parallel connections
-syncftp push ./website --host ftp.example.com --user admin --pass secret \
-  --remote /public_html --connections 3
-
-# Filtering
-syncftp push ./website --host ftp.example.com --user admin --pass secret \
-  --remote /public_html --include css --exclude vendor
-
-# Preview first
-syncftp push ./website --host ftp.example.com --user admin --pass secret \
-  --remote /public_html --dry-run
-
-# Force full re-upload
-syncftp push ./website --host ftp.example.com --user admin --pass secret \
-  --remote /public_html --full
+syncftp push ./website --host ftp.example.com --user admin --pass secret --remote /public_html --dry-run
+syncftp push ./website --host ftp.example.com --user admin --pass secret --remote /public_html --full
 ```
+
+State is stored in `<local-dir>/.syncftp/` so subsequent runs only upload changed files.
 
 **Flags:**
 
@@ -310,64 +298,53 @@ syncftp push ./website --host ftp.example.com --user admin --pass secret \
 
 Browse, download, preview and delete files on the FTP server.
 
-When multiple servers are configured and `--server` is not provided, an interactive TUI server picker is shown.
-
 ```bash
 syncftp remote ls                          # open interactive file browser
 syncftp remote ls css/                     # open browser starting at css/
 syncftp remote ls --recursive              # plain recursive tree (no TUI)
-syncftp remote ls --server staging         # specific server
+syncftp remote ls --server staging
 
 syncftp remote cat index.php               # preview first 10 KB
 syncftp remote cat                         # open file browser to pick a file
-syncftp remote cat error.log --max-kb 50   # preview first 50 KB
+syncftp remote cat error.log --max-kb 50
 
 syncftp remote get index.php               # download to current directory
 syncftp remote get                         # open file browser to pick a file
-syncftp remote get css/style.css ~/tmp/    # download to specific path
+syncftp remote get css/style.css ~/tmp/
 
 syncftp remote rm old-file.php             # delete file (TUI confirmation)
 syncftp remote rm                          # open file browser to pick a file
-syncftp remote rm old-file.php --force     # delete without confirmation
-syncftp remote rm cache/ --recursive       # delete directory and all contents
+syncftp remote rm old-file.php --force
+syncftp remote rm cache/ --recursive
 ```
-
-Paths without a leading `/` are resolved relative to the server's `remote_path`. Use an absolute path (starting with `/`) to reference any location on the server.
 
 ---
 
 ### `syncftp` (Interactive Shell)
 
-Run `syncftp` with no arguments to open the interactive shell. A full TUI environment with arrow-key navigation, file browser, server picker, and action menus.
+Run `syncftp` with no arguments to open the interactive shell.
 
 ```bash
 syncftp
-```
-
-```
-╔══════════════════════════════════════════════╗
-║  syncFTP Shell  ·  my-project                ║
-║  'help' yazın, çıkmak için 'exit'            ║
-╚══════════════════════════════════════════════╝
-
-syncftp [production:/public_html]>
 ```
 
 #### Shell Commands
 
 | Command | Description |
 |---|---|
-| `ls [path]` | Open arrow-key file browser (navigate with ↑↓, enter dirs with →, go up with ←) |
+| `ls [path]` | Open arrow-key file browser |
 | `cd <path>` | Change remote directory (`cd ..` to go up) |
-| `cat [file]` | Preview file content — opens browser if no path given |
-| `get [file] [dest]` | Download file — opens browser if no path given |
-| `rm [-f] [-r] [file]` | Delete file/dir — opens browser if no path given, TUI confirmation |
+| `cat [file]` | Preview file content |
+| `get [file] [dest]` | Download file |
+| `rm [-f] [-r] [file]` | Delete file/dir |
 | `pwd` | Show current remote path |
 | `status` | Show local changes per server |
-| `sync [--all] [--full] [--dry-run] [--server name]` | Upload to FTP — TUI progress view, multi-select picker if multiple servers |
-| `servers` | TUI server list — select to connect |
-| `server [name]` | Connect to a server (TUI picker if no name given) |
-| `clear` / `cls` | Clear screen and show welcome banner |
+| `sync [--all] [--full] [--dry-run] [--server name]` | Upload to FTP |
+| `freeze [--server name]` | Manage freeze list for a server |
+| `servers` | TUI server list |
+| `server [name]` | Connect to a server |
+| `lang [en\|tr]` | Show or change display language |
+| `clear` / `cls` | Clear screen |
 | `help` / `?` | Show command reference |
 | `exit` / `quit` | Exit shell |
 
@@ -375,43 +352,28 @@ syncftp [production:/public_html]>
 
 Opened by `ls`, or automatically when `cat`/`get`/`rm` receive no path argument.
 
-```
-  📁 /public_html/assets
-  ↑↓ Navigate  |  Enter Open/Select  |  → Preview  |  ← Up  |  Space Mark  |  / Search  |  q Quit
-  ────────────────────────────────────────────────────────────────────────────────────────────
-
- ▶ 📁  css/                              3 items        2026-06-11
-    📁  js/                               12 items       2026-06-10
-    📁  uploads/                          1000+ items    2026-06-09
-    ·············································
-    📄  style.css                         4.2 KB         2026-06-10
-    📄  app.js                            18.7 KB        2026-06-09
-
-  3 folders, 2 files  ·  1/5
-```
-
 | Key | Action |
 |---|---|
-| `↑` / `↓` or `j` / `k` | Navigate up/down |
+| `↑` / `↓` or `j` / `k` | Navigate |
 | `Enter` | Enter directory / select file |
-| `→` | Enter directory; on a **file**: load preview panel (on-demand, not on every cursor move) |
-| `←` / `ESC` | Go up one directory |
+| `→` / `l` | Enter directory; on a file: load full-screen preview |
+| `←` / `h` / `ESC` | Go up one directory |
 | `g` / `G` | Jump to first / last item |
-| `/` | Search — type to filter current directory; press **Enter** to search entire server recursively |
+| `/` | Search — type to filter; `Enter` = recursive server-wide search |
 | `Space` | Toggle mark on file or folder |
-| `a` | Mark all / unmark all visible items (disabled during search) |
-| `d` | **Delete** all marked items (double confirmation) |
-| `m` | **Move** all marked items — opens a second browser to pick destination folder |
-| `q` | Close browser / cancel |
+| `a` | Mark all / unmark all (disabled during search) |
+| `f` | **Freeze/unfreeze** file; on a folder: toggle all files inside recursively |
+| `d` | Delete all marked items (double confirmation) |
+| `m` | Move all marked items — pick destination in second browser |
+| `r` | Reconnect to server (after connection drop) |
+| `q` | Close browser |
 
-- **Folders first** (alphabetical), then files (alphabetical), dotted separator between them
-- **Folder item counts** loaded in background: `...` → `N items` or `1000+ items` (1000+) or `?` on error
-- **Preview panel** on terminals ≥ 120 chars wide — press `→` on a file to load; on-demand only, no FTP request on cursor moves
-- **Recursive search** with `/` + `Enter`: scans all subdirectories on the server, results show the relative path so you know where each file lives
-- **Mark & act**: `Space` marks files and folders, hint bar changes to `d=Sil  |  m=Taşı  |  a=Tümünü kaldır`
-- **Move**: opens a second browser in "pick folder" mode — `Enter` selects the highlighted folder as destination (does not enter it); `→` still enters for navigation
-- Selecting a single file in `ls` opens an action menu: **Cat / Get / Delete / Cancel**
-- Command history saved to `.syncftp/shell_history` (arrow keys work)
+- Frozen files show `❄` icon; folders with frozen contents show `❄📁`
+- Folder item counts loaded in background: `...` → `N items` or `1000+` or `?` on error
+- Preview panel on terminals ≥ 120 chars wide — loaded on demand (`→`), not on every cursor move
+- Recursive search with `/` + `Enter`: scans entire server, results show relative path
+- Selecting a single file opens an action menu: **View / Download / Delete / Cancel**
+- Command history saved to `.syncftp/shell_history`
 
 #### Sync Progress (TUI)
 
@@ -421,47 +383,20 @@ When `sync` runs, a full-screen progress view is shown:
   ══ production ══
 
   ████████████████░░░░░░░░░░░░░░░░  52%  13/25
-  
+
   ⠙ css/components/button.css
 
   ✓ index.php
   ✓ js/app.js
-  ✓ css/style.css
-  ✗ img/hero.jpg: connection reset (3 deneme)
+  ✗ img/hero.jpg: connection reset (3 attempts)
   ✓ css/components/button.css
 ```
-
-- Real-time per-file streaming as uploads complete
-- Progress bar with percentage and file count
-- Animated spinner showing current file
-- Scrolling log of last 12 results (✓ success, ✗ failure with attempt count)
-- Full summary on completion — press any key to return to shell
-
-#### Server Picker (TUI)
-
-Used by `servers`, `server`, `sync` (multi-select), and `remote` commands.
-
-```
-  Servers
-  ─────────────────────────────────────────────────────
-  Type to filter
-  ─────────────────────────────────────────────────────
-
-▶ [1] ✅  production    ftp.example.com:21  conn:3  (connected)
-  [2] 🖥  staging       ftp2.example.com:21  conn:1
-```
-
-- Type any letter to **fuzzy-filter** the list instantly
-- `Backspace` to clear search
-- `↑↓` navigate · `Enter` select · `[1-9]` quick select · `q` cancel
-
-For `sync` with multiple servers, a **multi-select picker** is shown (`Space` to toggle, `a` to select all, `Enter` to confirm).
 
 ---
 
 ### `syncftp lang`
 
-Show or change the display language. The preference is saved to `.syncftp/lang` and persists across restarts.
+Show or change the display language.
 
 ```bash
 syncftp lang        # show current language
@@ -469,156 +404,80 @@ syncftp lang en     # switch to English
 syncftp lang tr     # switch to Turkish
 ```
 
-Inside the interactive shell, use `lang en` / `lang tr` without the `syncftp` prefix.
+Preference saved to `.syncftp/lang`. Use `SYNCFTP_LANG=tr` to override for a single session without saving. Inside the shell: `lang en` / `lang tr`.
 
 ---
 
 ### `syncftp serve`
 
-Starts a local HTTP API server so external tools (PHP, scripts, web UIs) can interact with syncFTP via HTTP.
+Starts a local HTTP API server.
 
 ```bash
 syncftp serve              # http://127.0.0.1:8080
 syncftp serve --port 9000
 ```
 
-Only listens on `127.0.0.1` (localhost). CORS is enabled for all origins so browser-based UIs work out of the box.
+Only listens on `127.0.0.1`. CORS enabled for all origins.
 
 #### API Endpoints
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/servers` | List all configured servers (passwords excluded) |
+| `GET` | `/api/servers` | List configured servers (passwords excluded) |
 | `GET` | `/api/status` | Changed files per server |
 | `GET` | `/api/status?server=production` | Changed files for one server |
-| `POST` | `/api/sync` | Run sync, returns results |
-| `GET` | `/api/failed` | List files that failed in last sync |
-| `GET` | `/api/failed?server=production` | Failed files for one server |
+| `POST` | `/api/sync` | Run sync |
+| `GET` | `/api/failed` | Files that failed in last sync |
 | `GET` | `/api/remote/ls?server=&path=` | List remote directory |
 | `GET` | `/api/remote/ls?server=&path=&recursive=true` | Recursive listing |
-| `GET` | `/api/remote/cat?server=&path=&max_kb=10` | Preview file content |
-| `GET` | `/api/remote/get?server=&path=` | Download file (raw stream) |
+| `GET` | `/api/remote/cat?server=&path=&max_kb=10` | Preview file |
+| `GET` | `/api/remote/get?server=&path=` | Download file (raw) |
 | `GET` | `/api/remote/get?server=&path=&json=true` | Download file (base64 JSON) |
 | `DELETE` | `/api/remote/rm?server=&path=` | Delete file |
-| `DELETE` | `/api/remote/rm?server=&path=&recursive=true` | Delete directory recursively |
+| `DELETE` | `/api/remote/rm?server=&path=&recursive=true` | Delete directory |
 
-**All responses follow this envelope:**
-
-```json
-{ "ok": true,  "data": { ... } }
-{ "ok": false, "error": "error message" }
-```
-
-**POST /api/sync — request body:**
+**POST /api/sync body:**
 
 ```json
 {
   "server":       "production",
   "full":         false,
   "dry_run":      false,
-  "include":      ["css/", "js/"],
+  "include":      ["css/"],
   "exclude":      ["vendor/"],
   "retry_failed": false
 }
-```
-
-All fields are optional. Omitting `server` syncs all enabled servers.
-
-**POST /api/sync — response:**
-
-```json
-{
-  "ok": true,
-  "data": {
-    "server":   "production",
-    "dry_run":  false,
-    "uploaded": [{ "path": "css/style.css", "attempts": 1 }],
-    "failed":   [{ "path": "img/hero.jpg",  "attempts": 3, "error": "connection reset" }],
-    "skipped":  [".env"],
-    "deleted_locally": ["old-page.php"]
-  }
-}
-```
-
-**PHP examples:**
-
-```php
-// List servers
-$servers = json_decode(file_get_contents('http://127.0.0.1:8080/api/servers'));
-
-// Check status
-$status = json_decode(file_get_contents('http://127.0.0.1:8080/api/status?server=production'));
-
-// Run sync
-$ctx = stream_context_create(['http' => [
-    'method'  => 'POST',
-    'header'  => 'Content-Type: application/json',
-    'content' => json_encode(['server' => 'production']),
-]]);
-$result = json_decode(file_get_contents('http://127.0.0.1:8080/api/sync', false, $ctx));
-
-// List remote files
-$files = json_decode(file_get_contents('http://127.0.0.1:8080/api/remote/ls?server=production&path=css/'));
-
-// Preview a file
-$res = json_decode(file_get_contents('http://127.0.0.1:8080/api/remote/cat?server=production&path=index.php'));
-echo $res->data->content;
-
-// Download a file (raw)
-file_put_contents('local.php', file_get_contents(
-    'http://127.0.0.1:8080/api/remote/get?server=production&path=index.php'
-));
-
-// Delete a file
-$ctx = stream_context_create(['http' => ['method' => 'DELETE']]);
-$res = json_decode(file_get_contents(
-    'http://127.0.0.1:8080/api/remote/rm?server=production&path=old.php',
-    false, $ctx
-));
 ```
 
 ---
 
 ## Filtering System
 
-syncFTP has three independent filtering mechanisms that work together.
+Three independent mechanisms that work together:
 
 ### 1. `protect` — permanent server-side protection
 
-Files in `sync.protect` are **never uploaded**, ever. Use this for server-specific files that must not be overwritten (`.env`, database configs, uploaded media directories).
+Files in `sync.protect` are **never uploaded**. Use for server-specific files that must not be overwritten.
 
 ```json
-"sync": {
-  "protect": [
-    ".env",
-    "config/database.php",
-    "storage/"
-  ]
-}
+"sync": { "protect": [".env", "config/database.php", "storage/"] }
 ```
 
-A trailing `/` means directory prefix match — all files under that path are protected.
+### 2. Freeze list — per-server permanent skip
 
-### 2. `include` / `exclude` — permanent filters in config
+Files in a server's freeze list are skipped during sync even when changed locally. Managed via `syncftp freeze` or the `f` key in the file browser. Stored in `.syncftp/frozen/<server>.json`.
 
-Control which files participate in every sync. Can be set globally or per-server.
+Unlike `protect` (which is global and config-based), freeze lists are:
+- **Per-server** — a file can be frozen for production but not staging
+- **Managed interactively** — no need to edit JSON manually
+- **FTP-path aware** — toggled from the remote browser
+
+### 3. `include` / `exclude` — config and CLI filters
 
 ```json
-"sync": {
-  "include": [],
-  "exclude": ["vendor/", "node_modules/", "tests/"]
-},
+"sync": { "exclude": ["vendor/", "node_modules/", "tests/"] },
 "servers": [
-  {
-    "name": "production",
-    "include": ["css/", "js/", "index.php"],
-    "exclude": []
-  },
-  {
-    "name": "staging",
-    "include": [],
-    "exclude": ["vendor/"]
-  }
+  { "name": "production", "include": ["css/", "js/", "index.php"] }
 ]
 ```
 
@@ -626,61 +485,16 @@ Control which files participate in every sync. Can be set globally or per-server
 
 **Priority (exclude):** global `sync.exclude` + server `exclude` + CLI `--exclude` (all combined)
 
-### 3. `--include` / `--exclude` flags — one-shot overrides
+### Summary
 
-Applied only to the current command invocation. Do not affect state or future runs.
-
-```bash
-syncftp sync --include css --include js   # this run: only css/ and js/
-syncftp sync --exclude tests              # this run: skip tests/
-```
-
-### Summary table
-
-| Mechanism | Scope | Where |
+| Mechanism | Scope | Managed via |
 |---|---|---|
-| `sync.protect` | Permanent, all servers | `syncftp.json` |
-| `sync.include` / `sync.exclude` | Permanent, global | `syncftp.json` |
-| `server.include` / `server.exclude` | Permanent, per server | `syncftp.json` |
+| `sync.protect` | Global, all servers | `syncftp.json` |
+| Freeze list | Per-server, file-level | `syncftp freeze` / browser `f` key |
+| `sync.include` / `sync.exclude` | Global | `syncftp.json` |
+| `server.include` / `server.exclude` | Per-server | `syncftp.json` |
 | `--include` / `--exclude` flags | This run only | CLI |
-
----
-
-## Failed Files & Retry
-
-When uploads fail after all retry attempts, syncFTP saves the list to `.syncftp/failed/<server>.json`.
-
-```bash
-# Re-upload only the files that failed last time
-syncftp sync --retry-failed
-syncftp sync --retry-failed --server production
-
-# Or via the API
-curl -X POST http://127.0.0.1:8080/api/sync \
-  -H 'Content-Type: application/json' \
-  -d '{"server":"production","retry_failed":true}'
-```
-
-The failed list is cleared automatically once all files upload successfully.
-
----
-
-## Connection Pool & Retry
-
-Each server can have its own connection pool and retry settings:
-
-```json
-{
-  "name": "production",
-  "max_connections": 3,
-  "max_retries": 2
-}
-```
-
-- `max_connections` — number of simultaneous FTP connections (default `1`)
-- `max_retries` — how many times to retry a failed upload before giving up (default `2`, meaning 3 total attempts)
-
-If some connections in the pool fail to open, syncFTP continues with however many opened successfully (minimum 1). A partial pool warning is printed.
+| `sync.ignore_files` | File scanner | `syncftp.json` |
 
 ---
 
@@ -694,14 +508,18 @@ syncFTP creates a `.syncftp/` directory next to `syncftp.json`:
 │   ├── production.json    # per-file hashes from last successful sync
 │   └── staging.json
 ├── failed/
-│   └── production.json    # files that failed in the last run (cleared on success)
-└── releases/
-    └── production/
-        └── 20260612-143012/
-            └── manifest.json   # files and hashes for this release
+│   └── production.json    # files that failed last run (cleared on success)
+├── frozen/
+│   ├── production.json    # freeze list for production server
+│   └── staging.json
+├── releases/
+│   └── production/
+│       └── 20260612-143012/
+│           └── manifest.json
+└── lang                   # saved language preference ("en" or "tr")
 ```
 
-`.syncftp/` is always excluded from scanning and never uploaded to the FTP server.
+`.syncftp/` is always excluded from scanning and never uploaded.
 
 ---
 
@@ -710,20 +528,22 @@ syncFTP creates a `.syncftp/` directory next to `syncftp.json`:
 | Package | Role |
 |---|---|
 | `internal/config` | JSON config loading |
-| `internal/ignore` | `.gitignore` / `syncftp.ignore` parser |
+| `internal/ignore` | `.gitignore` + `syncftp.ignore` merged parser |
 | `internal/scanner` | Directory walk, SHA256 hashing |
 | `internal/state` | Per-server sync state (load / save / diff) |
-| `internal/ftp` | FTP client, connection pool, upload, remote operations |
+| `internal/ftp` | FTP client, connection pool, CRLF normalizer |
 | `internal/failed` | Failed file list persistence |
 | `internal/release` | Release manifest writer |
-| `cmd/syncftp` | CLI commands (init, status, sync, push, remote, serve, shell) |
+| `internal/frozen` | Per-server freeze list (load / save) |
+| `internal/lang` | i18n — English default, Turkish via `SYNCFTP_LANG=tr` |
+| `cmd/syncftp` | CLI commands (init, status, sync, push, remote, serve, freeze, lang, shell) |
 
 ---
 
 ## Running Tests
 
 ```bash
-go test ./...                           # all packages
-go test ./internal/state/... -v         # verbose state tests
-go test ./internal/scanner/...          # scanner tests
+go test ./...
+go test ./internal/state/... -v
+go test ./internal/scanner/...
 ```

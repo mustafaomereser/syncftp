@@ -12,6 +12,7 @@ import (
 
 	"syncftp/internal/config"
 	ftpclient "syncftp/internal/ftp"
+	"syncftp/internal/frozen"
 	"syncftp/internal/lang"
 )
 
@@ -82,6 +83,11 @@ type recursiveSearchMsg struct {
 	results []sortedEntry
 	err     error
 }
+type folderFreezeMsg struct {
+	folderRel string            // klasörün root'a göre göreceli yolu
+	files     map[string]uint64 // klasöre göre göreceli dosya yolları
+	err       error
+}
 type reconnectDoneMsg struct {
 	client *ftpclient.Client
 	err    error
@@ -92,12 +98,14 @@ type reconnectDoneMsg struct {
 type browserModel struct {
 	client      *ftpclient.Client
 	server      *config.Server // yeniden bağlanma için
+	configDir   string         // freeze kaydetmek için
 	root        string
 	cwd         string
 	entries     []sortedEntry
 	filtered    []sortedEntry // arama sonucu
 	childCounts map[string]int
 	marked      map[string]bool
+	frozenFiles map[string]bool // relPath → freeze durumu
 
 	cursor  int
 	loading bool
@@ -128,15 +136,23 @@ type browserModel struct {
 	pickDirMode bool
 }
 
-func newBrowserModel(client *ftpclient.Client, startPath, root string, server *config.Server) browserModel {
+func newBrowserModel(client *ftpclient.Client, startPath, root, configDir string, server *config.Server) browserModel {
+	frozenFiles := make(map[string]bool)
+	if configDir != "" && server != nil {
+		if fl, err := frozen.Load(configDir, server.Name); err == nil {
+			frozenFiles = fl.Files
+		}
+	}
 	return browserModel{
 		client:      client,
 		server:      server,
+		configDir:   configDir,
 		root:        root,
 		cwd:         startPath,
 		loading:     true,
 		childCounts: make(map[string]int),
 		marked:      make(map[string]bool),
+		frozenFiles: frozenFiles,
 	}
 }
 
@@ -342,6 +358,35 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case browseErrMsg:
 		m.loading = false
 		m.err = msg.err
+
+	case folderFreezeMsg:
+		if msg.err == nil && len(msg.files) > 0 {
+			// Klasördeki dosyaların tüm root-göreceli yollarını hesapla
+			var filePaths []string
+			for rel := range msg.files {
+				full := rel
+				if msg.folderRel != "" {
+					full = msg.folderRel + "/" + rel
+				}
+				filePaths = append(filePaths, full)
+			}
+			// Hepsi zaten frozen ise unfreeze, değilse freeze
+			allFrozen := true
+			for _, p := range filePaths {
+				if !m.frozenFiles[p] {
+					allFrozen = false
+					break
+				}
+			}
+			for _, p := range filePaths {
+				if allFrozen {
+					delete(m.frozenFiles, p)
+				} else {
+					m.frozenFiles[p] = true
+				}
+			}
+			m.saveFrozen()
+		}
 
 	case reconnectDoneMsg:
 		if msg.err != nil {
@@ -672,6 +717,33 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.previewFile = ""
 			m.previewLoading = false
 
+		case "f", "F":
+			if m.configDir == "" || m.server == nil || m.pickDirMode {
+				break
+			}
+			vis := m.visible()
+			if len(vis) == 0 {
+				break
+			}
+			e := vis[m.cursor]
+			if e.selectMe || e.entry == nil {
+				break
+			}
+			if e.entry.Type == goftp.EntryTypeFolder {
+				// Klasör: içindeki tüm dosyaları async olarak freeze/unfreeze
+				folderPath := m.entryFullPath(e)
+				folderRel := m.ftpRelPath(folderPath)
+				return m, m.fetchFolderForFreeze(folderPath, folderRel)
+			}
+			// Dosya: anında toggle
+			rel := m.ftpRelPath(m.entryFullPath(e))
+			if m.frozenFiles[rel] {
+				delete(m.frozenFiles, rel)
+			} else {
+				m.frozenFiles[rel] = true
+			}
+			m.saveFrozen()
+
 		case "r", "R":
 			// Bağlantı kopuksa yeniden bağlan
 			if m.server != nil {
@@ -692,6 +764,37 @@ func (m browserModel) markedList() []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// ftpRelPath FTP tam yolundan root prefix'ini çıkarıp göreceli yol döner.
+// Dönen değer freeze listesindeki key ile eşleşir.
+func (m browserModel) ftpRelPath(fullPath string) string {
+	rel := strings.TrimPrefix(fullPath, m.root)
+	rel = strings.TrimPrefix(rel, "/")
+	return rel
+}
+
+// saveFrozen mevcut frozenFiles map'ini diske yazar.
+func (m browserModel) saveFrozen() {
+	if m.configDir == "" || m.server == nil {
+		return
+	}
+	var paths []string
+	for p, v := range m.frozenFiles {
+		if v {
+			paths = append(paths, p)
+		}
+	}
+	_ = frozen.Save(m.configDir, m.server.Name, paths)
+}
+
+// fetchFolderForFreeze klasördeki tüm dosyaları async olarak listeler.
+func (m browserModel) fetchFolderForFreeze(folderPath, folderRel string) tea.Cmd {
+	client := m.client
+	return func() tea.Msg {
+		files, err := client.ListRecursive(folderPath)
+		return folderFreezeMsg{folderRel: folderRel, files: files, err: err}
+	}
 }
 
 func (m browserModel) goUp() (tea.Model, tea.Cmd) {
@@ -775,6 +878,7 @@ func (m browserModel) View() string {
 			sep + styleHint.Render(lang.L.BrowserHintLeft) +
 			sep + styleHint.Render(lang.L.BrowserHintSpace) +
 			sep + styleHint.Render(lang.L.BrowserHintSearch) +
+			sep + styleHint.Render(lang.L.BrowserHintFreeze) +
 			sep + styleHint.Render(lang.L.BrowserHintQuitKey)
 	}
 
@@ -849,11 +953,32 @@ func (m browserModel) View() string {
 		isMarked := m.marked[fullPath]
 		isDir := e.entry.Type == goftp.EntryTypeFolder
 
+		entryFullP := m.entryFullPath(e)
+		relP := m.ftpRelPath(entryFullP)
+		var isFrozen bool
+		if isDir {
+			// Klasör: altında herhangi frozen dosya varsa işaretle
+			prefix := relP + "/"
+			for p, v := range m.frozenFiles {
+				if v && strings.HasPrefix(p, prefix) {
+					isFrozen = true
+					break
+				}
+			}
+		} else {
+			isFrozen = m.frozenFiles[relP]
+		}
+
 		icon := "📄"
 		rawName := e.entry.Name
 		if isDir {
 			icon = "📁"
 			rawName += "/"
+			if isFrozen {
+				icon = "❄📁"
+			}
+		} else if isFrozen {
+			icon = "❄ "
 		}
 		// Recursive aramada: ismin önüne kısa dizin yolu ekle
 		if e.dir != "" {
@@ -1066,8 +1191,8 @@ func buildBreadcrumb(cwd, root string, maxW int) string {
 }
 
 // RunBrowser tam ekran interaktif FTP dosya tarayıcısını başlatır.
-func RunBrowser(client *ftpclient.Client, startPath, root string, server *config.Server) (*BrowserResult, error) {
-	m := newBrowserModel(client, startPath, root, server)
+func RunBrowser(client *ftpclient.Client, startPath, root, configDir string, server *config.Server) (*BrowserResult, error) {
+	m := newBrowserModel(client, startPath, root, configDir, server)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	final, err := p.Run()
 	if err != nil {
@@ -1082,8 +1207,8 @@ func RunBrowser(client *ftpclient.Client, startPath, root string, server *config
 
 // RunBrowserPickDir hedef klasör seçmek için browser açar.
 // Enter tuşu klasöre girmek yerine onu seçer.
-func RunBrowserPickDir(client *ftpclient.Client, startPath, root string, server *config.Server) (string, error) {
-	m := newBrowserModel(client, startPath, root, server)
+func RunBrowserPickDir(client *ftpclient.Client, startPath, root, configDir string, server *config.Server) (string, error) {
+	m := newBrowserModel(client, startPath, root, configDir, server)
 	m.pickDirMode = true
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	final, err := p.Run()

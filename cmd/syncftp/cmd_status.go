@@ -43,7 +43,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 
 	projectDir := filepath.Join(dir, cfg.Project.LocalPath)
 
-	matcher, err := ignore.Load(projectDir)
+	matcher, err := ignore.Load(projectDir, cfg.Sync.IgnoreFiles)
 	if err != nil {
 		return fmt.Errorf("ignore dosyası yüklenemedi: %w", err)
 	}

@@ -92,7 +92,7 @@ func resolveFreezeServer(cfg *config.Config, name string) (*config.Server, error
 
 func buildFreezeItems(configDir string, cfg *config.Config) ([]PickerItem, error) {
 	projectDir := filepath.Join(configDir, cfg.Project.LocalPath)
-	matcher, err := ignore.Load(projectDir)
+	matcher, err := ignore.Load(projectDir, cfg.Sync.IgnoreFiles)
 	if err != nil {
 		return nil, err
 	}

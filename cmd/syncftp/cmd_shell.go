@@ -349,7 +349,7 @@ func (sh *shellState) cmdLs(args []string) {
 		startPath = sh.resolvePath(args[0])
 	}
 
-	result, err := RunBrowser(sh.client, startPath, sh.srv.RemotePath, sh.srv)
+	result, err := RunBrowser(sh.client, startPath, sh.srv.RemotePath, sh.configDir, sh.srv)
 	if err != nil {
 		fmt.Printf(lang.L.ShellBrowserErr, err)
 		return
@@ -419,7 +419,7 @@ func (sh *shellState) browserMove(files []string) {
 	}
 	fmt.Printf(lang.L.ShellMovingFmt, len(files))
 
-	destDir, err := RunBrowserPickDir(sh.client, sh.remoteCwd, sh.srv.RemotePath, sh.srv)
+	destDir, err := RunBrowserPickDir(sh.client, sh.remoteCwd, sh.srv.RemotePath, sh.configDir, sh.srv)
 	if err != nil {
 		fmt.Printf(lang.L.ShellBrowserErr, err)
 		return
@@ -489,7 +489,7 @@ func (sh *shellState) cmdCat(args []string) {
 		resolved := sh.resolvePath(remaining[0])
 		// Dizinse browser aç
 		if entries, err := sh.client.List(resolved); err == nil && entries != nil {
-			result, err := RunBrowser(sh.client, resolved, sh.srv.RemotePath, sh.srv)
+			result, err := RunBrowser(sh.client, resolved, sh.srv.RemotePath, sh.configDir, sh.srv)
 			if err != nil || result.Quit || result.Selected == "" {
 				return
 			}
@@ -499,7 +499,7 @@ func (sh *shellState) cmdCat(args []string) {
 			filePath = resolved
 		}
 	} else {
-		result, err := RunBrowser(sh.client, sh.remoteCwd, sh.srv.RemotePath, sh.srv)
+		result, err := RunBrowser(sh.client, sh.remoteCwd, sh.srv.RemotePath, sh.configDir, sh.srv)
 		if err != nil || result.Quit || result.Selected == "" {
 			return
 		}
@@ -535,7 +535,7 @@ func (sh *shellState) cmdGet(args []string) {
 	var remotePath, localDest string
 
 	if len(args) == 0 {
-		result, err := RunBrowser(sh.client, sh.remoteCwd, sh.srv.RemotePath, sh.srv)
+		result, err := RunBrowser(sh.client, sh.remoteCwd, sh.srv.RemotePath, sh.configDir, sh.srv)
 		if err != nil || result.Quit || result.Selected == "" {
 			return
 		}
@@ -545,7 +545,7 @@ func (sh *shellState) cmdGet(args []string) {
 	} else {
 		resolved := sh.resolvePath(args[0])
 		if entries, err := sh.client.List(resolved); err == nil && entries != nil {
-			result, err := RunBrowser(sh.client, resolved, sh.srv.RemotePath, sh.srv)
+			result, err := RunBrowser(sh.client, resolved, sh.srv.RemotePath, sh.configDir, sh.srv)
 			if err != nil || result.Quit || result.Selected == "" {
 				return
 			}
@@ -601,7 +601,7 @@ func (sh *shellState) cmdRm(args []string) {
 
 	var remotePath string
 	if len(remaining) == 0 {
-		result, err := RunBrowser(sh.client, sh.remoteCwd, sh.srv.RemotePath, sh.srv)
+		result, err := RunBrowser(sh.client, sh.remoteCwd, sh.srv.RemotePath, sh.configDir, sh.srv)
 		if err != nil || result.Quit || result.Selected == "" {
 			return
 		}
@@ -610,7 +610,7 @@ func (sh *shellState) cmdRm(args []string) {
 	} else {
 		resolved := sh.resolvePath(remaining[0])
 		if entries, err := sh.client.List(resolved); err == nil && entries != nil {
-			result, err := RunBrowser(sh.client, resolved, sh.srv.RemotePath, sh.srv)
+			result, err := RunBrowser(sh.client, resolved, sh.srv.RemotePath, sh.configDir, sh.srv)
 			if err != nil || result.Quit || result.Selected == "" {
 				return
 			}
@@ -662,7 +662,7 @@ func (sh *shellState) cmdStatus() {
 	cfg := sh.cfg
 	projectDir := filepath.Join(sh.configDir, cfg.Project.LocalPath)
 
-	matcher, err := ignore.Load(projectDir)
+	matcher, err := ignore.Load(projectDir, cfg.Sync.IgnoreFiles)
 	if err != nil {
 		fmt.Printf(lang.L.ShellErrFmt, err)
 		return
@@ -729,7 +729,7 @@ func (sh *shellState) cmdSync(args []string) {
 	cfg := sh.cfg
 	projectDir := filepath.Join(sh.configDir, cfg.Project.LocalPath)
 
-	matcher, err := ignore.Load(projectDir)
+	matcher, err := ignore.Load(projectDir, cfg.Sync.IgnoreFiles)
 	if err != nil {
 		fmt.Printf(lang.L.ShellErrFmt, err)
 		return

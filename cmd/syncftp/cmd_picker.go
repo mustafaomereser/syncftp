@@ -516,7 +516,7 @@ func RunFreezeList(title string, items []PickerItem, preSelected map[string]bool
 	if fm.quit || !fm.confirmed {
 		return nil, nil
 	}
-	var result []string
+	result := []string{} // nil değil — hiç seçilmese de "tüm freeze'leri kaldır" olarak kaydedilir
 	for _, item := range fm.all {
 		if fm.checked[item.Value] {
 			result = append(result, item.Value)

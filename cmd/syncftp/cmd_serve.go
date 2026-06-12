@@ -191,7 +191,7 @@ func handleStatus(w http.ResponseWriter, r *http.Request, configDir string) {
 	}
 
 	projectDir := filepath.Join(configDir, cfg.Project.LocalPath)
-	matcher, err := ignore.Load(projectDir)
+	matcher, err := ignore.Load(projectDir, cfg.Sync.IgnoreFiles)
 	if err != nil {
 		jsonErr(w, 500, err)
 		return
@@ -286,7 +286,7 @@ func handleSync(w http.ResponseWriter, r *http.Request, configDir string) {
 	}
 
 	projectDir := filepath.Join(configDir, cfg.Project.LocalPath)
-	matcher, err := ignore.Load(projectDir)
+	matcher, err := ignore.Load(projectDir, cfg.Sync.IgnoreFiles)
 	if err != nil {
 		jsonErr(w, 500, err)
 		return

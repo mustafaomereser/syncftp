@@ -29,6 +29,7 @@ type StringSet struct {
 	BrowserHintSpace         string // "Space İşaretle"
 	BrowserHintSearch        string // "/ Ara"
 	BrowserHintQuitKey       string // "q Çık"
+	BrowserHintFreeze        string // "f=❄ Freeze"
 	BrowserErrPrefix         string // "  Hata: "
 	BrowserReconnectHint     string // "r = Yeniden Bağlan  |  q = Çık"
 	BrowserSelectThisPrefix  string // "[ Bu dizini seç: "
@@ -312,6 +313,7 @@ var En = StringSet{
 	BrowserHintSpace:         "Space Mark",
 	BrowserHintSearch:        "/ Search",
 	BrowserHintQuitKey:       "q Quit",
+	BrowserHintFreeze:        "f=❄ Freeze",
 	BrowserErrPrefix:         "  Error: ",
 	BrowserReconnectHint:     "r = Reconnect  |  q = Quit",
 	BrowserSelectThisPrefix:  "[ Select this dir: ",
@@ -407,7 +409,9 @@ var En = StringSet{
 
 	ShellHelp: `
 Remote server commands:
-  ls [dir]                Interactive file browser (↑↓ navigate, → enter, ← back)
+  ls [dir]                Interactive file browser (↑↓ navigate, → enter/preview, ← back)
+                            Space = mark  |  d = delete marked  |  m = move marked
+                            f = freeze/unfreeze file or whole folder  |  / = search
   cd <dir>                Change remote directory  (cd .. to go up)
   cat [file]              View file contents (opens browser if no arg)
   get [file] [dest]       Download file (opens browser if no arg)
@@ -417,6 +421,7 @@ Remote server commands:
 Sync:
   status                  Show local changes
   sync [--all] [--full] [--dry-run] [--server name]   Upload to FTP
+  freeze [--server name]  Manage freeze list — mark files to never upload
 
 Server management:
   servers                 Server list
@@ -571,6 +576,7 @@ var Tr = StringSet{
 	BrowserHintSpace:         "Space İşaretle",
 	BrowserHintSearch:        "/ Ara",
 	BrowserHintQuitKey:       "q Çık",
+	BrowserHintFreeze:        "f=❄ Dondur",
 	BrowserErrPrefix:         "  Hata: ",
 	BrowserReconnectHint:     "r = Yeniden Bağlan  |  q = Çık",
 	BrowserSelectThisPrefix:  "[ Bu dizini seç: ",
@@ -666,7 +672,9 @@ var Tr = StringSet{
 
 	ShellHelp: `
 Uzak sunucu komutları:
-  ls [dizin]              İnteraktif dosya tarayıcısı (↑↓ gezin, → gir, ← çık)
+  ls [dizin]              İnteraktif dosya tarayıcısı (↑↓ gezin, → gir/önizle, ← çık)
+                            Space = işaretle  |  d = işaretlileri sil  |  m = taşı
+                            f = dosya/klasörü freeze/unfreeze  |  / = ara
   cd <dizin>              Uzak dizin değiştir  (cd .. ile üste çık)
   cat [dosya]             Dosya içeriğini görüntüle (arg verilmezse tarayıcı açılır)
   get [dosya] [hedef]     Dosya indir (arg verilmezse tarayıcı açılır)
@@ -676,6 +684,7 @@ Uzak sunucu komutları:
 Senkronizasyon:
   status                  Yerel değişiklikleri göster
   sync [--all] [--full] [--dry-run] [--server ad]   FTP'ye yükle
+  freeze [--server ad]    Freeze listesi — yüklenmesin istenen dosyaları işaretle
 
 Sunucu yönetimi:
   servers                 Sunucu listesi
@@ -685,7 +694,7 @@ Diğer:
   lang [en|tr]            Dili göster veya değiştir
   clear / cls             Ekranı temizle
   help / ?                Bu yardım
-  exit / quit             Çıkış`,
+  exit / quit             Çık`,
 
 	// lang command (Tr)
 	LangCurrentFmt:  "Dil: %s\n",

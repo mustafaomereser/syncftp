@@ -85,7 +85,7 @@ func runPush(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	// Tara
-	matcher, err := ignore.Load(localDir)
+	matcher, err := ignore.Load(localDir, nil)
 	if err != nil {
 		return fmt.Errorf("ignore dosyası yüklenemedi: %w", err)
 	}
