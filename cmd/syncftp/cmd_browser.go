@@ -435,8 +435,10 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cursor > 0 {
 				m.cursor--
 			}
+			// Önizleme cache'ini temizle — farklı dosyaya geçildi
 			m.preview = ""
 			m.previewFile = ""
+			m.previewLines = nil
 			m.previewLoading = false
 
 		case "down", "j":
@@ -445,6 +447,7 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.preview = ""
 			m.previewFile = ""
+			m.previewLines = nil
 			m.previewLoading = false
 
 		case "left", "h":
@@ -481,14 +484,15 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.previewScroll = 0
 			m.previewName = e.entry.Name
 			m.previewMeta = formatSize(e.entry.Size) + "   " + e.entry.Time.Format("2006-01-02 15:04")
-			if fullPath != m.previewFile {
-				m.previewFile = fullPath
-				m.previewLoading = true
-				m.preview = ""
-				m.previewLines = nil
-				return m, m.fetchPreview(fullPath)
+			// İçerik zaten yüklüyse (aynı dosya + satırlar var) yeniden fetch etme
+			if fullPath == m.previewFile && m.previewLines != nil {
+				return m, nil
 			}
-			return m, nil
+			m.previewFile = fullPath
+			m.previewLoading = true
+			m.preview = ""
+			m.previewLines = nil
+			return m, m.fetchPreview(fullPath)
 
 		case "enter":
 			vis := m.visible()
@@ -885,7 +889,7 @@ func (m browserModel) viewPreview(w, h int) string {
 	header := styleHeader.Render("  📄 "+m.previewName) +
 		"   " + styleMeta.Render(m.previewMeta)
 
-	if m.previewLoading {
+	if m.previewLoading || m.previewLines == nil {
 		hint := styleHint.Render("  ESC/q geri")
 		return "\n" + header + "\n" + divider + "\n\n" +
 			styleHint.Render("  Yükleniyor...") + "\n\n" +

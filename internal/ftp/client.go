@@ -184,12 +184,11 @@ func (c *Client) Preview(remotePath string, maxBytes int64) ([]byte, error) {
 	}
 	defer resp.Close()
 
-	buf := make([]byte, maxBytes)
-	n, err := io.ReadFull(resp, buf)
-	if err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+	buf, err := io.ReadAll(io.LimitReader(resp, maxBytes))
+	if err != nil {
 		return nil, err
 	}
-	return buf[:n], nil
+	return buf, nil
 }
 
 // ListRecursive remotePath altındaki tüm dosyaları rekürsif listeler.
