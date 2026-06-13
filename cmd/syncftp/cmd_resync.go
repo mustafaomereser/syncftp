@@ -21,23 +21,23 @@ import (
 )
 
 var (
-	resyncFlagServer string
-	resyncFlagAll    bool
+	calibrateFlagServer string
+	calibrateFlagAll    bool
 )
 
 func init() {
-	resyncCmd.Flags().StringVarP(&resyncFlagServer, "server", "s", "", "Sadece bu sunucuyu resync et")
-	resyncCmd.Flags().BoolVar(&resyncFlagAll, "all", false, "Tüm aktif sunucuları resync et")
-	rootCmd.AddCommand(resyncCmd)
+	calibrateCmd.Flags().StringVarP(&calibrateFlagServer, "server", "s", "", "Sadece bu sunucuyu kalibre et")
+	calibrateCmd.Flags().BoolVar(&calibrateFlagAll, "all", false, "Tüm aktif sunucuları kalibre et")
+	rootCmd.AddCommand(calibrateCmd)
 }
 
-var resyncCmd = &cobra.Command{
-	Use:   "resync",
+var calibrateCmd = &cobra.Command{
+	Use:   "calibrate",
 	Short: "Yerel dosyaları FTP boyutlarıyla karşılaştırıp state'i günceller (yükleme yapmaz)",
-	RunE:  runResyncCmd,
+	RunE:  runCalibrateCmd,
 }
 
-func runResyncCmd(cmd *cobra.Command, args []string) error {
+func runCalibrateCmd(cmd *cobra.Command, args []string) error {
 	dir, _ := os.Getwd()
 	cfg, err := config.Load(dir)
 	if err != nil {
@@ -45,10 +45,10 @@ func runResyncCmd(cmd *cobra.Command, args []string) error {
 	}
 
 	servers := cfg.Servers
-	if resyncFlagServer != "" {
+	if calibrateFlagServer != "" {
 		var found []config.Server
 		for _, s := range servers {
-			if s.Name == resyncFlagServer {
+			if s.Name == calibrateFlagServer {
 				found = append(found, s)
 				break
 			}
@@ -58,7 +58,7 @@ func runResyncCmd(cmd *cobra.Command, args []string) error {
 			return nil
 		}
 		servers = found
-	} else if !resyncFlagAll {
+	} else if !calibrateFlagAll {
 		// varsayılan: sadece enabled sunucular
 		var enabled []config.Server
 		for _, s := range servers {
@@ -75,7 +75,7 @@ func runResyncCmd(cmd *cobra.Command, args []string) error {
 	}
 
 	for _, srv := range servers {
-		runResync(dir, srv, cfg)
+		runCalibrate(dir, srv, cfg)
 	}
 	return nil
 }
@@ -137,9 +137,9 @@ func passesFilter(relPath string, include, exclude []string) bool {
 	return true
 }
 
-// runResync yerel dosyaları FTP boyutlarıyla karşılaştırıp eşleşenleri state'e yazar.
+// runCalibrate yerel dosyaları FTP boyutlarıyla karşılaştırıp eşleşenleri state'e yazar.
 // Yükleme yapmaz. Hata olursa sessizce devam eder (state değişmez).
-func runResync(dir string, srv config.Server, cfg *config.Config) {
+func runCalibrate(dir string, srv config.Server, cfg *config.Config) {
 	localPath := srv.EffectiveLocalPath(cfg.Project)
 	localDir := filepath.Join(dir, localPath)
 
@@ -204,13 +204,13 @@ func runResync(dir string, srv config.Server, cfg *config.Config) {
 	fmt.Printf("  [%s]\n", srv.Name)
 	fmt.Printf(lang.L.ResyncLocalFmt, len(current))
 	if len(ignoredDirs) > 0 {
-		fmt.Printf("  Ignore: %d klasör atlandı → %s\n", len(ignoredDirs), strings.Join(ignoredDirs, ", "))
+		fmt.Printf(lang.L.ResyncIgnoreDirsFmt, len(ignoredDirs), strings.Join(ignoredDirs, ", "))
 	}
 	if ignoredCount > 0 {
-		fmt.Printf("  Ignore: %d dosya atlandı\n", ignoredCount)
+		fmt.Printf(lang.L.ResyncIgnoreFilesFmt, ignoredCount)
 	}
 	if excluded > 0 {
-		fmt.Printf("  Filtre (include/exclude): %d dosya kapsam dışı\n", excluded)
+		fmt.Printf(lang.L.ResyncFilteredFmt, excluded)
 	}
 	fmt.Print(lang.L.ResyncScanning)
 
@@ -241,7 +241,7 @@ func runResync(dir string, srv config.Server, cfg *config.Config) {
 	for key, hash := range current {
 		done++
 		if done == total || time.Since(lastPrint) >= 80*time.Millisecond {
-			fmt.Printf("  Karşılaştırılıyor: %d / %d\n", done, total)
+			fmt.Printf(lang.L.ResyncComparingFmt, done, total)
 			lastPrint = time.Now()
 		}
 
@@ -276,11 +276,9 @@ func runResync(dir string, srv config.Server, cfg *config.Config) {
 		}
 	}
 
+	fmt.Printf(lang.L.ResyncMatchedFmt, matched, different)
 	if frozenDiff > 0 {
-		fmt.Printf(lang.L.ResyncMatchedFmt, matched, different)
-		fmt.Printf("  ❄ %d frozen dosya farklı/eksik (sync sırasında atlanacak)\n", frozenDiff)
-	} else {
-		fmt.Printf(lang.L.ResyncMatchedFmt, matched, different)
+		fmt.Printf(lang.L.ResyncFrozenDiffFmt, frozenDiff)
 	}
 
 	st.FirstSyncDone = true

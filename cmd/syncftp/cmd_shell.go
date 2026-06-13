@@ -66,7 +66,7 @@ func runShell() error {
 
 	if sh.srv == nil && len(servers) > 1 {
 		fmt.Println(lang.L.ShellMultiServer)
-		fmt.Println(lang.L.ShellServersLabel, strings.Join(serverNames(servers), ", "))
+		fmt.Printf("%s [%s]\n", lang.L.ShellServersLabel, strings.Join(serverNames(servers), ", "))
 		fmt.Println()
 	}
 
@@ -159,8 +159,8 @@ func runShell() error {
 		case "sync":
 			sh.cmdSync(args)
 
-		case "resync":
-			sh.cmdResync(args)
+		case "calibrate":
+			sh.cmdCalibrate(args)
 
 		default:
 			fmt.Printf(lang.L.ShellUnknownCmd, cmd)
@@ -908,7 +908,7 @@ func (sh *shellState) cmdSync(args []string) {
 	}
 }
 
-func (sh *shellState) cmdResync(args []string) {
+func (sh *shellState) cmdCalibrate(args []string) {
 	serverName := ""
 	all := false
 	for i := 0; i < len(args); i++ {
@@ -937,7 +937,7 @@ func (sh *shellState) cmdResync(args []string) {
 		if sh.srv != nil {
 			connectedName = sh.srv.Name
 		}
-		selected, err := pickServerMultiTUI(servers, connectedName)
+		selected, err := pickServerMultiTUITitle(servers, connectedName, lang.L.ShellCalibrateServers)
 		if err != nil || selected == nil {
 			fmt.Println(lang.L.ShellSyncCancelled)
 			return
@@ -951,7 +951,7 @@ func (sh *shellState) cmdResync(args []string) {
 
 	for _, srv := range servers {
 		fmt.Printf("\n── %s ──\n", srv.Name)
-		runResync(sh.configDir, srv, &sh.cfg)
+		runCalibrate(sh.configDir, srv, &sh.cfg)
 	}
 
 	// resync kendi FTP bağlantısını açar; sunucu aynı kullanıcıdan iki bağlantı görünce
@@ -1566,9 +1566,13 @@ func (m statusTUI) View() string {
 	return b.String()
 }
 
-// pickServerMultiTUI — çoklu seçimli sunucu picker'ı (sync için).
+// pickServerMultiTUI — çoklu seçimli sunucu picker'ı.
 // connectedName boş değilse o sunucu önceden işaretli + cursor üzerinde açılır.
 func pickServerMultiTUI(servers []config.Server, connectedName string) ([]config.Server, error) {
+	return pickServerMultiTUITitle(servers, connectedName, lang.L.ShellSyncServers)
+}
+
+func pickServerMultiTUITitle(servers []config.Server, connectedName, title string) ([]config.Server, error) {
 	items := make([]PickerItem, len(servers))
 	for i, s := range servers {
 		items[i] = PickerItem{
@@ -1580,9 +1584,9 @@ func pickServerMultiTUI(servers []config.Server, connectedName string) ([]config
 	}
 	var m multiPickerModel
 	if connectedName != "" {
-		m = newMultiPickerModelPreSelected(lang.L.ShellSyncServers, lang.L.ShellSyncPickSub, items, connectedName)
+		m = newMultiPickerModelPreSelected(title, lang.L.ShellSyncPickSub, items, connectedName)
 	} else {
-		m = newMultiPickerModel(lang.L.ShellSyncServers, lang.L.ShellSyncPickSub, items)
+		m = newMultiPickerModel(title, lang.L.ShellSyncPickSub, items)
 	}
 	vals, err := runMultiPickerRaw(m)
 	if err != nil || vals == nil {

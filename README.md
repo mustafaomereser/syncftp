@@ -14,7 +14,7 @@ A Go CLI tool that detects changed files via SHA256 hashing and distributes them
 - **Interactive shell** — run `syncftp` with no arguments for a full TUI shell with arrow-key file browser, server picker, and action menus
 - **CRLF normalization** — line endings are normalized before upload so PHP hosting servers don't inject blank lines
 - **Per-server local path** — each server can watch a different subdirectory; useful for monorepos
-- **Resync** — reconcile an existing deployment without re-uploading everything; compares file sizes (CRLF-aware) and initializes state
+- **Calibrate** — reconcile an existing deployment without re-uploading everything; compares file sizes (CRLF-aware) and initializes state
 
 The UI auto-detects your OS language (Turkish or English). Switch manually with `syncftp lang tr` (or `lang tr` inside the shell). The preference is saved to `.syncftp/lang`. Use `SYNCFTP_LANG=tr` to override for a single session without saving.
 
@@ -39,18 +39,18 @@ go build -o syncftp     ./cmd/syncftp/   # Linux / macOS
 ```bash
 cd /path/to/your/project
 
-syncftp init      # interactive wizard — creates syncftp.json
+syncftp init      # interactive wizard — creates .syncftp/syncftp.json
 syncftp status    # show what has changed (nothing is uploaded)
 syncftp sync      # upload changed files to all enabled servers
 ```
 
-**Adding syncFTP to an already-deployed project?** Run `syncftp resync` after `init` — it compares local file sizes with the server and populates the sync state without uploading anything. After that, `status` and `sync` only show/upload actual differences.
+**Adding syncFTP to an already-deployed project?** Run `syncftp calibrate` after `init` — it compares local file sizes with the server and populates the sync state without uploading anything. After that, `status` and `sync` only show/upload actual differences.
 
 ---
 
-## Configuration — `syncftp.json`
+## Configuration — `.syncftp/syncftp.json`
 
-Created by `syncftp init`. Stored with permission `600`. Added to `.gitignore` automatically.
+Created by `syncftp init` inside the `.syncftp/` directory. Stored with permission `600`. `.syncftp/` is added to `.gitignore` automatically.
 
 ```json
 {
@@ -137,8 +137,8 @@ Created by `syncftp init`. Stored with permission `600`. Added to `.gitignore` a
 | `sync.protect` | `[]` | Files/dirs that are **never** overwritten on the FTP server (all servers) |
 | `sync.include` | `[]` | Global whitelist — sync only these paths (empty = all) |
 | `sync.exclude` | `[]` | Global blacklist — always skip these paths |
-| `sync.ignore_files` | `[]` | Which ignore files to load — empty means both `.gitignore` and `syncftp.ignore` |
-| `first_sync.full` | `false` | `true` = force upload everything on first sync, skip resync |
+| `sync.ignore_files` | `[]` | Which ignore files to load — empty means both `.gitignore` and `.syncftp/syncftp.ignore` |
+| `first_sync.full` | `false` | `true` = force upload everything on first sync, skip calibrate |
 | `connections[].name` | — | Profile name — referenced by `server.connection` |
 | `connections[].host` | — | FTP server address |
 | `connections[].port` | `21` | FTP port |
@@ -158,18 +158,18 @@ Created by `syncftp init`. Stored with permission `600`. Added to `.gitignore` a
 
 ## Ignore Files
 
-syncFTP loads **both** `.gitignore` and `syncftp.ignore` if they exist and merges their patterns. You can control which files are loaded via `sync.ignore_files` in `syncftp.json`.
+syncFTP loads **both** `.gitignore` and `.syncftp/syncftp.ignore` if they exist and merges their patterns. You can control which files are loaded via `sync.ignore_files` in `.syncftp/syncftp.json`.
 
 | `sync.ignore_files` value | Behavior |
 |---|---|
-| `[]` or field absent | Load `.gitignore` + `syncftp.ignore` (default) |
+| `[]` or field absent | Load `.gitignore` + `.syncftp/syncftp.ignore` (default) |
 | `[".gitignore"]` | Only `.gitignore` |
-| `["syncftp.ignore"]` | Only `syncftp.ignore` |
+| `[".syncftp/syncftp.ignore"]` | Only `.syncftp/syncftp.ignore` |
 
-**Typical setup** — keep `.gitignore` for git, add FTP-specific ignores to `syncftp.ignore`:
+**Typical setup** — keep `.gitignore` for git, add FTP-specific ignores to `.syncftp/syncftp.ignore`:
 
 ```gitignore
-# syncftp.ignore
+# .syncftp/syncftp.ignore
 vendor/
 node_modules/
 *.log
@@ -177,7 +177,7 @@ node_modules/
 uploads/
 ```
 
-The `.syncftp/` metadata directory and `syncftp.json` itself are always excluded from scanning regardless of ignore rules.
+The `.syncftp/` metadata directory is always excluded from scanning regardless of ignore rules.
 
 ---
 
@@ -185,7 +185,7 @@ The `.syncftp/` metadata directory and `syncftp.json` itself are always excluded
 
 ### `syncftp init`
 
-Interactive wizard. Prompts for project name, FTP credentials, and writes `syncftp.json`. Also adds the config file and binary to `.gitignore`.
+Interactive wizard. Prompts for project name, FTP credentials, and writes `.syncftp/syncftp.json`. Also adds `.syncftp/`, `syncftp.exe`, and `syncftp` to `.gitignore`.
 
 ```
 === syncFTP Setup Wizard ===
@@ -234,7 +234,7 @@ Files   : 142
 
 Running `syncftp status` without arguments opens an interactive TUI where you can browse per-server changes and launch a sync directly.
 
-**First run behaviour:** if no sync state exists yet, `status` automatically runs `resync` first to compare local file sizes with the server. This prevents showing hundreds of false "new file" entries on a project that's already deployed.
+**First run behaviour:** if no sync state exists yet, `status` automatically runs `calibrate` first to compare local file sizes with the server. This prevents showing hundreds of false "new file" entries on a project that's already deployed.
 
 ---
 
@@ -253,7 +253,7 @@ syncftp sync --include css --include js/app.js
 syncftp sync --exclude vendor --exclude tests
 ```
 
-**First run behaviour:** on the very first run (no sync state), `sync` automatically runs `resync` to compare local file sizes with the server. Only files that are missing or have a different size are uploaded. Use `--full` to force a complete re-upload and skip resync.
+**First run behaviour:** on the very first run (no sync state), `sync` automatically runs `calibrate` to compare local file sizes with the server. Only files that are missing or have a different size are uploaded. Use `--full` to force a complete re-upload and skip calibrate.
 
 **Failsafe cleanup:** before each sync, syncFTP checks the `include`, `exclude`, and `protect` lists for exact file paths that no longer exist locally and removes them automatically, printing a warning. Glob patterns (`*.log`) and directories (`vendor/`) are not affected.
 
@@ -264,7 +264,7 @@ Scanning: /home/user/my-project
 142 files found
 
 ══ production (ftp.example.com) ══
-  First run: running resync (server comparison)...
+  First run: running calibrate (server comparison)...
   [production]
   Local:  142 files scanned
   Connecting to server... connected
@@ -286,14 +286,14 @@ Scanning: /home/user/my-project
 
 ---
 
-### `syncftp resync`
+### `syncftp calibrate`
 
-Reconciles an already-deployed project without uploading anything. Compares local file sizes with FTP remote sizes and writes matching hashes to the sync state. After resync, `status` and `sync` only show actual differences.
+Reconciles an already-deployed project without uploading anything. Compares local file sizes with FTP remote sizes and writes matching hashes to the sync state. After calibrate, `status` and `sync` only show actual differences.
 
 ```bash
-syncftp resync                        # all enabled servers
-syncftp resync --server production    # one specific server
-syncftp resync --all                  # explicitly all servers (including disabled)
+syncftp calibrate                        # all enabled servers
+syncftp calibrate --server production    # one specific server
+syncftp calibrate --all                  # explicitly all servers (including disabled)
 ```
 
 **When to use manually:**
@@ -311,10 +311,10 @@ syncftp resync --all                  # explicitly all servers (including disabl
   Remote: 3944 files found
   Comparing: 142 / 142
   Matched: 139 (size OK)  |  Different/missing: 3
-  [production] resync done
+  [production] calibrate done
 ```
 
-> Note: resync is also triggered **automatically** by `status` and `sync` on the first run (when no state file exists). You only need to run it manually if the state was lost or you want to force a re-reconciliation.
+> Note: calibrate is also triggered **automatically** by `status` and `sync` on the first run (when no state file exists). You only need to run it manually if the state was lost or you want to force a re-reconciliation.
 
 ---
 
@@ -537,7 +537,7 @@ syncftp
 | `pwd` | Show current remote path |
 | `status` | Show local changes per server (opens TUI) |
 | `sync [--all] [--full] [--dry-run] [--server name]` | Upload to FTP |
-| `resync [--all] [--server name]` | Compare local sizes with FTP, update state (no upload) |
+| `calibrate [--all] [--server name]` | Compare local sizes with FTP, update state (no upload) |
 | `freeze [--server name]` | Manage freeze list for a server |
 | `servers` | TUI server list |
 | `server [name]` | Connect to a server |
@@ -728,10 +728,12 @@ Unlike `protect` (which is global and config-based), freeze lists are:
 
 ## State & Release Files
 
-syncFTP creates a `.syncftp/` directory next to `syncftp.json`:
+syncFTP stores everything in `.syncftp/` in your project directory:
 
 ```
 .syncftp/
+├── syncftp.json           # project config (created by syncftp init)
+├── syncftp.ignore         # FTP-specific ignore patterns (optional)
 ├── state/
 │   ├── production.json    # per-file hashes from last successful sync
 │   └── staging.json
@@ -764,7 +766,7 @@ syncFTP creates a `.syncftp/` directory next to `syncftp.json`:
 | `internal/release` | Release manifest writer |
 | `internal/frozen` | Per-server freeze list (load / save) |
 | `internal/lang` | i18n — `lang.go` (struct + funcs), `en.go` (English), `tr.go` (Turkish); auto-detect OS language, runtime switching |
-| `cmd/syncftp` | CLI commands (init, status, sync, resync, push, remote, serve, freeze, lang, config, shell) |
+| `cmd/syncftp` | CLI commands (init, status, sync, calibrate, push, remote, serve, freeze, lang, config, shell) |
 
 ---
 

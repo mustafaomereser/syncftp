@@ -112,7 +112,8 @@ var En = StringSet{
 	ShellCancelShort:      "Cancelled.",
 	ShellDeletedShort:     "✓ Deleted: %s\n",
 	ShellPickServerTitle:  "Select Server",
-	ShellSyncServers:      "Servers to Sync",
+	ShellSyncServers:          "Servers to Sync",
+	ShellCalibrateServers:     "Servers to Calibrate",
 	ShellSyncPickSub:      "Space to mark, Enter to confirm",
 	ShellSyncCancelled:    "Cancelled.",
 	ShellFileActionTitle:  "File Action",
@@ -154,7 +155,7 @@ Remote server commands:
 Sync:
   status                  Show local changes per server (TUI)
   sync [--all] [--full] [--dry-run] [--server name]   Upload to FTP
-  resync [--all] [--server name]   Compare local sizes with FTP, update state (no upload)
+  calibrate [--all] [--server name]   Compare local sizes with FTP, update state (no upload)
   freeze [--server name]  Manage freeze list — mark files to never upload
 
 Server management:
@@ -225,11 +226,15 @@ Other:
 	ResyncConnErr:      "  ! Could not connect to server (%v) — resync skipped\n",
 	ResyncListErr:      "  ! Could not read remote dir (%v) — resync skipped\n",
 	ResyncFoundFmt:     "  Remote: %d files found\n",
-	ResyncComparingFmt: "\r  Comparing: %d / %d   ",
-	ResyncMatchedFmt:   "  Matched: %d (size OK)  |  Different/missing: %d\n",
-	ResyncDoneFmt:      "  [%s] resync done\n",
-	ResyncAutoMsg:    "  First run: running resync (server comparison)...\n",
-	ResyncNoServers:  "No matching servers found.\n",
+	ResyncComparingFmt:   "  Comparing: %d / %d\n",
+	ResyncMatchedFmt:     "  Matched: %d (size OK)  |  Different/missing: %d\n",
+	ResyncDoneFmt:        "  [%s] calibrate done\n",
+	ResyncAutoMsg:        "  First run: running calibrate (server comparison)...\n",
+	ResyncNoServers:      "No matching servers found.\n",
+	ResyncIgnoreDirsFmt:  "  Ignore: %d dir(s) skipped → %s\n",
+	ResyncIgnoreFilesFmt: "  Ignore: %d file(s) skipped\n",
+	ResyncFilteredFmt:    "  Filter (include/exclude): %d file(s) out of scope\n",
+	ResyncFrozenDiffFmt:  "  ❄ %d frozen file(s) differ/missing (will be skipped on sync)\n",
 
 	// cmd_status
 	StatusWhitelistFmt:     "Whitelist (%d paths): only these will be shown\n",

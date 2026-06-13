@@ -230,9 +230,9 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 				fmt.Println(lang.L.SyncFullFlag)
 				toUpload = mapKeys(current)
 			} else {
-				// İlk sync: resync ile sunucu boyutlarını karşılaştır, state güncellenir
+				// İlk sync: calibrate ile sunucu boyutlarını karşılaştır, state güncellenir
 				fmt.Print(lang.L.ResyncAutoMsg)
-				runResync(configDir, srv, cfg)
+				runCalibrate(configDir, srv, cfg)
 				// State'i yeniden yükle — resync eşleşen dosyaları yazmış olabilir
 				if reloaded, err := state.Load(configDir, srv.Name); err == nil {
 					st = reloaded

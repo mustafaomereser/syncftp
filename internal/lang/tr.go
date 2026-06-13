@@ -112,7 +112,8 @@ var Tr = StringSet{
 	ShellCancelShort:      "İptal.",
 	ShellDeletedShort:     "✓ Silindi: %s\n",
 	ShellPickServerTitle:  "Sunucu Seç",
-	ShellSyncServers:      "Sync Edilecek Sunucular",
+	ShellSyncServers:          "Sync Edilecek Sunucular",
+	ShellCalibrateServers:     "Kalibre Edilecek Sunucular",
 	ShellSyncPickSub:      "Space ile işaretle, Enter ile onayla",
 	ShellSyncCancelled:    "İptal.",
 	ShellFileActionTitle:  "Dosya İşlemi",
@@ -154,7 +155,7 @@ Uzak sunucu komutları:
 Senkronizasyon:
   status                  Yerel değişiklikleri göster (TUI)
   sync [--all] [--full] [--dry-run] [--server ad]   FTP'ye yükle
-  resync [--all] [--server ad]   Yerel boyutları FTP ile karşılaştır, state güncelle (yükleme yok)
+  calibrate [--all] [--server ad]   Yerel boyutları FTP ile karşılaştır, state güncelle (yükleme yok)
   freeze [--server ad]    Freeze listesi — yüklenmesin istenen dosyaları işaretle
 
 Sunucu yönetimi:
@@ -225,11 +226,15 @@ Diğer:
 	ResyncConnErr:      "  ! Sunucuya bağlanılamadı (%v) — resync atlandı\n",
 	ResyncListErr:      "  ! Uzak dizin okunamadı (%v) — resync atlandı\n",
 	ResyncFoundFmt:     "  Uzak:   %d dosya bulundu\n",
-	ResyncComparingFmt: "\r  Karşılaştırılıyor: %d / %d   ",
-	ResyncMatchedFmt:   "  Eşleşti: %d (boyut OK)  |  Farklı/eksik: %d\n",
-	ResyncDoneFmt:      "  [%s] resync tamamlandı\n",
-	ResyncAutoMsg:    "  İlk çalıştırma: resync yapılıyor (sunucu karşılaştırması)...\n",
-	ResyncNoServers:  "Eşleşen sunucu bulunamadı.\n",
+	ResyncComparingFmt:   "  Karşılaştırılıyor: %d / %d\n",
+	ResyncMatchedFmt:     "  Eşleşti: %d (boyut OK)  |  Farklı/eksik: %d\n",
+	ResyncDoneFmt:        "  [%s] kalibre tamamlandı\n",
+	ResyncAutoMsg:        "  İlk çalıştırma: kalibre yapılıyor (sunucu karşılaştırması)...\n",
+	ResyncNoServers:      "Eşleşen sunucu bulunamadı.\n",
+	ResyncIgnoreDirsFmt:  "  Ignore: %d klasör atlandı → %s\n",
+	ResyncIgnoreFilesFmt: "  Ignore: %d dosya atlandı\n",
+	ResyncFilteredFmt:    "  Filtre (include/exclude): %d dosya kapsam dışı\n",
+	ResyncFrozenDiffFmt:  "  ❄ %d frozen dosya farklı/eksik (sync sırasında atlanacak)\n",
 
 	// cmd_status
 	StatusWhitelistFmt:     "Whitelist (%d yol): yalnızca bu yollar gösterilecek\n",
