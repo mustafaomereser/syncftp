@@ -901,6 +901,46 @@ func (sh *shellState) shellSyncServer(srv config.Server, full, dryRun bool) {
 	localPath := srv.EffectiveLocalPath(cfg.Project)
 	localDir := filepath.Join(dir, localPath)
 
+	// Failsafe: artık diskte olmayan tam dosya yollarını include/exclude/protect listelerinden sil
+	{
+		dirty := false
+		if newL, ch := cleanPatternList(sh.cfg.Sync.Include, localDir); ch {
+			sh.cfg.Sync.Include = newL
+			dirty = true
+		}
+		if newL, ch := cleanPatternList(sh.cfg.Sync.Exclude, localDir); ch {
+			sh.cfg.Sync.Exclude = newL
+			dirty = true
+		}
+		if newL, ch := cleanPatternList(sh.cfg.Sync.Protect, localDir); ch {
+			sh.cfg.Sync.Protect = newL
+			dirty = true
+		}
+		for i := range sh.cfg.Servers {
+			if sh.cfg.Servers[i].Name == srv.Name {
+				if newL, ch := cleanPatternList(sh.cfg.Servers[i].Include, localDir); ch {
+					sh.cfg.Servers[i].Include = newL
+					dirty = true
+				}
+				if newL, ch := cleanPatternList(sh.cfg.Servers[i].Exclude, localDir); ch {
+					sh.cfg.Servers[i].Exclude = newL
+					dirty = true
+				}
+				if newL, ch := cleanPatternList(sh.cfg.Servers[i].Protect, localDir); ch {
+					sh.cfg.Servers[i].Protect = newL
+					dirty = true
+				}
+				break
+			}
+		}
+		if dirty {
+			if saveErr := config.Save(dir, &sh.cfg); saveErr != nil {
+				fmt.Printf("  ! Config güncellenemedi: %v\n", saveErr)
+			}
+			cfg = sh.cfg
+		}
+	}
+
 	matcher, err := ignore.Load(localDir, cfg.Sync.IgnoreFiles)
 	if err != nil {
 		fmt.Printf(lang.L.ShellErrFmt, err)

@@ -975,13 +975,15 @@ type localBrowserModel struct {
 	entries []localEntry
 	marked  map[string]bool // rel → işaretli
 	// glob kalıpları gibi dosya sisteminde olmayan eski öğeler
-	nonFsItems []string
-	cursor     int
-	done       bool
-	quit       bool
-	dirPickMode bool // true = sadece dizin seç (s/Enter ile cwd döner)
-	width      int
-	height     int
+	nonFsItems   []string
+	cursor       int
+	done         bool
+	quit         bool
+	dirPickMode  bool // true = sadece dizin seç (s/Enter ile cwd döner)
+	addingCustom bool // n tuşuyla açılan özel yol giriş modu
+	customBuf    string
+	width        int
+	height       int
 }
 
 func newLocalBrowserModel(root string, preSelected []string) localBrowserModel {
@@ -1050,6 +1052,46 @@ func (m localBrowserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 	case tea.KeyMsg:
+		// Özel yol giriş modu aktifse tüm tuşları yakala
+		if m.addingCustom {
+			switch msg.String() {
+			case "esc":
+				m.addingCustom = false
+				m.customBuf = ""
+			case "enter":
+				p := strings.TrimSpace(m.customBuf)
+				if p != "" {
+					found := false
+					for _, it := range m.nonFsItems {
+						if it == p {
+							found = true
+							break
+						}
+					}
+					if !found {
+						m.nonFsItems = append(m.nonFsItems, p)
+					}
+				}
+				m.addingCustom = false
+				m.customBuf = ""
+			case "backspace":
+				r := []rune(m.customBuf)
+				if len(r) > 0 {
+					m.customBuf = string(r[:len(r)-1])
+				}
+			default:
+				s := msg.String()
+				for strings.HasPrefix(s, "alt+") {
+					s = strings.TrimPrefix(s, "alt+")
+				}
+				r := []rune(s)
+				if len(r) == 1 && r[0] >= 0x20 && r[0] != 0x7F {
+					m.customBuf += s
+				}
+			}
+			return m, nil
+		}
+
 		switch msg.String() {
 		case "ctrl+c", "q", "Q":
 			m.quit = true
@@ -1124,6 +1166,11 @@ func (m localBrowserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.marked[e.rel] = !allMarked
 				}
 			}
+		case "n", "N":
+			if !m.dirPickMode {
+				m.addingCustom = true
+				m.customBuf = ""
+			}
 		case "s", "S", "d", "D":
 			m.done = true
 			return m, tea.Quit
@@ -1161,8 +1208,10 @@ func (m localBrowserModel) View() string {
 	b.WriteString(cfgTitle.Render("  📁 " + m.relCwd()) + "\n")
 	if m.dirPickMode {
 		b.WriteString(cfgHint.Render("  ↑↓ gezin  |  Enter/→=klasöre gir  |  Space/s=bu dizini seç  |  ←/Esc=çık  |  q=iptal") + "\n")
+	} else if m.addingCustom {
+		b.WriteString(cfgHint.Render("  Dizin dışı dosya/klasör yolu girebilirsiniz (örn: ../shared/config.php)") + "\n")
 	} else {
-		b.WriteString(cfgHint.Render("  Space=işaretle  |  Enter/→=gir  |  ←/Esc=çık  |  a=tümü  |  s=kaydet  |  q=iptal") + "\n")
+		b.WriteString(cfgHint.Render("  Space=işaretle  |  n=özel yol  |  Enter/→=gir  |  ←/Esc=çık  |  a=tümü  |  s=kaydet  |  q=iptal") + "\n")
 	}
 	b.WriteString(div + "\n")
 
@@ -1217,8 +1266,16 @@ func (m localBrowserModel) View() string {
 	b.WriteString(div + "\n")
 	if m.dirPickMode {
 		b.WriteString(cfgHint.Render("  Şu an: "+m.relCwd()+"  |  Space veya s = bu dizini seç") + "\n")
+	} else if m.addingCustom {
+		b.WriteString(cfgEditing.Render("  Yol: "+m.customBuf+"█") + "\n")
+		b.WriteString(cfgHint.Render("  Enter=ekle  |  Esc=iptal") + "\n")
 	} else {
-		b.WriteString(cfgHint.Render(fmt.Sprintf("  ✓ %d işaretli", markedCount)) + "\n")
+		customCount := len(m.nonFsItems)
+		if customCount > 0 {
+			b.WriteString(cfgHint.Render(fmt.Sprintf("  ✓ %d işaretli  +%d özel yol  |  n=özel yol ekle", markedCount, customCount)) + "\n")
+		} else {
+			b.WriteString(cfgHint.Render(fmt.Sprintf("  ✓ %d işaretli  |  n=özel yol ekle", markedCount)) + "\n")
+		}
 	}
 	return b.String()
 }

@@ -134,6 +134,47 @@ func runSync(cmd *cobra.Command, args []string) error {
 }
 
 func syncToServer(configDir string, cfg *config.Config, srv config.Server, current map[string]string, byKey map[string]scanner.File, cliInclude, cliExclude []string) error {
+	// Failsafe: artık diskte olmayan tam dosya yollarını include/exclude/protect listelerinden sil
+	{
+		lp := srv.EffectiveLocalPath(cfg.Project)
+		ld := filepath.Join(configDir, lp)
+		dirty := false
+		if newL, ch := cleanPatternList(cfg.Sync.Include, ld); ch {
+			cfg.Sync.Include = newL
+			dirty = true
+		}
+		if newL, ch := cleanPatternList(cfg.Sync.Exclude, ld); ch {
+			cfg.Sync.Exclude = newL
+			dirty = true
+		}
+		if newL, ch := cleanPatternList(cfg.Sync.Protect, ld); ch {
+			cfg.Sync.Protect = newL
+			dirty = true
+		}
+		for i := range cfg.Servers {
+			if cfg.Servers[i].Name == srv.Name {
+				if newL, ch := cleanPatternList(cfg.Servers[i].Include, ld); ch {
+					cfg.Servers[i].Include = newL
+					dirty = true
+				}
+				if newL, ch := cleanPatternList(cfg.Servers[i].Exclude, ld); ch {
+					cfg.Servers[i].Exclude = newL
+					dirty = true
+				}
+				if newL, ch := cleanPatternList(cfg.Servers[i].Protect, ld); ch {
+					cfg.Servers[i].Protect = newL
+					dirty = true
+				}
+				break
+			}
+		}
+		if dirty {
+			if saveErr := config.Save(configDir, cfg); saveErr != nil {
+				fmt.Printf("  ! Config güncellenemedi: %v\n", saveErr)
+			}
+		}
+	}
+
 	st, err := state.Load(configDir, srv.Name)
 	if err != nil {
 		return err
@@ -494,4 +535,31 @@ func serverNames(servers []config.Server) []string {
 		names[i] = s.Name
 	}
 	return names
+}
+
+// isExactPath returns true if p looks like an exact file path (no wildcards, no trailing slash).
+func isExactPath(p string) bool {
+	return !strings.ContainsAny(p, "*?{") && !strings.HasSuffix(p, "/")
+}
+
+// cleanPatternList removes exact file paths from list that no longer exist on disk.
+// Directory patterns (trailing /) and glob patterns (* ? {) are preserved unchanged.
+func cleanPatternList(list []string, localDir string) ([]string, bool) {
+	if len(list) == 0 {
+		return list, false
+	}
+	var out []string
+	changed := false
+	for _, p := range list {
+		if isExactPath(p) {
+			absPath := filepath.Join(localDir, filepath.FromSlash(p))
+			if _, err := os.Stat(absPath); os.IsNotExist(err) {
+				fmt.Printf("  ⚠ %q artık yok, listeden çıkarıldı\n", p)
+				changed = true
+				continue
+			}
+		}
+		out = append(out, p)
+	}
+	return out, changed
 }
