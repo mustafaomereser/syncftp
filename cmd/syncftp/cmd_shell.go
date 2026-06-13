@@ -830,7 +830,16 @@ func (sh *shellState) cmdStatus() {
 
 	m := newStatusTUI(cfg.Project.Name, entries)
 	p := tea.NewProgram(m, tea.WithAltScreen())
-	p.Run()
+	final, _ := p.Run()
+	if fm, ok := final.(statusTUI); ok && fm.syncServer != "" {
+		for _, srv := range sh.cfg.EnabledServers() {
+			if srv.Name == fm.syncServer {
+				fmt.Printf("\n── %s ──\n", srv.Name)
+				sh.shellSyncServer(srv, false, false)
+				break
+			}
+		}
+	}
 }
 
 func (sh *shellState) cmdSync(args []string) {
@@ -1153,6 +1162,8 @@ type statusTUI struct {
 	searchText string
 	width      int
 	height     int
+	syncPending bool   // 's' sonrası onay bekleniyor
+	syncServer  string // boş değilse TUI çıkışında bu sunucu sync edilecek
 }
 
 var (
@@ -1214,6 +1225,17 @@ func (m statusTUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, nil
 			}
+			// Sync onayı bekleniyor
+			if m.syncPending {
+				switch msg.String() {
+				case "enter", "s", "S", "y", "Y":
+					m.syncServer = m.entries[m.expanded].name
+					return m, tea.Quit
+				default:
+					m.syncPending = false
+				}
+				return m, nil
+			}
 			// Detay modu normal tuşlar
 			switch msg.String() {
 			case "q", "Q", "esc", "left", "h":
@@ -1224,15 +1246,47 @@ func (m statusTUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.searching = true
 				m.searchText = ""
 				m.scroll = 0
+			case "s", "S":
+				if m.entries[m.expanded].totalChanges() > 0 {
+					m.syncPending = true
+				}
 			case "up", "k":
 				if m.scroll > 0 {
 					m.scroll--
 				}
 			case "down", "j":
 				e := m.entries[m.expanded]
-				max := e.totalChanges() + len(e.frozen) - 1
-				if m.scroll < max {
+				maxS := e.totalChanges() + len(e.frozen) - 1
+				if m.scroll < maxS {
 					m.scroll++
+				}
+			case "g":
+				m.scroll = 0
+			case "G":
+				e := m.entries[m.expanded]
+				maxS := e.totalChanges() + len(e.frozen) - 1
+				if maxS > 0 {
+					m.scroll = maxS
+				}
+			case "pgup":
+				visRows := m.height - 7
+				if visRows < 1 {
+					visRows = 10
+				}
+				m.scroll -= visRows
+				if m.scroll < 0 {
+					m.scroll = 0
+				}
+			case "pgdown":
+				e := m.entries[m.expanded]
+				maxS := e.totalChanges() + len(e.frozen) - 1
+				visRows := m.height - 7
+				if visRows < 1 {
+					visRows = 10
+				}
+				m.scroll += visRows
+				if m.scroll > maxS {
+					m.scroll = maxS
 				}
 			}
 		} else {
@@ -1280,10 +1334,16 @@ func (m statusTUI) View() string {
 		}
 		b.WriteString("\n")
 		b.WriteString(stTitle.Render("  "+e.name) + stCount.Render(fmt.Sprintf("  %d değişiklik", e.totalChanges())) + sizeStr + "\n")
-		if m.searching {
+		if m.syncPending {
+			b.WriteString(stCount.Render("  Sync başlatılsın?") + stHint.Render("  Enter/s = Evet  |  ESC = İptal") + "\n")
+		} else if m.searching {
 			b.WriteString(stHint.Render("  Backspace = sil  |  Esc = aramayı kapat") + "\n")
 		} else {
-			b.WriteString(stHint.Render("  ↑↓ kaydır  |  / = ara  |  ←/Esc = geri  |  q = çık") + "\n")
+			hintSync := ""
+			if e.totalChanges() > 0 {
+				hintSync = "  s = Sync  |"
+			}
+			b.WriteString(stHint.Render("  ↑↓/g/G kaydır  |  / = ara  |"+hintSync+"  ←/Esc = geri  |  q = çık") + "\n")
 		}
 		b.WriteString(div + "\n")
 
