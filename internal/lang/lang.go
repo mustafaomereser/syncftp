@@ -80,6 +80,8 @@ type StringSet struct {
 	SyncDoneFmt          string // "  Tamamlandı: %s yüklendi"
 	SyncDoneFailFmt      string // ", %s hata"
 	SyncAttemptDetailFmt string // "deneme %d: %v"
+	SyncScrollHint       string // kaydırma ipucu (sync bittikten sonra)
+	SyncFailedHeader     string // başarısız dosyalar bölüm başlığı
 
 	// ── Shell REPL ───────────────────────────────────────────────────────────
 	ShellWelcomeHint     string // "  'help' yazın, çıkmak için 'exit'"
@@ -383,6 +385,8 @@ var En = StringSet{
 	SyncDoneFmt:          "  Done: %s uploaded",
 	SyncDoneFailFmt:      ", %s failed",
 	SyncAttemptDetailFmt: "attempt %d: %v",
+	SyncScrollHint:       "  ↑↓/j/k scroll · g=top G=bottom · PgUp/PgDn · any other key = exit",
+	SyncFailedHeader:     "failed files",
 
 	// Shell REPL
 	ShellWelcomeHint:     "  Type 'help', 'exit' to quit",
@@ -676,6 +680,8 @@ var Tr = StringSet{
 	SyncDoneFmt:          "  Tamamlandı: %s yüklendi",
 	SyncDoneFailFmt:      ", %s hata",
 	SyncAttemptDetailFmt: "deneme %d: %v",
+	SyncScrollHint:       "  ↑↓/j/k kaydır · g=üst G=alt · PgYu/PgAş · diğer tuş = çıkış",
+	SyncFailedHeader:     "yüklenemeyen dosyalar",
 
 	// Shell REPL
 	ShellWelcomeHint:     "  'help' yazın, çıkmak için 'exit'",

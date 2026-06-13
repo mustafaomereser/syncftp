@@ -41,15 +41,18 @@ type syncTUIModel struct {
 	serverName string
 	total      int
 	dryRun     bool
-	dryFiles   []string // dry-run dosya listesi
+	dryFiles   []string
 
-	done      int
-	failed    int
-	results   []ftpclient.UploadResult
-	current   string
-	finished  bool
-	spinner   int
-	width     int
+	done     int
+	failed   int
+	results  []ftpclient.UploadResult
+	current  string
+	finished bool
+	spinner  int
+	width    int
+	height   int // terminal yüksekliği
+
+	scroll int // log kaydırma offseti; 999999 = en alta git
 
 	resultCh <-chan ftpclient.UploadResult
 }
@@ -87,10 +90,67 @@ func tickCmd() tea.Cmd {
 	})
 }
 
+// buildLogLines tüm yükleme sonuçlarını stillendirilmiş metin satırları olarak döner.
+// Sync bitmiş ve hata varsa, sonuna başarısız dosyalar özeti eklenir.
+func (m syncTUIModel) buildLogLines() []string {
+	var lines []string
+	for _, r := range m.results {
+		if r.Err != nil {
+			suffix := ""
+			if r.Attempts > 1 {
+				suffix = stDim.Render(fmt.Sprintf(lang.L.SyncRetryFmt, r.Attempts))
+			}
+			lines = append(lines, fmt.Sprintf("  %s %s%s", stFail.Render("✗"), r.RelPath, suffix))
+			for i, e := range r.RetryErrs {
+				lines = append(lines, fmt.Sprintf("       %s",
+					stDim.Render(fmt.Sprintf(lang.L.SyncAttemptDetailFmt, i+1, e))))
+			}
+			lines = append(lines, fmt.Sprintf("       %s",
+				stFail.Render(fmt.Sprintf(lang.L.SyncAttemptDetailFmt, r.Attempts, r.Err))))
+		} else {
+			suffix := ""
+			if r.Attempts > 1 {
+				firstErr := ""
+				if len(r.RetryErrs) > 0 {
+					firstErr = stDim.Render(" ← " + r.RetryErrs[0].Error())
+				}
+				suffix = stDim.Render(fmt.Sprintf(lang.L.SyncRetryOkFmt, r.Attempts)) + firstErr
+			}
+			lines = append(lines, fmt.Sprintf("  %s %s%s", stOK.Render("✓"), r.RelPath, suffix))
+		}
+	}
+	// Sync bitti ve hata var → sonuna özet bölümü ekle (G ile hızla ulaşılabilir)
+	if m.finished && m.failed > 0 {
+		lines = append(lines, "")
+		lines = append(lines, stFail.Render("  ── "+lang.L.SyncFailedHeader+" ──"))
+		for _, r := range m.results {
+			if r.Err != nil {
+				lines = append(lines, fmt.Sprintf("  %s  %s", stFail.Render("✗"), r.RelPath))
+			}
+		}
+	}
+	return lines
+}
+
+// visibleLogRows terminalin yüksekliğine göre kaç log satırı gösterilebileceğini hesaplar.
+func (m syncTUIModel) visibleLogRows() int {
+	h := m.height
+	if h < 20 {
+		h = 24
+	}
+	// overhead: blank(1)+serverName(1)+blank(1)+bar(1)+blank(1)+spinner/blank(1)+blank(1)+summary(1)+blank(1)+hint(1) ≈ 10
+	rows := h - 10
+	if rows < 5 {
+		rows = 5
+	}
+	return rows
+}
+
 func (m syncTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
+		m.height = msg.Height
 
 	case syncTickMsg:
 		m.spinner = (m.spinner + 1) % len(spinnerFrames)
@@ -111,9 +171,56 @@ func (m syncTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case syncAllDoneMsg:
 		m.finished = true
+		m.scroll = 999999 // en alta otomatik kaydır; View'da maxScroll'a kısıtlanır
 
 	case tea.KeyMsg:
 		if m.finished || m.dryRun || m.total == 0 {
+			// Gerçek upload bittiyse kaydırma tuşlarını yönet
+			if m.finished && m.total > 0 && !m.dryRun {
+				lines := m.buildLogLines()
+				visH := m.visibleLogRows()
+				maxScroll := len(lines) - visH
+				if maxScroll < 0 {
+					maxScroll = 0
+				}
+				sc := m.scroll
+				if sc > maxScroll {
+					sc = maxScroll
+				}
+				if sc < 0 {
+					sc = 0
+				}
+				switch msg.String() {
+				case "up", "k":
+					if sc > 0 {
+						m.scroll = sc - 1
+					}
+					return m, nil
+				case "down", "j":
+					if sc < maxScroll {
+						m.scroll = sc + 1
+					}
+					return m, nil
+				case "g":
+					m.scroll = 0
+					return m, nil
+				case "G":
+					m.scroll = maxScroll
+					return m, nil
+				case "pgup":
+					m.scroll = sc - visH
+					if m.scroll < 0 {
+						m.scroll = 0
+					}
+					return m, nil
+				case "pgdown":
+					m.scroll = sc + visH
+					if m.scroll > maxScroll {
+						m.scroll = maxScroll
+					}
+					return m, nil
+				}
+			}
 			return m, tea.Quit
 		}
 	}
@@ -148,7 +255,7 @@ func (m syncTUIModel) View() string {
 		return b.String()
 	}
 
-	// Progress bar
+	// İlerleme çubuğu
 	total := m.total
 	progress := m.done + m.failed
 	pct := 0.0
@@ -166,7 +273,7 @@ func (m syncTUIModel) View() string {
 	b.WriteString(fmt.Sprintf("  %s %s %s\n", bar, stBold.Render(pctStr),
 		stDim.Render(fmt.Sprintf("%d/%d", progress, total))))
 
-	// Spinner + mevcut dosya
+	// Spinner + mevcut dosya (sadece çalışırken)
 	if !m.finished {
 		spin := spinnerFrames[m.spinner]
 		cur := m.current
@@ -178,44 +285,54 @@ func (m syncTUIModel) View() string {
 			cur = "..." + cur[len(cur)-maxLen+3:]
 		}
 		b.WriteString(fmt.Sprintf("\n  %s %s\n", stSync.Render(spin), stCurrent.Render(cur)))
+	} else {
+		b.WriteString("\n") // spinner satırı yerine boşluk
 	}
 
-	// Son N sonuç (kaydırmalı log)
+	// Kaydırılabilir log
 	b.WriteString("\n")
-	maxLog := 12
-	start := 0
-	if len(m.results) > maxLog {
-		start = len(m.results) - maxLog
+	lines := m.buildLogLines()
+	visH := m.visibleLogRows()
+
+	maxScroll := len(lines) - visH
+	if maxScroll < 0 {
+		maxScroll = 0
 	}
-	for _, r := range m.results[start:] {
-		if r.Err != nil {
-			suffix := ""
-			if r.Attempts > 1 {
-				suffix = stDim.Render(fmt.Sprintf(lang.L.SyncRetryFmt, r.Attempts))
-			}
-			b.WriteString(fmt.Sprintf("  %s %s%s\n", stFail.Render("✗"), r.RelPath, suffix))
-			// Her denemenin hata mesajını göster
-			for i, e := range r.RetryErrs {
-				b.WriteString(fmt.Sprintf("       %s\n",
-					stDim.Render(fmt.Sprintf(lang.L.SyncAttemptDetailFmt, i+1, e))))
-			}
-			b.WriteString(fmt.Sprintf("       %s\n",
-				stFail.Render(fmt.Sprintf(lang.L.SyncAttemptDetailFmt, r.Attempts, r.Err))))
-		} else {
-			suffix := ""
-			if r.Attempts > 1 {
-				// Başarılı ama retry gerekti — ilk hatayı göster
-				firstErr := ""
-				if len(r.RetryErrs) > 0 {
-					firstErr = stDim.Render(" ← " + r.RetryErrs[0].Error())
-				}
-				suffix = stDim.Render(fmt.Sprintf(lang.L.SyncRetryOkFmt, r.Attempts)) + firstErr
-			}
-			b.WriteString(fmt.Sprintf("  %s %s%s\n", stOK.Render("✓"), r.RelPath, suffix))
+	sc := m.scroll
+	if sc > maxScroll {
+		sc = maxScroll
+	}
+	if sc < 0 {
+		sc = 0
+	}
+
+	if !m.finished {
+		// Sync sırasında: en yeni sonuçları göster (alta takip et)
+		end := len(lines)
+		start := end - visH
+		if start < 0 {
+			start = 0
+		}
+		for _, l := range lines[start:end] {
+			b.WriteString(l + "\n")
+		}
+	} else {
+		// Sync bitti: kullanıcı kaydırabilir
+		end := sc + visH
+		if end > len(lines) {
+			end = len(lines)
+		}
+		for _, l := range lines[sc:end] {
+			b.WriteString(l + "\n")
+		}
+		// Konum göstergesi
+		if len(lines) > visH {
+			pos := min(sc+visH, len(lines))
+			b.WriteString(stDim.Render(fmt.Sprintf("  [%d/%d]", pos, len(lines))) + "\n")
 		}
 	}
 
-	// Özet
+	// Özet + hint (sync bittikten sonra)
 	if m.finished {
 		b.WriteString("\n")
 		summary := fmt.Sprintf(lang.L.SyncDoneFmt, stOK.Render(fmt.Sprintf("%d", m.done)))
@@ -223,7 +340,12 @@ func (m syncTUIModel) View() string {
 			summary += fmt.Sprintf(lang.L.SyncDoneFailFmt, stFail.Render(fmt.Sprintf("%d", m.failed)))
 		}
 		b.WriteString(stBold.Render(summary) + "\n")
-		b.WriteString("\n" + stDim.Render(lang.L.SyncAnyKey) + "\n")
+
+		if len(lines) > visH {
+			b.WriteString("\n" + stDim.Render(lang.L.SyncScrollHint) + "\n")
+		} else {
+			b.WriteString("\n" + stDim.Render(lang.L.SyncAnyKey) + "\n")
+		}
 	}
 
 	return b.String()

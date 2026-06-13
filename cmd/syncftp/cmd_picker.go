@@ -300,16 +300,7 @@ func (m multiPickerModel) View() string {
 
 // RunMultiPicker çoklu seçimli interaktif menü açar. Seçilen Value'ların listesini döner.
 func RunMultiPicker(title, subtitle string, items []PickerItem) ([]string, error) {
-	m := multiPickerModel{
-		title:    title,
-		subtitle: subtitle,
-		items:    items,
-		checked:  make([]bool, len(items)),
-	}
-	// Varsayılan: hepsi seçili
-	for i := range m.checked {
-		m.checked[i] = true
-	}
+	m := newMultiPickerModel(title, subtitle, items)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	final, err := p.Run()
 	if err != nil {
@@ -320,6 +311,16 @@ func RunMultiPicker(title, subtitle string, items []PickerItem) ([]string, error
 		return nil, nil
 	}
 	return fm.result, nil
+}
+
+func newMultiPickerModel(title, subtitle string, items []PickerItem) multiPickerModel {
+	return multiPickerModel{
+		title:    title,
+		subtitle: subtitle,
+		items:    items,
+		checked:  make([]bool, len(items)),
+		// Varsayılan: hiçbiri seçili değil — Enter ile sadece cursor seçilir
+	}
 }
 
 // ── freeze seçici ─────────────────────────────────────────────────────────────
