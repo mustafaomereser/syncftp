@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"syncftp/internal/config"
+	"syncftp/internal/lang"
 )
 
 func init() {
@@ -39,9 +40,47 @@ func boolIcon(b bool) string {
 
 func listDisplay(l []string) string {
 	if len(l) == 0 {
-		return "(boş)"
+		return lang.L.CfgValueEmpty
 	}
 	return strings.Join(l, ", ")
+}
+
+func srvFieldLabel(i int) string {
+	labels := []string{
+		lang.L.CfgFldName, lang.L.CfgFldConnection, lang.L.CfgFldHost,
+		lang.L.CfgFldPort, lang.L.CfgFldUser, lang.L.CfgFldPassword,
+		lang.L.CfgFldRemotePath, lang.L.CfgFldLocalPath, lang.L.CfgFldEnabled,
+		lang.L.CfgFldPassive, lang.L.CfgFldDisableEPSV, lang.L.CfgFldNAT,
+		lang.L.CfgFldMaxConn, lang.L.CfgFldMaxRetry,
+		lang.L.CfgFldInclude, lang.L.CfgFldExclude, lang.L.CfgFldProtect,
+	}
+	if i >= 0 && i < len(labels) {
+		return labels[i]
+	}
+	return ""
+}
+
+func globalFieldLabel(i int) string {
+	labels := []string{
+		lang.L.CfgGFldDefaultPath, lang.L.CfgGFldProtect,
+		lang.L.CfgGFldInclude, lang.L.CfgGFldExclude, lang.L.CfgGFldIgnore,
+	}
+	if i >= 0 && i < len(labels) {
+		return labels[i]
+	}
+	return ""
+}
+
+func connFieldLabel(i int) string {
+	labels := []string{
+		lang.L.CfgFldName, lang.L.CfgFldHost, lang.L.CfgFldPort,
+		lang.L.CfgFldUser, lang.L.CfgFldPassword,
+		lang.L.CfgFldPassive, lang.L.CfgFldDisableEPSV, lang.L.CfgFldNAT,
+	}
+	if i >= 0 && i < len(labels) {
+		return labels[i]
+	}
+	return ""
 }
 
 func parseList(s string) []string {
@@ -175,32 +214,32 @@ func (m serverMgrModel) View() string {
 	div := cfgDiv.Render("  " + strings.Repeat("─", w-4))
 	var b strings.Builder
 	b.WriteString("\n")
-	b.WriteString(cfgTitle.Render("⚙  Server Ayarları") + "\n")
-	b.WriteString(cfgHint.Render("  ↑↓ gezin  |  Enter/e = düzenle  |  Space = aç/kapat  |  d = sil  |  n = yeni  |  q = çık") + "\n")
+	b.WriteString(cfgTitle.Render("⚙  "+lang.L.CfgSrvTitle) + "\n")
+	b.WriteString(cfgHint.Render(lang.L.CfgSrvNavHint) + "\n")
 	b.WriteString(div + "\n\n")
 
 	if m.confirming {
 		name := m.servers[m.cursor-2].Name
-		b.WriteString(cfgWarn.Render(fmt.Sprintf("  [%s] silinsin mi?  y = evet, diğer = iptal", name)) + "\n")
+		b.WriteString(cfgWarn.Render(fmt.Sprintf("  "+lang.L.CfgDeleteConfirmFmt, name)) + "\n")
 		return b.String()
 	}
 
 	// Global Ayarlar
 	if m.cursor == 0 {
-		b.WriteString(cfgCursor.Render("▶ ") + cfgGlobal.Bold(true).Render("⚙ Global Ayarlar") +
-			cfgHint.Render("  (protect, include, exclude, ignore_files)") + "\n")
+		b.WriteString(cfgCursor.Render("▶ ") + cfgGlobal.Bold(true).Render(lang.L.CfgGlobalLabel) +
+			cfgHint.Render(lang.L.CfgGlobalHint) + "\n")
 	} else {
-		b.WriteString("  " + cfgGlobal.Render("⚙ Global Ayarlar") +
-			cfgHint.Render("  (protect, include, exclude, ignore_files)") + "\n")
+		b.WriteString("  " + cfgGlobal.Render(lang.L.CfgGlobalLabel) +
+			cfgHint.Render(lang.L.CfgGlobalHint) + "\n")
 	}
 
 	// Bağlantı Profilleri
-	connCount := cfgDisabled.Render(fmt.Sprintf("(%d profil)", len(m.connections)))
+	connCount := cfgDisabled.Render(fmt.Sprintf(lang.L.CfgConnCountFmt, len(m.connections)))
 	if m.cursor == 1 {
-		b.WriteString(cfgCursor.Render("▶ ") + cfgGlobal.Bold(true).Render("🔗 Bağlantı Profilleri") +
+		b.WriteString(cfgCursor.Render("▶ ") + cfgGlobal.Bold(true).Render(lang.L.CfgConnProfilesLabel) +
 			"  " + connCount + "\n")
 	} else {
-		b.WriteString("  " + cfgGlobal.Render("🔗 Bağlantı Profilleri") +
+		b.WriteString("  " + cfgGlobal.Render(lang.L.CfgConnProfilesLabel) +
 			"  " + connCount + "\n")
 	}
 
@@ -211,7 +250,7 @@ func (m serverMgrModel) View() string {
 		nameS := cfgEnabled.Render(srv.Name)
 		if !srv.Enabled {
 			icon = cfgDisabled.Render("○")
-			nameS = cfgDisabled.Render(srv.Name + " (devre dışı)")
+			nameS = cfgDisabled.Render(srv.Name + " (" + lang.L.CfgDisabledLabel + ")")
 		}
 		hostStr := srv.Host
 		if srv.Connection != "" {
@@ -230,13 +269,13 @@ func (m serverMgrModel) View() string {
 	// + Ekle
 	addPos := len(m.servers) + 2
 	if m.cursor == addPos {
-		b.WriteString(cfgCursor.Render("▶ ") + cfgAdd.Render("+ Yeni server ekle") + "\n")
+		b.WriteString(cfgCursor.Render("▶ ") + cfgAdd.Render(lang.L.CfgNewServerLabel) + "\n")
 	} else {
-		b.WriteString("    " + cfgAdd.Render("+ Yeni server ekle") + "\n")
+		b.WriteString("    " + cfgAdd.Render(lang.L.CfgNewServerLabel) + "\n")
 	}
 
 	b.WriteString("\n" + div + "\n")
-	b.WriteString(cfgHint.Render(fmt.Sprintf("  %d server  |  %d bağlantı profili", len(m.servers), len(m.connections))) + "\n")
+	b.WriteString(cfgHint.Render(fmt.Sprintf(lang.L.CfgSrvCountFmt, len(m.servers), len(m.connections))) + "\n")
 	return b.String()
 }
 
@@ -264,7 +303,7 @@ func runServerMgr(configDir string) error {
 		case "edit-global":
 			if runGlobalEdit(&cfg.Project, &cfg.Sync, projectDir) {
 				if e := config.Save(configDir, cfg); e != nil {
-					fmt.Printf("Kayıt hatası: %v\n", e)
+					fmt.Printf(lang.L.CfgSaveErr, e)
 				}
 			}
 
@@ -276,9 +315,9 @@ func runServerMgr(configDir string) error {
 			if runServerEdit(&srv, cfg.Connections, projectDir, false) {
 				cfg.Servers[fm.actionIdx] = srv
 				if e := config.Save(configDir, cfg); e != nil {
-					fmt.Printf("Kayıt hatası: %v\n", e)
+					fmt.Printf(lang.L.CfgSaveErr, e)
 				} else {
-					fmt.Printf("✓ [%s] güncellendi\n", srv.Name)
+					fmt.Printf(lang.L.CfgUpdatedFmt, srv.Name)
 				}
 			}
 
@@ -287,9 +326,9 @@ func runServerMgr(configDir string) error {
 			if runServerEdit(&srv, cfg.Connections, projectDir, true) {
 				cfg.Servers = append(cfg.Servers, srv)
 				if e := config.Save(configDir, cfg); e != nil {
-					fmt.Printf("Kayıt hatası: %v\n", e)
+					fmt.Printf(lang.L.CfgSaveErr, e)
 				} else {
-					fmt.Printf("✓ [%s] eklendi\n", srv.Name)
+					fmt.Printf(lang.L.CfgAddedFmt, srv.Name)
 				}
 			}
 
@@ -298,19 +337,19 @@ func runServerMgr(configDir string) error {
 			cfg.Servers = append(cfg.Servers[:fm.actionIdx], cfg.Servers[fm.actionIdx+1:]...)
 			// connection referansları kaldı — kasıtlı, kullanıcı bunları yönetir
 			if e := config.Save(configDir, cfg); e != nil {
-				fmt.Printf("Kayıt hatası: %v\n", e)
+				fmt.Printf(lang.L.CfgSaveErr, e)
 			} else {
-				fmt.Printf("✓ [%s] silindi\n", name)
+				fmt.Printf(lang.L.CfgDeletedFmt, name)
 			}
 
 		case "toggle":
 			cfg.Servers[fm.actionIdx].Enabled = !cfg.Servers[fm.actionIdx].Enabled
-			s := "devre dışı"
+			s := lang.L.CfgDisabledLabel
 			if cfg.Servers[fm.actionIdx].Enabled {
-				s = "aktif"
+				s = lang.L.CfgEnabledLabel
 			}
 			if e := config.Save(configDir, cfg); e != nil {
-				fmt.Printf("Kayıt hatası: %v\n", e)
+				fmt.Printf(lang.L.CfgSaveErr, e)
 			} else {
 				fmt.Printf("✓ [%s] %s\n", cfg.Servers[fm.actionIdx].Name, s)
 			}
@@ -382,7 +421,7 @@ func (m *serverEditModel) getDisplayValue(i int) string {
 		if m.srv.Connection != "" {
 			return m.srv.Connection
 		}
-		return "(manuel)"
+		return lang.L.CfgSrvManual
 	case 2:
 		return m.srv.Host
 	case 3:
@@ -393,14 +432,14 @@ func (m *serverEditModel) getDisplayValue(i int) string {
 		if m.srv.Password != "" {
 			return "****"
 		}
-		return "(boş)"
+		return lang.L.CfgValueEmpty
 	case 6:
 		return m.srv.RemotePath
 	case 7:
 		if m.srv.LocalPath != "" {
 			return m.srv.LocalPath
 		}
-		return "(project default)"
+		return lang.L.CfgSrvProjectDef
 	case 8:
 		return boolIcon(m.srv.Enabled)
 	case 9:
@@ -610,20 +649,20 @@ func (m serverEditModel) View() string {
 	}
 	div := cfgDiv.Render("  " + strings.Repeat("─", w-4))
 
-	title := "Server Düzenle"
+	title := lang.L.CfgSrvEditTitle
 	if m.isNew {
-		title = "Yeni Server"
+		title = lang.L.CfgSrvNewTitle
 	}
 
 	var b strings.Builder
 	b.WriteString("\n")
 	b.WriteString(cfgTitle.Render("⚙  "+title) + "\n")
-	b.WriteString(cfgHint.Render("  ↑↓ gezin  |  Enter/b = düzenle/seç  |  Space = bool toggle  |  s = kaydet  |  q = iptal") + "\n")
+	b.WriteString(cfgHint.Render(lang.L.CfgSrvEditNavHint) + "\n")
 	b.WriteString(div + "\n\n")
 
 	for i, f := range serverFields {
 		locked := m.srv.Connection != "" && isCredentialField(i)
-		label := cfgLabel.Render(f.label)
+		label := cfgLabel.Render(srvFieldLabel(i))
 		var valStr string
 
 		if i == m.cursor && m.editing {
@@ -635,9 +674,9 @@ func (m serverEditModel) View() string {
 				valStr = cfgDisabled.Render(raw) + cfgHint.Render("  ↳ "+m.srv.Connection)
 			case f.kind == "conn":
 				if m.srv.Connection != "" {
-					valStr = cfgEnabled.Render(raw) + "  " + cfgBrowse.Render("[b=değiştir]")
+					valStr = cfgEnabled.Render(raw) + "  " + cfgBrowse.Render(lang.L.CfgSrvConnChange)
 				} else {
-					valStr = cfgDisabled.Render(raw) + "  " + cfgBrowse.Render("[b=profil seç]")
+					valStr = cfgDisabled.Render(raw) + "  " + cfgBrowse.Render(lang.L.CfgSrvConnSelect)
 				}
 			case f.kind == "bool":
 				if raw == "✓" {
@@ -648,12 +687,12 @@ func (m serverEditModel) View() string {
 			case f.kind == "localdir":
 				valStr = cfgValue.Render(raw)
 				if m.projectDir != "" {
-					valStr += "  " + cfgBrowse.Render("[b=gözat]")
+					valStr += "  " + cfgBrowse.Render(lang.L.CfgSrvBrowseHint)
 				}
 			case f.kind == "list":
 				valStr = cfgValue.Render(raw)
 				if m.projectDir != "" {
-					valStr += "  " + cfgBrowse.Render("[b=gözat]")
+					valStr += "  " + cfgBrowse.Render(lang.L.CfgSrvBrowseHint)
 				}
 			default:
 				valStr = cfgValue.Render(raw)
@@ -668,7 +707,7 @@ func (m serverEditModel) View() string {
 	}
 
 	b.WriteString("\n" + div + "\n")
-	b.WriteString(cfgHint.Render("  s = kaydet  |  q/Esc = iptal") + "\n")
+	b.WriteString(cfgHint.Render(lang.L.CfgSrvSaveHint) + "\n")
 	return b.String()
 }
 
@@ -798,7 +837,7 @@ func (m *globalEditModel) getDisplayValue(i int) string {
 		if m.project.DefaultPath != "" {
 			return m.project.DefaultPath
 		}
-		return "(boş = çalışma dizini)"
+		return lang.L.CfgGlobalDefaultEmpty
 	case 1:
 		return listDisplay(m.sync.Protect)
 	case 2:
@@ -807,10 +846,10 @@ func (m *globalEditModel) getDisplayValue(i int) string {
 		return listDisplay(m.sync.Exclude)
 	case 4:
 		if m.sync.IgnoreFiles == nil {
-			return "(varsayılan: .gitignore + syncftp.ignore)"
+			return lang.L.CfgGlobalIgnoreDefVal
 		}
 		if len(m.sync.IgnoreFiles) == 0 {
-			return "(hiçbiri — ignore kullanılmaz)"
+			return lang.L.CfgGlobalIgnoreNone
 		}
 		return strings.Join(m.sync.IgnoreFiles, ", ")
 	}
@@ -921,12 +960,12 @@ func (m globalEditModel) View() string {
 	div := cfgDiv.Render("  " + strings.Repeat("─", w-4))
 	var b strings.Builder
 	b.WriteString("\n")
-	b.WriteString(cfgTitle.Render("⚙  Global Ayarlar") + "\n")
-	b.WriteString(cfgHint.Render("  ↑↓ gezin  |  Enter = düzenle/aç  |  b = yerel dosya gözat  |  s = kaydet  |  q = iptal") + "\n")
+	b.WriteString(cfgTitle.Render(lang.L.CfgGlobalEditTitle) + "\n")
+	b.WriteString(cfgHint.Render(lang.L.CfgGlobalEditNavHint) + "\n")
 	b.WriteString(div + "\n\n")
 
 	for i, f := range globalFields {
-		label := cfgLabel.Render(f.label)
+		label := cfgLabel.Render(globalFieldLabel(i))
 		var valStr string
 		if i == m.cursor && m.editing {
 			valStr = cfgEditing.Render(m.editBuf + "█")
@@ -934,9 +973,9 @@ func (m globalEditModel) View() string {
 			raw := m.getDisplayValue(i)
 			valStr = cfgValue.Render(raw)
 			if f.kind == "localdir" && m.projectDir != "" {
-				valStr += "  " + cfgBrowse.Render("[b=gözat]")
+				valStr += "  " + cfgBrowse.Render(lang.L.CfgSrvBrowseHint)
 			} else if f.browseID != "" && m.projectDir != "" {
-				valStr += "  " + cfgBrowse.Render("[b=gözat]")
+				valStr += "  " + cfgBrowse.Render(lang.L.CfgSrvBrowseHint)
 			}
 		}
 		if i == m.cursor && !m.editing {
@@ -947,8 +986,8 @@ func (m globalEditModel) View() string {
 	}
 
 	b.WriteString("\n" + div + "\n")
-	b.WriteString(cfgHint.Render("  s = kaydet  |  q/Esc = iptal") + "\n")
-	b.WriteString(cfgHint.Render("  ignore_files: b=gözat ile seç; hiçbiri seçmeden kaydet = ignore yok; alan boşsa = varsayılan (.gitignore + syncftp.ignore)") + "\n")
+	b.WriteString(cfgHint.Render(lang.L.CfgSrvSaveHint) + "\n")
+	b.WriteString(cfgHint.Render(lang.L.CfgGlobalIgnoreHint) + "\n")
 	return b.String()
 }
 
@@ -1295,11 +1334,11 @@ func (m localBrowserModel) View() string {
 	b.WriteString("\n")
 	b.WriteString(cfgTitle.Render("  📁 " + m.relCwd()) + "\n")
 	if m.dirPickMode {
-		b.WriteString(cfgHint.Render("  ↑↓ gezin  |  Enter/→=klasöre gir  |  Space/s=bu dizini seç  |  ←/Esc=çık  |  q=iptal") + "\n")
+		b.WriteString(cfgHint.Render(lang.L.CfgLocalDirPickHint) + "\n")
 	} else if m.addingCustom {
-		b.WriteString(cfgHint.Render("  Dizin dışı dosya/klasör yolu girebilirsiniz (örn: ../shared/config.php)") + "\n")
+		b.WriteString(cfgHint.Render(lang.L.CfgLocalCustomHint) + "\n")
 	} else {
-		b.WriteString(cfgHint.Render("  Space=işaretle  |  n=özel yol  |  Enter/→=gir  |  ←/Esc=çık  |  a=tümü  |  s=kaydet  |  q=iptal") + "\n")
+		b.WriteString(cfgHint.Render(lang.L.CfgLocalNavHint) + "\n")
 	}
 	b.WriteString(div + "\n")
 
@@ -1348,21 +1387,21 @@ func (m localBrowserModel) View() string {
 	}
 
 	if len(m.entries) == 0 {
-		b.WriteString(cfgHint.Render("  (boş klasör)") + "\n")
+		b.WriteString(cfgHint.Render(lang.L.CfgLocalEmpty) + "\n")
 	}
 
 	b.WriteString(div + "\n")
 	if m.dirPickMode {
-		b.WriteString(cfgHint.Render("  Şu an: "+m.relCwd()+"  |  Space veya s = bu dizini seç") + "\n")
+		b.WriteString(cfgHint.Render(fmt.Sprintf(lang.L.CfgLocalSelectFmt, m.relCwd())) + "\n")
 	} else if m.addingCustom {
-		b.WriteString(cfgEditing.Render("  Yol: "+m.customBuf+"█") + "\n")
-		b.WriteString(cfgHint.Render("  Enter=ekle  |  Esc=iptal") + "\n")
+		b.WriteString(cfgEditing.Render(lang.L.CfgLocalPathLabel+m.customBuf+"█") + "\n")
+		b.WriteString(cfgHint.Render(lang.L.CfgLocalCustomSave) + "\n")
 	} else {
 		customCount := len(m.nonFsItems)
 		if customCount > 0 {
-			b.WriteString(cfgHint.Render(fmt.Sprintf("  ✓ %d işaretli  +%d özel yol  |  n=özel yol ekle", markedCount, customCount)) + "\n")
+			b.WriteString(cfgHint.Render(fmt.Sprintf(lang.L.CfgLocalMarkedFmt, markedCount, customCount)) + "\n")
 		} else {
-			b.WriteString(cfgHint.Render(fmt.Sprintf("  ✓ %d işaretli  |  n=özel yol ekle", markedCount)) + "\n")
+			b.WriteString(cfgHint.Render(fmt.Sprintf(lang.L.CfgLocalMarkedSimple, markedCount)) + "\n")
 		}
 	}
 	return b.String()
@@ -1458,8 +1497,8 @@ func (m ignorePickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m ignorePickerModel) View() string {
 	var b strings.Builder
 	b.WriteString("\n")
-	b.WriteString(cfgTitle.Render("⚙  Ignore dosyaları") + "\n")
-	b.WriteString(cfgHint.Render("  Space = seç/kaldır  |  s = kaydet  |  q = iptal") + "\n\n")
+	b.WriteString(cfgTitle.Render(lang.L.CfgIgnoreTitle) + "\n")
+	b.WriteString(cfgHint.Render(lang.L.CfgIgnoreNavHint) + "\n\n")
 
 	for i, opt := range ignoreFileOptions {
 		check := cfgDisabled.Render("[ ]")
@@ -1474,7 +1513,7 @@ func (m ignorePickerModel) View() string {
 	}
 
 	b.WriteString("\n")
-	b.WriteString(cfgHint.Render("  Hiçbirini seçmezsen ignore kullanılmaz.") + "\n")
+	b.WriteString(cfgHint.Render(lang.L.CfgIgnoreNote) + "\n")
 	return b.String()
 }
 
@@ -1486,17 +1525,17 @@ func (m ignorePickerModel) View() string {
 // Döner: seçilen profil adı ("" = manuel / iptal).
 func runConnectionPicker(connections []config.Connection, current string) string {
 	items := []PickerItem{
-		{Icon: "✏️ ", Label: "(manuel)", Desc: "Bilgileri elle gir", Value: ""},
+		{Icon: "✏️ ", Label: lang.L.CfgConnPickerManual, Desc: lang.L.CfgConnPickerManualDesc, Value: ""},
 	}
 	for _, c := range connections {
 		desc := fmt.Sprintf("%s:%d  %s", c.Host, c.Port, c.User)
 		items = append(items, PickerItem{Icon: "🔗", Label: c.Name, Desc: desc, Value: c.Name})
 	}
-	subtitle := "Bağlantı bilgileri buradan alınacak"
+	subtitle := lang.L.CfgConnPickerSub
 	if current != "" {
-		subtitle = "Mevcut: " + current
+		subtitle = fmt.Sprintf(lang.L.CfgConnPickerCurrentFmt, current)
 	}
-	val, err := RunPicker("Bağlantı Profili Seç", subtitle, items)
+	val, err := RunPicker(lang.L.CfgConnPickerTitle, subtitle, items)
 	if err != nil {
 		return current
 	}
@@ -1584,13 +1623,13 @@ func (m connMgrModel) View() string {
 	div := cfgDiv.Render("  " + strings.Repeat("─", w-4))
 	var b strings.Builder
 	b.WriteString("\n")
-	b.WriteString(cfgTitle.Render("🔗  Bağlantı Profilleri") + "\n")
-	b.WriteString(cfgHint.Render("  ↑↓ gezin  |  Enter/e = düzenle  |  d = sil  |  n = yeni  |  q = çık") + "\n")
+	b.WriteString(cfgTitle.Render(lang.L.CfgConnMgrTitle) + "\n")
+	b.WriteString(cfgHint.Render(lang.L.CfgConnMgrNavHint) + "\n")
 	b.WriteString(div + "\n\n")
 
 	if m.confirming {
 		name := m.connections[m.cursor].Name
-		b.WriteString(cfgWarn.Render(fmt.Sprintf("  [%s] silinsin mi?  y = evet, diğer = iptal", name)) + "\n")
+		b.WriteString(cfgWarn.Render(fmt.Sprintf("  "+lang.L.CfgDeleteConfirmFmt, name)) + "\n")
 		return b.String()
 	}
 
@@ -1605,13 +1644,13 @@ func (m connMgrModel) View() string {
 
 	addPos := len(m.connections)
 	if m.cursor == addPos {
-		b.WriteString(cfgCursor.Render("▶ ") + cfgAdd.Render("+ Yeni profil ekle") + "\n")
+		b.WriteString(cfgCursor.Render("▶ ") + cfgAdd.Render(lang.L.CfgNewConnLabel) + "\n")
 	} else {
-		b.WriteString("    " + cfgAdd.Render("+ Yeni profil ekle") + "\n")
+		b.WriteString("    " + cfgAdd.Render(lang.L.CfgNewConnLabel) + "\n")
 	}
 
 	b.WriteString("\n" + div + "\n")
-	b.WriteString(cfgHint.Render(fmt.Sprintf("  %d profil", len(m.connections))) + "\n")
+	b.WriteString(cfgHint.Render(fmt.Sprintf(lang.L.CfgConnTotalFmt, len(m.connections))) + "\n")
 	return b.String()
 }
 
@@ -1662,7 +1701,7 @@ func (m *connEditModel) getDisplayValue(i int) string {
 		if m.conn.Password != "" {
 			return "****"
 		}
-		return "(boş)"
+		return lang.L.CfgValueEmpty
 	case 5:
 		return boolIcon(m.conn.Passive)
 	case 6:
@@ -1786,18 +1825,18 @@ func (m connEditModel) View() string {
 		w = 80
 	}
 	div := cfgDiv.Render("  " + strings.Repeat("─", w-4))
-	title := "Profil Düzenle"
+	title := lang.L.CfgConnEditTitle
 	if m.isNew {
-		title = "Yeni Profil"
+		title = lang.L.CfgConnNewTitle
 	}
 	var b strings.Builder
 	b.WriteString("\n")
-	b.WriteString(cfgTitle.Render("🔗  "+title) + "\n")
-	b.WriteString(cfgHint.Render("  ↑↓ gezin  |  Enter = düzenle/toggle  |  Space = bool toggle  |  s = kaydet  |  q = iptal") + "\n")
+	b.WriteString(cfgTitle.Render(title) + "\n")
+	b.WriteString(cfgHint.Render(lang.L.CfgConnEditNavHint) + "\n")
 	b.WriteString(div + "\n\n")
 
 	for i, f := range connFields {
-		label := cfgLabel.Render(f.label)
+		label := cfgLabel.Render(connFieldLabel(i))
 		var valStr string
 		if i == m.cursor && m.editing {
 			valStr = cfgEditing.Render(m.editBuf + "█")
@@ -1821,7 +1860,7 @@ func (m connEditModel) View() string {
 	}
 
 	b.WriteString("\n" + div + "\n")
-	b.WriteString(cfgHint.Render("  s = kaydet  |  q/Esc = iptal") + "\n")
+	b.WriteString(cfgHint.Render(lang.L.CfgSrvSaveHint) + "\n")
 	return b.String()
 }
 
@@ -1859,9 +1898,9 @@ func runConnectionMgr(configDir string, cfg *config.Config) {
 			if runConnectionEdit(&conn, false) {
 				cfg.Connections[fm.actionIdx] = conn
 				if e := config.Save(configDir, cfg); e != nil {
-					fmt.Printf("Kayıt hatası: %v\n", e)
+					fmt.Printf(lang.L.CfgSaveErr, e)
 				} else {
-					fmt.Printf("✓ [%s] güncellendi\n", conn.Name)
+					fmt.Printf(lang.L.CfgUpdatedFmt, conn.Name)
 				}
 			}
 		case "add":
@@ -1869,18 +1908,18 @@ func runConnectionMgr(configDir string, cfg *config.Config) {
 			if runConnectionEdit(&conn, true) {
 				cfg.Connections = append(cfg.Connections, conn)
 				if e := config.Save(configDir, cfg); e != nil {
-					fmt.Printf("Kayıt hatası: %v\n", e)
+					fmt.Printf(lang.L.CfgSaveErr, e)
 				} else {
-					fmt.Printf("✓ [%s] eklendi\n", conn.Name)
+					fmt.Printf(lang.L.CfgAddedFmt, conn.Name)
 				}
 			}
 		case "delete":
 			name := cfg.Connections[fm.actionIdx].Name
 			cfg.Connections = append(cfg.Connections[:fm.actionIdx], cfg.Connections[fm.actionIdx+1:]...)
 			if e := config.Save(configDir, cfg); e != nil {
-				fmt.Printf("Kayıt hatası: %v\n", e)
+				fmt.Printf(lang.L.CfgSaveErr, e)
 			} else {
-				fmt.Printf("✓ [%s] silindi\n", name)
+				fmt.Printf(lang.L.CfgDeletedFmt, name)
 			}
 		}
 	}

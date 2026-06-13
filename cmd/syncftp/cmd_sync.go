@@ -230,8 +230,15 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 				fmt.Println(lang.L.SyncFullFlag)
 				toUpload = mapKeys(current)
 			} else {
-				// Akıllı ilk sync: sunucudaki dosyaları boyutla karşılaştır
-				toUpload = smartFirstSync(srv, current, byKey, st, cfg)
+				// İlk sync: resync ile sunucu boyutlarını karşılaştır, state güncellenir
+				fmt.Print(lang.L.ResyncAutoMsg)
+				runResync(configDir, srv, cfg)
+				// State'i yeniden yükle — resync eşleşen dosyaları yazmış olabilir
+				if reloaded, err := state.Load(configDir, srv.Name); err == nil {
+					st = reloaded
+				}
+				diff := state.Diff(st, current)
+				toUpload = append(diff.New, diff.Changed...)
 			}
 
 			if len(effectiveInclude) > 0 {
@@ -477,57 +484,6 @@ func mapKeys(m map[string]string) []string {
 	return out
 }
 
-// smartFirstSync sunucudaki dosyaları local boyutlarla karşılaştırır.
-// Eşleşen dosyalar state'e "zaten senkron" olarak kaydedilir, yüklenmez.
-// Farklı boyuttaki veya sunucuda olmayan dosyalar yükleme listesine girer.
-// Sunucuya bağlanılamazsa güvenli taraf: tüm dosyalar yüklenir.
-// smartFirstSync stateKey'leri doğrudan FTP listeleme sonuçlarıyla karşılaştırır.
-// stateKey = srcKey(source.Remote, relPath) olduğundan FTP göreli yoluyla birebir eşleşir.
-func smartFirstSync(srv config.Server, current map[string]string, byKey map[string]scanner.File, st *state.State, cfg *config.Config) []string {
-	fmt.Println(lang.L.SmartSyncScanning)
-
-	client, err := ftpclient.Connect(srv)
-	if err != nil {
-		fmt.Printf(lang.L.SmartSyncConnErr, err)
-		return mapKeys(current)
-	}
-	defer client.Close()
-
-	remoteFiles, err := client.ListRecursive(srv.RemotePath)
-	if err != nil {
-		fmt.Printf(lang.L.SmartSyncListErr, err)
-		return mapKeys(current)
-	}
-
-	fmt.Printf(lang.L.SmartSyncFoundFmt, len(remoteFiles))
-
-	var toUpload []string
-	alreadySynced := 0
-
-	for key, hash := range current {
-		f := byKey[key]
-
-		localInfo, err := os.Stat(f.AbsPath)
-		if err != nil {
-			toUpload = append(toUpload, key)
-			continue
-		}
-		localSize := uint64(localInfo.Size())
-
-		remoteSize, exists := remoteFiles[key]
-		if !exists || remoteSize != localSize {
-			toUpload = append(toUpload, key)
-		} else {
-			// Boyut eşleşiyor → zaten güncel, state'e kaydet
-			st.Files[key] = hash
-			alreadySynced++
-		}
-	}
-
-	fmt.Printf(lang.L.SmartSyncResultFmt, alreadySynced, len(toUpload))
-
-	return toUpload
-}
 
 func serverNames(servers []config.Server) []string {
 	names := make([]string, len(servers))

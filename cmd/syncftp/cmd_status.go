@@ -104,6 +104,14 @@ func runStatus(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
+		if !st.FirstSyncDone {
+			fmt.Print(lang.L.ResyncAutoMsg)
+			runResync(dir, srv, cfg)
+			if reloaded, err2 := state.Load(dir, srv.Name); err2 == nil {
+				st = reloaded
+			}
+		}
+
 		diff := state.Diff(st, current)
 
 		// Include önceliği: CLI > sunucu > global
