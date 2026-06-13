@@ -20,8 +20,10 @@ type StringSet struct {
 	BrowserHintQuit          string // "q İptal"
 	BrowserMarkedHintDelete  string // "d=Sil"
 	BrowserMarkedHintMove    string // "m=Taşı"
+	BrowserMarkedHintFreeze  string // "f=❄ Freeze"
 	BrowserMarkedHintAll     string // "a=Tümünü kaldır"
 	BrowserMarkedHintCancel  string // "ESC=İptal"
+	BrowserEscPending        string // "ESC tekrar = çık"
 	BrowserSearchClear       string // "  ESC temizle"
 	BrowserHintNav           string // "  ↑↓ Gezin"
 	BrowserHintEnter         string // "Enter Gir/Seç"
@@ -30,6 +32,7 @@ type StringSet struct {
 	BrowserHintSearch        string // "/ Ara"
 	BrowserHintQuitKey       string // "q Çık"
 	BrowserHintFreeze        string // "f=❄ Freeze"
+	BrowserHintTree          string // "t=Tree"
 	BrowserErrPrefix         string // "  Hata: "
 	BrowserReconnectHint     string // "r = Yeniden Bağlan  |  q = Çık"
 	BrowserSelectThisPrefix  string // "[ Bu dizini seç: "
@@ -49,6 +52,13 @@ type StringSet struct {
 	BrowserPreviewFailed     string // "⚠ Önizleme alınamadı"
 	BrowserReconnectFailed   string // "yeniden bağlanılamadı: %w"  (error wrap prefix — keep %w)
 	BrowserMarkedCount       string // "  ✓ %d işaretli"
+	BrowserSearchCancelHint  string // "   ESC=iptal"
+	BrowserSearchTimeout     string // "⚠ zaman aşımı (5dk) — %d kısmi sonuç"
+	BrowserSearchConnErr     string // "⚠ bağlantı hatası: %s"
+	BrowserSearchOpenErr     string // "bağlantı %d açılamadı: %v"
+	BrowserSearchDoneFmt     string // "%d sonuç (%.1fs)"
+	BrowserSearchOpsHint     string // arama sonuçlarında yapılabilecek işlemler
+	BrowserSearchNoResults   string // hiç sonuç bulunamadı
 
 	// ── Picker / Confirm TUI ─────────────────────────────────────────────────
 	PickerFilterHint    string // "  Harf yaz → filtrele"
@@ -67,14 +77,16 @@ type StringSet struct {
 	SyncConnecting    string // "bağlanıyor..."
 	SyncRetryFmt      string // " (%d deneme)"
 	SyncRetryOkFmt    string // " (%d. denemede)"
-	SyncDoneFmt       string // "  Tamamlandı: %s yüklendi"
-	SyncDoneFailFmt   string // ", %s hata"
+	SyncDoneFmt          string // "  Tamamlandı: %s yüklendi"
+	SyncDoneFailFmt      string // ", %s hata"
+	SyncAttemptDetailFmt string // "deneme %d: %v"
 
 	// ── Shell REPL ───────────────────────────────────────────────────────────
 	ShellWelcomeHint     string // "  'help' yazın, çıkmak için 'exit'"
 	ShellMultiServer     string // "Birden fazla sunucu var — bağlanmak için: server <ad>"
 	ShellServersLabel    string // "Sunucular:"
 	ShellCtrlCHint       string // "(Ctrl+C — çıkmak için 'exit')"
+	ShellCtrlCExitHint   string // "Çıkmak için Ctrl+C'ye tekrar basın — ya da 'exit' yazın"
 	ShellExit            string // "Görüşürüz."
 	ShellUnknownCmd      string // "Bilinmeyen komut: %q  (yardım için 'help')"
 	ShellConnecting      string // "Bağlanıyor: %s (%s)..."
@@ -84,6 +96,7 @@ type StringSet struct {
 	ShellServersFmt      string // "Sunucu listesi"
 	ShellServersSubtitle string // "Seçince bağlanır — q ile sadece kapat"
 	ShellAlreadyConn     string // "Zaten bağlı: %s\n"
+	ShellDisconnected    string // "Bağlantı kesildi: %s\n"
 	ShellServerNotFound  string // "Sunucu bulunamadı: %q\n"
 	ShellBrowserErr      string // "Browser hatası: %v\n"
 	ShellDeleteTitle     string // "%d dosyayı sil"
@@ -122,6 +135,12 @@ type StringSet struct {
 	ShellStatusUpToDate  string // "  Güncel"
 	ShellStatusNoChange  string // "  %d değişiklik\n"
 	ShellStatusStateErr  string // "[%s] state okunamadı: %v\n"
+
+	// ── Tree ─────────────────────────────────────────────────────────────────
+	TreeMaxPromptTitle string // "Tree görünümü"
+	TreeMaxPromptSub   string // "Klasör başına max dosya sayısı?"
+	TreeSkippedFmt     string // "[%d öğe — atlandı, --max ile artırın]"
+	TreeErrFmt         string // "[hata: %v]"
 
 	// ── Help text ────────────────────────────────────────────────────────────
 	ShellHelp string
@@ -304,8 +323,10 @@ var En = StringSet{
 	BrowserHintQuit:          "q Cancel",
 	BrowserMarkedHintDelete:  "d=Delete",
 	BrowserMarkedHintMove:    "m=Move",
+	BrowserMarkedHintFreeze:  "f=❄ Freeze",
 	BrowserMarkedHintAll:     "a=Deselect all",
 	BrowserMarkedHintCancel:  "ESC=Cancel",
+	BrowserEscPending:        "  ESC again to exit",
 	BrowserSearchClear:       "  ESC to clear",
 	BrowserHintNav:           "  ↑↓ Navigate",
 	BrowserHintEnter:         "Enter Open/Select",
@@ -314,6 +335,7 @@ var En = StringSet{
 	BrowserHintSearch:        "/ Search",
 	BrowserHintQuitKey:       "q Quit",
 	BrowserHintFreeze:        "f=❄ Freeze",
+	BrowserHintTree:          "t=Tree",
 	BrowserErrPrefix:         "  Error: ",
 	BrowserReconnectHint:     "r = Reconnect  |  q = Quit",
 	BrowserSelectThisPrefix:  "[ Select this dir: ",
@@ -333,6 +355,13 @@ var En = StringSet{
 	BrowserPreviewFailed:     "⚠ Preview unavailable",
 	BrowserReconnectFailed:   "reconnect failed: %w",
 	BrowserMarkedCount:       "  ✓ %d marked",
+	BrowserSearchCancelHint:  "   ESC=cancel",
+	BrowserSearchTimeout:     "⚠ timeout (5m) — %d partial results",
+	BrowserSearchConnErr:     "⚠ connection error: %s",
+	BrowserSearchOpenErr:     "connection %d failed to open: %v",
+	BrowserSearchDoneFmt:     "%d results (%.1fs)",
+	BrowserSearchOpsHint:     "  ↑↓ navigate  Space=mark  Enter=preview  → preview  d=delete marked  m=move marked  f=freeze  ESC=clear",
+	BrowserSearchNoResults:   "  (no results found)",
 
 	// Picker / Confirm TUI
 	PickerFilterHint:   "  Type to filter",
@@ -351,14 +380,16 @@ var En = StringSet{
 	SyncConnecting:  "connecting...",
 	SyncRetryFmt:    " (%d attempts)",
 	SyncRetryOkFmt:  " (succeeded on attempt %d)",
-	SyncDoneFmt:     "  Done: %s uploaded",
-	SyncDoneFailFmt: ", %s failed",
+	SyncDoneFmt:          "  Done: %s uploaded",
+	SyncDoneFailFmt:      ", %s failed",
+	SyncAttemptDetailFmt: "attempt %d: %v",
 
 	// Shell REPL
 	ShellWelcomeHint:     "  Type 'help', 'exit' to quit",
 	ShellMultiServer:     "Multiple servers — to connect: server <name>",
 	ShellServersLabel:    "Servers:",
 	ShellCtrlCHint:       "(Ctrl+C — type 'exit' to quit)",
+	ShellCtrlCExitHint:   "Press Ctrl+C again to exit — or type 'exit'",
 	ShellExit:            "Goodbye.",
 	ShellUnknownCmd:      "Unknown command: %q  (type 'help')\n",
 	ShellConnecting:      "Connecting: %s (%s)...",
@@ -368,9 +399,10 @@ var En = StringSet{
 	ShellServersFmt:      "Servers",
 	ShellServersSubtitle: "Select to connect — q to close",
 	ShellAlreadyConn:     "Already connected: %s\n",
+	ShellDisconnected:    "Disconnected: %s\n",
 	ShellServerNotFound:  "Server not found: %q\n",
 	ShellBrowserErr:      "Browser error: %v\n",
-	ShellDeleteTitle:     "Delete %d files",
+	ShellDeleteTitle:     "Delete %d items",
 	ShellDeleteSubtitle:  "This cannot be undone. Files will be permanently deleted from the FTP server.",
 	ShellCancelled:       "Cancelled.",
 	ShellConfirmSure:     "Are you sure?",
@@ -407,11 +439,20 @@ var En = StringSet{
 	ShellStatusNoChange:  "  %d changes\n",
 	ShellStatusStateErr:  "[%s] could not read state: %v\n",
 
+	TreeMaxPromptTitle: "Tree view",
+	TreeMaxPromptSub:   "Max files per directory?",
+	TreeSkippedFmt:     "[%d items — skipped, increase with --max]",
+	TreeErrFmt:         "[error: %v]",
+
 	ShellHelp: `
 Remote server commands:
   ls [dir]                Interactive file browser (↑↓ navigate, → enter/preview, ← back)
                             Space = mark  |  d = delete marked  |  m = move marked
                             f = freeze/unfreeze file or whole folder  |  / = search
+                            t = tree view of current directory
+  tree [path] [--max N]   Show FTP directory as tree (dirs first, files with sizes)
+                            --max N : skip dirs with > N items; show first N + "+X more..."
+                            omit --max for interactive prompt (20 / 50 / 100 / all)
   cd <dir>                Change remote directory  (cd .. to go up)
   cat [file]              View file contents (opens browser if no arg)
   get [file] [dest]       Download file (opens browser if no arg)
@@ -426,6 +467,7 @@ Sync:
 Server management:
   servers                 Server list
   server [name]           Select / connect to server
+  disconnect              Close current FTP connection (prompt returns to no-server mode)
   config                  Add, edit or delete servers — full TUI field navigator
                             ↑↓ = select field  |  Enter = edit  |  Space = toggle bool
                             b = local file browser for include / exclude / protect / local dir
@@ -574,8 +616,10 @@ var Tr = StringSet{
 	BrowserHintQuit:          "q İptal",
 	BrowserMarkedHintDelete:  "d=Sil",
 	BrowserMarkedHintMove:    "m=Taşı",
+	BrowserMarkedHintFreeze:  "f=❄ Dondur",
 	BrowserMarkedHintAll:     "a=Tümünü kaldır",
 	BrowserMarkedHintCancel:  "ESC=İptal",
+	BrowserEscPending:        "  ESC tekrar = çık",
 	BrowserSearchClear:       "  ESC temizle",
 	BrowserHintNav:           "  ↑↓ Gezin",
 	BrowserHintEnter:         "Enter Gir/Seç",
@@ -584,6 +628,7 @@ var Tr = StringSet{
 	BrowserHintSearch:        "/ Ara",
 	BrowserHintQuitKey:       "q Çık",
 	BrowserHintFreeze:        "f=❄ Dondur",
+	BrowserHintTree:          "t=Tree",
 	BrowserErrPrefix:         "  Hata: ",
 	BrowserReconnectHint:     "r = Yeniden Bağlan  |  q = Çık",
 	BrowserSelectThisPrefix:  "[ Bu dizini seç: ",
@@ -603,6 +648,13 @@ var Tr = StringSet{
 	BrowserPreviewFailed:     "⚠ Önizleme alınamadı",
 	BrowserReconnectFailed:   "yeniden bağlanılamadı: %w",
 	BrowserMarkedCount:       "  ✓ %d işaretli",
+	BrowserSearchCancelHint:  "   ESC=iptal",
+	BrowserSearchTimeout:     "⚠ zaman aşımı (5dk) — %d kısmi sonuç",
+	BrowserSearchConnErr:     "⚠ bağlantı hatası: %s",
+	BrowserSearchOpenErr:     "bağlantı %d açılamadı: %v",
+	BrowserSearchDoneFmt:     "%d sonuç (%.1fs)",
+	BrowserSearchOpsHint:     "  ↑↓ gezin  Space=işaretle  Enter=önizle  → önizle  d=sil  m=taşı  f=freeze  ESC=temizle",
+	BrowserSearchNoResults:   "  (sonuç bulunamadı)",
 
 	// Picker / Confirm TUI
 	PickerFilterHint:   "  Harf yaz → filtrele",
@@ -621,14 +673,16 @@ var Tr = StringSet{
 	SyncConnecting:  "bağlanıyor...",
 	SyncRetryFmt:    " (%d deneme)",
 	SyncRetryOkFmt:  " (%d. denemede)",
-	SyncDoneFmt:     "  Tamamlandı: %s yüklendi",
-	SyncDoneFailFmt: ", %s hata",
+	SyncDoneFmt:          "  Tamamlandı: %s yüklendi",
+	SyncDoneFailFmt:      ", %s hata",
+	SyncAttemptDetailFmt: "deneme %d: %v",
 
 	// Shell REPL
 	ShellWelcomeHint:     "  'help' yazın, çıkmak için 'exit'",
 	ShellMultiServer:     "Birden fazla sunucu var — bağlanmak için: server <ad>",
 	ShellServersLabel:    "Sunucular:",
 	ShellCtrlCHint:       "(Ctrl+C — çıkmak için 'exit')",
+	ShellCtrlCExitHint:   "Çıkmak için Ctrl+C'ye tekrar basın — ya da 'exit' yazın",
 	ShellExit:            "Görüşürüz.",
 	ShellUnknownCmd:      "Bilinmeyen komut: %q  (yardım için 'help')\n",
 	ShellConnecting:      "Bağlanıyor: %s (%s)...",
@@ -638,9 +692,10 @@ var Tr = StringSet{
 	ShellServersFmt:      "Sunucular",
 	ShellServersSubtitle: "Seçince bağlanır — q ile sadece kapat",
 	ShellAlreadyConn:     "Zaten bağlı: %s\n",
+	ShellDisconnected:    "Bağlantı kesildi: %s\n",
 	ShellServerNotFound:  "Sunucu bulunamadı: %q\n",
 	ShellBrowserErr:      "Browser hatası: %v\n",
-	ShellDeleteTitle:     "%d dosyayı sil",
+	ShellDeleteTitle:     "%d öğeyi sil",
 	ShellDeleteSubtitle:  "Bu işlem geri alınamaz. FTP sunucusundan kalıcı olarak silinir.",
 	ShellCancelled:       "İptal edildi.",
 	ShellConfirmSure:     "Emin misiniz?",
@@ -677,11 +732,20 @@ var Tr = StringSet{
 	ShellStatusNoChange:  "  %d değişiklik\n",
 	ShellStatusStateErr:  "[%s] state okunamadı: %v\n",
 
+	TreeMaxPromptTitle: "Tree görünümü",
+	TreeMaxPromptSub:   "Klasör başına max dosya sayısı?",
+	TreeSkippedFmt:     "[%d öğe — atlandı, --max ile artırın]",
+	TreeErrFmt:         "[hata: %v]",
+
 	ShellHelp: `
 Uzak sunucu komutları:
   ls [dizin]              İnteraktif dosya tarayıcısı (↑↓ gezin, → gir/önizle, ← çık)
                             Space = işaretle  |  d = işaretlileri sil  |  m = taşı
                             f = dosya/klasörü freeze/unfreeze  |  / = ara
+                            t = mevcut dizini tree olarak göster
+  tree [yol] [--max N]    FTP dizinini ağaç görünümünde listeler (önce klasörler, dosya boyutlarıyla)
+                            --max N : N'den fazla öğeli klasörlerde ilk N + "+X daha..." göster
+                            --max verilmezse etkileşimli seçim (20 / 50 / 100 / tümü)
   cd <dizin>              Uzak dizin değiştir  (cd .. ile üste çık)
   cat [dosya]             Dosya içeriğini görüntüle (arg verilmezse tarayıcı açılır)
   get [dosya] [hedef]     Dosya indir (arg verilmezse tarayıcı açılır)
@@ -696,6 +760,7 @@ Senkronizasyon:
 Sunucu yönetimi:
   servers                 Sunucu listesi
   server [ad]             Sunucu seç / bağlan
+  disconnect              Mevcut FTP bağlantısını kes (prompt sunucusuz moda döner)
   config                  Sunucu ekle, düzenle, sil — TUI alan gezgini
                             ↑↓ = alan seç  |  Enter = düzenle  |  Space = bool toggle
                             b = include / exclude / protect için yerel dosya tarayıcısı

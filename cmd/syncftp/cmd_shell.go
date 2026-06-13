@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/chzyer/readline"
 
 	"syncftp/internal/config"
@@ -68,17 +70,24 @@ func runShell() error {
 		fmt.Println()
 	}
 
+	ctrlCCount := 0
 	for {
 		rl.SetPrompt(sh.prompt())
 		line, err := rl.Readline()
 		if err == readline.ErrInterrupt {
-			fmt.Println(lang.L.ShellCtrlCHint)
+			ctrlCCount++
+			if ctrlCCount >= 2 {
+				fmt.Println(lang.L.ShellExit)
+				return nil
+			}
+			fmt.Println(lang.L.ShellCtrlCExitHint)
 			continue
 		}
 		if err == io.EOF {
 			break
 		}
 
+		ctrlCCount = 0
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
@@ -120,11 +129,17 @@ func runShell() error {
 		case "server":
 			sh.cmdServer(args)
 
+		case "disconnect":
+			sh.cmdDisconnect()
+
 		case "pwd":
 			sh.cmdPwd()
 
 		case "ls":
 			sh.cmdLs(args)
+
+		case "tree":
+			sh.cmdTree(args)
 
 		case "cd":
 			sh.cmdCd(args)
@@ -205,6 +220,19 @@ func (sh *shellState) connectServer(srv config.Server) {
 	sh.client = client
 	sh.remoteCwd = srv.RemotePath
 	fmt.Printf(" ✓\n")
+}
+
+func (sh *shellState) cmdDisconnect() {
+	if sh.client == nil {
+		fmt.Println(lang.L.ShellNotConnected)
+		return
+	}
+	name := sh.srv.Name
+	sh.client.Close()
+	sh.client = nil
+	sh.srv = nil
+	sh.remoteCwd = ""
+	fmt.Printf(lang.L.ShellDisconnected, name)
 }
 
 func (sh *shellState) ensureConnected() bool {
@@ -370,6 +398,8 @@ func (sh *shellState) cmdLs(args []string) {
 		sh.browserDelete(result.Marked)
 	case "move":
 		sh.browserMove(result.Marked)
+	case "tree":
+		sh.cmdTree(nil)
 	default:
 		if result.Selected != "" {
 			sh.fileActionMenu(result.Selected)
@@ -382,13 +412,17 @@ func (sh *shellState) browserDelete(files []string) {
 	if len(files) == 0 {
 		return
 	}
-	fmt.Printf("\n%d dosya silinecek:\n", len(files))
+
+	// Dosya listesini confirm dialog'una taşı — terminale önceden yazdırma
+	var listSb strings.Builder
 	for _, f := range files {
-		fmt.Printf("  - %s\n", f)
+		listSb.WriteString("  - " + f + "\n")
 	}
+	subtitle := strings.TrimRight(listSb.String(), "\n")
+
 	ok, err := RunConfirm(
 		fmt.Sprintf(lang.L.ShellDeleteTitle, len(files)),
-		lang.L.ShellDeleteSubtitle,
+		subtitle,
 	)
 	if err != nil || !ok {
 		fmt.Println(lang.L.ShellCancelled)
@@ -399,23 +433,47 @@ func (sh *shellState) browserDelete(files []string) {
 		fmt.Println(lang.L.ShellCancelled)
 		return
 	}
+
+	fmt.Println()
 	deleted, failed := 0, 0
 	for _, f := range files {
-		// Klasör mü dosya mı? Liste ile kontrol et
+		// Klasör mü dosya mı?
 		entries, listErr := sh.client.List(f)
-		var err error
-		if listErr == nil && entries != nil {
-			// Liste başarılıysa klasördür (recursive sil)
+		isDir := listErr == nil && entries != nil
+		if isDir {
+			// Anlık feedback — klasör için işlem başladığını göster
+			fmt.Printf("  ⟳ %s/", f)
+			contents, _ := sh.client.ListRecursive(f)
 			err = sh.client.DeleteDir(f, true)
+			if err != nil {
+				fmt.Printf("\r  ✗ %s/  (%v)\n", f, err)
+				failed++
+			} else {
+				fmt.Printf("\r  ✓ %s/\n", f)
+				paths := make([]string, 0, len(contents))
+				for relPath := range contents {
+					paths = append(paths, relPath)
+				}
+				sort.Strings(paths)
+				for i, relPath := range paths {
+					branch := "├─"
+					if i == len(paths)-1 {
+						branch = "└─"
+					}
+					fmt.Printf("       %s %s\n", branch, relPath)
+				}
+				deleted++
+			}
 		} else {
+			fmt.Printf("  ⟳ %s", f)
 			err = sh.client.DeleteFile(f)
-		}
-		if err != nil {
-			fmt.Printf("  ✗ %s  (%v)\n", f, err)
-			failed++
-		} else {
-			fmt.Printf("  ✓ %s\n", f)
-			deleted++
+			if err != nil {
+				fmt.Printf("\r  ✗ %s  (%v)\n", f, err)
+				failed++
+			} else {
+				fmt.Printf("\r  ✓ %s\n", f)
+				deleted++
+			}
 		}
 	}
 	fmt.Printf(lang.L.ShellDeletedFmt, deleted, failed)
@@ -669,51 +727,110 @@ func (sh *shellState) cmdRm(args []string) {
 
 func (sh *shellState) cmdStatus() {
 	cfg := sh.cfg
-	projectDir := filepath.Join(sh.configDir, cfg.Project.LocalPath)
-
-	matcher, err := ignore.Load(projectDir, cfg.Sync.IgnoreFiles)
-	if err != nil {
-		fmt.Printf(lang.L.ShellErrFmt, err)
-		return
-	}
-	files, err := scanner.Scan(projectDir, matcher)
-	if err != nil {
-		fmt.Printf(lang.L.ShellErrFmt, err)
-		return
-	}
-	current := make(map[string]string, len(files))
-	for _, f := range files {
-		current[f.RelPath] = f.Hash
-	}
+	dir := sh.configDir
 
 	servers := cfg.EnabledServers()
 	if len(servers) == 0 {
 		fmt.Println(lang.L.ShellNoServers)
 		return
 	}
+	if sh.srv != nil {
+		servers = []config.Server{*sh.srv}
+	}
 
+	var entries []statusSrvEntry
 	for _, srv := range servers {
-		st, err := state.Load(sh.configDir, srv.Name)
+		localPath := srv.EffectiveLocalPath(cfg.Project)
+		localDir := filepath.Join(dir, localPath)
+
+		matcher, err := ignore.Load(localDir, cfg.Sync.IgnoreFiles)
+		if err != nil {
+			fmt.Printf(lang.L.ShellErrFmt, err)
+			continue
+		}
+		files, err := scanner.Scan(localDir, matcher)
+		if err != nil {
+			fmt.Printf(lang.L.ShellErrFmt, err)
+			continue
+		}
+		current := make(map[string]string, len(files))
+		for _, f := range files {
+			current[f.RelPath] = f.Hash
+		}
+
+		st, err := state.Load(dir, srv.Name)
 		if err != nil {
 			fmt.Printf(lang.L.ShellStatusStateErr, srv.Name, err)
 			continue
 		}
 		diff := state.Diff(st, current)
-		total := len(diff.New) + len(diff.Changed) + len(diff.Deleted)
-		fmt.Printf("\n[%s]  "+lang.L.ShellStatusNoChange, srv.Name, total)
-		for _, p := range diff.New {
-			fmt.Printf("  + %s\n", p)
+
+		// Include önceliği: sunucu > global
+		srvInclude := cfg.Sync.Include
+		if len(srv.Include) > 0 {
+			srvInclude = srv.Include
 		}
-		for _, p := range diff.Changed {
-			fmt.Printf("  ~ %s\n", p)
+		srvInclude = normalizePatterns(srvInclude, localPath)
+
+		srvExclude := append(append([]string{}, cfg.Sync.Exclude...), srv.Exclude...)
+		srvExclude = normalizePatterns(srvExclude, localPath)
+
+		added := applyStatusFilters(diff.New, srvInclude, srvExclude)
+		changed := applyStatusFilters(diff.Changed, srvInclude, srvExclude)
+		deleted := applyStatusFilters(diff.Deleted, srvInclude, srvExclude)
+
+		// Frozen dosyaları ayır
+		fl, _ := frozen.Load(dir, srv.Name)
+		var frozenFiles []string
+		if fl != nil {
+			var addedClean, changedClean []string
+			for _, f := range added {
+				if frozen.IsFrozen(fl, f) {
+					frozenFiles = append(frozenFiles, f)
+				} else {
+					addedClean = append(addedClean, f)
+				}
+			}
+			for _, f := range changed {
+				if frozen.IsFrozen(fl, f) {
+					frozenFiles = append(frozenFiles, f)
+				} else {
+					changedClean = append(changedClean, f)
+				}
+			}
+			added, changed = addedClean, changedClean
 		}
-		for _, p := range diff.Deleted {
-			fmt.Printf(lang.L.ShellStatusDeleted, p)
+
+		var totalSize int64
+		for _, rel := range append(added, changed...) {
+			if info, err := os.Stat(filepath.Join(localDir, filepath.FromSlash(rel))); err == nil {
+				totalSize += info.Size()
+			}
 		}
-		if total == 0 {
-			fmt.Println(lang.L.ShellStatusUpToDate)
-		}
+
+		sort.Strings(added)
+		sort.Strings(changed)
+		sort.Strings(deleted)
+		sort.Strings(frozenFiles)
+
+		entries = append(entries, statusSrvEntry{
+			name:     srv.Name,
+			localDir: localDir,
+			added:    added,
+			changed:  changed,
+			deleted:  deleted,
+			frozen:   frozenFiles,
+			size:     totalSize,
+		})
 	}
+
+	if len(entries) == 0 {
+		return
+	}
+
+	m := newStatusTUI(cfg.Project.Name, entries)
+	p := tea.NewProgram(m, tea.WithAltScreen())
+	p.Run()
 }
 
 func (sh *shellState) cmdSync(args []string) {
@@ -735,30 +852,7 @@ func (sh *shellState) cmdSync(args []string) {
 		}
 	}
 
-	cfg := sh.cfg
-	projectDir := filepath.Join(sh.configDir, cfg.Project.LocalPath)
-
-	matcher, err := ignore.Load(projectDir, cfg.Sync.IgnoreFiles)
-	if err != nil {
-		fmt.Printf(lang.L.ShellErrFmt, err)
-		return
-	}
-	fmt.Print(lang.L.ShellScanning)
-	files, err := scanner.Scan(projectDir, matcher)
-	if err != nil {
-		fmt.Printf(lang.L.ShellConnectErr, err)
-		return
-	}
-	fmt.Printf(lang.L.ShellScannedFmt, len(files))
-
-	current := make(map[string]string, len(files))
-	byRel := make(map[string]scanner.File, len(files))
-	for _, f := range files {
-		current[f.RelPath] = f.Hash
-		byRel[f.RelPath] = f
-	}
-
-	servers := cfg.EnabledServers()
+	servers := sh.cfg.EnabledServers()
 	if serverName != "" {
 		filtered := []config.Server{}
 		for _, s := range servers {
@@ -782,12 +876,51 @@ func (sh *shellState) cmdSync(args []string) {
 
 	for _, srv := range servers {
 		fmt.Printf("\n── %s ──\n", srv.Name)
-		sh.shellSyncServer(srv, current, byRel, full, dryRun)
+		sh.shellSyncServer(srv, full, dryRun)
 	}
 }
 
-func (sh *shellState) shellSyncServer(srv config.Server, current map[string]string, byRel map[string]scanner.File, full, dryRun bool) {
-	st, err := state.Load(sh.configDir, srv.Name)
+func (sh *shellState) shellSyncServer(srv config.Server, full, dryRun bool) {
+	cfg := sh.cfg
+	dir := sh.configDir
+
+	localPath := srv.EffectiveLocalPath(cfg.Project)
+	localDir := filepath.Join(dir, localPath)
+
+	matcher, err := ignore.Load(localDir, cfg.Sync.IgnoreFiles)
+	if err != nil {
+		fmt.Printf(lang.L.ShellErrFmt, err)
+		return
+	}
+	fmt.Print(lang.L.ShellScanning)
+	files, err := scanner.Scan(localDir, matcher)
+	if err != nil {
+		fmt.Printf(lang.L.ShellConnectErr, err)
+		return
+	}
+	fmt.Printf(lang.L.ShellScannedFmt, len(files))
+
+	current := make(map[string]string, len(files))
+	byRel := make(map[string]scanner.File, len(files))
+	for _, f := range files {
+		current[f.RelPath] = f.Hash
+		byRel[f.RelPath] = f
+	}
+
+	// Include önceliği: sunucu > global (CLI yok shell'de)
+	effectiveInclude := cfg.Sync.Include
+	if len(srv.Include) > 0 {
+		effectiveInclude = srv.Include
+	}
+	effectiveInclude = normalizePatterns(effectiveInclude, localPath)
+
+	effectiveExclude := append(append([]string{}, cfg.Sync.Exclude...), srv.Exclude...)
+	effectiveExclude = normalizePatterns(effectiveExclude, localPath)
+
+	effectiveProtect := append(append([]string{}, cfg.Sync.Protect...), srv.Protect...)
+	effectiveProtect = normalizePatterns(effectiveProtect, localPath)
+
+	st, err := state.Load(dir, srv.Name)
 	if err != nil {
 		fmt.Printf(lang.L.ShellStateReadErr, err)
 		return
@@ -800,15 +933,46 @@ func (sh *shellState) shellSyncServer(srv config.Server, current map[string]stri
 		diff := state.Diff(st, current)
 		toUpload = append(diff.New, diff.Changed...)
 	}
+
+	if len(effectiveInclude) > 0 {
+		toUpload = filterByInclude(toUpload, effectiveInclude)
+	}
+	toUpload = filterByExclude(toUpload, effectiveExclude)
+
+	// Frozen filtresi
+	if fl, _ := frozen.Load(dir, srv.Name); fl != nil {
+		var unfrozen []string
+		frozenCount := 0
+		for _, rel := range toUpload {
+			if frozen.IsFrozen(fl, rel) {
+				frozenCount++
+			} else {
+				unfrozen = append(unfrozen, rel)
+			}
+		}
+		if frozenCount > 0 {
+			fmt.Printf("  ❄ %d frozen (atlandı)\n", frozenCount)
+		}
+		toUpload = unfrozen
+	}
+
+	// Protect filtresi
+	var filtered []string
+	for _, rel := range toUpload {
+		if ftpclient.IsProtected(rel, effectiveProtect) {
+			continue
+		}
+		filtered = append(filtered, rel)
+	}
+	toUpload = filtered
+
 	sort.Strings(toUpload)
 
-	// Dry-run
 	if dryRun {
 		RunSyncTUI(srv.Name, len(toUpload), true, toUpload, nil)
 		return
 	}
 
-	// Değişiklik yok
 	if len(toUpload) == 0 {
 		RunSyncTUI(srv.Name, 0, false, nil, nil)
 		return
@@ -841,9 +1005,9 @@ func (sh *shellState) shellSyncServer(srv config.Server, current map[string]stri
 	}
 
 	if len(failedPaths) > 0 {
-		failed.Save(sh.configDir, srv.Name, failedPaths)
+		failed.Save(dir, srv.Name, failedPaths)
 	} else {
-		failed.Clear(sh.configDir, srv.Name)
+		failed.Clear(dir, srv.Name)
 	}
 
 	for rel, hash := range successFiles {
@@ -855,10 +1019,10 @@ func (sh *shellState) shellSyncServer(srv config.Server, current map[string]stri
 		}
 	}
 	st.FirstSyncDone = true
-	state.Save(sh.configDir, st)
+	state.Save(dir, st)
 
 	if len(successFiles) > 0 {
-		if relDir, err := release.Create(sh.configDir, srv.Name, successFiles); err == nil {
+		if relDir, err := release.Create(dir, srv.Name, successFiles); err == nil {
 			fmt.Printf(lang.L.ShellReleaseFmt, relDir)
 		}
 	}
@@ -954,6 +1118,272 @@ func pickServerTUI(servers []config.Server) (*config.Server, error) {
 		}
 	}
 	return nil, nil
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Status TUI
+// ══════════════════════════════════════════════════════════════════════════════
+
+type statusSrvEntry struct {
+	name     string
+	localDir string
+	added    []string
+	changed  []string
+	deleted  []string
+	frozen   []string // changed/added ama frozen — sync edilmeyecek
+	size     int64
+}
+
+func (e statusSrvEntry) totalChanges() int {
+	return len(e.added) + len(e.changed) + len(e.deleted)
+}
+
+type statusTUI struct {
+	project    string
+	entries    []statusSrvEntry
+	cursor     int
+	expanded   int // -1 = liste modu, >=0 = detay modu
+	scroll     int
+	searching  bool
+	searchText string
+	width      int
+	height     int
+}
+
+var (
+	stTitle    = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("5")).Padding(0, 1)
+	stCursor   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
+	stName     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("15"))
+	stOk       = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
+	stCount    = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
+	stSize     = lipgloss.NewStyle().Foreground(lipgloss.Color("6"))
+	stHint     = lipgloss.NewStyle().Faint(true)
+	stDiv      = lipgloss.NewStyle().Faint(true)
+	stAdded    = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
+	stModified = lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
+	stDeleted  = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
+)
+
+func newStatusTUI(project string, entries []statusSrvEntry) statusTUI {
+	expanded := -1
+	if len(entries) == 1 && entries[0].totalChanges() > 0 {
+		expanded = 0
+	}
+	return statusTUI{project: project, entries: entries, expanded: expanded}
+}
+
+func (m statusTUI) Init() tea.Cmd { return nil }
+
+func (m statusTUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width, m.height = msg.Width, msg.Height
+	case tea.KeyMsg:
+		if m.expanded >= 0 {
+			// Arama modu
+			if m.searching {
+				switch msg.String() {
+				case "esc":
+					m.searching = false
+					m.searchText = ""
+					m.scroll = 0
+				case "ctrl+c":
+					m.searching = false
+					m.searchText = ""
+				case "backspace":
+					r := []rune(m.searchText)
+					if len(r) > 0 {
+						m.searchText = string(r[:len(r)-1])
+					}
+					m.scroll = 0
+				default:
+					s := msg.String()
+					for strings.HasPrefix(s, "alt+") {
+						s = strings.TrimPrefix(s, "alt+")
+					}
+					r := []rune(s)
+					if len(r) == 1 && r[0] >= 0x20 && r[0] != 0x7F {
+						m.searchText += s
+						m.scroll = 0
+					}
+				}
+				return m, nil
+			}
+			// Detay modu normal tuşlar
+			switch msg.String() {
+			case "q", "Q", "esc", "left", "h":
+				m.expanded = -1
+				m.scroll = 0
+				m.searchText = ""
+			case "/":
+				m.searching = true
+				m.searchText = ""
+				m.scroll = 0
+			case "up", "k":
+				if m.scroll > 0 {
+					m.scroll--
+				}
+			case "down", "j":
+				e := m.entries[m.expanded]
+				max := e.totalChanges() + len(e.frozen) - 1
+				if m.scroll < max {
+					m.scroll++
+				}
+			}
+		} else {
+			switch msg.String() {
+			case "q", "Q", "esc", "ctrl+c":
+				return m, tea.Quit
+			case "up", "k":
+				if m.cursor > 0 {
+					m.cursor--
+				}
+			case "down", "j":
+				if m.cursor < len(m.entries)-1 {
+					m.cursor++
+				}
+			case "right", "l", "enter":
+				if len(m.entries) > 0 {
+					m.expanded = m.cursor
+					m.scroll = 0
+					m.searchText = ""
+				}
+			}
+		}
+	}
+	return m, nil
+}
+
+func (m statusTUI) View() string {
+	w := m.width
+	if w < 60 {
+		w = 80
+	}
+	h := m.height
+	if h < 10 {
+		h = 24
+	}
+	div := stDiv.Render(strings.Repeat("─", w))
+
+	var b strings.Builder
+
+	if m.expanded >= 0 {
+		e := m.entries[m.expanded]
+		sizeStr := ""
+		if e.size > 0 {
+			sizeStr = "  " + stSize.Render(formatSize(uint64(e.size)))
+		}
+		b.WriteString("\n")
+		b.WriteString(stTitle.Render("  "+e.name) + stCount.Render(fmt.Sprintf("  %d değişiklik", e.totalChanges())) + sizeStr + "\n")
+		if m.searching {
+			b.WriteString(stHint.Render("  Backspace = sil  |  Esc = aramayı kapat") + "\n")
+		} else {
+			b.WriteString(stHint.Render("  ↑↓ kaydır  |  / = ara  |  ←/Esc = geri  |  q = çık") + "\n")
+		}
+		b.WriteString(div + "\n")
+
+		// Tüm satırları oluştur
+		var allLines []string
+		for _, f := range e.added {
+			allLines = append(allLines, stAdded.Render("  + ")+f)
+		}
+		for _, f := range e.changed {
+			allLines = append(allLines, stModified.Render("  ~ ")+f)
+		}
+		for _, f := range e.deleted {
+			allLines = append(allLines, stDeleted.Render("  - ")+f)
+		}
+		for _, f := range e.frozen {
+			allLines = append(allLines, stHint.Render("  ❄ ")+stHint.Render(f))
+		}
+
+		// Arama filtresi: satırın görünür (ANSI soyulmuş) içeriğine göre filtrele
+		lines := allLines
+		if m.searchText != "" {
+			q := strings.ToLower(m.searchText)
+			var filtered []string
+			for _, l := range allLines {
+				if strings.Contains(strings.ToLower(l), q) {
+					filtered = append(filtered, l)
+				}
+			}
+			lines = filtered
+		}
+
+		bottomRows := 1 // div
+		if m.searching {
+			bottomRows = 2 // div + search input
+		}
+		visRows := h - 5 - bottomRows
+		if visRows < 1 {
+			visRows = 1
+		}
+		scroll := m.scroll
+		if scroll > len(lines)-visRows {
+			scroll = len(lines) - visRows
+		}
+		if scroll < 0 {
+			scroll = 0
+		}
+		end := scroll + visRows
+		if end > len(lines) {
+			end = len(lines)
+		}
+		for _, l := range lines[scroll:end] {
+			b.WriteString(l + "\n")
+		}
+		if len(lines) == 0 {
+			if m.searchText != "" {
+				b.WriteString(stHint.Render("  (eşleşme yok)") + "\n")
+			} else {
+				b.WriteString(stOk.Render("  ✓ güncel") + "\n")
+			}
+		}
+		b.WriteString(div + "\n")
+		if m.searching {
+			cursor := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11")).Render("█")
+			b.WriteString(stCount.Render("  / ") + m.searchText + cursor + "\n")
+		} else if len(lines) > visRows {
+			b.WriteString(stHint.Render(fmt.Sprintf("  %d/%d", scroll+1, len(lines))) + "\n")
+		} else if m.searchText != "" {
+			b.WriteString(stHint.Render(fmt.Sprintf("  %d sonuç", len(lines))) + "\n")
+		}
+	} else {
+		b.WriteString("\n")
+		b.WriteString(stTitle.Render("  Status — "+m.project) + "\n")
+		b.WriteString(stHint.Render("  ↑↓ gezin  |  → = detay  |  q = çık") + "\n")
+		b.WriteString(div + "\n\n")
+
+		for i, e := range m.entries {
+			n := e.totalChanges()
+			var info string
+			if n == 0 && len(e.frozen) == 0 {
+				info = stOk.Render("✓ güncel")
+			} else {
+				sizeStr := ""
+				if e.size > 0 {
+					sizeStr = "  " + stSize.Render(formatSize(uint64(e.size)))
+				}
+				info = stCount.Render(fmt.Sprintf("%d değişiklik", n)) + sizeStr
+				if len(e.frozen) > 0 {
+					info += "  " + stHint.Render(fmt.Sprintf("❄ %d frozen", len(e.frozen)))
+				}
+				if n > 0 {
+					info += stHint.Render("  →")
+				}
+			}
+
+			if i == m.cursor {
+				b.WriteString(stCursor.Render("▶ ") + stName.Render(e.name) + "  " + info + "\n")
+			} else {
+				b.WriteString("  " + stName.Render(e.name) + "  " + info + "\n")
+			}
+		}
+
+		b.WriteString("\n" + div + "\n")
+	}
+
+	return b.String()
 }
 
 // pickServerMultiTUI — çoklu seçimli sunucu picker'ı (sync için).

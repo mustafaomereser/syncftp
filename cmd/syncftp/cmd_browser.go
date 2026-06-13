@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -79,9 +82,14 @@ type previewLoadedMsg struct {
 	content string
 	err     error // gerçek hata, görünür hata mesajı için
 }
-type recursiveSearchMsg struct {
-	results []sortedEntry
-	err     error
+// Arama streaming mesajları
+type searchEntryMsg struct {
+	gen   int          // hangi arama turuna ait
+	entry sortedEntry
+}
+type searchDoneMsg struct {
+	gen  int
+	info string
 }
 type folderFreezeMsg struct {
 	folderRel string            // klasörün root'a göre göreceli yolu
@@ -107,18 +115,26 @@ type browserModel struct {
 	marked      map[string]bool
 	frozenFiles map[string]bool // relPath → freeze durumu
 
-	cursor  int
-	loading bool
-	err     error
-	result  *BrowserResult
-	width   int
-	height  int
+	cursor     int
+	lastDir    int  // 1=aşağı (default), -1=yukarı; Space cursor hareketini belirler
+	escPending bool // root'ta ilk ESC: çıkış onayı bekleniyor
+	statusMsg  string // kısa geçici mesaj (freeze sonrası vb.)
+	loading    bool
+	err        error
+	result     *BrowserResult
+	width      int
+	height     int
 
 	// Arama
 	searching        bool
 	searchText       string
-	recursiveSearch  bool // global arama aktif mi
-	recursiveLoading bool // FTP'den sonuçlar bekleniyor
+	recursiveSearch  bool               // arama sonuçları gösteriliyor
+	recursiveLoading bool               // arama hala devam ediyor (streaming)
+	searchInfo       string             // tamamlanma notu (süre, uyarı)
+	searchCancel     context.CancelFunc // aktif aramayı iptal eder
+	searchGen        int                // her yeni aramada artar; stale mesajları atar
+	searchResCh      <-chan searchEntryMsg
+	searchStart      time.Time
 
 	// Önizleme
 	preview        string
@@ -268,35 +284,184 @@ func (m *browserModel) applySearch() {
 	m.cursor = 0
 }
 
-// startRecursiveSearch tüm alt dizinleri FTP üzerinden tarayarak sonuç döner.
-func (m browserModel) startRecursiveSearch(query string) tea.Cmd {
-	client := m.client
-	root := m.root
-	q := strings.ToLower(query)
+// startRecursiveSearch cwd'den itibaren paralel FTP bağlantılarla arar.
+// waitSearchEntry bir sonucu bekler ve mesaj olarak döner.
+func (m browserModel) waitSearchEntry() tea.Cmd {
+	ch := m.searchResCh
+	gen := m.searchGen
 	return func() tea.Msg {
-		var results []sortedEntry
-		var walk func(dir string)
-		walk = func(dir string) {
-			entries, err := client.List(dir)
+		e, ok := <-ch
+		if !ok {
+			return searchDoneMsg{gen: gen}
+		}
+		return e
+	}
+}
+
+// runSearchWorker maxConnections kadar paralel FTP bağlantısıyla arama yapar.
+// Bulunan her sonucu anında resCh'a yazar; bitince kanalı kapatır.
+func runSearchWorker(
+	server *config.Server,
+	primaryClient *ftpclient.Client,
+	startDir, query string,
+	gen int,
+	ctx context.Context,
+	resCh chan<- searchEntryMsg,
+) {
+	defer close(resCh)
+
+	q := strings.ToLower(query)
+
+	maxConns := 2
+	if server != nil && server.MaxConnections > 1 {
+		maxConns = server.MaxConnections
+	}
+	if maxConns > 8 {
+		maxConns = 8
+	}
+
+	// Ek bağlantılar aç
+	extra := make([]*ftpclient.Client, 0, maxConns-1)
+	if server != nil {
+		for i := 1; i < maxConns; i++ {
+			c, err := ftpclient.Connect(*server)
 			if err != nil {
-				return
+				break
 			}
-			for _, e := range entries {
-				if e.Name == "." || e.Name == ".." {
-					continue
-				}
-				if e.Type == goftp.EntryTypeFolder {
-					walk(path.Join(dir, e.Name))
-				} else {
-					if strings.Contains(strings.ToLower(e.Name), q) {
-						results = append(results, sortedEntry{entry: e, dir: dir})
-					}
-				}
+			extra = append(extra, c)
+		}
+	}
+	defer func() {
+		for _, c := range extra {
+			c.Close()
+		}
+	}()
+
+	clients := make([]*ftpclient.Client, 1+len(extra))
+	clients[0] = primaryClient
+	copy(clients[1:], extra)
+
+	dirCh := make(chan string, 2048)
+	dirCh <- startDir
+
+	var listErrMu sync.Mutex
+	var listErrSample string
+
+	doneCh := make(chan struct{})
+	var closeOnce sync.Once
+	closeDone := func() { closeOnce.Do(func() { close(doneCh) }) }
+
+	var pendingMu sync.Mutex
+	pendingCount := 1
+	decrement := func() {
+		pendingMu.Lock()
+		pendingCount--
+		if pendingCount == 0 {
+			closeDone()
+		}
+		pendingMu.Unlock()
+	}
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			closeDone()
+		case <-doneCh:
+		}
+	}()
+
+	send := func(e sortedEntry) {
+		select {
+		case resCh <- searchEntryMsg{gen: gen, entry: e}:
+		case <-doneCh:
+		}
+	}
+
+	var syncWalk func(c *ftpclient.Client, d string)
+	syncWalk = func(c *ftpclient.Client, d string) {
+		select {
+		case <-doneCh:
+			return
+		default:
+		}
+		sub, err := c.List(d)
+		if err != nil {
+			listErrMu.Lock()
+			if listErrSample == "" {
+				listErrSample = fmt.Sprintf("%v", err)
+			}
+			listErrMu.Unlock()
+			return
+		}
+		for _, se := range sub {
+			if se == nil || se.Name == "." || se.Name == ".." {
+				continue
+			}
+			if strings.Contains(strings.ToLower(se.Name), q) {
+				send(sortedEntry{entry: se, dir: d})
+			}
+			if se.Type == goftp.EntryTypeFolder {
+				syncWalk(c, path.Join(d, se.Name))
 			}
 		}
-		walk(root)
-		return recursiveSearchMsg{results: results}
 	}
+
+	worker := func(c *ftpclient.Client) {
+		for {
+			select {
+			case dir, ok := <-dirCh:
+				if !ok {
+					return
+				}
+				entries, err := c.List(dir)
+				if err != nil {
+					listErrMu.Lock()
+					if listErrSample == "" {
+						listErrSample = fmt.Sprintf("%v", err)
+					}
+					listErrMu.Unlock()
+					decrement()
+					continue
+				}
+				for _, e := range entries {
+					if e == nil || e.Name == "." || e.Name == ".." {
+						continue
+					}
+					if strings.Contains(strings.ToLower(e.Name), q) {
+						send(sortedEntry{entry: e, dir: dir})
+					}
+					if e.Type == goftp.EntryTypeFolder {
+						pendingMu.Lock()
+						pendingCount++
+						pendingMu.Unlock()
+						select {
+						case dirCh <- path.Join(dir, e.Name):
+						case <-doneCh:
+							decrement()
+						default:
+							syncWalk(c, path.Join(dir, e.Name))
+							decrement()
+						}
+					}
+				}
+				decrement()
+			case <-doneCh:
+				return
+			}
+		}
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(len(clients))
+	for _, c := range clients {
+		go func(cl *ftpclient.Client) {
+			defer wg.Done()
+			worker(cl)
+		}(c)
+	}
+	wg.Wait()
+
+	_ = listErrSample // bilgi mesajı done'a taşındı — searchDoneMsg ayrı gelir
 }
 
 func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -345,15 +510,27 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-	case recursiveSearchMsg:
-		m.recursiveLoading = false
-		m.recursiveSearch = true
-		if msg.err != nil {
-			m.err = msg.err
-		} else {
-			m.filtered = msg.results
-			m.cursor = 0
+	case searchEntryMsg:
+		// Stale mesaj (iptal edilmiş arama) veya gen uyuşmuyor → yoksay
+		if msg.gen != m.searchGen || !m.recursiveLoading {
+			break
 		}
+		m.filtered = append(m.filtered, msg.entry)
+		m.recursiveSearch = true // sonuçlar gelmeye başladı, göster
+		return m, m.waitSearchEntry()
+
+	case searchDoneMsg:
+		if msg.gen != m.searchGen || !m.recursiveLoading {
+			break
+		}
+		m.recursiveLoading = false
+		m.recursiveSearch = true // 0 sonuçta da arama modunu aktif tut
+		dur := time.Since(m.searchStart)
+		m.searchInfo = fmt.Sprintf(lang.L.BrowserSearchDoneFmt, len(m.filtered), dur.Seconds())
+		if msg.info != "" {
+			m.searchInfo += "  " + msg.info
+		}
+		m.searchCancel = nil
 
 	case browseErrMsg:
 		m.loading = false
@@ -408,6 +585,21 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "ctrl+c", "q", "Q":
 				m.result = &BrowserResult{CWD: m.cwd, Quit: true}
 				return m, tea.Quit
+			case "esc":
+				// Sadece recursiveLoading iptal edilir; loading ise normal çıkış
+				if m.recursiveLoading {
+					m.recursiveLoading = false
+					m.recursiveSearch = false
+					m.searching = false
+					m.searchText = ""
+					m.searchInfo = ""
+					m.filtered = nil
+					if m.searchCancel != nil {
+						m.searchCancel() // goroutineyi ve FTP bağlantılarını durdur
+						m.searchCancel = nil
+					}
+					return m, nil
+				}
 			}
 			break
 		}
@@ -476,11 +668,24 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.previewLoading = false
 			case "enter":
 				if m.searchText != "" {
+					// Önceki aramayı iptal et
+					if m.searchCancel != nil {
+						m.searchCancel()
+					}
 					m.searching = false
 					m.recursiveLoading = true
+					m.recursiveSearch = false
 					m.filtered = nil
 					m.cursor = 0
-					return m, m.startRecursiveSearch(m.searchText)
+					m.searchInfo = ""
+					m.searchGen++
+					m.searchStart = time.Now()
+					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+					m.searchCancel = cancel
+					resCh := make(chan searchEntryMsg, 128)
+					m.searchResCh = resCh
+					go runSearchWorker(m.server, m.client, m.cwd, m.searchText, m.searchGen, ctx, resCh)
+					return m, m.waitSearchEntry()
 				}
 				m.searching = false
 			case "backspace":
@@ -509,17 +714,56 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+		// Her tuş basışında geçici mesajlar sıfırlanır
+		m.statusMsg = ""
+		if msg.String() != "esc" {
+			m.escPending = false
+		}
+
 		switch msg.String() {
 		case "ctrl+c":
 			m.result = &BrowserResult{CWD: m.cwd, Quit: true}
 			return m, tea.Quit
 
 		case "esc":
+			// Önce ESC onayını sıfırla — her ESC basımında önceki onay iptal edilir
+			wasEscPending := m.escPending
+			m.escPending = false
+
+			// Arama sonuçları aktifse önce aramayı temizle
+			if m.recursiveSearch || m.searchText != "" {
+				m.recursiveSearch = false
+				m.recursiveLoading = false
+				m.searching = false
+				m.searchText = ""
+				m.searchInfo = ""
+				m.filtered = nil
+				m.cursor = 0
+				m.preview = ""
+				m.previewFile = ""
+				m.previewLoading = false
+				if m.searchCancel != nil {
+					m.searchCancel()
+					m.searchCancel = nil
+				}
+				return m, nil
+			}
+			// İşaretli dosya varsa önce markedları temizle
+			if len(m.marked) > 0 {
+				m.marked = make(map[string]bool)
+				return m, nil
+			}
+			// Root dışındaysa üste çık
 			if m.cwd != m.root && m.cwd != "/" {
 				return m.goUp()
 			}
-			m.result = &BrowserResult{CWD: m.cwd, Quit: true}
-			return m, tea.Quit
+			// Root'tayken: çift ESC ile çık (ilk ESC = onay iste, ikinci ESC = çık)
+			if wasEscPending {
+				m.result = &BrowserResult{CWD: m.cwd, Quit: true}
+				return m, tea.Quit
+			}
+			m.escPending = true
+			return m, nil
 
 		case "q", "Q":
 			m.result = &BrowserResult{CWD: m.cwd, Quit: true}
@@ -531,6 +775,7 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case "up", "k":
+			m.lastDir = -1
 			if m.cursor > 0 {
 				m.cursor--
 			}
@@ -541,6 +786,7 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.previewLoading = false
 
 		case "down", "j":
+			m.lastDir = 1
 			if m.cursor < len(m.visible())-1 {
 				m.cursor++
 			}
@@ -651,6 +897,10 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.result = &BrowserResult{CWD: m.cwd, Marked: m.markedList(), Action: "move"}
 			return m, tea.Quit
 
+		case "t", "T":
+			m.result = &BrowserResult{CWD: m.cwd, Action: "tree"}
+			return m, tea.Quit
+
 		case " ":
 			vis := m.visible()
 			if len(vis) == 0 {
@@ -666,8 +916,20 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.marked[fullPath] = true
 			}
-			if m.cursor < len(vis)-1 {
-				m.cursor++
+			// Cursor'u son gezinme yönünde ilerlet (default: aşağı)
+			if m.lastDir == 0 {
+				m.lastDir = 1
+			}
+			newCursor := m.cursor + m.lastDir
+			if newCursor < 0 {
+				m.lastDir = 1 // sınıra gelindi, yönü çevir
+				newCursor = m.cursor + m.lastDir
+			} else if newCursor >= len(vis) {
+				m.lastDir = -1 // sınıra gelindi, yönü çevir
+				newCursor = m.cursor + m.lastDir
+			}
+			if newCursor >= 0 && newCursor < len(vis) {
+				m.cursor = newCursor
 			}
 			m.preview = ""
 			m.previewFile = ""
@@ -725,6 +987,86 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(vis) == 0 {
 				break
 			}
+
+			// İşaretli öğeler varsa hepsine mevcut freeze mantığını uygula
+			if len(m.marked) > 0 {
+				// Hepsi frozen mu? (dosyalar için direkt, klasörler için prefix)
+				allFrozen := true
+				for fullPath := range m.marked {
+					rel := m.ftpRelPath(fullPath)
+					// Klasör mü dosya mı bulmak için vis'e bak
+					isFolder := false
+					for _, ve := range vis {
+						if ve.entry != nil && m.entryFullPath(ve) == fullPath {
+							isFolder = ve.entry.Type == goftp.EntryTypeFolder
+							break
+						}
+					}
+					if isFolder {
+						// Klasör: altında frozen var mı?
+						prefix := rel + "/"
+						hasChild := m.frozenFiles[rel]
+						if !hasChild {
+							for p, v := range m.frozenFiles {
+								if v && strings.HasPrefix(p, prefix) {
+									hasChild = true
+									break
+								}
+							}
+						}
+						if !hasChild {
+							allFrozen = false
+						}
+					} else {
+						if !m.frozenFiles[rel] {
+							allFrozen = false
+						}
+					}
+				}
+
+				// Dosyaları direkt freeze/unfreeze; klasörler için async fetch
+				var cmds []tea.Cmd
+				for fullPath := range m.marked {
+					rel := m.ftpRelPath(fullPath)
+					isFolder := false
+					for _, ve := range vis {
+						if ve.entry != nil && m.entryFullPath(ve) == fullPath {
+							isFolder = ve.entry.Type == goftp.EntryTypeFolder
+							break
+						}
+					}
+					if isFolder {
+						if allFrozen {
+							// Unfreeze: klasörün altındaki dosyaları kaldır
+							prefix := rel + "/"
+							delete(m.frozenFiles, rel)
+							for p := range m.frozenFiles {
+								if strings.HasPrefix(p, prefix) {
+									delete(m.frozenFiles, p)
+								}
+							}
+						} else {
+							// Freeze: mevcut klasör freeze mantığıyla async fetch
+							cmds = append(cmds, m.fetchFolderForFreeze(fullPath, rel))
+						}
+					} else {
+						if allFrozen {
+							delete(m.frozenFiles, rel)
+						} else {
+							m.frozenFiles[rel] = true
+						}
+					}
+				}
+				m.saveFrozen()
+				if allFrozen {
+					m.statusMsg = fmt.Sprintf("❄ %d öğe çözüldü", len(m.marked))
+				} else {
+					m.statusMsg = fmt.Sprintf("❄ %d öğe donduruldu", len(m.marked))
+				}
+				return m, tea.Batch(cmds...)
+			}
+
+			// İşaretli yok → cursor altındaki öğeye uygula
 			e := vis[m.cursor]
 			if e.selectMe || e.entry == nil {
 				break
@@ -853,10 +1195,19 @@ func (m browserModel) View() string {
 		hintLine = styleSearch.Render(fmt.Sprintf("  /%s_", m.searchText)) +
 			styleHint.Render(lang.L.BrowserSearchPrompt)
 	} else if m.recursiveLoading {
-		hintLine = styleSearch.Render(fmt.Sprintf(lang.L.BrowserSearching, m.searchText))
+		// Hala arıyor ama kısmi sonuçlar var
+		hintLine = styleSearch.Render(fmt.Sprintf(lang.L.BrowserSearching, m.searchText)) +
+			styleHint.Render(fmt.Sprintf("  %d sonuç", len(m.filtered))) +
+			styleHint.Render(lang.L.BrowserSearchCancelHint)
 	} else if m.recursiveSearch && m.searchText != "" {
+		infoStr := ""
+		if m.searchInfo != "" {
+			infoStr = "  " + lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Render(m.searchInfo)
+		}
 		hintLine = styleSearch.Render(fmt.Sprintf("  /%s", m.searchText)) +
-			styleHint.Render(fmt.Sprintf(lang.L.BrowserSearchResults, len(vis)))
+			styleHint.Render(fmt.Sprintf(lang.L.BrowserSearchResults, len(vis))) +
+			infoStr + "\n" +
+			styleHint.Render(lang.L.BrowserSearchOpsHint)
 	} else if m.pickDirMode {
 		hintLine = styleCursor.Render(lang.L.BrowserPickDirTitle) +
 			sep + styleHint.Render(lang.L.BrowserPickDirEnter) +
@@ -867,6 +1218,7 @@ func (m browserModel) View() string {
 		hintLine = styleMarked.Render(fmt.Sprintf(lang.L.BrowserMarkedCount, len(m.marked))) +
 			sep + styleHint.Render(lang.L.BrowserMarkedHintDelete) +
 			sep + styleHint.Render(lang.L.BrowserMarkedHintMove) +
+			sep + styleHint.Render(lang.L.BrowserMarkedHintFreeze) +
 			sep + styleHint.Render(lang.L.BrowserMarkedHintAll) +
 			sep + styleHint.Render(lang.L.BrowserMarkedHintCancel)
 	} else if m.searchText != "" {
@@ -879,6 +1231,7 @@ func (m browserModel) View() string {
 			sep + styleHint.Render(lang.L.BrowserHintSpace) +
 			sep + styleHint.Render(lang.L.BrowserHintSearch) +
 			sep + styleHint.Render(lang.L.BrowserHintFreeze) +
+			sep + styleHint.Render(lang.L.BrowserHintTree) +
 			sep + styleHint.Render(lang.L.BrowserHintQuitKey)
 	}
 
@@ -886,6 +1239,12 @@ func (m browserModel) View() string {
 
 	if m.loading {
 		return "\n" + header + "\n" + hintLine + "\n" + divider + "\n\n" + lang.L.BrowserLoading + "\n"
+	}
+	if m.recursiveLoading && len(m.filtered) == 0 {
+		// Henüz sonuç yok — sade yükleme ekranı
+		searchingLine := styleSearch.Render(fmt.Sprintf(lang.L.BrowserSearching, m.searchText)) +
+			styleHint.Render(lang.L.BrowserSearchCancelHint)
+		return "\n" + header + "\n" + searchingLine + "\n" + divider + "\n\n" + lang.L.BrowserLoading + "\n"
 	}
 	if m.err != nil {
 		reconnectHint := ""
@@ -898,9 +1257,12 @@ func (m browserModel) View() string {
 	}
 
 	// Görünür satır sayısı.
-	// Ekranda sabit satırlar:
-	//   \n(1) header(1) hint(1) divider(1) \n(1) [body] \n(1) footer(1) \n(1) = 8 satır
-	visibleRows := h - 8
+	// Sabit: \n(1) header(1) hint(1..2) divider(1) \n(1) [body] \n(1) footer(1) \n(1)
+	fixedRows := 8
+	if m.recursiveSearch && m.searchText != "" {
+		fixedRows++ // ops hint satırı ekstra
+	}
+	visibleRows := h - fixedRows
 	if visibleRows < 2 {
 		visibleRows = 2
 	}
@@ -928,6 +1290,12 @@ func (m browserModel) View() string {
 		dirEnd++
 	}
 
+	// Arama sonucu sıfırsa "bulunamadı" mesajı göster
+	if m.recursiveSearch && m.searchText != "" && len(vis) == 0 {
+		noResLine := styleErr.Render(lang.L.BrowserSearchNoResults)
+		return "\n" + header + "\n" + hintLine + "\n" + divider + "\n\n" + noResLine + "\n"
+	}
+
 	// ── satırları oluştur ──
 	var listBuf strings.Builder
 	for i := start; i < end; i++ {
@@ -949,7 +1317,7 @@ func (m browserModel) View() string {
 			listBuf.WriteString(styleHint.Render(strings.Repeat("·", listW)) + "\n")
 		}
 
-		fullPath := path.Join(m.cwd, e.entry.Name)
+		fullPath := m.entryFullPath(e)
 		isMarked := m.marked[fullPath]
 		isDir := e.entry.Type == goftp.EntryTypeFolder
 
@@ -957,12 +1325,16 @@ func (m browserModel) View() string {
 		relP := m.ftpRelPath(entryFullP)
 		var isFrozen bool
 		if isDir {
-			// Klasör: altında herhangi frozen dosya varsa işaretle
-			prefix := relP + "/"
-			for p, v := range m.frozenFiles {
-				if v && strings.HasPrefix(p, prefix) {
-					isFrozen = true
-					break
+			// Klasörün kendisi frozen (marked+f ile) veya altında frozen dosya var
+			if m.frozenFiles[relP] {
+				isFrozen = true
+			} else {
+				prefix := relP + "/"
+				for p, v := range m.frozenFiles {
+					if v && strings.HasPrefix(p, prefix) {
+						isFrozen = true
+						break
+					}
 				}
 			}
 		} else {
@@ -1053,7 +1425,10 @@ func (m browserModel) View() string {
 
 	// ── alt bilgi ──
 	nDirs, nFiles := 0, 0
-	for _, e := range m.entries {
+	for _, e := range vis {
+		if e.selectMe || e.entry == nil {
+			continue
+		}
 		if e.entry.Type == goftp.EntryTypeFolder {
 			nDirs++
 		} else {
@@ -1066,10 +1441,16 @@ func (m browserModel) View() string {
 		pos = 0
 	}
 	footerText := fmt.Sprintf(lang.L.BrowserFooterFmt, nDirs, nFiles, pos, total)
-	if m.searchText != "" {
+	if m.searchText != "" && !m.recursiveLoading && !m.recursiveSearch {
 		footerText += styleSearch.Render(fmt.Sprintf(lang.L.BrowserSearchMatchFmt, m.searchText, len(vis)))
 	}
+	if m.escPending {
+		footerText += styleErr.Render(lang.L.BrowserEscPending)
+	}
 	footer := styleHint.Render(footerText)
+	if m.statusMsg != "" {
+		footer += "  " + styleSelected.Render(m.statusMsg)
+	}
 
 	return "\n" + header + "\n" + hintLine + "\n" + divider + "\n" + body + "\n" + footer + "\n"
 }

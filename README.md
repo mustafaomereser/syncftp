@@ -353,6 +353,34 @@ syncftp remote rm cache/ --recursive
 
 ---
 
+### `syncftp` (Interactive Shell — `tree` command)
+
+The `tree` command displays an FTP directory as a hierarchical tree. Branch characters (`├─`, `└─`) are rendered in grey.
+
+```bash
+tree                        # tree from current remote directory (interactive max-items prompt)
+tree /public_html           # tree starting at a specific path
+tree --max 50               # skip dirs with > 50 items (show first 50 + "+N more...")
+tree --max 0                # show everything (no limit)
+```
+
+When `--max` is not given, an interactive picker asks how many items per directory to show (20 / 50 / 100 / all). Press `t` inside the file browser to run tree on the current directory.
+
+```
+/public_html
+├─ 📁 css/
+│  ├─ 📄 main.css  (45.3 KB)
+│  └─ 📄 bootstrap.min.css  (152.1 KB)
+├─ 📁 js/
+│  └─ 📄 app.js  (23.7 KB)
+├─ 📄 index.php  (12.4 KB)
+└─ 📁 uploads/
+   ├─ 📄 logo.png  (8.1 KB)
+   └─ +457 daha...
+```
+
+---
+
 ### `syncftp` (Interactive Shell)
 
 Run `syncftp` with no arguments to open the interactive shell.
@@ -366,6 +394,7 @@ syncftp
 | Command | Description |
 |---|---|
 | `ls [path]` | Open arrow-key file browser |
+| `tree [path] [--max N]` | FTP directory as tree — `--max N` limits items per dir (interactive if omitted) |
 | `cd <path>` | Change remote directory (`cd ..` to go up) |
 | `cat [file]` | Preview file content |
 | `get [file] [dest]` | Download file |
@@ -397,21 +426,23 @@ Opened by `ls`, or automatically when `cat`/`get`/`rm` receive no path argument.
 | `Space` | Toggle mark on file or folder |
 | `a` | Mark all / unmark all (disabled during search) |
 | `f` | **Freeze/unfreeze** file; on a folder: toggle all files inside recursively |
-| `d` | Delete all marked items (double confirmation) |
+| `d` | Delete all marked items (double confirmation) — folders show recursive content list |
 | `m` | Move all marked items — pick destination in second browser |
+| `t` | Open **tree view** of current directory (prompts for max-items limit) |
 | `r` | Reconnect to server (after connection drop) |
 | `q` | Close browser |
 
 - Frozen files show `❄` icon; folders with frozen contents show `❄📁`
 - Folder item counts loaded in background: `...` → `N items` or `1000+` or `?` on error
 - Preview panel on terminals ≥ 120 chars wide — loaded on demand (`→`), not on every cursor move
-- Recursive search with `/` + `Enter`: scans entire server, results show relative path
+- Recursive search with `/` + `Enter`: streams results as found, uses `maxConnections` parallel FTP clients, 5-minute timeout, `ESC` cancels and closes all connections
+- Search results show hint bar with all available operations; "no results found" shown when empty
 - Selecting a single file opens an action menu: **View / Download / Delete / Cancel**
 - Command history saved to `.syncftp/shell_history`
 
 #### Sync Progress (TUI)
 
-When `sync` runs, a full-screen progress view is shown:
+When `sync` runs, a full-screen progress view is shown. Failed files display each retry attempt's error separately so you can see exactly what went wrong on each attempt:
 
 ```
   ══ production ══
@@ -422,7 +453,10 @@ When `sync` runs, a full-screen progress view is shown:
 
   ✓ index.php
   ✓ js/app.js
-  ✗ img/hero.jpg: connection reset (3 attempts)
+  ✗ img/hero.jpg  (3 attempts)
+       attempt 1: connection reset by peer
+       attempt 2: broken pipe
+       attempt 3: connection reset by peer
   ✓ css/components/button.css
 ```
 
