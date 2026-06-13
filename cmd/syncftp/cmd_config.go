@@ -81,24 +81,25 @@ var (
 // Server Yönetici TUI
 // ══════════════════════════════════════════════════════════════════════════════
 
-// cursor: 0 = Global Ayarlar, 1..N = serverler, N+1 = + Ekle
+// cursor: 0 = Global Ayarlar, 1 = Bağlantı Profilleri, 2..N+1 = serverler, N+2 = + Ekle
 type serverMgrModel struct {
-	servers    []config.Server
-	cursor     int
-	confirming bool
-	action     string // "edit-global","edit","add","delete","toggle"
-	actionIdx  int
-	quit       bool
-	width      int
-	height     int
+	servers     []config.Server
+	connections []config.Connection
+	cursor      int
+	confirming  bool
+	action      string // "edit-global","edit-connections","edit","add","delete","toggle"
+	actionIdx   int
+	quit        bool
+	width       int
+	height      int
 }
 
-func newServerMgrModel(servers []config.Server) serverMgrModel {
-	cur := 0
-	if len(servers) > 0 {
-		cur = 1
+func newServerMgrModel(servers []config.Server, connections []config.Connection) serverMgrModel {
+	cur := 2
+	if len(servers) == 0 {
+		cur = 2 // "+ Ekle" konumu
 	}
-	return serverMgrModel{servers: servers, cursor: cur}
+	return serverMgrModel{servers: servers, connections: connections, cursor: cur}
 }
 
 func (m serverMgrModel) Init() tea.Cmd { return nil }
@@ -112,14 +113,14 @@ func (m serverMgrModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.String() {
 			case "y", "Y", "enter":
 				m.action = "delete"
-				m.actionIdx = m.cursor - 1
+				m.actionIdx = m.cursor - 2
 				return m, tea.Quit
 			default:
 				m.confirming = false
 			}
 			return m, nil
 		}
-		total := len(m.servers) + 2
+		total := len(m.servers) + 3
 		switch msg.String() {
 		case "ctrl+c", "q", "Q", "esc":
 			m.quit = true
@@ -137,9 +138,12 @@ func (m serverMgrModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case m.cursor == 0:
 				m.action = "edit-global"
 				return m, tea.Quit
-			case m.cursor <= len(m.servers):
+			case m.cursor == 1:
+				m.action = "edit-connections"
+				return m, tea.Quit
+			case m.cursor >= 2 && m.cursor <= len(m.servers)+1:
 				m.action = "edit"
-				m.actionIdx = m.cursor - 1
+				m.actionIdx = m.cursor - 2
 				return m, tea.Quit
 			default:
 				m.action = "add"
@@ -149,13 +153,13 @@ func (m serverMgrModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.action = "add"
 			return m, tea.Quit
 		case "d", "D":
-			if m.cursor >= 1 && m.cursor <= len(m.servers) {
+			if m.cursor >= 2 && m.cursor <= len(m.servers)+1 {
 				m.confirming = true
 			}
 		case " ":
-			if m.cursor >= 1 && m.cursor <= len(m.servers) {
+			if m.cursor >= 2 && m.cursor <= len(m.servers)+1 {
 				m.action = "toggle"
-				m.actionIdx = m.cursor - 1
+				m.actionIdx = m.cursor - 2
 				return m, tea.Quit
 			}
 		}
@@ -176,7 +180,7 @@ func (m serverMgrModel) View() string {
 	b.WriteString(div + "\n\n")
 
 	if m.confirming {
-		name := m.servers[m.cursor-1].Name
+		name := m.servers[m.cursor-2].Name
 		b.WriteString(cfgWarn.Render(fmt.Sprintf("  [%s] silinsin mi?  y = evet, diğer = iptal", name)) + "\n")
 		return b.String()
 	}
@@ -190,16 +194,30 @@ func (m serverMgrModel) View() string {
 			cfgHint.Render("  (protect, include, exclude, ignore_files)") + "\n")
 	}
 
+	// Bağlantı Profilleri
+	connCount := cfgDisabled.Render(fmt.Sprintf("(%d profil)", len(m.connections)))
+	if m.cursor == 1 {
+		b.WriteString(cfgCursor.Render("▶ ") + cfgGlobal.Bold(true).Render("🔗 Bağlantı Profilleri") +
+			"  " + connCount + "\n")
+	} else {
+		b.WriteString("  " + cfgGlobal.Render("🔗 Bağlantı Profilleri") +
+			"  " + connCount + "\n")
+	}
+
 	// Serverler
 	for i, srv := range m.servers {
-		pos := i + 1
+		pos := i + 2
 		icon := cfgEnabled.Render("✓")
 		nameS := cfgEnabled.Render(srv.Name)
 		if !srv.Enabled {
 			icon = cfgDisabled.Render("○")
 			nameS = cfgDisabled.Render(srv.Name + " (devre dışı)")
 		}
-		host := cfgDisabled.Render(fmt.Sprintf("%s:%d%s", srv.Host, srv.Port, srv.RemotePath))
+		hostStr := srv.Host
+		if srv.Connection != "" {
+			hostStr = "→ " + srv.Connection
+		}
+		host := cfgDisabled.Render(fmt.Sprintf("%s:%d%s", hostStr, srv.Port, srv.RemotePath))
 		info := cfgDisabled.Render(fmt.Sprintf("conn:%d  retry:%d", srv.MaxConnections, srv.MaxRetries))
 		if pos == m.cursor {
 			b.WriteString(fmt.Sprintf(" %s%s  %-22s  %-38s  %s\n",
@@ -210,7 +228,7 @@ func (m serverMgrModel) View() string {
 	}
 
 	// + Ekle
-	addPos := len(m.servers) + 1
+	addPos := len(m.servers) + 2
 	if m.cursor == addPos {
 		b.WriteString(cfgCursor.Render("▶ ") + cfgAdd.Render("+ Yeni server ekle") + "\n")
 	} else {
@@ -218,7 +236,7 @@ func (m serverMgrModel) View() string {
 	}
 
 	b.WriteString("\n" + div + "\n")
-	b.WriteString(cfgHint.Render(fmt.Sprintf("  %d server", len(m.servers))) + "\n")
+	b.WriteString(cfgHint.Render(fmt.Sprintf("  %d server  |  %d bağlantı profili", len(m.servers), len(m.connections))) + "\n")
 	return b.String()
 }
 
@@ -232,7 +250,7 @@ func runServerMgr(configDir string) error {
 		}
 		projectDir := configDir
 
-		p := tea.NewProgram(newServerMgrModel(cfg.Servers), tea.WithAltScreen())
+		p := tea.NewProgram(newServerMgrModel(cfg.Servers, cfg.Connections), tea.WithAltScreen())
 		raw, err := p.Run()
 		if err != nil {
 			return err
@@ -250,9 +268,12 @@ func runServerMgr(configDir string) error {
 				}
 			}
 
+		case "edit-connections":
+			runConnectionMgr(configDir, cfg)
+
 		case "edit":
 			srv := cfg.Servers[fm.actionIdx]
-			if runServerEdit(&srv, projectDir, false) {
+			if runServerEdit(&srv, cfg.Connections, projectDir, false) {
 				cfg.Servers[fm.actionIdx] = srv
 				if e := config.Save(configDir, cfg); e != nil {
 					fmt.Printf("Kayıt hatası: %v\n", e)
@@ -263,7 +284,7 @@ func runServerMgr(configDir string) error {
 
 		case "add":
 			srv := config.Server{Port: 21, Passive: true, Enabled: true, MaxConnections: 1, MaxRetries: 2}
-			if runServerEdit(&srv, projectDir, true) {
+			if runServerEdit(&srv, cfg.Connections, projectDir, true) {
 				cfg.Servers = append(cfg.Servers, srv)
 				if e := config.Save(configDir, cfg); e != nil {
 					fmt.Printf("Kayıt hatası: %v\n", e)
@@ -275,6 +296,7 @@ func runServerMgr(configDir string) error {
 		case "delete":
 			name := cfg.Servers[fm.actionIdx].Name
 			cfg.Servers = append(cfg.Servers[:fm.actionIdx], cfg.Servers[fm.actionIdx+1:]...)
+			// connection referansları kaldı — kasıtlı, kullanıcı bunları yönetir
 			if e := config.Save(configDir, cfg); e != nil {
 				fmt.Printf("Kayıt hatası: %v\n", e)
 			} else {
@@ -306,81 +328,96 @@ type srvField struct {
 	browseID string // list alanları için: "include" veya "exclude"
 }
 
+// isCredentialField returns true for fields whose values come from a Connection profile.
+// When srv.Connection != "", these fields are read-only in the editor.
+//
+//	2=Host 3=Port 4=User 5=Password 9=Passive 10=DisableEPSV 11=NATWorkaround
+func isCredentialField(idx int) bool {
+	return idx == 2 || idx == 3 || idx == 4 || idx == 5 || idx == 9 || idx == 10 || idx == 11
+}
+
 var serverFields = []srvField{
 	{"Ad", "text", ""},
-	{"Host", "text", ""},
-	{"Port", "int", ""},
-	{"Kullanıcı", "text", ""},
-	{"Şifre", "pass", ""},
-	{"Uzak dizin", "text", ""},
-	{"Yerel dizin", "localdir", ""},
-	{"Aktif", "bool", ""},
-	{"Passive mode", "bool", ""},
-	{"EPSV devre dışı", "bool", ""},
-	{"NAT workaround", "bool", ""},
-	{"Max bağlantı", "int", ""},
-	{"Max retry", "int", ""},
-	{"Include", "list", "include"},
-	{"Exclude", "list", "exclude"},
-	{"Protect", "list", "protect"},
+	{"Connection", "conn", ""},     // idx 1 — bağlantı profili; boş = manuel giriş
+	{"Host", "text", ""},           // idx 2
+	{"Port", "int", ""},            // idx 3
+	{"Kullanıcı", "text", ""},      // idx 4
+	{"Şifre", "pass", ""},          // idx 5
+	{"Uzak dizin", "text", ""},     // idx 6
+	{"Yerel dizin", "localdir", ""}, // idx 7
+	{"Aktif", "bool", ""},          // idx 8
+	{"Passive mode", "bool", ""},   // idx 9
+	{"EPSV devre dışı", "bool", ""}, // idx 10
+	{"NAT workaround", "bool", ""}, // idx 11
+	{"Max bağlantı", "int", ""},    // idx 12
+	{"Max retry", "int", ""},       // idx 13
+	{"Include", "list", "include"}, // idx 14
+	{"Exclude", "list", "exclude"}, // idx 15
+	{"Protect", "list", "protect"}, // idx 16
 }
 
 type serverEditModel struct {
-	srv        config.Server
-	isNew      bool
-	projectDir string
-	cursor     int
-	editing    bool
-	editBuf    string
-	action     string // "save","cancel","browse"
-	browseFor  string
-	width      int
-	height     int
+	srv         config.Server
+	connections []config.Connection // mevcut bağlantı profilleri (Connection picker için)
+	isNew       bool
+	projectDir  string
+	cursor      int
+	editing     bool
+	editBuf     string
+	action      string // "save","cancel","browse","browse-localpath","pick-connection"
+	browseFor   string
+	width       int
+	height      int
 }
 
-func newServerEditModel(srv config.Server, isNew bool, projectDir string, cursor int) serverEditModel {
-	return serverEditModel{srv: srv, isNew: isNew, projectDir: projectDir, cursor: cursor}
+func newServerEditModel(srv config.Server, connections []config.Connection, isNew bool, projectDir string, cursor int) serverEditModel {
+	return serverEditModel{srv: srv, connections: connections, isNew: isNew, projectDir: projectDir, cursor: cursor}
 }
 
 func (m *serverEditModel) getDisplayValue(i int) string {
 	switch i {
 	case 0:
 		return m.srv.Name
-	case 1:
-		return m.srv.Host
+	case 1: // Connection
+		if m.srv.Connection != "" {
+			return m.srv.Connection
+		}
+		return "(manuel)"
 	case 2:
-		return strconv.Itoa(m.srv.Port)
+		return m.srv.Host
 	case 3:
-		return m.srv.User
+		return strconv.Itoa(m.srv.Port)
 	case 4:
+		return m.srv.User
+	case 5:
 		if m.srv.Password != "" {
 			return "****"
 		}
 		return "(boş)"
-	case 5:
-		return m.srv.RemotePath
 	case 6:
+		return m.srv.RemotePath
+	case 7:
 		if m.srv.LocalPath != "" {
 			return m.srv.LocalPath
 		}
 		return "(project default)"
-	case 7:
-		return boolIcon(m.srv.Enabled)
 	case 8:
-		return boolIcon(m.srv.Passive)
+		return boolIcon(m.srv.Enabled)
 	case 9:
-		return boolIcon(m.srv.DisableEPSV)
+		return boolIcon(m.srv.Passive)
 	case 10:
-		return boolIcon(m.srv.NATWorkaround)
+		return boolIcon(m.srv.DisableEPSV)
 	case 11:
-		return strconv.Itoa(m.srv.MaxConnections)
+		return boolIcon(m.srv.NATWorkaround)
 	case 12:
-		return strconv.Itoa(m.srv.MaxRetries)
+		return strconv.Itoa(m.srv.MaxConnections)
 	case 13:
-		return listDisplay(m.srv.Include)
+		return strconv.Itoa(m.srv.MaxRetries)
 	case 14:
-		return listDisplay(m.srv.Exclude)
+		return listDisplay(m.srv.Include)
 	case 15:
+		return listDisplay(m.srv.Exclude)
+	case 16:
 		return listDisplay(m.srv.Protect)
 	}
 	return ""
@@ -390,27 +427,27 @@ func (m *serverEditModel) getEditableValue(i int) string {
 	switch i {
 	case 0:
 		return m.srv.Name
-	case 1:
-		return m.srv.Host
 	case 2:
-		return strconv.Itoa(m.srv.Port)
+		return m.srv.Host
 	case 3:
-		return m.srv.User
+		return strconv.Itoa(m.srv.Port)
 	case 4:
-		return m.srv.Password
+		return m.srv.User
 	case 5:
-		return m.srv.RemotePath
+		return m.srv.Password
 	case 6:
+		return m.srv.RemotePath
+	case 7:
 		return m.srv.LocalPath
-	case 11:
-		return strconv.Itoa(m.srv.MaxConnections)
 	case 12:
-		return strconv.Itoa(m.srv.MaxRetries)
+		return strconv.Itoa(m.srv.MaxConnections)
 	case 13:
-		return strings.Join(m.srv.Include, ", ")
+		return strconv.Itoa(m.srv.MaxRetries)
 	case 14:
-		return strings.Join(m.srv.Exclude, ", ")
+		return strings.Join(m.srv.Include, ", ")
 	case 15:
+		return strings.Join(m.srv.Exclude, ", ")
+	case 16:
 		return strings.Join(m.srv.Protect, ", ")
 	}
 	return ""
@@ -420,46 +457,46 @@ func (m *serverEditModel) applyValue(i int, val string) {
 	switch i {
 	case 0:
 		m.srv.Name = val
-	case 1:
-		m.srv.Host = val
 	case 2:
+		m.srv.Host = val
+	case 3:
 		if n, e := strconv.Atoi(val); e == nil {
 			m.srv.Port = n
 		}
-	case 3:
-		m.srv.User = val
 	case 4:
-		m.srv.Password = val
+		m.srv.User = val
 	case 5:
-		m.srv.RemotePath = val
+		m.srv.Password = val
 	case 6:
+		m.srv.RemotePath = val
+	case 7:
 		m.srv.LocalPath = val
-	case 11:
+	case 12:
 		if n, e := strconv.Atoi(val); e == nil {
 			m.srv.MaxConnections = n
 		}
-	case 12:
+	case 13:
 		if n, e := strconv.Atoi(val); e == nil {
 			m.srv.MaxRetries = n
 		}
-	case 13:
-		m.srv.Include = parseList(val)
 	case 14:
-		m.srv.Exclude = parseList(val)
+		m.srv.Include = parseList(val)
 	case 15:
+		m.srv.Exclude = parseList(val)
+	case 16:
 		m.srv.Protect = parseList(val)
 	}
 }
 
 func (m *serverEditModel) toggleBool(i int) {
 	switch i {
-	case 7:
-		m.srv.Enabled = !m.srv.Enabled
 	case 8:
-		m.srv.Passive = !m.srv.Passive
+		m.srv.Enabled = !m.srv.Enabled
 	case 9:
-		m.srv.DisableEPSV = !m.srv.DisableEPSV
+		m.srv.Passive = !m.srv.Passive
 	case 10:
+		m.srv.DisableEPSV = !m.srv.DisableEPSV
+	case 11:
 		m.srv.NATWorkaround = !m.srv.NATWorkaround
 	}
 }
@@ -506,6 +543,7 @@ func (m serverEditModel) handleEditKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m serverEditModel) handleNavKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	f := serverFields[m.cursor]
+	locked := m.srv.Connection != "" && isCredentialField(m.cursor)
 	switch msg.String() {
 	case "ctrl+c", "q", "Q", "esc":
 		m.action = "cancel"
@@ -514,15 +552,29 @@ func (m serverEditModel) handleNavKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.action = "save"
 		return m, tea.Quit
 	case "up", "k":
-		if m.cursor > 0 {
-			m.cursor--
+		next := m.cursor - 1
+		for next > 0 && m.srv.Connection != "" && isCredentialField(next) {
+			next--
+		}
+		if next >= 0 {
+			m.cursor = next
 		}
 	case "down", "j":
-		if m.cursor < len(serverFields)-1 {
-			m.cursor++
+		next := m.cursor + 1
+		for next < len(serverFields) && m.srv.Connection != "" && isCredentialField(next) {
+			next++
+		}
+		if next < len(serverFields) {
+			m.cursor = next
 		}
 	case "enter":
+		if locked {
+			break
+		}
 		switch f.kind {
+		case "conn":
+			m.action = "pick-connection"
+			return m, tea.Quit
 		case "bool":
 			m.toggleBool(m.cursor)
 		default:
@@ -530,10 +582,14 @@ func (m serverEditModel) handleNavKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.editing = true
 		}
 	case " ":
-		if f.kind == "bool" {
+		if !locked && f.kind == "bool" {
 			m.toggleBool(m.cursor)
 		}
 	case "b", "B":
+		if f.kind == "conn" {
+			m.action = "pick-connection"
+			return m, tea.Quit
+		}
 		if f.kind == "localdir" && m.projectDir != "" {
 			m.action = "browse-localpath"
 			return m, tea.Quit
@@ -562,10 +618,11 @@ func (m serverEditModel) View() string {
 	var b strings.Builder
 	b.WriteString("\n")
 	b.WriteString(cfgTitle.Render("⚙  "+title) + "\n")
-	b.WriteString(cfgHint.Render("  ↑↓ gezin  |  Enter = düzenle/toggle  |  Space = bool toggle  |  b = yerel dosya gözat  |  s = kaydet  |  q = iptal") + "\n")
+	b.WriteString(cfgHint.Render("  ↑↓ gezin  |  Enter/b = düzenle/seç  |  Space = bool toggle  |  s = kaydet  |  q = iptal") + "\n")
 	b.WriteString(div + "\n\n")
 
 	for i, f := range serverFields {
+		locked := m.srv.Connection != "" && isCredentialField(i)
 		label := cfgLabel.Render(f.label)
 		var valStr string
 
@@ -573,19 +630,27 @@ func (m serverEditModel) View() string {
 			valStr = cfgEditing.Render(m.editBuf + "█")
 		} else {
 			raw := m.getDisplayValue(i)
-			switch f.kind {
-			case "bool":
+			switch {
+			case locked:
+				valStr = cfgDisabled.Render(raw) + cfgHint.Render("  ↳ "+m.srv.Connection)
+			case f.kind == "conn":
+				if m.srv.Connection != "" {
+					valStr = cfgEnabled.Render(raw) + "  " + cfgBrowse.Render("[b=değiştir]")
+				} else {
+					valStr = cfgDisabled.Render(raw) + "  " + cfgBrowse.Render("[b=profil seç]")
+				}
+			case f.kind == "bool":
 				if raw == "✓" {
 					valStr = cfgEnabled.Render(raw)
 				} else {
 					valStr = cfgDisabled.Render(raw)
 				}
-			case "localdir":
+			case f.kind == "localdir":
 				valStr = cfgValue.Render(raw)
 				if m.projectDir != "" {
 					valStr += "  " + cfgBrowse.Render("[b=gözat]")
 				}
-			case "list":
+			case f.kind == "list":
 				valStr = cfgValue.Render(raw)
 				if m.projectDir != "" {
 					valStr += "  " + cfgBrowse.Render("[b=gözat]")
@@ -607,11 +672,11 @@ func (m serverEditModel) View() string {
 	return b.String()
 }
 
-// runServerEdit — döngü: field edit + browse arası geçiş
-func runServerEdit(srv *config.Server, projectDir string, isNew bool) (saved bool) {
+// runServerEdit — döngü: field edit + browse + connection pick arası geçiş
+func runServerEdit(srv *config.Server, connections []config.Connection, projectDir string, isNew bool) (saved bool) {
 	cursor := 0
 	for {
-		m := newServerEditModel(*srv, isNew, projectDir, cursor)
+		m := newServerEditModel(*srv, connections, isNew, projectDir, cursor)
 		p := tea.NewProgram(m, tea.WithAltScreen())
 		raw, err := p.Run()
 		if err != nil {
@@ -626,8 +691,31 @@ func runServerEdit(srv *config.Server, projectDir string, isNew bool) (saved boo
 			return true
 		case "cancel":
 			return false
+		case "pick-connection":
+			*srv = fm.srv
+			cursor = 1
+			connName := runConnectionPicker(connections, srv.Connection)
+			if connName == "" {
+				// kullanıcı "(manuel)" seçti → bağlantı profilini temizle
+				srv.Connection = ""
+			} else {
+				srv.Connection = connName
+				// Seçilen profili hemen çöz (UI'da credential alanları güncellenir)
+				for _, c := range connections {
+					if c.Name == connName {
+						srv.Host = c.Host
+						srv.Port = c.Port
+						srv.User = c.User
+						srv.Password = c.Password
+						srv.Passive = c.Passive
+						srv.DisableEPSV = c.DisableEPSV
+						srv.NATWorkaround = c.NATWorkaround
+						break
+					}
+				}
+			}
 		case "browse":
-			*srv = fm.srv // mevcut değişiklikleri sakla
+			*srv = fm.srv
 			localRoot := projectDir
 			if srv.LocalPath != "" {
 				candidate := filepath.Join(projectDir, filepath.FromSlash(srv.LocalPath))
@@ -639,13 +727,13 @@ func runServerEdit(srv *config.Server, projectDir string, isNew bool) (saved boo
 			switch fm.browseFor {
 			case "include":
 				current = srv.Include
-				cursor = 13
+				cursor = 14
 			case "exclude":
 				current = srv.Exclude
-				cursor = 14
+				cursor = 15
 			case "protect":
 				current = srv.Protect
-				cursor = 15
+				cursor = 16
 			}
 			selected, ok := runLocalBrowser(localRoot, current)
 			if ok {
@@ -660,7 +748,7 @@ func runServerEdit(srv *config.Server, projectDir string, isNew bool) (saved boo
 			}
 		case "browse-localpath":
 			*srv = fm.srv
-			cursor = 6
+			cursor = 7
 			selected, ok := runLocalDirPicker(projectDir)
 			if ok {
 				srv.LocalPath = selected
@@ -1388,6 +1476,414 @@ func (m ignorePickerModel) View() string {
 	b.WriteString("\n")
 	b.WriteString(cfgHint.Render("  Hiçbirini seçmezsen ignore kullanılmaz.") + "\n")
 	return b.String()
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Bağlantı Profili Seçici
+// ══════════════════════════════════════════════════════════════════════════════
+
+// runConnectionPicker RunPicker ile bir bağlantı profili seçtirir.
+// Döner: seçilen profil adı ("" = manuel / iptal).
+func runConnectionPicker(connections []config.Connection, current string) string {
+	items := []PickerItem{
+		{Icon: "✏️ ", Label: "(manuel)", Desc: "Bilgileri elle gir", Value: ""},
+	}
+	for _, c := range connections {
+		desc := fmt.Sprintf("%s:%d  %s", c.Host, c.Port, c.User)
+		items = append(items, PickerItem{Icon: "🔗", Label: c.Name, Desc: desc, Value: c.Name})
+	}
+	subtitle := "Bağlantı bilgileri buradan alınacak"
+	if current != "" {
+		subtitle = "Mevcut: " + current
+	}
+	val, err := RunPicker("Bağlantı Profili Seç", subtitle, items)
+	if err != nil {
+		return current
+	}
+	return val
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Bağlantı Profili Yönetici TUI
+// ══════════════════════════════════════════════════════════════════════════════
+
+type connMgrModel struct {
+	connections []config.Connection
+	cursor      int
+	confirming  bool
+	action      string // "edit","add","delete","quit"
+	actionIdx   int
+	width       int
+	height      int
+}
+
+func newConnMgrModel(connections []config.Connection) connMgrModel {
+	cur := 0
+	if len(connections) > 0 {
+		cur = 0
+	}
+	return connMgrModel{connections: connections, cursor: cur}
+}
+
+func (m connMgrModel) Init() tea.Cmd { return nil }
+
+func (m connMgrModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width, m.height = msg.Width, msg.Height
+	case tea.KeyMsg:
+		if m.confirming {
+			switch msg.String() {
+			case "y", "Y", "enter":
+				m.action = "delete"
+				m.actionIdx = m.cursor
+				return m, tea.Quit
+			default:
+				m.confirming = false
+			}
+			return m, nil
+		}
+		total := len(m.connections) + 1 // +1 = "+ Ekle"
+		switch msg.String() {
+		case "ctrl+c", "q", "Q", "esc":
+			m.action = "quit"
+			return m, tea.Quit
+		case "up", "k":
+			if m.cursor > 0 {
+				m.cursor--
+			}
+		case "down", "j":
+			if m.cursor < total-1 {
+				m.cursor++
+			}
+		case "e", "E", "enter":
+			if m.cursor < len(m.connections) {
+				m.action = "edit"
+				m.actionIdx = m.cursor
+			} else {
+				m.action = "add"
+			}
+			return m, tea.Quit
+		case "n", "N":
+			m.action = "add"
+			return m, tea.Quit
+		case "d", "D":
+			if m.cursor < len(m.connections) {
+				m.confirming = true
+			}
+		}
+	}
+	return m, nil
+}
+
+func (m connMgrModel) View() string {
+	w := m.width
+	if w < 60 {
+		w = 80
+	}
+	div := cfgDiv.Render("  " + strings.Repeat("─", w-4))
+	var b strings.Builder
+	b.WriteString("\n")
+	b.WriteString(cfgTitle.Render("🔗  Bağlantı Profilleri") + "\n")
+	b.WriteString(cfgHint.Render("  ↑↓ gezin  |  Enter/e = düzenle  |  d = sil  |  n = yeni  |  q = çık") + "\n")
+	b.WriteString(div + "\n\n")
+
+	if m.confirming {
+		name := m.connections[m.cursor].Name
+		b.WriteString(cfgWarn.Render(fmt.Sprintf("  [%s] silinsin mi?  y = evet, diğer = iptal", name)) + "\n")
+		return b.String()
+	}
+
+	for i, c := range m.connections {
+		host := cfgDisabled.Render(fmt.Sprintf("%s:%d  %s", c.Host, c.Port, c.User))
+		if i == m.cursor {
+			b.WriteString(fmt.Sprintf(" %s🔗 %-22s  %s\n", cfgCursor.Render("▶ "), cfgValue.Render(c.Name), host))
+		} else {
+			b.WriteString(fmt.Sprintf("    🔗 %-22s  %s\n", c.Name, host))
+		}
+	}
+
+	addPos := len(m.connections)
+	if m.cursor == addPos {
+		b.WriteString(cfgCursor.Render("▶ ") + cfgAdd.Render("+ Yeni profil ekle") + "\n")
+	} else {
+		b.WriteString("    " + cfgAdd.Render("+ Yeni profil ekle") + "\n")
+	}
+
+	b.WriteString("\n" + div + "\n")
+	b.WriteString(cfgHint.Render(fmt.Sprintf("  %d profil", len(m.connections))) + "\n")
+	return b.String()
+}
+
+// ── Bağlantı Profili Düzenleme TUI ───────────────────────────────────────────
+
+type connField struct {
+	label string
+	kind  string // "text","pass","int","bool"
+}
+
+var connFields = []connField{
+	{"Ad", "text"},
+	{"Host", "text"},
+	{"Port", "int"},
+	{"Kullanıcı", "text"},
+	{"Şifre", "pass"},
+	{"Passive mode", "bool"},
+	{"EPSV devre dışı", "bool"},
+	{"NAT workaround", "bool"},
+}
+
+type connEditModel struct {
+	conn    config.Connection
+	isNew   bool
+	cursor  int
+	editing bool
+	editBuf string
+	action  string // "save","cancel"
+	width   int
+	height  int
+}
+
+func newConnEditModel(conn config.Connection, isNew bool) connEditModel {
+	return connEditModel{conn: conn, isNew: isNew}
+}
+
+func (m *connEditModel) getDisplayValue(i int) string {
+	switch i {
+	case 0:
+		return m.conn.Name
+	case 1:
+		return m.conn.Host
+	case 2:
+		return strconv.Itoa(m.conn.Port)
+	case 3:
+		return m.conn.User
+	case 4:
+		if m.conn.Password != "" {
+			return "****"
+		}
+		return "(boş)"
+	case 5:
+		return boolIcon(m.conn.Passive)
+	case 6:
+		return boolIcon(m.conn.DisableEPSV)
+	case 7:
+		return boolIcon(m.conn.NATWorkaround)
+	}
+	return ""
+}
+
+func (m *connEditModel) getEditableValue(i int) string {
+	switch i {
+	case 0:
+		return m.conn.Name
+	case 1:
+		return m.conn.Host
+	case 2:
+		return strconv.Itoa(m.conn.Port)
+	case 3:
+		return m.conn.User
+	case 4:
+		return m.conn.Password
+	}
+	return ""
+}
+
+func (m *connEditModel) applyValue(i int, val string) {
+	switch i {
+	case 0:
+		m.conn.Name = val
+	case 1:
+		m.conn.Host = val
+	case 2:
+		if n, e := strconv.Atoi(val); e == nil {
+			m.conn.Port = n
+		}
+	case 3:
+		m.conn.User = val
+	case 4:
+		m.conn.Password = val
+	}
+}
+
+func (m *connEditModel) toggleBool(i int) {
+	switch i {
+	case 5:
+		m.conn.Passive = !m.conn.Passive
+	case 6:
+		m.conn.DisableEPSV = !m.conn.DisableEPSV
+	case 7:
+		m.conn.NATWorkaround = !m.conn.NATWorkaround
+	}
+}
+
+func (m connEditModel) Init() tea.Cmd { return nil }
+
+func (m connEditModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width, m.height = msg.Width, msg.Height
+	case tea.KeyMsg:
+		if m.editing {
+			switch msg.String() {
+			case "enter":
+				m.applyValue(m.cursor, m.editBuf)
+				m.editing = false
+			case "esc":
+				m.editing = false
+			case "backspace":
+				r := []rune(m.editBuf)
+				if len(r) > 0 {
+					m.editBuf = string(r[:len(r)-1])
+				}
+			default:
+				s := msg.String()
+				for strings.HasPrefix(s, "alt+") {
+					s = strings.TrimPrefix(s, "alt+")
+				}
+				r := []rune(s)
+				if len(r) == 1 && r[0] >= 0x20 && r[0] != 0x7F {
+					m.editBuf += s
+				}
+			}
+			return m, nil
+		}
+		switch msg.String() {
+		case "ctrl+c", "q", "Q", "esc":
+			m.action = "cancel"
+			return m, tea.Quit
+		case "s", "S":
+			m.action = "save"
+			return m, tea.Quit
+		case "up", "k":
+			if m.cursor > 0 {
+				m.cursor--
+			}
+		case "down", "j":
+			if m.cursor < len(connFields)-1 {
+				m.cursor++
+			}
+		case "enter":
+			f := connFields[m.cursor]
+			if f.kind == "bool" {
+				m.toggleBool(m.cursor)
+			} else {
+				m.editBuf = m.getEditableValue(m.cursor)
+				m.editing = true
+			}
+		case " ":
+			if connFields[m.cursor].kind == "bool" {
+				m.toggleBool(m.cursor)
+			}
+		}
+	}
+	return m, nil
+}
+
+func (m connEditModel) View() string {
+	w := m.width
+	if w < 60 {
+		w = 80
+	}
+	div := cfgDiv.Render("  " + strings.Repeat("─", w-4))
+	title := "Profil Düzenle"
+	if m.isNew {
+		title = "Yeni Profil"
+	}
+	var b strings.Builder
+	b.WriteString("\n")
+	b.WriteString(cfgTitle.Render("🔗  "+title) + "\n")
+	b.WriteString(cfgHint.Render("  ↑↓ gezin  |  Enter = düzenle/toggle  |  Space = bool toggle  |  s = kaydet  |  q = iptal") + "\n")
+	b.WriteString(div + "\n\n")
+
+	for i, f := range connFields {
+		label := cfgLabel.Render(f.label)
+		var valStr string
+		if i == m.cursor && m.editing {
+			valStr = cfgEditing.Render(m.editBuf + "█")
+		} else {
+			raw := m.getDisplayValue(i)
+			if f.kind == "bool" {
+				if raw == "✓" {
+					valStr = cfgEnabled.Render(raw)
+				} else {
+					valStr = cfgDisabled.Render(raw)
+				}
+			} else {
+				valStr = cfgValue.Render(raw)
+			}
+		}
+		if i == m.cursor && !m.editing {
+			b.WriteString(cfgCursor.Render("▶ ") + label + "  " + valStr + "\n")
+		} else {
+			b.WriteString("  " + label + "  " + valStr + "\n")
+		}
+	}
+
+	b.WriteString("\n" + div + "\n")
+	b.WriteString(cfgHint.Render("  s = kaydet  |  q/Esc = iptal") + "\n")
+	return b.String()
+}
+
+// runConnectionEdit profil düzenleme döngüsünü çalıştırır.
+func runConnectionEdit(conn *config.Connection, isNew bool) bool {
+	m := newConnEditModel(*conn, isNew)
+	p := tea.NewProgram(m, tea.WithAltScreen())
+	raw, err := p.Run()
+	if err != nil {
+		return false
+	}
+	fm := raw.(connEditModel)
+	if fm.action != "save" {
+		return false
+	}
+	*conn = fm.conn
+	return true
+}
+
+// runConnectionMgr bağlantı profilleri yönetim döngüsü.
+func runConnectionMgr(configDir string, cfg *config.Config) {
+	for {
+		p := tea.NewProgram(newConnMgrModel(cfg.Connections), tea.WithAltScreen())
+		raw, err := p.Run()
+		if err != nil {
+			return
+		}
+		fm := raw.(connMgrModel)
+
+		switch fm.action {
+		case "quit", "":
+			return
+		case "edit":
+			conn := cfg.Connections[fm.actionIdx]
+			if runConnectionEdit(&conn, false) {
+				cfg.Connections[fm.actionIdx] = conn
+				if e := config.Save(configDir, cfg); e != nil {
+					fmt.Printf("Kayıt hatası: %v\n", e)
+				} else {
+					fmt.Printf("✓ [%s] güncellendi\n", conn.Name)
+				}
+			}
+		case "add":
+			conn := config.Connection{Port: 21, Passive: true}
+			if runConnectionEdit(&conn, true) {
+				cfg.Connections = append(cfg.Connections, conn)
+				if e := config.Save(configDir, cfg); e != nil {
+					fmt.Printf("Kayıt hatası: %v\n", e)
+				} else {
+					fmt.Printf("✓ [%s] eklendi\n", conn.Name)
+				}
+			}
+		case "delete":
+			name := cfg.Connections[fm.actionIdx].Name
+			cfg.Connections = append(cfg.Connections[:fm.actionIdx], cfg.Connections[fm.actionIdx+1:]...)
+			if e := config.Save(configDir, cfg); e != nil {
+				fmt.Printf("Kayıt hatası: %v\n", e)
+			} else {
+				fmt.Printf("✓ [%s] silindi\n", name)
+			}
+		}
+	}
 }
 
 // runIgnoreFilePicker iki seçenekli ignore dosyası seçici açar.

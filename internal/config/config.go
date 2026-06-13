@@ -7,11 +7,24 @@ import (
 	"path/filepath"
 )
 
+// Connection holds reusable FTP credentials shared across multiple servers.
+type Connection struct {
+	Name          string `json:"name"`
+	Host          string `json:"host"`
+	Port          int    `json:"port"`
+	User          string `json:"user"`
+	Password      string `json:"password"`
+	Passive       bool   `json:"passive"`
+	DisableEPSV   bool   `json:"disable_epsv,omitempty"`
+	NATWorkaround bool   `json:"nat_workaround,omitempty"`
+}
+
 type Config struct {
-	Project   Project   `json:"project"`
-	Sync      Sync      `json:"sync"`
-	FirstSync FirstSync `json:"first_sync"`
-	Servers   []Server  `json:"servers"`
+	Project     Project      `json:"project"`
+	Sync        Sync         `json:"sync"`
+	FirstSync   FirstSync    `json:"first_sync"`
+	Connections []Connection `json:"connections,omitempty"`
+	Servers     []Server     `json:"servers"`
 }
 
 type Project struct {
@@ -44,6 +57,7 @@ type FirstSync struct {
 
 type Server struct {
 	Name           string   `json:"name"`
+	Connection     string   `json:"connection,omitempty"` // bağlantı profili adı; set edilince host/port/user/password/passive buradan gelir
 	Host           string   `json:"host"`
 	Port           int      `json:"port"`
 	User           string   `json:"user"`
@@ -81,7 +95,28 @@ func Load(dir string) (*Config, error) {
 		return nil, fmt.Errorf("syncftp.json parse hatası: %w", err)
 	}
 
+	// Bağlantı profili port defaults
+	connMap := make(map[string]*Connection, len(cfg.Connections))
+	for i := range cfg.Connections {
+		if cfg.Connections[i].Port == 0 {
+			cfg.Connections[i].Port = 21
+		}
+		connMap[cfg.Connections[i].Name] = &cfg.Connections[i]
+	}
+
+	// Bağlantı referanslarını çöz: connection set edilmişse credential'lar oradan gelir
 	for i := range cfg.Servers {
+		if cfg.Servers[i].Connection != "" {
+			if conn, ok := connMap[cfg.Servers[i].Connection]; ok {
+				cfg.Servers[i].Host = conn.Host
+				cfg.Servers[i].Port = conn.Port
+				cfg.Servers[i].User = conn.User
+				cfg.Servers[i].Password = conn.Password
+				cfg.Servers[i].Passive = conn.Passive
+				cfg.Servers[i].DisableEPSV = conn.DisableEPSV
+				cfg.Servers[i].NATWorkaround = conn.NATWorkaround
+			}
+		}
 		if cfg.Servers[i].Port == 0 {
 			cfg.Servers[i].Port = 21
 		}
@@ -97,8 +132,26 @@ func Load(dir string) (*Config, error) {
 }
 
 // Save writes cfg back to syncftp.json in dir.
+// Connection-referenced servers have their credential fields zeroed before
+// serialization; they are re-resolved from the profile on next Load.
 func Save(dir string, cfg *Config) error {
-	data, err := json.MarshalIndent(cfg, "", "  ")
+	// Deep-copy servers so we don't mutate the live config
+	servers := make([]Server, len(cfg.Servers))
+	copy(servers, cfg.Servers)
+	for i := range servers {
+		if servers[i].Connection != "" {
+			servers[i].Host = ""
+			servers[i].Port = 0
+			servers[i].User = ""
+			servers[i].Password = ""
+			servers[i].Passive = false
+			servers[i].DisableEPSV = false
+			servers[i].NATWorkaround = false
+		}
+	}
+	out := *cfg
+	out.Servers = servers
+	data, err := json.MarshalIndent(&out, "", "  ")
 	if err != nil {
 		return err
 	}
