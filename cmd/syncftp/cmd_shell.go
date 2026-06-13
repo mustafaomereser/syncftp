@@ -935,7 +935,7 @@ func (sh *shellState) shellSyncServer(srv config.Server, full, dryRun bool) {
 		}
 		if dirty {
 			if saveErr := config.Save(dir, &sh.cfg); saveErr != nil {
-				fmt.Printf("  ! Config güncellenemedi: %v\n", saveErr)
+				fmt.Printf(lang.L.SyncConfigSaveErr, saveErr)
 			}
 			cfg = sh.cfg
 		}
@@ -1373,17 +1373,17 @@ func (m statusTUI) View() string {
 			sizeStr = "  " + stSize.Render(formatSize(uint64(e.size)))
 		}
 		b.WriteString("\n")
-		b.WriteString(stTitle.Render("  "+e.name) + stCount.Render(fmt.Sprintf("  %d değişiklik", e.totalChanges())) + sizeStr + "\n")
+		b.WriteString(stTitle.Render("  "+e.name) + stCount.Render(fmt.Sprintf(lang.L.StatusDetailChangesCountFmt, e.totalChanges())) + sizeStr + "\n")
 		if m.syncPending {
-			b.WriteString(stCount.Render("  Sync başlatılsın?") + stHint.Render("  Enter/s = Evet  |  ESC = İptal") + "\n")
+			b.WriteString(stCount.Render(lang.L.StatusSyncConfirm) + stHint.Render(lang.L.StatusSyncHint) + "\n")
 		} else if m.searching {
-			b.WriteString(stHint.Render("  Backspace = sil  |  Esc = aramayı kapat") + "\n")
+			b.WriteString(stHint.Render(lang.L.StatusSearchHint) + "\n")
 		} else {
 			hintSync := ""
 			if e.totalChanges() > 0 {
-				hintSync = "  s = Sync  |"
+				hintSync = lang.L.StatusDetailSyncPart
 			}
-			b.WriteString(stHint.Render("  ↑↓/g/G kaydır  |  / = ara  |"+hintSync+"  ←/Esc = geri  |  q = çık") + "\n")
+			b.WriteString(stHint.Render(fmt.Sprintf(lang.L.StatusDetailNavHint, hintSync)) + "\n")
 		}
 		b.WriteString(div + "\n")
 
@@ -1439,9 +1439,9 @@ func (m statusTUI) View() string {
 		}
 		if len(lines) == 0 {
 			if m.searchText != "" {
-				b.WriteString(stHint.Render("  (eşleşme yok)") + "\n")
+				b.WriteString(stHint.Render(lang.L.StatusNoMatch) + "\n")
 			} else {
-				b.WriteString(stOk.Render("  ✓ güncel") + "\n")
+				b.WriteString(stOk.Render(lang.L.StatusUpToDateShort) + "\n")
 			}
 		}
 		b.WriteString(div + "\n")
@@ -1449,29 +1449,29 @@ func (m statusTUI) View() string {
 			cursor := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11")).Render("█")
 			b.WriteString(stCount.Render("  / ") + m.searchText + cursor + "\n")
 		} else if len(lines) > visRows {
-			b.WriteString(stHint.Render(fmt.Sprintf("  %d/%d", scroll+1, len(lines))) + "\n")
+			b.WriteString(stHint.Render(fmt.Sprintf(lang.L.StatusScrollFmt, scroll+1, len(lines))) + "\n")
 		} else if m.searchText != "" {
-			b.WriteString(stHint.Render(fmt.Sprintf("  %d sonuç", len(lines))) + "\n")
+			b.WriteString(stHint.Render(fmt.Sprintf(lang.L.StatusResultsFmt, len(lines))) + "\n")
 		}
 	} else {
 		b.WriteString("\n")
-		b.WriteString(stTitle.Render("  Status — "+m.project) + "\n")
-		b.WriteString(stHint.Render("  ↑↓ gezin  |  → = detay  |  q = çık") + "\n")
+		b.WriteString(stTitle.Render(fmt.Sprintf(lang.L.StatusListTitleFmt, m.project)) + "\n")
+		b.WriteString(stHint.Render(lang.L.StatusListNavHint) + "\n")
 		b.WriteString(div + "\n\n")
 
 		for i, e := range m.entries {
 			n := e.totalChanges()
 			var info string
 			if n == 0 && len(e.frozen) == 0 {
-				info = stOk.Render("✓ güncel")
+				info = stOk.Render(lang.L.StatusOkShort)
 			} else {
 				sizeStr := ""
 				if e.size > 0 {
 					sizeStr = "  " + stSize.Render(formatSize(uint64(e.size)))
 				}
-				info = stCount.Render(fmt.Sprintf("%d değişiklik", n)) + sizeStr
+				info = stCount.Render(fmt.Sprintf(lang.L.StatusChangesListFmt, n)) + sizeStr
 				if len(e.frozen) > 0 {
-					info += "  " + stHint.Render(fmt.Sprintf("❄ %d frozen", len(e.frozen)))
+					info += "  " + stHint.Render(fmt.Sprintf(lang.L.StatusFrozenFmt, len(e.frozen)))
 				}
 				if n > 0 {
 					info += stHint.Render("  →")

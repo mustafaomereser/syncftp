@@ -3,7 +3,9 @@ package lang
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"syscall"
 )
 
 // StringSet holds all user-visible strings for one locale.
@@ -248,6 +250,27 @@ type StringSet struct {
 	LangInvalid     string // "Unknown language: %q — use 'en' or 'tr'\n"
 	LangAlreadyFmt  string // "Already using %s\n"
 
+	// ── failsafe cleanup ─────────────────────────────────────────────────────
+	SyncCleanupRemovedFmt string // "  ⚠ %q no longer exists locally, removed from list\n"
+	SyncConfigSaveErr     string // "  ! Config could not be saved: %v\n"
+
+	// ── status TUI ───────────────────────────────────────────────────────────
+	StatusDetailChangesCountFmt string // "  %d changes"  (detail view title)
+	StatusSyncConfirm           string // "  Start sync?"
+	StatusSyncHint              string // "  Enter/s = Yes  |  ESC = Cancel"
+	StatusSearchHint            string // "  Backspace = clear  |  Esc = close"
+	StatusDetailNavHint         string // "  ↑↓/g/G scroll  |  / = search  |%s  ←/Esc = back  |  q = quit"
+	StatusDetailSyncPart        string // "  s = Sync  |"
+	StatusNoMatch               string // "  (no matches)"
+	StatusUpToDateShort         string // "  ✓ up to date"
+	StatusScrollFmt             string // "  %d/%d"
+	StatusResultsFmt            string // "  %d results"
+	StatusListTitleFmt          string // "  Status — %s"
+	StatusListNavHint           string // "  ↑↓ navigate  |  → = details  |  q = quit"
+	StatusOkShort               string // "✓ up to date"
+	StatusChangesListFmt        string // "%d changes"
+	StatusFrozenFmt             string // "❄ %d frozen"
+
 	// ── cmd_init ─────────────────────────────────────────────────────────────
 	InitWizardTitle     string // "=== syncFTP Kurulum Sihirbazı ==="
 	InitProjectName     string // "Proje adı"
@@ -271,15 +294,48 @@ var L = En
 
 var currentLang = "en"
 
+// detectSystemLang returns "tr" or "en" based on the OS locale.
+// Used as the default when no saved preference or env override is present.
+func detectSystemLang() string {
+	// Unix/cross-platform: standard locale env vars
+	for _, env := range []string{"LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"} {
+		if v := os.Getenv(env); v != "" {
+			first := strings.SplitN(v, ":", 2)[0] // LANGUAGE may be "tr:en"
+			if strings.HasPrefix(strings.ToLower(first), "tr") {
+				return "tr"
+			}
+			return "en"
+		}
+	}
+	// Windows: GetUserDefaultUILanguage via kernel32.dll (no extra deps needed)
+	if runtime.GOOS == "windows" {
+		if dll, err := syscall.LoadDLL("kernel32.dll"); err == nil {
+			defer dll.Release()
+			if proc, err := dll.FindProc("GetUserDefaultUILanguage"); err == nil {
+				langID, _, _ := proc.Call()
+				// LANGID: bits 0-9 = primary language; LANG_TURKISH = 0x1F (31)
+				if langID&0x3FF == 0x1F {
+					return "tr"
+				}
+			}
+		}
+	}
+	return "en"
+}
+
 // Init reads language preference: .syncftp/lang file, then SYNCFTP_LANG env var.
+// Falls back to OS system language when no preference is saved.
 // Call once from main() before any output.
 func Init(configDir string) {
-	l := "en"
-	// 1. saved preference
+	// Start with OS detection as default
+	l := detectSystemLang()
+	// 1. saved preference overrides detection
 	if data, err := os.ReadFile(filepath.Join(configDir, ".syncftp", "lang")); err == nil {
-		l = strings.TrimSpace(string(data))
+		if saved := strings.TrimSpace(string(data)); saved != "" {
+			l = saved
+		}
 	}
-	// 2. env var overrides file
+	// 2. env var overrides everything
 	if env := os.Getenv("SYNCFTP_LANG"); env != "" {
 		l = env
 	}
@@ -587,6 +643,27 @@ Other:
 	RemoteListErr:        "%s  ! could not list: %v\n",
 	RemoteNoServerSel:    "no server selected",
 
+	// failsafe cleanup
+	SyncCleanupRemovedFmt: "  ⚠ %q no longer exists locally, removed from list\n",
+	SyncConfigSaveErr:     "  ! Config could not be saved: %v\n",
+
+	// status TUI
+	StatusDetailChangesCountFmt: "  %d changes",
+	StatusSyncConfirm:           "  Start sync?",
+	StatusSyncHint:              "  Enter/s = Yes  |  ESC = Cancel",
+	StatusSearchHint:            "  Backspace = clear  |  Esc = close search",
+	StatusDetailNavHint:         "  ↑↓/g/G scroll  |  / = search  |%s  ←/Esc = back  |  q = quit",
+	StatusDetailSyncPart:        "  s = Sync  |",
+	StatusNoMatch:               "  (no matches)",
+	StatusUpToDateShort:         "  ✓ up to date",
+	StatusScrollFmt:             "  %d/%d",
+	StatusResultsFmt:            "  %d results",
+	StatusListTitleFmt:          "  Status — %s",
+	StatusListNavHint:           "  ↑↓ navigate  |  → = details  |  q = quit",
+	StatusOkShort:               "✓ up to date",
+	StatusChangesListFmt:        "%d changes",
+	StatusFrozenFmt:             "❄ %d frozen",
+
 	// cmd_init
 	InitWizardTitle:   "=== syncFTP Setup Wizard ===",
 	InitProjectName:   "Project name",
@@ -881,6 +958,27 @@ Diğer:
 	RemoteDirRecLabel:    "dizin (içeriğiyle)",
 	RemoteListErr:        "%s  ! listelenemedi: %v\n",
 	RemoteNoServerSel:    "sunucu seçilmedi",
+
+	// failsafe cleanup
+	SyncCleanupRemovedFmt: "  ⚠ %q artık diskte yok, listeden çıkarıldı\n",
+	SyncConfigSaveErr:     "  ! Config kaydedilemedi: %v\n",
+
+	// status TUI
+	StatusDetailChangesCountFmt: "  %d değişiklik",
+	StatusSyncConfirm:           "  Sync başlatılsın?",
+	StatusSyncHint:              "  Enter/s = Evet  |  ESC = İptal",
+	StatusSearchHint:            "  Backspace = sil  |  Esc = aramayı kapat",
+	StatusDetailNavHint:         "  ↑↓/g/G kaydır  |  / = ara  |%s  ←/Esc = geri  |  q = çık",
+	StatusDetailSyncPart:        "  s = Sync  |",
+	StatusNoMatch:               "  (eşleşme yok)",
+	StatusUpToDateShort:         "  ✓ güncel",
+	StatusScrollFmt:             "  %d/%d",
+	StatusResultsFmt:            "  %d sonuç",
+	StatusListTitleFmt:          "  Status — %s",
+	StatusListNavHint:           "  ↑↓ gezin  |  → = detay  |  q = çık",
+	StatusOkShort:               "✓ güncel",
+	StatusChangesListFmt:        "%d değişiklik",
+	StatusFrozenFmt:             "❄ %d frozen",
 
 	// cmd_init
 	InitWizardTitle:   "=== syncFTP Kurulum Sihirbazı ===",

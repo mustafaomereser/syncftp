@@ -170,7 +170,7 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 		}
 		if dirty {
 			if saveErr := config.Save(configDir, cfg); saveErr != nil {
-				fmt.Printf("  ! Config güncellenemedi: %v\n", saveErr)
+				fmt.Printf(lang.L.SyncConfigSaveErr, saveErr)
 			}
 		}
 	}
@@ -554,7 +554,7 @@ func cleanPatternList(list []string, localDir string) ([]string, bool) {
 		if isExactPath(p) {
 			absPath := filepath.Join(localDir, filepath.FromSlash(p))
 			if _, err := os.Stat(absPath); os.IsNotExist(err) {
-				fmt.Printf("  ⚠ %q artık yok, listeden çıkarıldı\n", p)
+				fmt.Printf(lang.L.SyncCleanupRemovedFmt, p)
 				changed = true
 				continue
 			}
