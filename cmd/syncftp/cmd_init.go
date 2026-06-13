@@ -111,30 +111,30 @@ func runInit(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// addToIgnoreFile adds syncftp.exe and .syncftp/ to .gitignore if not already present.
+// addToIgnoreFile adds .syncftp, syncftp.exe and syncftp to .gitignore.
 func addToIgnoreFile(dir string) {
-	block := "\n# syncFTP — do not commit\nsyncftp.exe\n\n# syncFTP runtime\n.syncftp/\n.git/\n"
-
+	entries := []string{".syncftp", "syncftp.exe", "syncftp"}
 	gitignorePath := filepath.Join(dir, ".gitignore")
-	if _, err := os.Stat(gitignorePath); err == nil {
-		content, _ := os.ReadFile(gitignorePath)
-		if strings.Contains(string(content), "syncftp.exe") || strings.Contains(string(content), ".syncftp/") {
-			fmt.Printf(lang.L.InitIgnoreExists, ".gitignore")
-			return
-		}
-		f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_WRONLY, 0644)
-		if err != nil {
-			return
-		}
-		defer f.Close()
-		fmt.Fprint(f, block)
-		fmt.Printf(lang.L.InitIgnoreAdded, ".gitignore")
+
+	content, _ := os.ReadFile(gitignorePath)
+	existing := string(content)
+
+	f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
 		return
 	}
+	defer f.Close()
 
-	// .gitignore yoksa oluştur
-	content := "# syncFTP — do not commit\nsyncftp.exe\n\n# syncFTP runtime\n.syncftp/\n.git/\n"
-	if err := os.WriteFile(gitignorePath, []byte(content), 0644); err == nil {
+	added := false
+	for _, entry := range entries {
+		if !strings.Contains(existing, entry) {
+			fmt.Fprintln(f, entry)
+			added = true
+		}
+	}
+	if added {
 		fmt.Printf(lang.L.InitIgnoreAdded, ".gitignore")
+	} else {
+		fmt.Printf(lang.L.InitIgnoreExists, ".gitignore")
 	}
 }
