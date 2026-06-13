@@ -154,6 +154,7 @@ Remote server commands:
 Sync:
   status                  Show local changes per server (TUI)
   sync [--all] [--full] [--dry-run] [--server name]   Upload to FTP
+  resync [--all] [--server name]   Compare local sizes with FTP, update state (no upload)
   freeze [--server name]  Manage freeze list — mark files to never upload
 
 Server management:
@@ -217,12 +218,16 @@ Other:
 	SyncUploadErrFmt:   "    ✗ %s: %v\n",
 
 	// resync
-	ResyncScanning:   "  Resync: scanning server...\n",
-	ResyncConnErr:    "  ! Could not connect to server (%v) — resync skipped\n",
-	ResyncListErr:    "  ! Could not read remote dir (%v) — resync skipped\n",
-	ResyncFoundFmt:   "  Found %d files on server\n",
-	ResyncMatchedFmt: "  %d matched (size OK), %d different/missing\n",
-	ResyncDoneFmt:    "  [%s] resync done\n",
+	ResyncScanning:     "  Connecting to server...",
+	ResyncConnected:    " connected\n",
+	ResyncListing:      "Listing remote files...",
+	ResyncLocalFmt:     "  Local:  %d files scanned\n",
+	ResyncConnErr:      "  ! Could not connect to server (%v) — resync skipped\n",
+	ResyncListErr:      "  ! Could not read remote dir (%v) — resync skipped\n",
+	ResyncFoundFmt:     "  Remote: %d files found\n",
+	ResyncComparingFmt: "\r  Comparing: %d / %d   ",
+	ResyncMatchedFmt:   "  Matched: %d (size OK)  |  Different/missing: %d\n",
+	ResyncDoneFmt:      "  [%s] resync done\n",
 	ResyncAutoMsg:    "  First run: running resync (server comparison)...\n",
 	ResyncNoServers:  "No matching servers found.\n",
 

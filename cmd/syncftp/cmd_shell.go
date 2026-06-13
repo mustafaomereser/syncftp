@@ -159,6 +159,9 @@ func runShell() error {
 		case "sync":
 			sh.cmdSync(args)
 
+		case "resync":
+			sh.cmdResync(args)
+
 		default:
 			fmt.Printf(lang.L.ShellUnknownCmd, cmd)
 		}
@@ -393,17 +396,28 @@ func (sh *shellState) cmdLs(args []string) {
 	}
 	sh.remoteCwd = result.CWD
 
-	switch result.Action {
-	case "delete":
-		sh.browserDelete(result.Marked)
-	case "move":
-		sh.browserMove(result.Marked)
-	case "tree":
-		sh.cmdTree(nil)
-	default:
-		if result.Selected != "" {
-			sh.fileActionMenu(result.Selected)
+	for {
+		switch result.Action {
+		case "delete":
+			sh.browserDelete(result.Marked)
+			reopened, err2 := RunBrowser(sh.client, result.CWD, sh.srv.RemotePath, sh.configDir, sh.srv)
+			if err2 != nil {
+				fmt.Printf(lang.L.ShellBrowserErr, err2)
+				return
+			}
+			sh.remoteCwd = reopened.CWD
+			result = reopened
+			continue
+		case "move":
+			sh.browserMove(result.Marked)
+		case "tree":
+			sh.cmdTree(nil)
+		default:
+			if result.Selected != "" {
+				sh.fileActionMenu(result.Selected)
+			}
 		}
+		break
 	}
 }
 
@@ -891,6 +905,67 @@ func (sh *shellState) cmdSync(args []string) {
 	for _, srv := range servers {
 		fmt.Printf("\n── %s ──\n", srv.Name)
 		sh.shellSyncServer(srv, full, dryRun)
+	}
+}
+
+func (sh *shellState) cmdResync(args []string) {
+	serverName := ""
+	all := false
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--all":
+			all = true
+		case "--server":
+			if i+1 < len(args) {
+				serverName = args[i+1]
+				i++
+			}
+		}
+	}
+
+	servers := sh.cfg.EnabledServers()
+	if serverName != "" {
+		var filtered []config.Server
+		for _, s := range servers {
+			if s.Name == serverName {
+				filtered = append(filtered, s)
+			}
+		}
+		servers = filtered
+	} else if !all && len(servers) > 1 {
+		connectedName := ""
+		if sh.srv != nil {
+			connectedName = sh.srv.Name
+		}
+		selected, err := pickServerMultiTUI(servers, connectedName)
+		if err != nil || selected == nil {
+			fmt.Println(lang.L.ShellSyncCancelled)
+			return
+		}
+		servers = selected
+	}
+	if len(servers) == 0 {
+		fmt.Println(lang.L.ShellNoServers)
+		return
+	}
+
+	for _, srv := range servers {
+		fmt.Printf("\n── %s ──\n", srv.Name)
+		runResync(sh.configDir, srv, &sh.cfg)
+	}
+
+	// resync kendi FTP bağlantısını açar; sunucu aynı kullanıcıdan iki bağlantı görünce
+	// shell'in mevcut bağlantısını kesebilir. Yeniden bağlan.
+	if sh.client != nil && sh.srv != nil {
+		sh.client.Close()
+		sh.client = nil
+		newClient, err := ftpclient.Connect(*sh.srv)
+		if err != nil {
+			fmt.Printf("  ! Yeniden bağlanılamadı: %v\n", err)
+		} else {
+			sh.client = newClient
+			fmt.Printf("  ✓ %s yeniden bağlandı\n", sh.srv.Name)
+		}
 	}
 }
 

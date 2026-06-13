@@ -148,6 +148,8 @@ type browserModel struct {
 	previewName   string
 	previewMeta   string // "4.2 KB  2026-06-11 14:30"
 
+	cursorHistory map[string]int // dizin yolu → son cursor konumu
+
 	// Mod: klasör seçme (taşıma için)
 	pickDirMode bool
 }
@@ -166,9 +168,10 @@ func newBrowserModel(client *ftpclient.Client, startPath, root, configDir string
 		root:        root,
 		cwd:         startPath,
 		loading:     true,
-		childCounts: make(map[string]int),
-		marked:      make(map[string]bool),
-		frozenFiles: frozenFiles,
+		childCounts:   make(map[string]int),
+		marked:        make(map[string]bool),
+		frozenFiles:   frozenFiles,
+		cursorHistory: make(map[string]int),
 	}
 }
 
@@ -814,6 +817,7 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if e.dir != "" {
 					dirPath = path.Join(e.dir, e.entry.Name)
 				}
+				m.cursorHistory[m.cwd] = m.cursor
 				m.cwd = dirPath
 				m.loading = true
 				m.cursor = 0
@@ -866,6 +870,7 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if e.dir != "" {
 					dirPath = path.Join(e.dir, e.entry.Name)
 				}
+				m.cursorHistory[m.cwd] = m.cursor
 				m.cwd = dirPath
 				m.loading = true
 				m.cursor = 0
@@ -1144,9 +1149,14 @@ func (m browserModel) goUp() (tea.Model, tea.Cmd) {
 	if parent == "." {
 		parent = "/"
 	}
+	m.cursorHistory[m.cwd] = m.cursor
 	m.cwd = parent
 	m.loading = true
-	m.cursor = 0
+	if saved, ok := m.cursorHistory[parent]; ok {
+		m.cursor = saved
+	} else {
+		m.cursor = 0
+	}
 	m.searching = false
 	m.searchText = ""
 	return m, m.fetchEntries()

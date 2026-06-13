@@ -154,6 +154,7 @@ Uzak sunucu komutları:
 Senkronizasyon:
   status                  Yerel değişiklikleri göster (TUI)
   sync [--all] [--full] [--dry-run] [--server ad]   FTP'ye yükle
+  resync [--all] [--server ad]   Yerel boyutları FTP ile karşılaştır, state güncelle (yükleme yok)
   freeze [--server ad]    Freeze listesi — yüklenmesin istenen dosyaları işaretle
 
 Sunucu yönetimi:
@@ -217,12 +218,16 @@ Diğer:
 	SyncUploadErrFmt:   "    ✗ %s: %v\n",
 
 	// resync
-	ResyncScanning:   "  Resync: sunucu taranıyor...\n",
-	ResyncConnErr:    "  ! Sunucuya bağlanılamadı (%v) — resync atlandı\n",
-	ResyncListErr:    "  ! Uzak dizin okunamadı (%v) — resync atlandı\n",
-	ResyncFoundFmt:   "  Sunucuda %d dosya bulundu\n",
-	ResyncMatchedFmt: "  %d eşleşti (boyut OK), %d farklı/eksik\n",
-	ResyncDoneFmt:    "  [%s] resync tamamlandı\n",
+	ResyncScanning:     "  Sunucuya bağlanılıyor...",
+	ResyncConnected:    " bağlandı\n",
+	ResyncListing:      "Uzak dosyalar listeleniyor...",
+	ResyncLocalFmt:     "  Yerel:  %d dosya tarandı\n",
+	ResyncConnErr:      "  ! Sunucuya bağlanılamadı (%v) — resync atlandı\n",
+	ResyncListErr:      "  ! Uzak dizin okunamadı (%v) — resync atlandı\n",
+	ResyncFoundFmt:     "  Uzak:   %d dosya bulundu\n",
+	ResyncComparingFmt: "\r  Karşılaştırılıyor: %d / %d   ",
+	ResyncMatchedFmt:   "  Eşleşti: %d (boyut OK)  |  Farklı/eksik: %d\n",
+	ResyncDoneFmt:      "  [%s] resync tamamlandı\n",
 	ResyncAutoMsg:    "  İlk çalıştırma: resync yapılıyor (sunucu karşılaştırması)...\n",
 	ResyncNoServers:  "Eşleşen sunucu bulunamadı.\n",
 

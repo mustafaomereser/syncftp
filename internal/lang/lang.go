@@ -178,12 +178,16 @@ type StringSet struct {
 	SyncUploadErrFmt     string // "    ✗ %s: %v\n"
 
 	// ── resync ───────────────────────────────────────────────────────────────
-	ResyncScanning    string // "  Resync: sunucu taranıyor...\n"
-	ResyncConnErr     string // "  ! Sunucuya bağlanılamadı (%v) — resync atlandı\n"
-	ResyncListErr     string // "  ! Uzak dizin okunamadı (%v) — resync atlandı\n"
-	ResyncFoundFmt    string // "  Sunucuda %d dosya bulundu\n"
-	ResyncMatchedFmt  string // "  %d eşleşti (boyut OK), %d farklı/eksik\n"
-	ResyncDoneFmt     string // "  [%s] resync tamamlandı\n"
+	ResyncScanning       string // "  Sunucuya bağlanılıyor..."
+	ResyncConnected      string // " bağlandı\n"
+	ResyncListing        string // "  Uzak dosyalar listeleniyor...\n"
+	ResyncLocalFmt       string // "  Yerel: %d dosya tarandı\n"
+	ResyncConnErr        string // "  ! Sunucuya bağlanılamadı (%v) — resync atlandı\n"
+	ResyncListErr        string // "  ! Uzak dizin okunamadı (%v) — resync atlandı\n"
+	ResyncFoundFmt       string // "  Uzak:   %d dosya bulundu\n"
+	ResyncComparingFmt   string // "\r  Karşılaştırılıyor: %d / %d   "
+	ResyncMatchedFmt     string // "  Eşleşti: %d (boyut OK)  |  Farklı/eksik: %d\n"
+	ResyncDoneFmt        string // "  [%s] resync tamamlandı\n"
 	ResyncAutoMsg     string // "  İlk çalıştırma: resync yapılıyor (sunucu karşılaştırması)...\n"
 	ResyncNoServers   string // "Eşleşen sunucu bulunamadı.\n"
 

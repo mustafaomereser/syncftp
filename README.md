@@ -14,6 +14,7 @@ A Go CLI tool that detects changed files via SHA256 hashing and distributes them
 - **Interactive shell** — run `syncftp` with no arguments for a full TUI shell with arrow-key file browser, server picker, and action menus
 - **CRLF normalization** — line endings are normalized before upload so PHP hosting servers don't inject blank lines
 - **Per-server local path** — each server can watch a different subdirectory; useful for monorepos
+- **Resync** — reconcile an existing deployment without re-uploading everything; compares file sizes (CRLF-aware) and initializes state
 
 The UI auto-detects your OS language (Turkish or English). Switch manually with `syncftp lang tr` (or `lang tr` inside the shell). The preference is saved to `.syncftp/lang`. Use `SYNCFTP_LANG=tr` to override for a single session without saving.
 
@@ -42,6 +43,8 @@ syncftp init      # interactive wizard — creates syncftp.json
 syncftp status    # show what has changed (nothing is uploaded)
 syncftp sync      # upload changed files to all enabled servers
 ```
+
+**Adding syncFTP to an already-deployed project?** Run `syncftp resync` after `init` — it compares local file sizes with the server and populates the sync state without uploading anything. After that, `status` and `sync` only show/upload actual differences.
 
 ---
 
@@ -135,7 +138,7 @@ Created by `syncftp init`. Stored with permission `600`. Added to `.gitignore` a
 | `sync.include` | `[]` | Global whitelist — sync only these paths (empty = all) |
 | `sync.exclude` | `[]` | Global blacklist — always skip these paths |
 | `sync.ignore_files` | `[]` | Which ignore files to load — empty means both `.gitignore` and `syncftp.ignore` |
-| `first_sync.full` | `false` | `true` = force upload everything on first sync; `false` = smart size comparison (recommended) |
+| `first_sync.full` | `false` | `true` = force upload everything on first sync, skip resync |
 | `connections[].name` | — | Profile name — referenced by `server.connection` |
 | `connections[].host` | — | FTP server address |
 | `connections[].port` | `21` | FTP port |
@@ -208,14 +211,16 @@ Shows what has changed since the last sync. **Nothing is uploaded.**
 syncftp status
 syncftp status --include css
 syncftp status --exclude vendor
+syncftp status --server production
 ```
 
 ```
 Project : my-project
+
+── production (ftp.example.com) ──
 Dir     : /home/user/my-project
 Files   : 142
 
-── production (ftp.example.com) ──
   + NEW (2):
       js/utils.js
       css/dark-mode.css
@@ -228,6 +233,8 @@ Files   : 142
 > Deleted files are reported but **never removed** from the FTP server — intentional safety behaviour.
 
 Running `syncftp status` without arguments opens an interactive TUI where you can browse per-server changes and launch a sync directly.
+
+**First run behaviour:** if no sync state exists yet, `status` automatically runs `resync` first to compare local file sizes with the server. This prevents showing hundreds of false "new file" entries on a project that's already deployed.
 
 ---
 
@@ -246,20 +253,27 @@ syncftp sync --include css --include js/app.js
 syncftp sync --exclude vendor --exclude tests
 ```
 
-**Smart first sync** — on the very first run, syncFTP lists all files already on the FTP server and compares sizes with local files. Only missing or size-different files are uploaded. Safe to add to an already-deployed project. Use `--full` to force a complete re-upload.
+**First run behaviour:** on the very first run (no sync state), `sync` automatically runs `resync` to compare local file sizes with the server. Only files that are missing or have a different size are uploaded. Use `--full` to force a complete re-upload and skip resync.
 
-**Failsafe cleanup** — before each sync, syncFTP checks the `include`, `exclude`, and `protect` lists for exact file paths that no longer exist locally and removes them automatically, printing a warning. Glob patterns (`*.log`) and directories (`vendor/`) are not affected.
+**Failsafe cleanup:** before each sync, syncFTP checks the `include`, `exclude`, and `protect` lists for exact file paths that no longer exist locally and removes them automatically, printing a warning. Glob patterns (`*.log`) and directories (`vendor/`) are not affected.
 
-**Example output — first sync:**
+**Example output:**
 
 ```
 Scanning: /home/user/my-project
 142 files found
 
 ══ production (ftp.example.com) ══
-  First sync: scanning server, comparing existing files...
-  139 files found on server
-  Result: 139 up-to-date (skipped)  |  3 different/missing (uploading)
+  First run: running resync (server comparison)...
+  [production]
+  Local:  142 files scanned
+  Connecting to server... connected
+  / Listing remote files...
+  Remote: 139 files found
+  Comparing: 142 / 142
+  Matched: 139 (size OK)  |  Different/missing: 3
+  [production] resync done
+
   ❄ 2 frozen (skipped)
   3 files to process
   Connection pool: 3 / Retry: 2
@@ -269,6 +283,38 @@ Scanning: /home/user/my-project
   Done: 3 uploaded, 0 protected, 0 failed
   Release: .syncftp/releases/production/20260612-143012
 ```
+
+---
+
+### `syncftp resync`
+
+Reconciles an already-deployed project without uploading anything. Compares local file sizes with FTP remote sizes and writes matching hashes to the sync state. After resync, `status` and `sync` only show actual differences.
+
+```bash
+syncftp resync                        # all enabled servers
+syncftp resync --server production    # one specific server
+syncftp resync --all                  # explicitly all servers (including disabled)
+```
+
+**When to use manually:**
+- Added syncFTP to an existing project and don't want to re-upload everything
+- Sync state was deleted or corrupted
+- Files were deployed via another tool and you want to bring syncFTP up to date
+
+**How it works:** for each local file, the remote size is checked. If sizes match (accounting for CRLF normalization — files uploaded by syncFTP have `\r\n` stripped, so remote is smaller by one byte per CRLF line), the file's local hash is written to state. Files that are missing on the server or have a different size will be uploaded on the next `sync`.
+
+```
+  [production]
+  Local:  142 files scanned
+  Connecting to server... connected
+  / Listing remote files...
+  Remote: 3944 files found
+  Comparing: 142 / 142
+  Matched: 139 (size OK)  |  Different/missing: 3
+  [production] resync done
+```
+
+> Note: resync is also triggered **automatically** by `status` and `sync` on the first run (when no state file exists). You only need to run it manually if the state was lost or you want to force a re-reconciliation.
 
 ---
 
@@ -406,12 +452,12 @@ Selecting **Bağlantı Profilleri** opens the profile manager:
 ```
 🔗  Bağlantı Profilleri
   ↑↓ gezin  |  Enter/e = düzenle  |  d = sil  |  n = yeni  |  q = çık
-  ──────────────────────────────────────────────────────
+  ──────────────────────────────────────────────────────────────────
 ▶ 🔗 my-host               ftp.example.com:21  ftpuser
   + Yeni profil ekle
 ```
 
-Each profile has: **Ad**, **Host**, **Port**, **Kullanıcı**, **Şifre**, **Passive mode**, **EPSV devre dışı**, **NAT workaround**.
+Each profile has: **Name**, **Host**, **Port**, **User**, **Password**, **Passive mode**, **Disable EPSV**, **NAT workaround**.
 
 #### Field navigator (server edit screen)
 
@@ -440,7 +486,7 @@ All 17 fields are listed in a single screen. Navigate with arrow keys.
   Protect           .env, config/db.php  [b=gözat]
 ```
 
-When a connection profile is selected, credential fields (Host, Port, User, Password, Passive, EPSV, NAT) are shown read-only with `↳ profile-name`. Navigation automatically skips them. To edit credentials, go to **Bağlantı Profilleri** and edit the profile there.
+When a connection profile is selected, credential fields (Host, Port, User, Password, Passive, EPSV, NAT) are shown read-only with `↳ profile-name`. Navigation automatically skips them. To edit credentials, go to **Connection Profiles** and edit the profile there.
 
 | Key | Action |
 |---|---|
@@ -491,6 +537,7 @@ syncftp
 | `pwd` | Show current remote path |
 | `status` | Show local changes per server (opens TUI) |
 | `sync [--all] [--full] [--dry-run] [--server name]` | Upload to FTP |
+| `resync [--all] [--server name]` | Compare local sizes with FTP, update state (no upload) |
 | `freeze [--server name]` | Manage freeze list for a server |
 | `servers` | TUI server list |
 | `server [name]` | Connect to a server |
@@ -716,8 +763,8 @@ syncFTP creates a `.syncftp/` directory next to `syncftp.json`:
 | `internal/failed` | Failed file list persistence |
 | `internal/release` | Release manifest writer |
 | `internal/frozen` | Per-server freeze list (load / save) |
-| `internal/lang` | i18n — auto-detect OS language, English/Turkish, runtime switching |
-| `cmd/syncftp` | CLI commands (init, status, sync, push, remote, serve, freeze, lang, config, shell) |
+| `internal/lang` | i18n — `lang.go` (struct + funcs), `en.go` (English), `tr.go` (Turkish); auto-detect OS language, runtime switching |
+| `cmd/syncftp` | CLI commands (init, status, sync, resync, push, remote, serve, freeze, lang, config, shell) |
 
 ---
 
