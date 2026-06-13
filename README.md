@@ -6,14 +6,16 @@ A Go CLI tool that detects changed files via SHA256 hashing and distributes them
 - **Multi-server** — deploy to production and staging in a single command
 - **Server-side protection** — never overwrites `.env`, database configs, or any file you mark as protected
 - **Freeze list** — per-server list of files that are permanently skipped even when changed locally
+- **Connection profiles** — share one set of FTP credentials across multiple servers
 - **Parallel uploads** — configurable connection pool per server
 - **Auto-retry** — failed uploads are retried automatically and saved for manual re-runs
 - **Config-free mode** — sync any directory to any FTP without a project config (`syncftp push`)
 - **HTTP API** — built-in local API server for PHP/web UI integration (`syncftp serve`)
 - **Interactive shell** — run `syncftp` with no arguments for a full TUI shell with arrow-key file browser, server picker, and action menus
 - **CRLF normalization** — line endings are normalized before upload so PHP hosting servers don't inject blank lines
+- **Per-server local path** — each server can watch a different subdirectory; useful for monorepos
 
-The UI defaults to **English**. Switch languages with `syncftp lang tr` (or `lang tr` inside the shell). The preference is saved to `.syncftp/lang` and persists across restarts. Use `SYNCFTP_LANG=tr` to override for a single session without saving.
+The UI auto-detects your OS language (Turkish or English). Switch manually with `syncftp lang tr` (or `lang tr` inside the shell). The preference is saved to `.syncftp/lang`. Use `SYNCFTP_LANG=tr` to override for a single session without saving.
 
 ---
 
@@ -53,32 +55,6 @@ Created by `syncftp init`. Stored with permission `600`. Added to `.gitignore` a
     "name": "my-project",
     "default_path": "."
   },
-```
-
-> **Multi-source** — to sync multiple local directories in one command, replace `default_path` with `sources`:
->
-> ```json
-> "project": {
->   "name": "my-project",
->   "sources": [
->     { "local": ".",         "remote": "" },
->     { "local": "../admin",  "remote": "admin/" },
->     { "local": "../assets", "remote": "static/img/" }
->   ]
-> }
-> ```
-> Each source is scanned independently. `remote` is a path prefix appended under the server's `remote_path`. An empty `remote` means files go directly to the FTP root. `default_path` (single string, old name was `local_path`) is kept for backward compatibility — if `sources` is present it takes priority.
->
-> **Per-server sources** — a server can override the project sources with its own list. Useful when one server deploys only a subset of the project:
->
-> ```json
-> { "name": "assets-only", "sources": [{ "local": "../assets", "remote": "static/" }], ... }
-> ```
-> If a server has no `sources`, it inherits the project-level sources (or `default_path`).  
-> Sources are managed interactively from `syncftp config` → server edit → **Kaynaklar** field.
-
-```json
-{
   "sync": {
     "protect": [".env", "config/database.php", "storage/"],
     "include": [],
@@ -88,55 +64,84 @@ Created by `syncftp init`. Stored with permission `600`. Added to `.gitignore` a
   "first_sync": {
     "full": false
   },
-  "servers": [
+  "connections": [
     {
-      "name": "production",
+      "name": "my-host",
       "host": "ftp.example.com",
       "port": 21,
       "user": "ftpuser",
       "password": "secret",
+      "passive": true
+    }
+  ],
+  "servers": [
+    {
+      "name": "production",
+      "connection": "my-host",
       "remote_path": "/public_html",
-      "passive": true,
       "enabled": true,
       "max_connections": 3,
-      "max_retries": 2,
-      "include": [],
-      "exclude": [],
-      "protect": [],
-      "sources": []
+      "max_retries": 2
     },
     {
       "name": "staging",
-      "host": "ftp2.example.com",
-      "port": 21,
-      "user": "staginguser",
-      "password": "secret2",
+      "connection": "my-host",
       "remote_path": "/staging",
-      "passive": true,
       "enabled": true,
       "max_connections": 1,
-      "max_retries": 2,
-      "include": ["css/", "js/"],
-      "exclude": [],
-      "protect": []
+      "max_retries": 2
     }
   ]
 }
 ```
 
+> **Without connection profiles** — enter credentials directly on the server:
+>
+> ```json
+> {
+>   "name": "production",
+>   "host": "ftp.example.com",
+>   "port": 21,
+>   "user": "ftpuser",
+>   "password": "secret",
+>   "remote_path": "/public_html",
+>   "passive": true,
+>   "enabled": true,
+>   "max_connections": 3,
+>   "max_retries": 2
+> }
+> ```
+
+> **Per-server local directory** — each server can watch a different local subdirectory:
+>
+> ```json
+> {
+>   "project": { "name": "monorepo", "default_path": "." },
+>   "servers": [
+>     { "name": "frontend", "local_path": "frontend/", "remote_path": "/public_html" },
+>     { "name": "admin",    "local_path": "admin/",    "remote_path": "/public_html/admin" }
+>   ]
+> }
+> ```
+> When `local_path` is absent, the server inherits `project.default_path`.
+
 ### Field Reference
 
 | Field | Default | Description |
 |---|---|---|
-| `project.default_path` | `"."` | Single local directory to scan (set via `syncftp init`; ignored when `sources` is set) |
+| `project.default_path` | `"."` | Local directory to scan (relative to `syncftp.json`; ignored when server has its own `local_path`) |
 | `project.local_path` | — | **Deprecated** — old name for `default_path`; auto-migrated on first load |
-| `project.sources` | `[]` | Global multi-source list — each: `{ "local": "dir", "remote": "prefix/" }` |
 | `sync.protect` | `[]` | Files/dirs that are **never** overwritten on the FTP server (all servers) |
 | `sync.include` | `[]` | Global whitelist — sync only these paths (empty = all) |
 | `sync.exclude` | `[]` | Global blacklist — always skip these paths |
 | `sync.ignore_files` | `[]` | Which ignore files to load — empty means both `.gitignore` and `syncftp.ignore` |
-| `first_sync.full` | `false` | `true` = force upload everything on first sync; `false` = smart comparison (recommended) |
-| `server.sources` | `[]` | **Per-server** source override — if set, replaces the global sources for this server only |
+| `first_sync.full` | `false` | `true` = force upload everything on first sync; `false` = smart size comparison (recommended) |
+| `connections[].name` | — | Profile name — referenced by `server.connection` |
+| `connections[].host` | — | FTP server address |
+| `connections[].port` | `21` | FTP port |
+| `server.connection` | `""` | Name of a connection profile — if set, host/port/user/password/passive come from there |
+| `server.local_path` | `""` | Per-server local directory override; empty = inherit `project.default_path` |
+| `server.remote_path` | — | Target directory on the FTP server |
 | `server.disable_epsv` | `false` | Disable EPSV, use PASV only — fixes some NAT/firewall setups |
 | `server.nat_workaround` | `false` | Ignore the IP in PASV response, use server host instead |
 | `server.max_connections` | `1` | Parallel FTP connections for this server |
@@ -157,7 +162,6 @@ syncFTP loads **both** `.gitignore` and `syncftp.ignore` if they exist and merge
 | `[]` or field absent | Load `.gitignore` + `syncftp.ignore` (default) |
 | `[".gitignore"]` | Only `.gitignore` |
 | `["syncftp.ignore"]` | Only `syncftp.ignore` |
-| `[".gitignore", "syncftp.ignore"]` | Both (explicit) |
 
 **Typical setup** — keep `.gitignore` for git, add FTP-specific ignores to `syncftp.ignore`:
 
@@ -208,7 +212,7 @@ syncftp status --exclude vendor
 
 ```
 Project : my-project
-Path    : /home/user/my-project
+Dir     : /home/user/my-project
 Files   : 142
 
 ── production (ftp.example.com) ──
@@ -222,6 +226,8 @@ Files   : 142
 ```
 
 > Deleted files are reported but **never removed** from the FTP server — intentional safety behaviour.
+
+Running `syncftp status` without arguments opens an interactive TUI where you can browse per-server changes and launch a sync directly.
 
 ---
 
@@ -241,6 +247,8 @@ syncftp sync --exclude vendor --exclude tests
 ```
 
 **Smart first sync** — on the very first run, syncFTP lists all files already on the FTP server and compares sizes with local files. Only missing or size-different files are uploaded. Safe to add to an already-deployed project. Use `--full` to force a complete re-upload.
+
+**Failsafe cleanup** — before each sync, syncFTP checks the `include`, `exclude`, and `protect` lists for exact file paths that no longer exist locally and removes them automatically, printing a warning. Glob patterns (`*.log`) and directories (`vendor/`) are not affected.
 
 **Example output — first sync:**
 
@@ -334,7 +342,6 @@ Browse, download, preview and delete files on the FTP server.
 ```bash
 syncftp remote ls                          # open interactive file browser
 syncftp remote ls css/                     # open browser starting at css/
-syncftp remote ls --recursive              # plain recursive tree (no TUI)
 syncftp remote ls --server staging
 
 syncftp remote cat index.php               # preview first 10 KB
@@ -353,31 +360,113 @@ syncftp remote rm cache/ --recursive
 
 ---
 
-### `syncftp` (Interactive Shell — `tree` command)
+### `syncftp config`
 
-The `tree` command displays an FTP directory as a hierarchical tree. Branch characters (`├─`, `└─`) are rendered in grey.
+Manage servers, connection profiles, and global sync settings interactively — no need to edit `syncftp.json` by hand.
 
 ```bash
-tree                        # tree from current remote directory (interactive max-items prompt)
-tree /public_html           # tree starting at a specific path
-tree --max 50               # skip dirs with > 50 items (show first 50 + "+N more...")
-tree --max 0                # show everything (no limit)
+syncftp config
 ```
 
-When `--max` is not given, an interactive picker asks how many items per directory to show (20 / 50 / 100 / all). Press `t` inside the file browser to run tree on the current directory.
+Inside the interactive shell, use `config` without the `syncftp` prefix.
 
 ```
-/public_html
-├─ 📁 css/
-│  ├─ 📄 main.css  (45.3 KB)
-│  └─ 📄 bootstrap.min.css  (152.1 KB)
-├─ 📁 js/
-│  └─ 📄 app.js  (23.7 KB)
-├─ 📄 index.php  (12.4 KB)
-└─ 📁 uploads/
-   ├─ 📄 logo.png  (8.1 KB)
-   └─ +457 daha...
+⚙  Server Ayarları
+  ↑↓ gezin  |  Enter/e = düzenle  |  Space = aç/kapat  |  d = sil  |  n = yeni  |  q = çık
+  ──────────────────────────────────────────────────────────────────────────
+
+  ⚙ Global Ayarlar  (protect, include, exclude, ignore_files)
+  🔗 Bağlantı Profilleri  (1 profil)
+▶ ✓  production    → my-host:21/public_html    conn:3  retry:2
+   ✓  staging       → my-host:21/staging        conn:1  retry:2
+   + Yeni server ekle
+
+  2 server  |  1 bağlantı profili
 ```
+
+#### Server list navigation
+
+| Key | Action |
+|---|---|
+| `↑` / `↓` or `j` / `k` | Navigate |
+| `Enter` / `e` | Edit — opens field navigator |
+| `Space` | Toggle server enabled / disabled — saves immediately |
+| `d` | Delete server — inline `y` confirmation |
+| `n` | Add new server |
+| `q` / `Esc` | Close |
+
+The first row opens **Global Settings** (default directory, protect, include, exclude, ignore_files). The second row opens **Connection Profiles**. The last row adds a new server.
+
+#### Connection Profiles
+
+Connection profiles store shared FTP credentials. Multiple servers can reference the same profile — when credentials change, you update only the profile.
+
+Selecting **Bağlantı Profilleri** opens the profile manager:
+
+```
+🔗  Bağlantı Profilleri
+  ↑↓ gezin  |  Enter/e = düzenle  |  d = sil  |  n = yeni  |  q = çık
+  ──────────────────────────────────────────────────────
+▶ 🔗 my-host               ftp.example.com:21  ftpuser
+  + Yeni profil ekle
+```
+
+Each profile has: **Ad**, **Host**, **Port**, **Kullanıcı**, **Şifre**, **Passive mode**, **EPSV devre dışı**, **NAT workaround**.
+
+#### Field navigator (server edit screen)
+
+All 17 fields are listed in a single screen. Navigate with arrow keys.
+
+```
+⚙  Server Düzenle
+  ↑↓ gezin  |  Enter/b = düzenle/seç  |  Space = bool toggle  |  s = kaydet  |  q = iptal
+  ─────────────────────────────────────────────────────────
+  Ad                production
+▶ Connection        my-host  [b=değiştir]
+  Host              ftp.example.com  ↳ my-host
+  Port              21               ↳ my-host
+  Kullanıcı         ftpuser          ↳ my-host
+  Şifre             ****             ↳ my-host
+  Uzak dizin        /public_html
+  Yerel dizin       (project default)  [b=gözat]
+  Aktif             ✓
+  Passive mode      ✓                ↳ my-host
+  EPSV devre dışı   ○                ↳ my-host
+  NAT workaround    ○                ↳ my-host
+  Max bağlantı      3
+  Max retry         2
+  Include           (boş)  [b=gözat]
+  Exclude           vendor/  [b=gözat]
+  Protect           .env, config/db.php  [b=gözat]
+```
+
+When a connection profile is selected, credential fields (Host, Port, User, Password, Passive, EPSV, NAT) are shown read-only with `↳ profile-name`. Navigation automatically skips them. To edit credentials, go to **Bağlantı Profilleri** and edit the profile there.
+
+| Key | Action |
+|---|---|
+| `↑` / `↓` or `j` / `k` | Move between fields (skips locked credential fields) |
+| `Enter` | Text/int/password: start inline edit; bool: toggle; Connection: open profile picker |
+| `Space` | Bool fields: toggle |
+| `b` | Connection: open profile picker; local dir: open directory picker; list fields: open local file browser |
+| `s` | Save and return |
+| `q` / `Esc` | Cancel |
+
+#### Local file browser (for include / exclude / protect)
+
+Opens from the project's local directory. Existing list entries that are found on disk are pre-marked.
+
+| Key | Action |
+|---|---|
+| `↑` / `↓` or `j` / `k` | Navigate |
+| `Enter` / `→` | Enter directory |
+| `←` / `Esc` | Go up |
+| `Space` | Mark / unmark file or folder |
+| `a` | Toggle all in current view |
+| `n` | Enter a custom path (for glob patterns, paths outside project root, etc.) |
+| `s` | Save selection and return |
+| `q` | Cancel — previous list unchanged |
+
+Items that are not filesystem paths (glob patterns like `*.log`, paths outside the root) are kept in the list unchanged when saving from the browser.
 
 ---
 
@@ -400,12 +489,13 @@ syncftp
 | `get [file] [dest]` | Download file |
 | `rm [-f] [-r] [file]` | Delete file/dir |
 | `pwd` | Show current remote path |
-| `status` | Show local changes per server |
+| `status` | Show local changes per server (opens TUI) |
 | `sync [--all] [--full] [--dry-run] [--server name]` | Upload to FTP |
 | `freeze [--server name]` | Manage freeze list for a server |
 | `servers` | TUI server list |
 | `server [name]` | Connect to a server |
-| `config` | Add, edit or delete servers |
+| `disconnect` | Close current FTP connection |
+| `config` | Add, edit or delete servers and connection profiles |
 | `lang [en\|tr]` | Show or change display language |
 | `clear` / `cls` | Clear screen |
 | `help` / `?` | Show command reference |
@@ -426,9 +516,9 @@ Opened by `ls`, or automatically when `cat`/`get`/`rm` receive no path argument.
 | `Space` | Toggle mark on file or folder |
 | `a` | Mark all / unmark all (disabled during search) |
 | `f` | **Freeze/unfreeze** file; on a folder: toggle all files inside recursively |
-| `d` | Delete all marked items (double confirmation) — folders show recursive content list |
+| `d` | Delete all marked items (double confirmation) |
 | `m` | Move all marked items — pick destination in second browser |
-| `t` | Open **tree view** of current directory (prompts for max-items limit) |
+| `t` | Open **tree view** of current directory |
 | `r` | Reconnect to server (after connection drop) |
 | `q` | Close browser |
 
@@ -436,13 +526,12 @@ Opened by `ls`, or automatically when `cat`/`get`/`rm` receive no path argument.
 - Folder item counts loaded in background: `...` → `N items` or `1000+` or `?` on error
 - Preview panel on terminals ≥ 120 chars wide — loaded on demand (`→`), not on every cursor move
 - Recursive search with `/` + `Enter`: streams results as found, uses `maxConnections` parallel FTP clients, 5-minute timeout, `ESC` cancels and closes all connections
-- Search results show hint bar with all available operations; "no results found" shown when empty
 - Selecting a single file opens an action menu: **View / Download / Delete / Cancel**
 - Command history saved to `.syncftp/shell_history`
 
 #### Sync Progress (TUI)
 
-When `sync` runs, a full-screen progress view is shown. Failed files display each retry attempt's error separately so you can see exactly what went wrong on each attempt:
+When `sync` runs, a full-screen progress view is shown. Failed files display each retry attempt's error separately:
 
 ```
   ══ production ══
@@ -460,117 +549,27 @@ When `sync` runs, a full-screen progress view is shown. Failed files display eac
   ✓ css/components/button.css
 ```
 
----
-
-### `syncftp config`
-
-Manage servers and global sync settings interactively — add, edit, delete, or toggle without touching `syncftp.json` manually.
+#### Tree command
 
 ```bash
-syncftp config
+tree                        # tree from current remote directory (interactive max-items prompt)
+tree /public_html           # tree starting at a specific path
+tree --max 50               # show first 50 items per dir + "+N more..."
+tree --max 0                # show everything (no limit)
 ```
 
-Inside the interactive shell, use `config` without the `syncftp` prefix.
-
 ```
-⚙  Server Ayarları
-  ↑↓ gezin  |  Enter/e = düzenle  |  Space = aç/kapat  |  d = sil  |  n = yeni  |  q = çık
-  ──────────────────────────────────────────────────────────────────────────
-
-  ⚙ Global Ayarlar  (protect, include, exclude, ignore_files)
-▶ ✓  production    ftp.example.com:21/public_html    conn:3  retry:2
-   ✓  staging       ftp2.example.com:21/staging        conn:1  retry:2
-   + Yeni server ekle
-
-  2 server
+/public_html
+├─ 📁 css/
+│  ├─ 📄 main.css  (45.3 KB)
+│  └─ 📄 bootstrap.min.css  (152.1 KB)
+├─ 📁 js/
+│  └─ 📄 app.js  (23.7 KB)
+├─ 📄 index.php  (12.4 KB)
+└─ 📁 uploads/
+   ├─ 📄 logo.png  (8.1 KB)
+   └─ +457 daha...
 ```
-
-#### Server list keys
-
-| Key | Action |
-|---|---|
-| `↑` / `↓` or `j` / `k` | Navigate |
-| `Enter` / `e` | Edit — opens field navigator |
-| `Space` | Toggle server enabled / disabled — saves immediately |
-| `d` | Delete server — inline `y` confirmation |
-| `n` | Add new server |
-| `q` / `Esc` | Close |
-
-The first row opens **Global Settings** (Kaynaklar, protect, include, exclude, ignore_files). The last row adds a new server.
-
-#### Global Settings — Kaynaklar (Sources)
-
-Selecting "Global Ayarlar" and pressing `Enter` on the **Kaynaklar** field opens the source manager TUI:
-
-```
-📂 Proje Kaynakları
-  ↑↓ gezin | Enter/e = düzenle | n = yeni | d = sil | s/q = kaydet & çık
-  ────────────────────────────────────────────────────
-▶ .                             →  (kök)
-  ../admin                      →  admin/
-  ../assets                     →  static/img/
-  + Kaynak ekle
-```
-
-Each source has two fields — press `Enter` to edit inline or `b` to open a local directory browser:
-
-| Field | Description |
-|---|---|
-| **Yerel dizin** | Local path relative to `syncftp.json` — `b` opens a dir picker |
-| **FTP prefix** | Sub-path appended under `server.remote_path` — empty = files go to root |
-
-#### Field navigator (edit screen)
-
-All fields are listed in a single screen. Navigate with arrow keys; no sequential prompts.
-
-```
-⚙  Server Düzenle: production
-  ↑↓ gezin  |  Enter = düzenle  |  Space = bool toggle  |  b = gözat  |  s = kaydet  |  q = iptal
-  ─────────────────────────────────────────────────────────
-  Ad                production
-  Host              ftp.example.com
-  Port              21
-▶ Kullanıcı         ftpuser█
-  Şifre             ****
-  Uzak dizin        /public_html
-  Aktif             ✓
-  Passive mode      ✓
-  EPSV devre dışı   ○
-  NAT workaround    ○
-  Max bağlantı      3
-  Max retry         2
-  Include           (boş)  [b=gözat]
-  Exclude           vendor/  [b=gözat]
-  Protect           .env, config/db.php  [b=gözat]
-  Kaynaklar         (project default)  [Enter=yönet]
-```
-
-The **Kaynaklar** field at the bottom opens the same source manager TUI as in Global Settings. If the server has no sources, it shows `(project default)` and inherits from `project.sources` / `project.default_path`. Once you add sources, only those directories are scanned and uploaded for this server.
-
-| Key | Action |
-|---|---|
-| `↑` / `↓` or `j` / `k` | Move between fields |
-| `Enter` | Text/int/password fields: start inline edit (type, `Backspace`, `Enter` = confirm, `Esc` = cancel) |
-| `Space` | Bool fields: toggle |
-| `b` | List fields (include / exclude / protect): open **local file browser** |
-| `s` | Save and return |
-| `q` / `Esc` | Cancel |
-
-#### Local file browser (for include / exclude / protect)
-
-Opens from the project's local directory. Existing list entries that are found on disk are pre-marked.
-
-| Key | Action |
-|---|---|
-| `↑` / `↓` or `j` / `k` | Navigate |
-| `Enter` / `→` | Enter directory |
-| `←` / `Esc` | Go up |
-| `Space` | Mark / unmark file or folder |
-| `a` | Toggle all in current view |
-| `s` | Save selection and return |
-| `q` | Cancel — previous list unchanged |
-
-Items that are not filesystem paths (glob patterns like `*.log`) are kept in the list unchanged when saving from the browser.
 
 ---
 
@@ -584,7 +583,7 @@ syncftp lang en     # switch to English
 syncftp lang tr     # switch to Turkish
 ```
 
-Preference saved to `.syncftp/lang`. Use `SYNCFTP_LANG=tr` to override for a single session without saving. Inside the shell: `lang en` / `lang tr`.
+Preference saved to `.syncftp/lang`. The language is **auto-detected** from the OS on first run (Windows UI language via `kernel32.dll`, Unix via `LANG`/`LC_ALL` env vars) — Turkish systems default to Turkish, everything else to English. Use `SYNCFTP_LANG=tr` to override for a single session without saving.
 
 ---
 
@@ -665,6 +664,8 @@ Unlike `protect` (which is global and config-based), freeze lists are:
 
 **Priority (exclude):** global `sync.exclude` + server `exclude` + CLI `--exclude` (all combined)
 
+**Failsafe auto-cleanup:** exact file paths (not globs, not directories) in include/exclude/protect are automatically removed if the file no longer exists on disk. A warning is printed and the config is saved.
+
 ### Summary
 
 | Mechanism | Scope | Managed via |
@@ -707,7 +708,7 @@ syncFTP creates a `.syncftp/` directory next to `syncftp.json`:
 
 | Package | Role |
 |---|---|
-| `internal/config` | JSON config loading |
+| `internal/config` | JSON config loading — Connection profiles, per-server credential resolution |
 | `internal/ignore` | `.gitignore` + `syncftp.ignore` merged parser |
 | `internal/scanner` | Directory walk, SHA256 hashing |
 | `internal/state` | Per-server sync state (load / save / diff) |
@@ -715,8 +716,8 @@ syncFTP creates a `.syncftp/` directory next to `syncftp.json`:
 | `internal/failed` | Failed file list persistence |
 | `internal/release` | Release manifest writer |
 | `internal/frozen` | Per-server freeze list (load / save) |
-| `internal/lang` | i18n — English default, Turkish via `SYNCFTP_LANG=tr` |
-| `cmd/syncftp` | CLI commands (init, status, sync, push, remote, serve, freeze, lang, shell) |
+| `internal/lang` | i18n — auto-detect OS language, English/Turkish, runtime switching |
+| `cmd/syncftp` | CLI commands (init, status, sync, push, remote, serve, freeze, lang, config, shell) |
 
 ---
 

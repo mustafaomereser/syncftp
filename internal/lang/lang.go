@@ -520,7 +520,7 @@ Remote server commands:
   pwd                     Show remote directory
 
 Sync:
-  status                  Show local changes per server
+  status                  Show local changes per server (TUI)
   sync [--all] [--full] [--dry-run] [--server name]   Upload to FTP
   freeze [--server name]  Manage freeze list — mark files to never upload
 
@@ -528,16 +528,23 @@ Server management:
   servers                 Server list
   server [name]           Select / connect to server
   disconnect              Close current FTP connection (prompt returns to no-server mode)
-  config                  Add, edit or delete servers — full TUI field navigator
-                            ↑↓ = select field  |  Enter = edit  |  Space = toggle bool
-                            b = local file browser for include / exclude / protect / local dir
+  config                  Manage servers and connection profiles — full TUI
+                            List: ↑↓ navigate | Enter/e edit | Space enable/disable | d delete | n new
+                            ── Global Settings: project-wide default dir, protect, include, exclude
+                            ── Connection Profiles: shared FTP credentials (host/port/user/pass)
+                               Multiple servers can reference the same profile.
+                               Edit profile once → all servers using it are updated.
+                            ── Server edit (17 fields):
+                               Connection = select a profile (b/Enter to pick)
+                               When a profile is active, credential fields are read-only (↳ profile)
+                               Local dir: per-server local directory
+                                 "(project default)" = inherits from Global Settings
+                               Include/Exclude/Protect: b = local file browser
+                                 n = enter custom path (glob patterns, paths outside project root)
                             s = save  |  q = cancel
-                            Global Settings → Default dir: project-wide local directory
-                            Server edit → Local dir: per-server local directory
-                              "(project default)" = inherits from global Default dir
 
 Other:
-  lang [en|tr]            Show or change display language
+  lang [en|tr]            Show or change display language (auto-detected from OS on first run)
   clear / cls             Clear screen
   help / ?                This help
   exit / quit             Exit`,
@@ -836,7 +843,7 @@ Uzak sunucu komutları:
   pwd                     Uzak dizini göster
 
 Senkronizasyon:
-  status                  Yerel değişiklikleri göster
+  status                  Yerel değişiklikleri göster (TUI)
   sync [--all] [--full] [--dry-run] [--server ad]   FTP'ye yükle
   freeze [--server ad]    Freeze listesi — yüklenmesin istenen dosyaları işaretle
 
@@ -844,16 +851,23 @@ Sunucu yönetimi:
   servers                 Sunucu listesi
   server [ad]             Sunucu seç / bağlan
   disconnect              Mevcut FTP bağlantısını kes (prompt sunucusuz moda döner)
-  config                  Sunucu ekle, düzenle, sil — TUI alan gezgini
-                            ↑↓ = alan seç  |  Enter = düzenle  |  Space = bool toggle
-                            b = include / exclude / protect için yerel dosya tarayıcısı
+  config                  Sunucu ve bağlantı profili yönetimi — TUI
+                            Liste: ↑↓ gezin | Enter/e düzenle | Space aç/kapat | d sil | n yeni
+                            ── Global Ayarlar: proje geneli varsayılan dizin, protect, include, exclude
+                            ── Bağlantı Profilleri: paylaşılan FTP kimlik bilgileri (host/port/kullanıcı/şifre)
+                               Birden fazla sunucu aynı profili kullanabilir.
+                               Profil değişince onu kullanan tüm sunucular güncellenir.
+                            ── Sunucu düzenle (17 alan):
+                               Connection = profil seç (b veya Enter ile picker açılır)
+                               Profil seçiliyse credential alanları read-only gösterilir (↳ profil)
+                               Yerel dizin: sunucuya özel yerel dizin
+                                 "(project default)" = Global Ayarlar'dan miras alır
+                               Include/Exclude/Protect: b = yerel dosya tarayıcısı
+                                 n = özel yol gir (glob kalıpları, proje dışı yollar)
                             s = kaydet  |  q = iptal
-                            Global Ayarlar → Varsayılan dizin: proje geneli yerel dizin
-                            Sunucu düzenle → Yerel dizin: sunucuya özel yerel dizin
-                              "(project default)" = global varsayılan dizinden miras alır
 
 Diğer:
-  lang [en|tr]            Dili göster veya değiştir
+  lang [en|tr]            Dili göster veya değiştir (ilk çalışmada OS dilinden otomatik algılanır)
   clear / cls             Ekranı temizle
   help / ?                Bu yardım
   exit / quit             Çık`,
