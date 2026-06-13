@@ -1,5 +1,7 @@
 # syncFTP
 
+![syncFTP](cover.png)
+
 A Go CLI tool that detects changed files via SHA256 hashing and distributes them to one or more FTP servers.
 
 - **No git required** — change detection is hash-based, works in any directory
