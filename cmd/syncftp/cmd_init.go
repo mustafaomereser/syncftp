@@ -95,7 +95,11 @@ func runInit(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("JSON oluşturulamadı: %w", err)
 	}
-	if err := os.WriteFile("syncftp.json", data, 0600); err != nil {
+	syncftpDir := filepath.Join(dir, ".syncftp")
+	if err := os.MkdirAll(syncftpDir, 0700); err != nil {
+		return fmt.Errorf(".syncftp dizini oluşturulamadı: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(syncftpDir, "syncftp.json"), data, 0600); err != nil {
 		return fmt.Errorf("syncftp.json yazılamadı: %w", err)
 	}
 	fmt.Println(lang.L.InitCreated)
@@ -107,32 +111,30 @@ func runInit(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// addToIgnoreFile adds syncftp.json and syncftp.exe to .gitignore or syncftp.ignore.
-// If neither exists, creates syncftp.ignore.
+// addToIgnoreFile adds syncftp.exe and .syncftp/ to .gitignore if not already present.
 func addToIgnoreFile(dir string) {
-	block := "\n# syncFTP — do not commit\nsyncftp.json\nsyncftp.exe\n\n# syncFTP runtime\n.syncftp/\n.git/\n"
+	block := "\n# syncFTP — do not commit\nsyncftp.exe\n\n# syncFTP runtime\n.syncftp/\n.git/\n"
 
-	for _, name := range []string{".gitignore", "syncftp.ignore"} {
-		p := filepath.Join(dir, name)
-		if _, err := os.Stat(p); err == nil {
-			content, _ := os.ReadFile(p)
-			if strings.Contains(string(content), "syncftp.json") {
-				fmt.Printf(lang.L.InitIgnoreExists, name)
-				return
-			}
-			f, err := os.OpenFile(p, os.O_APPEND|os.O_WRONLY, 0644)
-			if err != nil {
-				return
-			}
-			defer f.Close()
-			fmt.Fprint(f, block)
-			fmt.Printf(lang.L.InitIgnoreAdded, name)
+	gitignorePath := filepath.Join(dir, ".gitignore")
+	if _, err := os.Stat(gitignorePath); err == nil {
+		content, _ := os.ReadFile(gitignorePath)
+		if strings.Contains(string(content), "syncftp.exe") || strings.Contains(string(content), ".syncftp/") {
+			fmt.Printf(lang.L.InitIgnoreExists, ".gitignore")
 			return
 		}
+		f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_WRONLY, 0644)
+		if err != nil {
+			return
+		}
+		defer f.Close()
+		fmt.Fprint(f, block)
+		fmt.Printf(lang.L.InitIgnoreAdded, ".gitignore")
+		return
 	}
 
-	content := "# syncFTP — do not commit\nsyncftp.json\nsyncftp.exe\n\n# syncFTP runtime\n.syncftp/\n.git/\n"
-	if err := os.WriteFile(filepath.Join(dir, "syncftp.ignore"), []byte(content), 0644); err == nil {
-		fmt.Println(lang.L.InitIgnoreCreated)
+	// .gitignore yoksa oluştur
+	content := "# syncFTP — do not commit\nsyncftp.exe\n\n# syncFTP runtime\n.syncftp/\n.git/\n"
+	if err := os.WriteFile(gitignorePath, []byte(content), 0644); err == nil {
+		fmt.Printf(lang.L.InitIgnoreAdded, ".gitignore")
 	}
 }

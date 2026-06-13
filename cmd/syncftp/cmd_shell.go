@@ -66,7 +66,7 @@ func runShell() error {
 
 	if sh.srv == nil && len(servers) > 1 {
 		fmt.Println(lang.L.ShellMultiServer)
-		fmt.Println(lang.L.ShellServersLabel, serverNames(servers))
+		fmt.Println(lang.L.ShellServersLabel, strings.Join(serverNames(servers), ", "))
 		fmt.Println()
 	}
 

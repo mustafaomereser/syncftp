@@ -85,7 +85,7 @@ func (s Server) EffectiveLocalPath(proj Project) string {
 
 // Load reads syncftp.json and returns the parsed config.
 func Load(dir string) (*Config, error) {
-	data, err := os.ReadFile(filepath.Join(dir, "syncftp.json"))
+	data, err := os.ReadFile(filepath.Join(dir, ".syncftp", "syncftp.json"))
 	if err != nil {
 		return nil, fmt.Errorf("syncftp.json okunamadı: %w", err)
 	}
@@ -155,7 +155,11 @@ func Save(dir string, cfg *Config) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dir, "syncftp.json"), data, 0600)
+	p := filepath.Join(dir, ".syncftp", "syncftp.json")
+	if err := os.MkdirAll(filepath.Dir(p), 0700); err != nil {
+		return err
+	}
+	return os.WriteFile(p, data, 0600)
 }
 
 func (c *Config) EnabledServers() []Server {

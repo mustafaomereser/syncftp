@@ -540,7 +540,11 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.err = msg.err
 
 	case folderFreezeMsg:
-		if msg.err == nil && len(msg.files) > 0 {
+		if msg.err != nil {
+			m.statusMsg = "❌ freeze başarısız: " + msg.err.Error()
+		} else if len(msg.files) == 0 {
+			m.statusMsg = "⚠ klasör boş veya erişilemiyor"
+		} else {
 			// Klasördeki dosyaların tüm root-göreceli yollarını hesapla
 			var filePaths []string
 			for rel := range msg.files {
@@ -566,6 +570,11 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			m.saveFrozen()
+			if allFrozen {
+				m.statusMsg = fmt.Sprintf("❄ %s çözüldü (%d dosya)", msg.folderRel, len(filePaths))
+			} else {
+				m.statusMsg = fmt.Sprintf("❄ %s donduruldu (%d dosya)", msg.folderRel, len(filePaths))
+			}
 		}
 
 	case reconnectDoneMsg:
@@ -1086,8 +1095,10 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			rel := m.ftpRelPath(m.entryFullPath(e))
 			if m.frozenFiles[rel] {
 				delete(m.frozenFiles, rel)
+				m.statusMsg = "❄ çözüldü: " + e.entry.Name
 			} else {
 				m.frozenFiles[rel] = true
+				m.statusMsg = "❄ donduruldu: " + e.entry.Name
 			}
 			m.saveFrozen()
 

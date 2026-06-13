@@ -9,7 +9,7 @@ import (
 )
 
 // defaultIgnoreFiles is used when no explicit list is configured.
-var defaultIgnoreFiles = []string{".gitignore", "syncftp.ignore"}
+var defaultIgnoreFiles = []string{".gitignore", ".syncftp/syncftp.ignore"}
 
 // Matcher checks whether a file path should be ignored.
 type Matcher struct {

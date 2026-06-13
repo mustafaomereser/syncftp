@@ -2,14 +2,18 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"syncftp/internal/config"
 	ftpclient "syncftp/internal/ftp"
+	"syncftp/internal/frozen"
 	"syncftp/internal/ignore"
 	"syncftp/internal/lang"
 	"syncftp/internal/scanner"
@@ -102,6 +106,37 @@ func countCRLF(path string) uint64 {
 	return count
 }
 
+// passesFilter sync ile aynı include/exclude mantığını uygular.
+func passesFilter(relPath string, include, exclude []string) bool {
+	if len(include) > 0 {
+		matched := false
+		for _, inc := range include {
+			inc = strings.TrimSuffix(filepath.ToSlash(inc), "/")
+			if relPath == inc || strings.HasPrefix(relPath, inc+"/") {
+				matched = true
+				break
+			}
+			if ok, _ := path.Match(inc, relPath); ok {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	for _, exc := range exclude {
+		exc = strings.TrimSuffix(filepath.ToSlash(exc), "/")
+		if relPath == exc || strings.HasPrefix(relPath, exc+"/") {
+			return false
+		}
+		if ok, _ := path.Match(exc, relPath); ok {
+			return false
+		}
+	}
+	return true
+}
+
 // runResync yerel dosyaları FTP boyutlarıyla karşılaştırıp eşleşenleri state'e yazar.
 // Yükleme yapmaz. Hata olursa sessizce devam eder (state değişmez).
 func runResync(dir string, srv config.Server, cfg *config.Config) {
@@ -114,17 +149,69 @@ func runResync(dir string, srv config.Server, cfg *config.Config) {
 		return
 	}
 
+	// Sync ile aynı include/exclude filtreleri (server > global, exclude additive)
+	effectiveInclude := cfg.Sync.Include
+	if len(srv.Include) > 0 {
+		effectiveInclude = srv.Include
+	}
+	effectiveExclude := append(append([]string{}, cfg.Sync.Exclude...), srv.Exclude...)
+
 	current := make(map[string]string)
 	byKey := make(map[string]scanner.File)
+	excluded := 0
 	for _, f := range files {
+		if !passesFilter(f.RelPath, effectiveInclude, effectiveExclude) {
+			excluded++
+			continue
+		}
 		current[f.RelPath] = f.Hash
 		byKey[f.RelPath] = f
 	}
+
+	// Ignore edilen dosya ve dizinleri say (matcher'ı kullanarak — hız için ignored dizinlere girme)
+	var ignoredFiles int
+	var ignoredDirs []string
+	_ = filepath.WalkDir(localDir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		rel, _ := filepath.Rel(localDir, p)
+		rel = filepath.ToSlash(rel)
+		if rel == "." {
+			return nil
+		}
+		if rel == ".syncftp" || strings.HasPrefix(rel, ".syncftp/") ||
+			rel == ".git" || strings.HasPrefix(rel, ".git/") {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if matcher.Match(rel) {
+			if d.IsDir() {
+				ignoredDirs = append(ignoredDirs, rel+"/")
+				return filepath.SkipDir
+			}
+			ignoredFiles++
+			return nil
+		}
+		return nil
+	})
+	ignoredCount := ignoredFiles
 
 	st, _ := state.Load(dir, srv.Name)
 
 	fmt.Printf("  [%s]\n", srv.Name)
 	fmt.Printf(lang.L.ResyncLocalFmt, len(current))
+	if len(ignoredDirs) > 0 {
+		fmt.Printf("  Ignore: %d klasör atlandı → %s\n", len(ignoredDirs), strings.Join(ignoredDirs, ", "))
+	}
+	if ignoredCount > 0 {
+		fmt.Printf("  Ignore: %d dosya atlandı\n", ignoredCount)
+	}
+	if excluded > 0 {
+		fmt.Printf("  Filtre (include/exclude): %d dosya kapsam dışı\n", excluded)
+	}
 	fmt.Print(lang.L.ResyncScanning)
 
 	client, err := ftpclient.Connect(srv)
@@ -135,39 +222,26 @@ func runResync(dir string, srv config.Server, cfg *config.Config) {
 	defer client.Close()
 	fmt.Print(lang.L.ResyncConnected)
 
-	spinDone := make(chan struct{})
-	go func() {
-		frames := []string{"|", "/", "-", "\\"}
-		i := 0
-		for {
-			select {
-			case <-spinDone:
-				return
-			case <-time.After(150 * time.Millisecond):
-				fmt.Printf("\r  %s %s", frames[i%4], lang.L.ResyncListing)
-				i++
-			}
-		}
-	}()
+	fmt.Printf("  %s\n", lang.L.ResyncListing)
 	remoteFiles, err := client.ListRecursive(srv.RemotePath)
-	close(spinDone)
 	if err != nil {
-		fmt.Printf("\r%-50s\n", "")
 		fmt.Printf(lang.L.ResyncListErr, err)
 		return
 	}
-	fmt.Printf("\r  %-40s\n", "") // spinner satırını temizle
 	fmt.Printf(lang.L.ResyncFoundFmt, len(remoteFiles))
+
+	frozenList, _ := frozen.Load(dir, srv.Name)
 
 	total := len(current)
 	done := 0
 	matched := 0
 	different := 0
+	frozenDiff := 0
 	lastPrint := time.Now()
 	for key, hash := range current {
 		done++
-		if time.Since(lastPrint) >= 80*time.Millisecond {
-			fmt.Printf(lang.L.ResyncComparingFmt, done, total)
+		if done == total || time.Since(lastPrint) >= 80*time.Millisecond {
+			fmt.Printf("  Karşılaştırılıyor: %d / %d\n", done, total)
 			lastPrint = time.Now()
 		}
 
@@ -180,7 +254,11 @@ func runResync(dir string, srv config.Server, cfg *config.Config) {
 		localSize := uint64(localInfo.Size())
 		remoteSize, exists := remoteFiles[key]
 		if !exists {
+			delete(st.Files, key)
 			different++
+			if frozen.IsFrozen(frozenList, key) {
+				frozenDiff++
+			}
 			continue
 		}
 		// Boyut doğrudan eşleşiyorsa veya CRLF→LF farkı açıklıyorsa eşleşti say
@@ -189,12 +267,21 @@ func runResync(dir string, srv config.Server, cfg *config.Config) {
 			st.Files[key] = hash
 			matched++
 		} else {
+			// Boyut uyuşmadı — bir sonraki sync'in yeniden yüklemesi için state'ten sil
+			delete(st.Files, key)
 			different++
+			if frozen.IsFrozen(frozenList, key) {
+				frozenDiff++
+			}
 		}
 	}
-	fmt.Println() // \r satırını kapat
 
-	fmt.Printf(lang.L.ResyncMatchedFmt, matched, different)
+	if frozenDiff > 0 {
+		fmt.Printf(lang.L.ResyncMatchedFmt, matched, different)
+		fmt.Printf("  ❄ %d frozen dosya farklı/eksik (sync sırasında atlanacak)\n", frozenDiff)
+	} else {
+		fmt.Printf(lang.L.ResyncMatchedFmt, matched, different)
+	}
 
 	st.FirstSyncDone = true
 	_ = state.Save(dir, st)
