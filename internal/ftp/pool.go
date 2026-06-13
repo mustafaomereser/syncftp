@@ -16,10 +16,11 @@ type UploadTask struct {
 
 // UploadResult holds the outcome of one upload task.
 type UploadResult struct {
-	RelPath  string
-	Hash     string
-	Err      error
-	Attempts int
+	RelPath   string
+	Hash      string
+	Err       error
+	Attempts  int
+	RetryErrs []error // her başarısız denemenin hatası (son hariç)
 }
 
 // Pool manages N concurrent FTP connections to the same server.
@@ -141,12 +142,24 @@ func (p *Pool) Upload(tasks []UploadTask) []UploadResult {
 
 func (p *Pool) uploadWithRetry(client *Client, task UploadTask) UploadResult {
 	var lastErr error
+	var retryErrs []error
 	maxAttempts := p.maxRetries + 1
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		lastErr = client.Upload(task.LocalPath, task.RelPath)
 		if lastErr == nil {
-			return UploadResult{RelPath: task.RelPath, Hash: task.Hash, Attempts: attempt}
+			return UploadResult{
+				RelPath:   task.RelPath,
+				Hash:      task.Hash,
+				Attempts:  attempt,
+				RetryErrs: retryErrs,
+			}
 		}
+		retryErrs = append(retryErrs, lastErr)
 	}
-	return UploadResult{RelPath: task.RelPath, Err: lastErr, Attempts: maxAttempts}
+	return UploadResult{
+		RelPath:   task.RelPath,
+		Err:       lastErr,
+		Attempts:  maxAttempts,
+		RetryErrs: retryErrs[:len(retryErrs)-1], // son hata zaten Err'da, RetryErrs'da tekrar etme
+	}
 }

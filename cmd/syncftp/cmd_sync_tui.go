@@ -189,19 +189,29 @@ func (m syncTUIModel) View() string {
 	}
 	for _, r := range m.results[start:] {
 		if r.Err != nil {
-			retry := ""
+			suffix := ""
 			if r.Attempts > 1 {
-				retry = stDim.Render(fmt.Sprintf(lang.L.SyncRetryFmt, r.Attempts))
+				suffix = stDim.Render(fmt.Sprintf(lang.L.SyncRetryFmt, r.Attempts))
 			}
-			b.WriteString(fmt.Sprintf("  %s %s%s\n",
-				stFail.Render("✗"), r.RelPath, retry))
+			b.WriteString(fmt.Sprintf("  %s %s%s\n", stFail.Render("✗"), r.RelPath, suffix))
+			// Her denemenin hata mesajını göster
+			for i, e := range r.RetryErrs {
+				b.WriteString(fmt.Sprintf("       %s\n",
+					stDim.Render(fmt.Sprintf(lang.L.SyncAttemptDetailFmt, i+1, e))))
+			}
+			b.WriteString(fmt.Sprintf("       %s\n",
+				stFail.Render(fmt.Sprintf(lang.L.SyncAttemptDetailFmt, r.Attempts, r.Err))))
 		} else {
-			retry := ""
+			suffix := ""
 			if r.Attempts > 1 {
-				retry = stDim.Render(fmt.Sprintf(lang.L.SyncRetryOkFmt, r.Attempts))
+				// Başarılı ama retry gerekti — ilk hatayı göster
+				firstErr := ""
+				if len(r.RetryErrs) > 0 {
+					firstErr = stDim.Render(" ← " + r.RetryErrs[0].Error())
+				}
+				suffix = stDim.Render(fmt.Sprintf(lang.L.SyncRetryOkFmt, r.Attempts)) + firstErr
 			}
-			b.WriteString(fmt.Sprintf("  %s %s%s\n",
-				stOK.Render("✓"), r.RelPath, retry))
+			b.WriteString(fmt.Sprintf("  %s %s%s\n", stOK.Render("✓"), r.RelPath, suffix))
 		}
 	}
 

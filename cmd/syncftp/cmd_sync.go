@@ -152,6 +152,15 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 	effectiveExclude := append(append([]string{}, cfg.Sync.Exclude...), srv.Exclude...)
 	effectiveExclude = append(effectiveExclude, cliExclude...)
 
+	// Eski browser'la kaydedilen "local_path/dosya" prefix'li pattern'leri normalize et
+	localPath := srv.EffectiveLocalPath(cfg.Project)
+	effectiveInclude = normalizePatterns(effectiveInclude, localPath)
+	effectiveExclude = normalizePatterns(effectiveExclude, localPath)
+
+	// Protect normalize (global + sunucu)
+	effectiveProtect := append(append([]string{}, cfg.Sync.Protect...), srv.Protect...)
+	effectiveProtect = normalizePatterns(effectiveProtect, localPath)
+
 	var toUpload []string
 
 	if flagRetryFailed {
@@ -238,7 +247,7 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 	skipped := 0
 	for _, rel := range toUpload {
 		f := byKey[rel]
-		if ftpclient.IsProtected(rel, cfg.Sync.Protect) || ftpclient.IsProtected(rel, srv.Protect) {
+		if ftpclient.IsProtected(rel, effectiveProtect) {
 			skipped++
 			continue
 		}
@@ -255,8 +264,7 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 	if flagDryRun {
 		for _, rel := range toUpload {
 			f := byKey[rel]
-			if ftpclient.IsProtected(rel, cfg.Sync.Protect) || ftpclient.IsProtected(f.RelPath, cfg.Sync.Protect) ||
-				ftpclient.IsProtected(rel, srv.Protect) || ftpclient.IsProtected(f.RelPath, srv.Protect) {
+			if ftpclient.IsProtected(rel, effectiveProtect) || ftpclient.IsProtected(f.RelPath, effectiveProtect) {
 				fmt.Printf(lang.L.SyncProtectedLabel, rel)
 			} else {
 				fmt.Printf(lang.L.SyncUploadLabel, rel)
@@ -285,7 +293,7 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 
 	// Korunan dosyaları logla
 	for _, rel := range toUpload {
-		if ftpclient.IsProtected(rel, cfg.Sync.Protect) || ftpclient.IsProtected(rel, srv.Protect) {
+		if ftpclient.IsProtected(rel, effectiveProtect) {
 			fmt.Printf(lang.L.SyncProtectedLabel, rel)
 		}
 	}
@@ -395,6 +403,26 @@ func filterByExclude(paths, exclude []string) []string {
 		}
 		if !excluded {
 			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// normalizePatterns eski tarayıcıyla kaydedilen local_path prefix'li pattern'leri
+// temizler. Örn: "app.aracservistakip.com/composer.json" → "composer.json"
+// localPath boş veya "." ise dokunulmaz.
+func normalizePatterns(patterns []string, localPath string) []string {
+	if localPath == "" || localPath == "." {
+		return patterns
+	}
+	prefix := filepath.ToSlash(strings.TrimSuffix(localPath, "/")) + "/"
+	out := make([]string, len(patterns))
+	for i, p := range patterns {
+		p = filepath.ToSlash(p)
+		if strings.HasPrefix(p, prefix) {
+			out[i] = p[len(prefix):]
+		} else {
+			out[i] = p
 		}
 	}
 	return out

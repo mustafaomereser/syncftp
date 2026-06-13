@@ -19,11 +19,13 @@ import (
 var (
 	statusFlagInclude []string
 	statusFlagExclude []string
+	statusFlagServer  string
 )
 
 func init() {
 	statusCmd.Flags().StringArrayVar(&statusFlagInclude, "include", nil, "Sadece bu yol/klasörleri göster (whitelist)")
 	statusCmd.Flags().StringArrayVar(&statusFlagExclude, "exclude", nil, "Bu yol/klasörleri sonuçtan hariç tut")
+	statusCmd.Flags().StringVarP(&statusFlagServer, "server", "s", "", "Sadece bu sunucunun durumunu göster")
 	rootCmd.AddCommand(statusCmd)
 }
 
@@ -64,7 +66,21 @@ func runStatus(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf(lang.L.StatusProjectFmt, cfg.Project.Name)
 
-	for _, srv := range cfg.EnabledServers() {
+	servers := cfg.EnabledServers()
+	if statusFlagServer != "" {
+		var found []config.Server
+		for _, s := range servers {
+			if s.Name == statusFlagServer {
+				found = append(found, s)
+			}
+		}
+		if len(found) == 0 {
+			return fmt.Errorf("sunucu bulunamadı: %q", statusFlagServer)
+		}
+		servers = found
+	}
+
+	for _, srv := range servers {
 		localPath := srv.EffectiveLocalPath(cfg.Project)
 		localDir := filepath.Join(dir, localPath)
 		matcher, err := ignore.Load(localDir, cfg.Sync.IgnoreFiles)
@@ -98,6 +114,10 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		// Exclude: global + sunucu + CLI
 		srvExclude := append(append([]string{}, cfg.Sync.Exclude...), srv.Exclude...)
 		srvExclude = append(srvExclude, statusFlagExclude...)
+
+		// Eski browser'la kaydedilen "local_path/dosya" prefix'li pattern'leri normalize et
+		srvInclude = normalizePatterns(srvInclude, localPath)
+		srvExclude = normalizePatterns(srvExclude, localPath)
 
 		newFiles := applyStatusFilters(diff.New, srvInclude, srvExclude)
 		changedFiles := applyStatusFilters(diff.Changed, srvInclude, srvExclude)

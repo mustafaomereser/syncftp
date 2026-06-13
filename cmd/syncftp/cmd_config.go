@@ -628,6 +628,13 @@ func runServerEdit(srv *config.Server, projectDir string, isNew bool) (saved boo
 			return false
 		case "browse":
 			*srv = fm.srv // mevcut değişiklikleri sakla
+			localRoot := projectDir
+			if srv.LocalPath != "" {
+				candidate := filepath.Join(projectDir, filepath.FromSlash(srv.LocalPath))
+				if fi, err := os.Stat(candidate); err == nil && fi.IsDir() {
+					localRoot = candidate
+				}
+			}
 			var current []string
 			switch fm.browseFor {
 			case "include":
@@ -640,7 +647,7 @@ func runServerEdit(srv *config.Server, projectDir string, isNew bool) (saved boo
 				current = srv.Protect
 				cursor = 15
 			}
-			selected, ok := runLocalBrowser(projectDir, current)
+			selected, ok := runLocalBrowser(localRoot, current)
 			if ok {
 				switch fm.browseFor {
 				case "include":
@@ -677,7 +684,7 @@ var globalFields = []globalField{
 	{"Protect", "list", "protect"},
 	{"Include (global)", "list", "include"},
 	{"Exclude (global)", "list", "exclude"},
-	{"Ignore files", "textlist", ""},
+	{"Ignore files", "list", "ignore"},
 }
 
 type globalEditModel struct {
@@ -711,8 +718,11 @@ func (m *globalEditModel) getDisplayValue(i int) string {
 	case 3:
 		return listDisplay(m.sync.Exclude)
 	case 4:
-		if len(m.sync.IgnoreFiles) == 0 {
+		if m.sync.IgnoreFiles == nil {
 			return "(varsayılan: .gitignore + syncftp.ignore)"
+		}
+		if len(m.sync.IgnoreFiles) == 0 {
+			return "(hiçbiri — ignore kullanılmaz)"
 		}
 		return strings.Join(m.sync.IgnoreFiles, ", ")
 	}
@@ -850,7 +860,7 @@ func (m globalEditModel) View() string {
 
 	b.WriteString("\n" + div + "\n")
 	b.WriteString(cfgHint.Render("  s = kaydet  |  q/Esc = iptal") + "\n")
-	b.WriteString(cfgHint.Render("  ignore_files: boş = .gitignore + syncftp.ignore her ikisi; belirt: .gitignore VEYA syncftp.ignore") + "\n")
+	b.WriteString(cfgHint.Render("  ignore_files: b=gözat ile seç; hiçbiri seçmeden kaydet = ignore yok; alan boşsa = varsayılan (.gitignore + syncftp.ignore)") + "\n")
 	return b.String()
 }
 
@@ -885,6 +895,21 @@ func runGlobalEdit(proj *config.Project, s *config.Sync, projectDir string) bool
 			cursor = 0
 		case "browse":
 			*s = fm.sync
+			if fm.browseFor == "ignore" {
+				cursor = 4
+				result, ok := runIgnoreFilePicker(s.IgnoreFiles)
+				if ok {
+					s.IgnoreFiles = result
+				}
+				break
+			}
+			localRoot := projectDir
+			if fm.project.DefaultPath != "" {
+				candidate := filepath.Join(projectDir, filepath.FromSlash(fm.project.DefaultPath))
+				if fi, err := os.Stat(candidate); err == nil && fi.IsDir() {
+					localRoot = candidate
+				}
+			}
 			var current []string
 			switch fm.browseFor {
 			case "protect":
@@ -897,7 +922,7 @@ func runGlobalEdit(proj *config.Project, s *config.Sync, projectDir string) bool
 				current = s.Exclude
 				cursor = 3
 			}
-			selected, ok := runLocalBrowser(projectDir, current)
+			selected, ok := runLocalBrowser(localRoot, current)
 			if ok {
 				switch fm.browseFor {
 				case "protect":
@@ -1224,5 +1249,108 @@ func runLocalBrowser(root string, preSelected []string) ([]string, bool) {
 
 	// Dosya sisteminde olmayan eski öğeleri koru
 	result := append(fm.nonFsItems, selected...)
+	return result, true
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Ignore Dosyası Seçici
+// ══════════════════════════════════════════════════════════════════════════════
+
+var ignoreFileOptions = []string{".gitignore", "syncftp.ignore"}
+
+type ignorePickerModel struct {
+	checked [2]bool // 0=.gitignore, 1=syncftp.ignore
+	cursor  int
+	saved   bool
+	quit    bool
+}
+
+func newIgnorePickerModel(current []string) ignorePickerModel {
+	m := ignorePickerModel{}
+	if current == nil {
+		// nil = henüz ayarlanmamış → ikisi de seçili default
+		m.checked[0] = true
+		m.checked[1] = true
+	} else {
+		for _, f := range current {
+			for i, opt := range ignoreFileOptions {
+				if f == opt {
+					m.checked[i] = true
+				}
+			}
+		}
+	}
+	return m
+}
+
+func (m ignorePickerModel) Init() tea.Cmd { return nil }
+
+func (m ignorePickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "q", "Q", "esc":
+			m.quit = true
+			return m, tea.Quit
+		case "s", "S":
+			m.saved = true
+			return m, tea.Quit
+		case "up", "k":
+			if m.cursor > 0 {
+				m.cursor--
+			}
+		case "down", "j":
+			if m.cursor < len(ignoreFileOptions)-1 {
+				m.cursor++
+			}
+		case " ", "enter":
+			m.checked[m.cursor] = !m.checked[m.cursor]
+		}
+	}
+	return m, nil
+}
+
+func (m ignorePickerModel) View() string {
+	var b strings.Builder
+	b.WriteString("\n")
+	b.WriteString(cfgTitle.Render("⚙  Ignore dosyaları") + "\n")
+	b.WriteString(cfgHint.Render("  Space = seç/kaldır  |  s = kaydet  |  q = iptal") + "\n\n")
+
+	for i, opt := range ignoreFileOptions {
+		check := cfgDisabled.Render("[ ]")
+		if m.checked[i] {
+			check = cfgEnabled.Render("[✓]")
+		}
+		if i == m.cursor {
+			b.WriteString(fmt.Sprintf(" %s%s  %s\n", cfgCursor.Render("▶ "), check, cfgValue.Render(opt)))
+		} else {
+			b.WriteString(fmt.Sprintf("    %s  %s\n", check, opt))
+		}
+	}
+
+	b.WriteString("\n")
+	b.WriteString(cfgHint.Render("  Hiçbirini seçmezsen ignore kullanılmaz.") + "\n")
+	return b.String()
+}
+
+// runIgnoreFilePicker iki seçenekli ignore dosyası seçici açar.
+// Döner: (seçilen liste, kaydedildi mi). nil = iptal.
+func runIgnoreFilePicker(current []string) ([]string, bool) {
+	m := newIgnorePickerModel(current)
+	p := tea.NewProgram(m, tea.WithAltScreen())
+	raw, err := p.Run()
+	if err != nil {
+		return nil, false
+	}
+	fm := raw.(ignorePickerModel)
+	if fm.quit || !fm.saved {
+		return nil, false
+	}
+	result := []string{}
+	for i, opt := range ignoreFileOptions {
+		if fm.checked[i] {
+			result = append(result, opt)
+		}
+	}
 	return result, true
 }

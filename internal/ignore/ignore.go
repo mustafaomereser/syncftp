@@ -17,11 +17,15 @@ type Matcher struct {
 }
 
 // Load reads the given ignore files from dir and merges their patterns.
-// Pass nil or an empty slice to use the default list (.gitignore + syncftp.ignore).
+// Pass nil to use the default list (.gitignore + syncftp.ignore).
+// Pass an empty (non-nil) slice to use no ignore files at all.
 // Files that do not exist are silently skipped.
 func Load(dir string, ignoreFiles []string) (*Matcher, error) {
-	if len(ignoreFiles) == 0 {
+	if ignoreFiles == nil {
 		ignoreFiles = defaultIgnoreFiles
+	}
+	if len(ignoreFiles) == 0 {
+		return &Matcher{}, nil
 	}
 	var lines []string
 	for _, name := range ignoreFiles {
