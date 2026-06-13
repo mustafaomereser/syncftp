@@ -1463,15 +1463,11 @@ func pickServerMultiTUI(servers []config.Server, connectedName string) ([]config
 			Value: s.Name,
 		}
 	}
-	m := newMultiPickerModel(lang.L.ShellSyncServers, lang.L.ShellSyncPickSub, items)
+	var m multiPickerModel
 	if connectedName != "" {
-		for i, item := range items {
-			if item.Value == connectedName {
-				m.checked[i] = true
-				m.cursor = i
-				break
-			}
-		}
+		m = newMultiPickerModelPreSelected(lang.L.ShellSyncServers, lang.L.ShellSyncPickSub, items, connectedName)
+	} else {
+		m = newMultiPickerModel(lang.L.ShellSyncServers, lang.L.ShellSyncPickSub, items)
 	}
 	vals, err := runMultiPickerRaw(m)
 	if err != nil || vals == nil {

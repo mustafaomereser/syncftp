@@ -323,7 +323,27 @@ func newMultiPickerModel(title, subtitle string, items []PickerItem) multiPicker
 		subtitle: subtitle,
 		items:    items,
 		checked:  make([]bool, len(items)),
-		// Varsayılan: hiçbiri seçili değil — Enter ile sadece cursor seçilir
+	}
+}
+
+// newMultiPickerModelPreSelected verilen value'ya sahip item'ı önceden işaretli açar.
+// Cursor da o item üzerine konumlandırılır.
+func newMultiPickerModelPreSelected(title, subtitle string, items []PickerItem, preSelectValue string) multiPickerModel {
+	checked := make([]bool, len(items))
+	cursor := 0
+	for i, item := range items {
+		if item.Value == preSelectValue {
+			checked[i] = true
+			cursor = i
+			break
+		}
+	}
+	return multiPickerModel{
+		title:    title,
+		subtitle: subtitle,
+		items:    items,
+		checked:  checked,
+		cursor:   cursor,
 	}
 }
 
