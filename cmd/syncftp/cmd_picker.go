@@ -298,9 +298,8 @@ func (m multiPickerModel) View() string {
 	return b.String()
 }
 
-// RunMultiPicker çoklu seçimli interaktif menü açar. Seçilen Value'ların listesini döner.
-func RunMultiPicker(title, subtitle string, items []PickerItem) ([]string, error) {
-	m := newMultiPickerModel(title, subtitle, items)
+// runMultiPickerRaw verilen model ile multi-picker'ı çalıştırır.
+func runMultiPickerRaw(m multiPickerModel) ([]string, error) {
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	final, err := p.Run()
 	if err != nil {
@@ -311,6 +310,11 @@ func RunMultiPicker(title, subtitle string, items []PickerItem) ([]string, error
 		return nil, nil
 	}
 	return fm.result, nil
+}
+
+// RunMultiPicker çoklu seçimli interaktif menü açar. Seçilen Value'ların listesini döner.
+func RunMultiPicker(title, subtitle string, items []PickerItem) ([]string, error) {
+	return runMultiPickerRaw(newMultiPickerModel(title, subtitle, items))
 }
 
 func newMultiPickerModel(title, subtitle string, items []PickerItem) multiPickerModel {

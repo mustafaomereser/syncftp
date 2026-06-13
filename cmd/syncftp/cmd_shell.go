@@ -862,7 +862,12 @@ func (sh *shellState) cmdSync(args []string) {
 		}
 		servers = filtered
 	} else if !all && len(servers) > 1 {
-		selected, err := pickServerMultiTUI(servers)
+		// Bağlı sunucu varsa onu önceden işaretli aç
+		connectedName := ""
+		if sh.srv != nil {
+			connectedName = sh.srv.Name
+		}
+		selected, err := pickServerMultiTUI(servers, connectedName)
 		if err != nil || selected == nil {
 			fmt.Println(lang.L.ShellSyncCancelled)
 			return
@@ -1387,7 +1392,8 @@ func (m statusTUI) View() string {
 }
 
 // pickServerMultiTUI — çoklu seçimli sunucu picker'ı (sync için).
-func pickServerMultiTUI(servers []config.Server) ([]config.Server, error) {
+// connectedName boş değilse o sunucu önceden işaretli + cursor üzerinde açılır.
+func pickServerMultiTUI(servers []config.Server, connectedName string) ([]config.Server, error) {
 	items := make([]PickerItem, len(servers))
 	for i, s := range servers {
 		items[i] = PickerItem{
@@ -1397,7 +1403,17 @@ func pickServerMultiTUI(servers []config.Server) ([]config.Server, error) {
 			Value: s.Name,
 		}
 	}
-	vals, err := RunMultiPicker(lang.L.ShellSyncServers, lang.L.ShellSyncPickSub, items)
+	m := newMultiPickerModel(lang.L.ShellSyncServers, lang.L.ShellSyncPickSub, items)
+	if connectedName != "" {
+		for i, item := range items {
+			if item.Value == connectedName {
+				m.checked[i] = true
+				m.cursor = i
+				break
+			}
+		}
+	}
+	vals, err := runMultiPickerRaw(m)
 	if err != nil || vals == nil {
 		return nil, err
 	}

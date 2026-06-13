@@ -68,7 +68,7 @@ func runSync(cmd *cobra.Command, args []string) error {
 		}
 		servers = found
 	} else if !flagAll && len(servers) > 1 {
-		selected, err := pickServerMultiTUI(servers)
+		selected, err := pickServerMultiTUI(servers, "")
 		if err != nil {
 			return err
 		}
