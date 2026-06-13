@@ -26,11 +26,12 @@ import (
 
 // shellState tuttuğu bağlantı + gezinme durumu
 type shellState struct {
-	cfg       config.Config
-	configDir string
-	srv       *config.Server
-	client    *ftpclient.Client
-	remoteCwd string
+	cfg              config.Config
+	configDir        string
+	srv              *config.Server
+	client           *ftpclient.Client
+	remoteCwd        string
+	pendingReconnect bool // calibrate sonrası readline açılmadan önce yeniden bağlanılacak
 }
 
 func runShell() error {
@@ -72,6 +73,24 @@ func runShell() error {
 
 	ctrlCCount := 0
 	for {
+		// TUI'lardan kalan cursor gizleme ve attribute'ları sıfırla
+		fmt.Print("\033[?25h\033[0m")
+
+		// Calibrate'in ertelediği reconnect — readline raw mode'a girmeden önce yap
+		if sh.pendingReconnect && sh.srv != nil {
+			sh.pendingReconnect = false
+			newClient, err := ftpclient.Connect(*sh.srv)
+			if err != nil {
+				fmt.Printf("  ! Yeniden bağlanılamadı: %v\n", err)
+			} else {
+				if sh.client != nil {
+					sh.client.Close()
+				}
+				sh.client = newClient
+				fmt.Printf("  ✓ %s yeniden bağlandı\n", sh.srv.Name)
+			}
+		}
+
 		rl.SetPrompt(sh.prompt())
 		line, err := rl.Readline()
 		if err == readline.ErrInterrupt {
@@ -954,18 +973,12 @@ func (sh *shellState) cmdCalibrate(args []string) {
 		runCalibrate(sh.configDir, srv, &sh.cfg)
 	}
 
-	// resync kendi FTP bağlantısını açar; sunucu aynı kullanıcıdan iki bağlantı görünce
-	// shell'in mevcut bağlantısını kesebilir. Yeniden bağlan.
+	// Calibrate kendi FTP bağlantısını açar; bazı sunucular aynı kullanıcıdan iki
+	// bağlantı görünce shell'inkini keser. Reconnect'i readline'dan önce yap (pendingReconnect).
 	if sh.client != nil && sh.srv != nil {
 		sh.client.Close()
 		sh.client = nil
-		newClient, err := ftpclient.Connect(*sh.srv)
-		if err != nil {
-			fmt.Printf("  ! Yeniden bağlanılamadı: %v\n", err)
-		} else {
-			sh.client = newClient
-			fmt.Printf("  ✓ %s yeniden bağlandı\n", sh.srv.Name)
-		}
+		sh.pendingReconnect = true
 	}
 }
 
