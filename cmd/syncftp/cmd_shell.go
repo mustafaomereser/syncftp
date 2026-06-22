@@ -413,6 +413,9 @@ func (sh *shellState) cmdLs(args []string) {
 		fmt.Printf(lang.L.ShellBrowserErr, err)
 		return
 	}
+	if result.NewClient != nil {
+		sh.client = result.NewClient
+	}
 	sh.remoteCwd = result.CWD
 
 	for {
@@ -1098,6 +1101,19 @@ func (sh *shellState) shellSyncServer(srv config.Server, full, dryRun bool) {
 		toUpload = unfrozen
 	}
 
+	// Block filter
+	{
+		effectiveBlockExts := append(append([]string{}, cfg.Sync.BlockExtensions...), srv.BlockExtensions...)
+		effectiveBlockFiles := append(append([]string{}, cfg.Sync.BlockFiles...), srv.BlockFiles...)
+		if len(effectiveBlockExts) > 0 || len(effectiveBlockFiles) > 0 {
+			var blocked int
+			toUpload, blocked = filterByBlock(toUpload, effectiveBlockExts, effectiveBlockFiles)
+			if blocked > 0 {
+				fmt.Printf(lang.L.SyncBlockedFmt, blocked)
+			}
+		}
+	}
+
 	// Protect filtresi
 	var filtered []string
 	for _, rel := range toUpload {
@@ -1131,6 +1147,27 @@ func (sh *shellState) shellSyncServer(srv config.Server, full, dryRun bool) {
 	for _, rel := range toUpload {
 		f := byRel[rel]
 		tasks = append(tasks, ftpclient.UploadTask{LocalPath: f.AbsPath, RelPath: rel, Hash: current[rel]})
+	}
+
+	// Minify / Obfuscate
+	if srv.Minify || srv.Obfuscate {
+		if tmpDir, tdErr := os.MkdirTemp("", "syncftp-minify-*"); tdErr == nil {
+			var minCount, obfCount int
+			var tmpFiles []string
+			tasks, tmpFiles, minCount, obfCount = ProcessMinify(tasks, srv.Minify, srv.Obfuscate, tmpDir)
+			defer func() {
+				for _, p := range tmpFiles {
+					os.Remove(p)
+				}
+				os.Remove(tmpDir)
+			}()
+			if minCount > 0 {
+				fmt.Printf(lang.L.SyncMinifiedFmt, minCount)
+			}
+			if obfCount > 0 {
+				fmt.Printf(lang.L.SyncObfuscatedFmt, obfCount)
+			}
+		}
 	}
 
 	ch := pool.UploadCh(tasks)
@@ -1167,6 +1204,19 @@ func (sh *shellState) shellSyncServer(srv config.Server, full, dryRun bool) {
 		if relDir, err := release.Create(dir, srv.Name, successFiles); err == nil {
 			fmt.Printf(lang.L.ShellReleaseFmt, relDir)
 		}
+	}
+
+	// Webhook
+	webhookURL := srv.Webhook
+	if webhookURL == "" {
+		webhookURL = cfg.Sync.Webhook
+	}
+	if webhookURL != "" {
+		var uploadedFiles []string
+		for rel := range successFiles {
+			uploadedFiles = append(uploadedFiles, rel)
+		}
+		sendWebhook(webhookURL, srv.Name, len(successFiles), len(failedPaths), uploadedFiles)
 	}
 }
 

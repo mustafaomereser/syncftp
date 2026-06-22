@@ -86,13 +86,32 @@ func (c *Client) Upload(localPath, relPath string) error {
 	}
 	defer f.Close()
 
-	// FileZilla'nın yaptığı gibi: \r\n → \n normalize et, binary gönder.
-	// Sunucu ASCII modunu ignore etse bile dosya temiz kalır.
-	// Sadece satır sonları etkilenir — string içi boşluk/tab dokunulmaz.
-	if err := c.conn.Stor(remoteFull, newCRLFNormalizer(f)); err != nil {
+	// Metin dosyaları: \r\n → \n normalize et (PHP hosting ASCII mod sorunu).
+	// Binary dosyalar (resim, PDF, ZIP vb.): normalizer ATLANIR — null byte tespiti.
+	var uploadReader io.Reader
+	if isBinaryContent(f) {
+		uploadReader = f
+	} else {
+		uploadReader = newCRLFNormalizer(f)
+	}
+	if err := c.conn.Stor(remoteFull, uploadReader); err != nil {
 		return fmt.Errorf("yükleme başarısız (%s): %w", remoteFull, err)
 	}
 	return nil
+}
+
+// isBinaryContent dosyanın ilk 8 KB'ını okur; null byte varsa binary döner.
+// Okuma sonrası dosya başa sarılır, Upload akışı etkilenmez.
+func isBinaryContent(f *os.File) bool {
+	buf := make([]byte, 8192)
+	n, _ := f.Read(buf)
+	_, _ = f.Seek(0, io.SeekStart)
+	for _, b := range buf[:n] {
+		if b == 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // crlfNormalizer \r\n → \n dönüşümü yapan io.Reader wrapper'ı.

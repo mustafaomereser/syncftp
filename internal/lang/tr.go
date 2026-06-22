@@ -299,6 +299,26 @@ Diğer:
 	SyncCleanupRemovedFmt: "  ⚠ %q artık diskte yok, listeden çıkarıldı\n",
 	SyncConfigSaveErr:     "  ! Config kaydedilemedi: %v\n",
 
+	// webhook
+	SyncWebhookSentFmt: "  ✓ Webhook: %s (HTTP %d)\n",
+	SyncWebhookErrFmt:  "  ! Webhook hatası: %v\n",
+
+	// block filter
+	SyncBlockedFmt: "  ✗ %d engellendi (uzantı/dosya filtresi)\n",
+
+	// minify / obfuscate
+	SyncMinifiedFmt:   "  ✓ %d dosya küçültüldü (minify)\n",
+	SyncObfuscatedFmt: "  ✓ %d dosya obfuscate edildi\n",
+	SyncMinifyErrFmt:  "  ! Minify hatası (%s): %v — orijinal yükleniyor\n",
+	SyncObfuscErrFmt:  "  ! Obfuscate hatası (%s): %v — minified yükleniyor\n",
+	SyncNoTerserWarn:  "  ⚠ terser PATH'te bulunamadı — obfuscation atlandı\n",
+
+	// sync summary TUI
+	SyncSummaryTitle:   "  Sync Özeti",
+	SyncSummaryNavHint: "  ↑↓ gezin  |  → = detay  |  q = çık",
+	SyncSummaryOk:      "✓",
+	SyncSummaryErrFmt:  "HATA: %v",
+
 	// status TUI
 	StatusDetailChangesCountFmt: "  %d değişiklik",
 	StatusSyncConfirm:           "  Sync başlatılsın?",
@@ -378,7 +398,12 @@ Diğer:
 	CfgFldMaxRetry:    "Max retry",
 	CfgFldInclude:     "Include",
 	CfgFldExclude:     "Exclude",
-	CfgFldProtect:     "Protect",
+	CfgFldProtect:    "Protect",
+	CfgFldWebhook:    "Webhook URL",
+	CfgFldMinify:     "CSS/JS küçült",
+	CfgFldObfuscate:  "JS gizle (obfuscate)",
+	CfgFldBlockExts:  "Engellenen uzantılar",
+	CfgFldBlockFiles: "Engellenen dosyalar",
 
 	// Config TUI — global settings
 	CfgGlobalEditTitle:    "⚙  Global Ayarlar",
@@ -394,6 +419,9 @@ Diğer:
 	CfgGFldInclude:     "Include (global)",
 	CfgGFldExclude:     "Exclude (global)",
 	CfgGFldIgnore:      "Ignore files",
+	CfgGFldWebhook:     "Webhook URL (global)",
+	CfgGFldBlockExts:   "Engellenen uzantılar (global)",
+	CfgGFldBlockFiles:  "Engellenen dosyalar (global)",
 
 	CfgValueEmpty: "(boş)",
 

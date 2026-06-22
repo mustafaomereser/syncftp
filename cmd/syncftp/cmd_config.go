@@ -53,6 +53,8 @@ func srvFieldLabel(i int) string {
 		lang.L.CfgFldPassive, lang.L.CfgFldDisableEPSV, lang.L.CfgFldNAT,
 		lang.L.CfgFldMaxConn, lang.L.CfgFldMaxRetry,
 		lang.L.CfgFldInclude, lang.L.CfgFldExclude, lang.L.CfgFldProtect,
+		lang.L.CfgFldWebhook, lang.L.CfgFldMinify, lang.L.CfgFldObfuscate,
+		lang.L.CfgFldBlockExts, lang.L.CfgFldBlockFiles,
 	}
 	if i >= 0 && i < len(labels) {
 		return labels[i]
@@ -390,9 +392,14 @@ var serverFields = []srvField{
 	{"NAT workaround", "bool", ""}, // idx 11
 	{"Max bağlantı", "int", ""},    // idx 12
 	{"Max retry", "int", ""},       // idx 13
-	{"Include", "list", "include"}, // idx 14
-	{"Exclude", "list", "exclude"}, // idx 15
-	{"Protect", "list", "protect"}, // idx 16
+	{"Include", "list", "include"},    // idx 14
+	{"Exclude", "list", "exclude"},    // idx 15
+	{"Protect", "list", "protect"},    // idx 16
+	{"Webhook URL", "text", ""},       // idx 17
+	{"Minify CSS/JS", "bool", ""},     // idx 18
+	{"Obfuscate JS", "bool", ""},      // idx 19
+	{"Block extensions", "list", "block_ext"},   // idx 20
+	{"Block filenames", "list", "block_files"},  // idx 21
 }
 
 type serverEditModel struct {
@@ -458,6 +465,19 @@ func (m *serverEditModel) getDisplayValue(i int) string {
 		return listDisplay(m.srv.Exclude)
 	case 16:
 		return listDisplay(m.srv.Protect)
+	case 17:
+		if m.srv.Webhook != "" {
+			return m.srv.Webhook
+		}
+		return lang.L.CfgValueEmpty
+	case 18:
+		return boolIcon(m.srv.Minify)
+	case 19:
+		return boolIcon(m.srv.Obfuscate)
+	case 20:
+		return listDisplay(m.srv.BlockExtensions)
+	case 21:
+		return listDisplay(m.srv.BlockFiles)
 	}
 	return ""
 }
@@ -488,6 +508,12 @@ func (m *serverEditModel) getEditableValue(i int) string {
 		return strings.Join(m.srv.Exclude, ", ")
 	case 16:
 		return strings.Join(m.srv.Protect, ", ")
+	case 17:
+		return m.srv.Webhook
+	case 20:
+		return strings.Join(m.srv.BlockExtensions, ", ")
+	case 21:
+		return strings.Join(m.srv.BlockFiles, ", ")
 	}
 	return ""
 }
@@ -524,6 +550,12 @@ func (m *serverEditModel) applyValue(i int, val string) {
 		m.srv.Exclude = parseList(val)
 	case 16:
 		m.srv.Protect = parseList(val)
+	case 17:
+		m.srv.Webhook = val
+	case 20:
+		m.srv.BlockExtensions = parseList(val)
+	case 21:
+		m.srv.BlockFiles = parseList(val)
 	}
 }
 
@@ -537,6 +569,10 @@ func (m *serverEditModel) toggleBool(i int) {
 		m.srv.DisableEPSV = !m.srv.DisableEPSV
 	case 11:
 		m.srv.NATWorkaround = !m.srv.NATWorkaround
+	case 18:
+		m.srv.Minify = !m.srv.Minify
+	case 19:
+		m.srv.Obfuscate = !m.srv.Obfuscate
 	}
 }
 
@@ -812,6 +848,9 @@ var globalFields = []globalField{
 	{"Include (global)", "list", "include"},
 	{"Exclude (global)", "list", "exclude"},
 	{"Ignore files", "list", "ignore"},
+	{"Webhook URL (global)", "text", ""},
+	{"Block extensions (global)", "list", "block_ext"},
+	{"Block filenames (global)", "list", "block_files"},
 }
 
 type globalEditModel struct {
@@ -852,6 +891,15 @@ func (m *globalEditModel) getDisplayValue(i int) string {
 			return lang.L.CfgGlobalIgnoreNone
 		}
 		return strings.Join(m.sync.IgnoreFiles, ", ")
+	case 5:
+		if m.sync.Webhook != "" {
+			return m.sync.Webhook
+		}
+		return lang.L.CfgValueEmpty
+	case 6:
+		return listDisplay(m.sync.BlockExtensions)
+	case 7:
+		return listDisplay(m.sync.BlockFiles)
 	}
 	return ""
 }
@@ -868,6 +916,12 @@ func (m *globalEditModel) getEditableValue(i int) string {
 		return strings.Join(m.sync.Exclude, ", ")
 	case 4:
 		return strings.Join(m.sync.IgnoreFiles, ", ")
+	case 5:
+		return m.sync.Webhook
+	case 6:
+		return strings.Join(m.sync.BlockExtensions, ", ")
+	case 7:
+		return strings.Join(m.sync.BlockFiles, ", ")
 	}
 	return ""
 }
@@ -884,6 +938,12 @@ func (m *globalEditModel) applyValue(i int, val string) {
 		m.sync.Exclude = parseList(val)
 	case 4:
 		m.sync.IgnoreFiles = parseList(val)
+	case 5:
+		m.sync.Webhook = val
+	case 6:
+		m.sync.BlockExtensions = parseList(val)
+	case 7:
+		m.sync.BlockFiles = parseList(val)
 	}
 }
 

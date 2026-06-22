@@ -45,10 +45,13 @@ func (p Project) EffectiveLocalPath() string {
 }
 
 type Sync struct {
-	Protect     []string `json:"protect"`
-	Include     []string `json:"include"`
-	Exclude     []string `json:"exclude"`
-	IgnoreFiles []string `json:"ignore_files"` // nil/boş → [".gitignore","syncftp.ignore"] ikisi de yüklenir
+	Protect         []string `json:"protect"`
+	Include         []string `json:"include"`
+	Exclude         []string `json:"exclude"`
+	IgnoreFiles     []string `json:"ignore_files"`              // nil/boş → [".gitignore","syncftp.ignore"] ikisi de yüklenir
+	Webhook         string   `json:"webhook,omitempty"`         // sync sonrası POST atılacak URL
+	BlockExtensions []string `json:"block_extensions,omitempty"` // yüklenmeyecek uzantılar: [".jpg",".pdf"]
+	BlockFiles      []string `json:"block_files,omitempty"`      // yüklenmeyecek dosya adları: ["thumbs.db"]
 }
 
 type FirstSync struct {
@@ -67,12 +70,17 @@ type Server struct {
 	Passive        bool     `json:"passive"`
 	DisableEPSV    bool     `json:"disable_epsv"`
 	NATWorkaround  bool     `json:"nat_workaround"`
-	Enabled        bool     `json:"enabled"`
-	MaxConnections int      `json:"max_connections"`
-	MaxRetries     int      `json:"max_retries"`
-	Include        []string `json:"include"`
-	Exclude        []string `json:"exclude"`
-	Protect        []string `json:"protect"`
+	Enabled         bool     `json:"enabled"`
+	MaxConnections  int      `json:"max_connections"`
+	MaxRetries      int      `json:"max_retries"`
+	Include         []string `json:"include"`
+	Exclude         []string `json:"exclude"`
+	Protect         []string `json:"protect"`
+	Webhook         string   `json:"webhook,omitempty"`          // sync sonrası POST atılacak URL (global webhook'u override eder)
+	Minify          bool     `json:"minify,omitempty"`           // CSS/JS dosyalarını upload öncesi minify et
+	Obfuscate       bool     `json:"obfuscate,omitempty"`        // JS dosyalarını minify üstüne obfuscate et (terser gerekir)
+	BlockExtensions []string `json:"block_extensions,omitempty"` // yüklenmeyecek uzantılar (global listeye ek)
+	BlockFiles      []string `json:"block_files,omitempty"`      // yüklenmeyecek dosya adları (global listeye ek)
 }
 
 // EffectiveLocalPath sunucunun kendi LocalPath'i varsa onu, yoksa proje defaultunu döndürür.

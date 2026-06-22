@@ -36,11 +36,12 @@ var (
 // ── sonuç ─────────────────────────────────────────────────────────────────────
 
 type BrowserResult struct {
-	CWD      string
-	Selected string   // tek dosya (Enter)
-	Marked   []string // çoklu seçim (Space + Enter)
-	Action   string   // "delete", "move", ""
-	Quit     bool
+	CWD       string
+	Selected  string              // tek dosya (Enter)
+	Marked    []string            // çoklu seçim (Space + Enter)
+	Action    string              // "delete", "move", ""
+	Quit      bool
+	NewClient *ftpclient.Client   // r ile reconnect yapıldıysa yeni bağlantı; nil = reconnect yok
 }
 
 // ── sıralanmış giriş ──────────────────────────────────────────────────────────
@@ -149,6 +150,8 @@ type browserModel struct {
 	previewMeta   string // "4.2 KB  2026-06-11 14:30"
 
 	cursorHistory map[string]int // dizin yolu → son cursor konumu
+
+	reconnected bool // r ile reconnect yapıldıysa true; RunBrowser NewClient döndürür
 
 	// Mod: klasör seçme (taşıma için)
 	pickDirMode bool
@@ -585,6 +588,7 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.client.Close()
 			}
 			m.client = msg.client
+			m.reconnected = true // shell bu flagı okur ve sh.client'ı günceller
 			m.err = nil
 			m.loading = true
 			return m, m.fetchEntries()
@@ -1593,6 +1597,7 @@ func buildBreadcrumb(cwd, root string, maxW int) string {
 }
 
 // RunBrowser tam ekran interaktif FTP dosya tarayıcısını başlatır.
+// Kullanıcı `r` ile reconnect yaparsa result.NewClient != nil olur; shell bağlantısını günceller.
 func RunBrowser(client *ftpclient.Client, startPath, root, configDir string, server *config.Server) (*BrowserResult, error) {
 	m := newBrowserModel(client, startPath, root, configDir, server)
 	p := tea.NewProgram(m, tea.WithAltScreen())
@@ -1601,10 +1606,13 @@ func RunBrowser(client *ftpclient.Client, startPath, root, configDir string, ser
 		return nil, err
 	}
 	fm := final.(browserModel)
+	newClient := clientIfReconnected(fm, client)
 	if fm.result == nil {
-		return &BrowserResult{CWD: fm.cwd, Quit: true}, nil
+		return &BrowserResult{CWD: fm.cwd, Quit: true, NewClient: newClient}, nil
 	}
-	return fm.result, nil
+	r := *fm.result
+	r.NewClient = newClient
+	return &r, nil
 }
 
 // RunBrowserPickDir hedef klasör seçmek için browser açar.
@@ -1622,6 +1630,14 @@ func RunBrowserPickDir(client *ftpclient.Client, startPath, root, configDir stri
 		return "", nil
 	}
 	return fm.result.Selected, nil
+}
+
+// clientIfReconnected browser'da reconnect olduysa yeni client'ı döner.
+func clientIfReconnected(fm browserModel, original *ftpclient.Client) *ftpclient.Client {
+	if fm.reconnected && fm.client != original {
+		return fm.client
+	}
+	return nil
 }
 
 func max(a, b int) int {

@@ -299,6 +299,26 @@ Other:
 	SyncCleanupRemovedFmt: "  ⚠ %q no longer exists locally, removed from list\n",
 	SyncConfigSaveErr:     "  ! Config could not be saved: %v\n",
 
+	// webhook
+	SyncWebhookSentFmt: "  ✓ Webhook: %s (HTTP %d)\n",
+	SyncWebhookErrFmt:  "  ! Webhook error: %v\n",
+
+	// block filter
+	SyncBlockedFmt: "  ✗ %d blocked (extension/filename filter)\n",
+
+	// minify / obfuscate
+	SyncMinifiedFmt:   "  ✓ %d files minified\n",
+	SyncObfuscatedFmt: "  ✓ %d files obfuscated\n",
+	SyncMinifyErrFmt:  "  ! Minify error (%s): %v — uploading original\n",
+	SyncObfuscErrFmt:  "  ! Obfuscate error (%s): %v — uploading minified\n",
+	SyncNoTerserWarn:  "  ⚠ terser not found in PATH — obfuscation skipped\n",
+
+	// sync summary TUI
+	SyncSummaryTitle:   "  Sync Summary",
+	SyncSummaryNavHint: "  ↑↓ navigate  |  → = details  |  q = quit",
+	SyncSummaryOk:      "✓",
+	SyncSummaryErrFmt:  "ERROR: %v",
+
 	// status TUI
 	StatusDetailChangesCountFmt: "  %d changes",
 	StatusSyncConfirm:           "  Start sync?",
@@ -378,7 +398,12 @@ Other:
 	CfgFldMaxRetry:    "Max retry",
 	CfgFldInclude:     "Include",
 	CfgFldExclude:     "Exclude",
-	CfgFldProtect:     "Protect",
+	CfgFldProtect:    "Protect",
+	CfgFldWebhook:    "Webhook URL",
+	CfgFldMinify:     "Minify CSS/JS",
+	CfgFldObfuscate:  "Obfuscate JS",
+	CfgFldBlockExts:  "Block extensions",
+	CfgFldBlockFiles: "Block filenames",
 
 	// Config TUI — global settings
 	CfgGlobalEditTitle:    "⚙  Global Settings",
@@ -394,6 +419,9 @@ Other:
 	CfgGFldInclude:     "Include (global)",
 	CfgGFldExclude:     "Exclude (global)",
 	CfgGFldIgnore:      "Ignore files",
+	CfgGFldWebhook:     "Webhook URL (global)",
+	CfgGFldBlockExts:   "Block extensions (global)",
+	CfgGFldBlockFiles:  "Block filenames (global)",
 
 	CfgValueEmpty: "(empty)",
 

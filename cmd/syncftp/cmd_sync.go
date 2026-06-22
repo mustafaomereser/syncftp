@@ -1,12 +1,18 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
 	"syncftp/internal/config"
@@ -98,42 +104,91 @@ func runSync(cmd *cobra.Command, args []string) error {
 		fmt.Println()
 	}
 
-	for _, srv := range servers {
-		fmt.Printf("══ %s (%s) ══\n", srv.Name, srv.Host)
+	type scanResult struct {
+		srv     config.Server
+		current map[string]string
+		byKey   map[string]scanner.File
+		err     error
+	}
 
+	// Tarama fazı — sequential (local disk, hızlı)
+	scans := make([]scanResult, 0, len(servers))
+	for _, srv := range servers {
 		localPath := srv.EffectiveLocalPath(cfg.Project)
 		localDir := filepath.Join(dir, localPath)
-		fmt.Printf("  Taranıyor: %s\n", localPath)
-
-		matcher, err := ignore.Load(localDir, cfg.Sync.IgnoreFiles)
-		if err != nil {
-			fmt.Printf("  Tarama hatası: %v\n\n", err)
+		matcher, merr := ignore.Load(localDir, cfg.Sync.IgnoreFiles)
+		if merr != nil {
+			scans = append(scans, scanResult{srv: srv, err: merr})
 			continue
 		}
-		files, err := scanner.Scan(localDir, matcher)
-		if err != nil {
-			fmt.Printf("  Tarama hatası: %v\n\n", err)
+		files, ferr := scanner.Scan(localDir, matcher)
+		if ferr != nil {
+			scans = append(scans, scanResult{srv: srv, err: ferr})
 			continue
 		}
-
-		current := make(map[string]string)
-		byKey := make(map[string]scanner.File)
+		current := make(map[string]string, len(files))
+		byKey := make(map[string]scanner.File, len(files))
 		for _, f := range files {
 			current[f.RelPath] = f.Hash
 			byKey[f.RelPath] = f
 		}
-		fmt.Printf("  %d dosya\n\n", len(current))
-
-		if err := syncToServer(dir, cfg, srv, current, byKey, flagInclude, flagExclude); err != nil {
-			fmt.Printf(lang.L.SyncServerErrFmt, err)
-		}
-		fmt.Println()
+		scans = append(scans, scanResult{srv: srv, current: current, byKey: byKey})
 	}
+
+	// Upload fazı — parallel (her sunucu kendi FTP pool'unu açar)
+	type runResult struct {
+		idx    int
+		output string
+		result serverSyncResult
+	}
+	runResults := make([]runResult, len(scans))
+	var wg sync.WaitGroup
+
+	for i, sc := range scans {
+		wg.Add(1)
+		go func(idx int, sc scanResult) {
+			defer wg.Done()
+			var buf strings.Builder
+
+			if sc.err != nil {
+				buf.WriteString(fmt.Sprintf("══ %s ══\n", sc.srv.Name))
+				buf.WriteString(fmt.Sprintf("  Tarama hatası: %v\n\n", sc.err))
+				runResults[idx] = runResult{idx: idx, output: buf.String(), result: serverSyncResult{name: sc.srv.Name, err: sc.err}}
+				return
+			}
+
+			buf.WriteString(fmt.Sprintf("══ %s (%s) ══\n", sc.srv.Name, sc.srv.Host))
+			buf.WriteString(fmt.Sprintf("  Taranıyor: %s → %d dosya\n\n", sc.srv.EffectiveLocalPath(cfg.Project), len(sc.current)))
+
+			result := syncToServerResult(&buf, dir, cfg, sc.srv, sc.current, sc.byKey, flagInclude, flagExclude)
+			runResults[idx] = runResult{idx: idx, output: buf.String(), result: result}
+		}(i, sc)
+	}
+	wg.Wait()
+
+	// Çıktıları sıralı yazdır
+	allResults := make([]serverSyncResult, len(runResults))
+	for _, rr := range runResults {
+		fmt.Print(rr.output)
+		allResults[rr.idx] = rr.result
+	}
+
+	// Birden fazla sunucu varsa özet TUI göster
+	showSyncSummary(allResults)
 
 	return nil
 }
 
+// syncToServer eski signature — tek sunucu veya shell akışı için.
 func syncToServer(configDir string, cfg *config.Config, srv config.Server, current map[string]string, byKey map[string]scanner.File, cliInclude, cliExclude []string) error {
+	r := syncToServerResult(os.Stdout, configDir, cfg, srv, current, byKey, cliInclude, cliExclude)
+	return r.err
+}
+
+// syncToServerResult çıktıyı w'ye yazar, sayım bilgilerini döner (parallel sync için).
+func syncToServerResult(w io.Writer, configDir string, cfg *config.Config, srv config.Server, current map[string]string, byKey map[string]scanner.File, cliInclude, cliExclude []string) serverSyncResult {
+	result := serverSyncResult{name: srv.Name}
+
 	// Failsafe: artık diskte olmayan tam dosya yollarını include/exclude/protect listelerinden sil
 	{
 		lp := srv.EffectiveLocalPath(cfg.Project)
@@ -170,14 +225,15 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 		}
 		if dirty {
 			if saveErr := config.Save(configDir, cfg); saveErr != nil {
-				fmt.Printf(lang.L.SyncConfigSaveErr, saveErr)
+				fmt.Fprintf(w, lang.L.SyncConfigSaveErr, saveErr)
 			}
 		}
 	}
 
 	st, err := state.Load(configDir, srv.Name)
 	if err != nil {
-		return err
+		result.err = err
+		return result
 	}
 
 	// Include önceliği: CLI > sunucu > global
@@ -193,33 +249,34 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 	effectiveExclude := append(append([]string{}, cfg.Sync.Exclude...), srv.Exclude...)
 	effectiveExclude = append(effectiveExclude, cliExclude...)
 
-	// Eski browser'la kaydedilen "local_path/dosya" prefix'li pattern'leri normalize et
 	localPath := srv.EffectiveLocalPath(cfg.Project)
 	effectiveInclude = normalizePatterns(effectiveInclude, localPath)
 	effectiveExclude = normalizePatterns(effectiveExclude, localPath)
 
-	// Protect normalize (global + sunucu)
 	effectiveProtect := append(append([]string{}, cfg.Sync.Protect...), srv.Protect...)
 	effectiveProtect = normalizePatterns(effectiveProtect, localPath)
+
+	effectiveBlockExts := append(append([]string{}, cfg.Sync.BlockExtensions...), srv.BlockExtensions...)
+	effectiveBlockFiles := append(append([]string{}, cfg.Sync.BlockFiles...), srv.BlockFiles...)
 
 	var toUpload []string
 
 	if flagRetryFailed {
 		fl, err := failed.Load(configDir, srv.Name)
 		if err != nil {
-			return fmt.Errorf("failed listesi okunamadı: %w", err)
+			result.err = fmt.Errorf("failed listesi okunamadı: %w", err)
+			return result
 		}
 		if fl == nil || len(fl.Files) == 0 {
-			fmt.Println(lang.L.SyncRetryNoFiles)
-			return nil
+			fmt.Fprintln(w, lang.L.SyncRetryNoFiles)
+			return result
 		}
-		fmt.Printf(lang.L.SyncRetryModeFmt, len(fl.Files), fl.CreatedAt.Format("2006-01-02 15:04:05"))
-		// Sadece hala local'de var olan dosyaları al
+		fmt.Fprintf(w, lang.L.SyncRetryModeFmt, len(fl.Files), fl.CreatedAt.Format("2006-01-02 15:04:05"))
 		for _, rel := range fl.Files {
 			if _, exists := current[rel]; exists {
 				toUpload = append(toUpload, rel)
 			} else {
-				fmt.Printf(lang.L.SyncRetrySkipFmt, rel)
+				fmt.Fprintf(w, lang.L.SyncRetrySkipFmt, rel)
 			}
 		}
 	} else {
@@ -227,40 +284,34 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 
 		if isFirst {
 			if flagFull && st.FirstSyncDone {
-				fmt.Println(lang.L.SyncFullFlag)
+				fmt.Fprintln(w, lang.L.SyncFullFlag)
 				toUpload = mapKeys(current)
 			} else {
-				// İlk sync: calibrate ile sunucu boyutlarını karşılaştır, state güncellenir
-				fmt.Print(lang.L.ResyncAutoMsg)
+				fmt.Fprint(w, lang.L.ResyncAutoMsg)
 				runCalibrate(configDir, srv, cfg)
-				// State'i yeniden yükle — resync eşleşen dosyaları yazmış olabilir
 				if reloaded, err := state.Load(configDir, srv.Name); err == nil {
 					st = reloaded
 				}
 				diff := state.Diff(st, current)
 				toUpload = append(diff.New, diff.Changed...)
 			}
-
 			if len(effectiveInclude) > 0 {
 				toUpload = filterByInclude(toUpload, effectiveInclude)
 			}
 		} else {
 			diff := state.Diff(st, current)
-
 			if len(diff.Deleted) > 0 {
 				sort.Strings(diff.Deleted)
-				fmt.Print(lang.L.SyncDeletedHeader)
+				fmt.Fprint(w, lang.L.SyncDeletedHeader)
 				for _, p := range diff.Deleted {
-					fmt.Printf("      - %s\n", p)
+					fmt.Fprintf(w, "      - %s\n", p)
 				}
 			}
-
 			toUpload = append(diff.New, diff.Changed...)
 			if len(effectiveInclude) > 0 {
 				toUpload = filterByInclude(toUpload, effectiveInclude)
 			}
 		}
-
 		toUpload = filterByExclude(toUpload, effectiveExclude)
 	}
 
@@ -277,20 +328,29 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 			}
 		}
 		if frozenSkipped > 0 {
-			fmt.Printf("  ❄ %d frozen (skipped)\n", frozenSkipped)
+			fmt.Fprintf(w, "  ❄ %d frozen (skipped)\n", frozenSkipped)
+			result.frozenSkipped = frozenSkipped
 		}
 		toUpload = unfrozen
+	}
+
+	// Block filter
+	if len(effectiveBlockExts) > 0 || len(effectiveBlockFiles) > 0 {
+		var blocked int
+		toUpload, blocked = filterByBlock(toUpload, effectiveBlockExts, effectiveBlockFiles)
+		if blocked > 0 {
+			fmt.Fprintf(w, lang.L.SyncBlockedFmt, blocked)
+			result.blocked = blocked
+		}
 	}
 
 	sort.Strings(toUpload)
 
 	if len(toUpload) == 0 {
-		fmt.Println(lang.L.SyncNoChange2)
-		return nil
+		fmt.Fprintln(w, lang.L.SyncNoChange2)
+		return result
 	}
 
-	// Korunan dosyaları ayır
-	// protect kalıpları hem stateKey'e hem kaynak-içi RelPath'e karşı kontrol edilir
 	var tasks []ftpclient.UploadTask
 	skipped := 0
 	for _, rel := range toUpload {
@@ -301,24 +361,25 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 		}
 		tasks = append(tasks, ftpclient.UploadTask{LocalPath: f.AbsPath, RelPath: rel, Hash: current[rel]})
 	}
+	result.protected = skipped
 
 	total := len(tasks) + skipped
-	fmt.Printf(lang.L.SyncProcessingFmt, total)
+	fmt.Fprintf(w, lang.L.SyncProcessingFmt, total)
 	if skipped > 0 {
-		fmt.Printf(lang.L.SyncProtectedFmt, skipped)
+		fmt.Fprintf(w, lang.L.SyncProtectedFmt, skipped)
 	}
-	fmt.Println()
+	fmt.Fprintln(w, "")
 
 	if flagDryRun {
 		for _, rel := range toUpload {
 			f := byKey[rel]
 			if ftpclient.IsProtected(rel, effectiveProtect) || ftpclient.IsProtected(f.RelPath, effectiveProtect) {
-				fmt.Printf(lang.L.SyncProtectedLabel, rel)
+				fmt.Fprintf(w, lang.L.SyncProtectedLabel, rel)
 			} else {
-				fmt.Printf(lang.L.SyncUploadLabel, rel)
+				fmt.Fprintf(w, lang.L.SyncUploadLabel, rel)
 			}
 		}
-		return nil
+		return result
 	}
 
 	maxConn := srv.MaxConnections
@@ -329,68 +390,90 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 	if maxRetry == 0 {
 		maxRetry = 2
 	}
-	fmt.Printf(lang.L.SyncPoolFmt, maxConn, maxRetry)
+	fmt.Fprintf(w, lang.L.SyncPoolFmt, maxConn, maxRetry)
 
-	pool, err := ftpclient.NewPool(srv)
-	if err != nil {
-		return err
+	// Minify / Obfuscate
+	if srv.Minify || srv.Obfuscate {
+		if tmpDir, tdErr := os.MkdirTemp("", "syncftp-minify-*"); tdErr == nil {
+			var minCount, obfCount int
+			var tmpFiles []string
+			tasks, tmpFiles, minCount, obfCount = ProcessMinify(tasks, srv.Minify, srv.Obfuscate, tmpDir)
+			defer func() {
+				for _, p := range tmpFiles {
+					os.Remove(p)
+				}
+				os.Remove(tmpDir)
+			}()
+			if minCount > 0 {
+				fmt.Fprintf(w, lang.L.SyncMinifiedFmt, minCount)
+			}
+			if obfCount > 0 {
+				fmt.Fprintf(w, lang.L.SyncObfuscatedFmt, obfCount)
+			}
+		}
+	}
+
+	pool, poolErr := ftpclient.NewPool(srv)
+	if poolErr != nil {
+		result.err = poolErr
+		return result
 	}
 	defer pool.Close()
 
-	results := pool.Upload(tasks)
+	uploadResults := pool.Upload(tasks)
 
-	// Korunan dosyaları logla
 	for _, rel := range toUpload {
 		if ftpclient.IsProtected(rel, effectiveProtect) {
-			fmt.Printf(lang.L.SyncProtectedLabel, rel)
+			fmt.Fprintf(w, lang.L.SyncProtectedLabel, rel)
 		}
 	}
 
 	successFiles := make(map[string]string)
 	uploaded, failedCount := 0, 0
-	for _, r := range results {
+	for _, r := range uploadResults {
 		if r.Err != nil {
 			if r.Attempts > 1 {
-				fmt.Printf(lang.L.SyncAttemptsFmt, r.RelPath, r.Attempts, r.Err)
+				fmt.Fprintf(w, lang.L.SyncAttemptsFmt, r.RelPath, r.Attempts, r.Err)
 			} else {
-				fmt.Printf(lang.L.SyncUploadErrFmt, r.RelPath, r.Err)
+				fmt.Fprintf(w, lang.L.SyncUploadErrFmt, r.RelPath, r.Err)
 			}
 			failedCount++
+			result.failedFiles = append(result.failedFiles, r.RelPath)
 		} else {
 			if r.Attempts > 1 {
-				fmt.Printf(lang.L.SyncAttemptOkFmt, r.RelPath, r.Attempts)
+				fmt.Fprintf(w, lang.L.SyncAttemptOkFmt, r.RelPath, r.Attempts)
 			} else {
-				fmt.Printf(lang.L.SyncUploadOkFmt, r.RelPath)
+				fmt.Fprintf(w, lang.L.SyncUploadOkFmt, r.RelPath)
 			}
 			successFiles[r.RelPath] = r.Hash
 			uploaded++
+			result.uploadedFiles = append(result.uploadedFiles, r.RelPath)
 		}
 	}
+	result.uploaded = uploaded
+	result.failed = failedCount
 
-	fmt.Printf(lang.L.SyncDoneFullFmt, uploaded, skipped, failedCount)
+	fmt.Fprintf(w, lang.L.SyncDoneFullFmt, uploaded, skipped, failedCount)
 
-	// Başarısız dosyaları kaydet veya temizle
 	var failedPaths []string
-	for _, r := range results {
+	for _, r := range uploadResults {
 		if r.Err != nil {
 			failedPaths = append(failedPaths, r.RelPath)
 		}
 	}
 	if len(failedPaths) > 0 {
 		if err := failed.Save(configDir, srv.Name, failedPaths); err != nil {
-			fmt.Printf(lang.L.SyncFailedSaveErr, err)
+			fmt.Fprintf(w, lang.L.SyncFailedSaveErr, err)
 		} else {
-			fmt.Printf(lang.L.SyncFailedSavedFmt, len(failedPaths), srv.Name)
+			fmt.Fprintf(w, lang.L.SyncFailedSavedFmt, len(failedPaths), srv.Name)
 		}
 	} else {
 		failed.Clear(configDir, srv.Name)
 	}
 
-	// Update state with successful uploads
 	for rel, hash := range successFiles {
 		st.Files[rel] = hash
 	}
-	// Remove locally deleted files from state
 	for rel := range st.Files {
 		if _, exists := current[rel]; !exists {
 			delete(st.Files, rel)
@@ -399,18 +482,27 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 	st.FirstSyncDone = true
 
 	if err := state.Save(configDir, st); err != nil {
-		fmt.Printf(lang.L.SyncStateErr, err)
+		fmt.Fprintf(w, lang.L.SyncStateErr, err)
 	}
 
 	if len(successFiles) > 0 {
 		if relDir, err := release.Create(configDir, srv.Name, successFiles); err != nil {
-			fmt.Printf(lang.L.SyncReleaseErr, err)
+			fmt.Fprintf(w, lang.L.SyncReleaseErr, err)
 		} else {
-			fmt.Printf(lang.L.SyncReleaseFmt, relDir)
+			fmt.Fprintf(w, lang.L.SyncReleaseFmt, relDir)
 		}
 	}
 
-	return nil
+	// Webhook
+	webhookURL := srv.Webhook
+	if webhookURL == "" {
+		webhookURL = cfg.Sync.Webhook
+	}
+	if webhookURL != "" {
+		sendWebhook(webhookURL, srv.Name, uploaded, failedCount, result.uploadedFiles)
+	}
+
+	return result
 }
 
 // filterByInclude returns only paths that match any of the include patterns.
@@ -484,6 +576,249 @@ func mapKeys(m map[string]string) []string {
 	return out
 }
 
+// ── Webhook ───────────────────────────────────────────────────────────────────
+
+// sendWebhook senkron HTTP POST atar. Hata terminal'e yazılır, sync kesilmez.
+func sendWebhook(webhookURL, serverName string, uploaded, failed int, files []string) {
+	if webhookURL == "" {
+		return
+	}
+	payload := fmt.Sprintf(
+		`{"server":%q,"uploaded":%d,"failed":%d,"files":%s}`,
+		serverName, uploaded, failed, jsonStringArray(files),
+	)
+	resp, err := http.Post(webhookURL, "application/json", bytes.NewBufferString(payload))
+	if err != nil {
+		fmt.Printf(lang.L.SyncWebhookErrFmt, err)
+		return
+	}
+	resp.Body.Close()
+	fmt.Printf(lang.L.SyncWebhookSentFmt, webhookURL, resp.StatusCode)
+}
+
+func jsonStringArray(ss []string) string {
+	if len(ss) == 0 {
+		return "[]"
+	}
+	var b strings.Builder
+	b.WriteByte('[')
+	for i, s := range ss {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		fmt.Fprintf(&b, "%q", s)
+	}
+	b.WriteByte(']')
+	return b.String()
+}
+
+// ── Block filter ──────────────────────────────────────────────────────────────
+
+// filterByBlock uzantı veya dosya adına göre engeller, kalan yolları ve engellenen sayısını döner.
+func filterByBlock(paths []string, blockExts, blockFiles []string) (filtered []string, blocked int) {
+	if len(blockExts) == 0 && len(blockFiles) == 0 {
+		return paths, 0
+	}
+	extSet := make(map[string]bool, len(blockExts))
+	for _, e := range blockExts {
+		ext := strings.ToLower(e)
+		if !strings.HasPrefix(ext, ".") {
+			ext = "." + ext
+		}
+		extSet[ext] = true
+	}
+	fileSet := make(map[string]bool, len(blockFiles))
+	for _, f := range blockFiles {
+		fileSet[strings.ToLower(f)] = true
+	}
+	for _, p := range paths {
+		name := filepath.Base(p)
+		ext := strings.ToLower(filepath.Ext(p))
+		if extSet[ext] || fileSet[strings.ToLower(name)] {
+			blocked++
+		} else {
+			filtered = append(filtered, p)
+		}
+	}
+	return filtered, blocked
+}
+
+// ── Sync result + summary TUI ─────────────────────────────────────────────────
+
+type serverSyncResult struct {
+	name          string
+	uploaded      int
+	failed        int
+	protected     int
+	blocked       int
+	frozenSkipped int
+	err           error
+	uploadedFiles []string
+	failedFiles   []string
+}
+
+// syncSummaryTUI birden fazla sunucu sync'i sonrası özet gösterir.
+type syncSummaryTUI struct {
+	results  []serverSyncResult
+	cursor   int
+	expanded int // -1 = liste, >=0 = detay
+	scroll   int
+	width    int
+	height   int
+}
+
+var (
+	ssTitle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("5")).Padding(0, 1)
+	ssCursor = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
+	ssName   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("15"))
+	ssOk     = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
+	ssErr    = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
+	ssCount  = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
+	ssHint   = lipgloss.NewStyle().Faint(true)
+	ssDiv    = lipgloss.NewStyle().Faint(true)
+	ssUp     = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
+	ssFail   = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
+	ssBlock  = lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
+)
+
+func (m syncSummaryTUI) Init() tea.Cmd { return nil }
+
+func (m syncSummaryTUI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width, m.height = msg.Width, msg.Height
+	case tea.KeyMsg:
+		if m.expanded >= 0 {
+			switch msg.String() {
+			case "q", "Q", "esc", "left", "h":
+				m.expanded = -1
+				m.scroll = 0
+			case "up", "k":
+				if m.scroll > 0 {
+					m.scroll--
+				}
+			case "down", "j":
+				m.scroll++
+			case "g":
+				m.scroll = 0
+			}
+		} else {
+			switch msg.String() {
+			case "q", "Q", "esc", "ctrl+c":
+				return m, tea.Quit
+			case "up", "k":
+				if m.cursor > 0 {
+					m.cursor--
+				}
+			case "down", "j":
+				if m.cursor < len(m.results)-1 {
+					m.cursor++
+				}
+			case "right", "l", "enter":
+				m.expanded = m.cursor
+				m.scroll = 0
+			}
+		}
+	}
+	return m, nil
+}
+
+func (m syncSummaryTUI) View() string {
+	w := m.width
+	if w < 60 {
+		w = 80
+	}
+	h := m.height
+	if h < 10 {
+		h = 24
+	}
+	div := ssDiv.Render(strings.Repeat("─", w))
+
+	var b strings.Builder
+	b.WriteString("\n")
+
+	if m.expanded >= 0 && m.expanded < len(m.results) {
+		r := m.results[m.expanded]
+		b.WriteString(ssTitle.Render("  "+r.name) + "\n")
+		b.WriteString(ssHint.Render("  ←/Esc = geri  |  ↑↓/g = kaydır  |  q = çık") + "\n")
+		b.WriteString(div + "\n")
+
+		var lines []string
+		for _, f := range r.uploadedFiles {
+			lines = append(lines, ssUp.Render("  ✓ ")+f)
+		}
+		for _, f := range r.failedFiles {
+			lines = append(lines, ssFail.Render("  ✗ ")+f)
+		}
+		if len(lines) == 0 {
+			lines = append(lines, ssOk.Render("  ✓ up to date / no changes"))
+		}
+
+		visRows := h - 6
+		if visRows < 1 {
+			visRows = 1
+		}
+		scroll := m.scroll
+		if scroll > len(lines)-visRows {
+			scroll = len(lines) - visRows
+		}
+		if scroll < 0 {
+			scroll = 0
+		}
+		end := scroll + visRows
+		if end > len(lines) {
+			end = len(lines)
+		}
+		for _, l := range lines[scroll:end] {
+			b.WriteString(l + "\n")
+		}
+		b.WriteString(div + "\n")
+		if len(lines) > visRows {
+			b.WriteString(ssHint.Render(fmt.Sprintf("  %d/%d", scroll+1, len(lines))) + "\n")
+		}
+	} else {
+		b.WriteString(ssTitle.Render(lang.L.SyncSummaryTitle) + "\n")
+		b.WriteString(ssHint.Render(lang.L.SyncSummaryNavHint) + "\n")
+		b.WriteString(div + "\n\n")
+
+		for i, r := range m.results {
+			var info string
+			if r.err != nil {
+				info = ssErr.Render(fmt.Sprintf(lang.L.SyncSummaryErrFmt, r.err))
+			} else if r.uploaded == 0 && r.failed == 0 {
+				info = ssOk.Render(lang.L.SyncSummaryOk)
+			} else {
+				info = ssCount.Render(fmt.Sprintf("↑%d", r.uploaded))
+				if r.failed > 0 {
+					info += "  " + ssFail.Render(fmt.Sprintf("✗%d", r.failed))
+				}
+				if r.blocked > 0 {
+					info += "  " + ssBlock.Render(fmt.Sprintf("⊘%d", r.blocked))
+				}
+				if r.protected > 0 {
+					info += "  " + ssHint.Render(fmt.Sprintf("🔒%d", r.protected))
+				}
+				info += ssHint.Render("  →")
+			}
+			if i == m.cursor {
+				b.WriteString(ssCursor.Render("▶ ") + ssName.Render(r.name) + "  " + info + "\n")
+			} else {
+				b.WriteString("  " + ssName.Render(r.name) + "  " + info + "\n")
+			}
+		}
+		b.WriteString("\n" + div + "\n")
+	}
+	return b.String()
+}
+
+func showSyncSummary(results []serverSyncResult) {
+	if len(results) <= 1 {
+		return
+	}
+	m := syncSummaryTUI{results: results, expanded: -1}
+	p := tea.NewProgram(m, tea.WithAltScreen())
+	_, _ = p.Run()
+}
 
 func serverNames(servers []config.Server) []string {
 	names := make([]string, len(servers))

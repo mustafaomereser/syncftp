@@ -266,6 +266,26 @@ type StringSet struct {
 	SyncCleanupRemovedFmt string // "  ⚠ %q no longer exists locally, removed from list\n"
 	SyncConfigSaveErr     string // "  ! Config could not be saved: %v\n"
 
+	// ── webhook ──────────────────────────────────────────────────────────────
+	SyncWebhookSentFmt string // "  ✓ Webhook: %s (HTTP %d)\n"
+	SyncWebhookErrFmt  string // "  ! Webhook hatası: %v\n"
+
+	// ── block filter ─────────────────────────────────────────────────────────
+	SyncBlockedFmt string // "  ✗ %d blocked (uzantı/dosya filtresi)\n"
+
+	// ── minify / obfuscate ───────────────────────────────────────────────────
+	SyncMinifiedFmt   string // "  ✓ %d dosya minified\n"
+	SyncObfuscatedFmt string // "  ✓ %d dosya obfuscated\n"
+	SyncMinifyErrFmt  string // "  ! Minify hatası (%s): %v — orijinal yükleniyor\n"
+	SyncObfuscErrFmt  string // "  ! Obfuscate hatası (%s): %v — minified yükleniyor\n"
+	SyncNoTerserWarn  string // "  ⚠ terser PATH'te bulunamadı — obfuscation atlandı\n"
+
+	// ── sync summary TUI ─────────────────────────────────────────────────────
+	SyncSummaryTitle   string // "  Sync Özeti"
+	SyncSummaryNavHint string // "  ↑↓ gezin  |  → = detay  |  q = çık"
+	SyncSummaryOk      string // "✓"
+	SyncSummaryErrFmt  string // "HATA: %v"
+
 	// ── status TUI ───────────────────────────────────────────────────────────
 	StatusDetailChangesCountFmt string // "  %d changes"  (detail view title)
 	StatusSyncConfirm           string // "  Start sync?"
@@ -346,6 +366,11 @@ type StringSet struct {
 	CfgFldInclude     string // "Include"
 	CfgFldExclude     string // "Exclude"
 	CfgFldProtect     string // "Protect"
+	CfgFldWebhook     string // "Webhook URL"
+	CfgFldMinify      string // "Minify CSS/JS"
+	CfgFldObfuscate   string // "Obfuscate JS"
+	CfgFldBlockExts   string // "Block extensions"
+	CfgFldBlockFiles  string // "Block filenames"
 
 	// ── Config TUI — global settings ─────────────────────────────────────────
 	CfgGlobalEditTitle    string // "⚙  Global Ayarlar"
@@ -361,6 +386,9 @@ type StringSet struct {
 	CfgGFldInclude     string // "Include (global)"
 	CfgGFldExclude     string // "Exclude (global)"
 	CfgGFldIgnore      string // "Ignore files"
+	CfgGFldWebhook     string // "Webhook URL (global)"
+	CfgGFldBlockExts   string // "Block extensions (global)"
+	CfgGFldBlockFiles  string // "Block filenames (global)"
 
 	CfgValueEmpty string // "(boş)" — boş alan göstergesi
 
