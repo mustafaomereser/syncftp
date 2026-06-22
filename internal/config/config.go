@@ -51,7 +51,6 @@ type Sync struct {
 	IgnoreFiles     []string `json:"ignore_files"`              // nil/boş → [".gitignore","syncftp.ignore"] ikisi de yüklenir
 	Webhook         string   `json:"webhook,omitempty"`         // sync sonrası POST atılacak URL
 	BlockExtensions []string `json:"block_extensions,omitempty"` // yüklenmeyecek uzantılar: [".jpg",".pdf"]
-	BlockFiles      []string `json:"block_files,omitempty"`      // yüklenmeyecek dosya adları: ["thumbs.db"]
 }
 
 type FirstSync struct {
@@ -80,7 +79,6 @@ type Server struct {
 	Minify          bool     `json:"minify,omitempty"`           // CSS/JS dosyalarını upload öncesi minify et
 	Obfuscate       bool     `json:"obfuscate,omitempty"`        // JS dosyalarını minify üstüne obfuscate et (terser gerekir)
 	BlockExtensions []string `json:"block_extensions,omitempty"` // yüklenmeyecek uzantılar (global listeye ek)
-	BlockFiles      []string `json:"block_files,omitempty"`      // yüklenmeyecek dosya adları (global listeye ek)
 }
 
 // EffectiveLocalPath sunucunun kendi LocalPath'i varsa onu, yoksa proje defaultunu döndürür.

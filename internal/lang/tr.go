@@ -155,6 +155,7 @@ Uzak sunucu komutları:
 Senkronizasyon:
   status                  Yerel değişiklikleri göster (TUI)
   sync [--all] [--full] [--dry-run] [--server ad]   FTP'ye yükle
+  watch [--all] [--server ad]   Dosya değişikliklerini izle, değişince otomatik sync yap
   calibrate [--all] [--server ad]   Yerel boyutları FTP ile karşılaştır, state güncelle (yükleme yok)
   freeze [--server ad]    Freeze listesi — yüklenmesin istenen dosyaları işaretle
 
@@ -163,18 +164,24 @@ Sunucu yönetimi:
   server [ad]             Sunucu seç / bağlan
   disconnect              Mevcut FTP bağlantısını kes (prompt sunucusuz moda döner)
   config                  Sunucu ve bağlantı profili yönetimi — TUI
+  config --export         Config'i şifresiz JSON olarak yazdır (paylaşılabilir)
                             Liste: ↑↓ gezin | Enter/e düzenle | Space aç/kapat | d sil | n yeni
-                            ── Global Ayarlar: proje geneli varsayılan dizin, protect, include, exclude
+                            ── Global Ayarlar: varsayılan dizin, protect, include, exclude,
+                               webhook URL, engellenen uzantılar
                             ── Bağlantı Profilleri: paylaşılan FTP kimlik bilgileri (host/port/kullanıcı/şifre)
                                Birden fazla sunucu aynı profili kullanabilir.
                                Profil değişince onu kullanan tüm sunucular güncellenir.
-                            ── Sunucu düzenle (17 alan):
+                            ── Sunucu düzenle (21 alan):
                                Connection = profil seç (b veya Enter ile picker açılır)
                                Profil seçiliyse credential alanları read-only gösterilir (↳ profil)
                                Yerel dizin: sunucuya özel yerel dizin
                                  "(project default)" = Global Ayarlar'dan miras alır
                                Include/Exclude/Protect: b = yerel dosya tarayıcısı
                                  n = özel yol gir (glob kalıpları, proje dışı yollar)
+                               Minify CSS/JS: yorum ve boşlukları kaldırır (pure Go, bağımlılık yok)
+                               Obfuscate JS: terser --compress --mangle çalıştırır (gerekli: npm i -g terser)
+                               Engellenen uzantılar: uzantıya göre dosya atla (.jpg .zip .pdf vb.)
+                               Webhook URL: her sync sonrası HTTP POST ile özet gönder
                             s = kaydet  |  q = iptal
 
 Diğer:
@@ -337,6 +344,13 @@ Diğer:
 	StatusFrozenFmt:             "❄ %d frozen",
 
 	// cmd_init
+	// watch
+	WatchStartFmt:  "  ✓ [%s] izleniyor: %s\n",
+	WatchReady:     "Değişiklikler bekleniyor. Durdurmak için Ctrl+C.\n",
+	WatchChangeFmt: "  ⟳ [%s] değişiklik tespit edildi, sync başlatılıyor...\n",
+	WatchErrFmt:    "  ! Watch hatası: %v\n",
+	WatchNoServers: "İzlenecek aktif sunucu bulunamadı.\n",
+
 	InitWizardTitle:   "=== syncFTP Kurulum Sihirbazı ===",
 	InitProjectName:   "Proje adı",
 	InitLocalDir:      "Yerel dizin",
@@ -402,8 +416,7 @@ Diğer:
 	CfgFldWebhook:    "Webhook URL",
 	CfgFldMinify:     "CSS/JS küçült",
 	CfgFldObfuscate:  "JS gizle (obfuscate)",
-	CfgFldBlockExts:  "Engellenen uzantılar",
-	CfgFldBlockFiles: "Engellenen dosyalar",
+	CfgFldBlockExts: "Engellenen uzantılar",
 
 	// Config TUI — global settings
 	CfgGlobalEditTitle:    "⚙  Global Ayarlar",
@@ -420,8 +433,7 @@ Diğer:
 	CfgGFldExclude:     "Exclude (global)",
 	CfgGFldIgnore:      "Ignore files",
 	CfgGFldWebhook:     "Webhook URL (global)",
-	CfgGFldBlockExts:   "Engellenen uzantılar (global)",
-	CfgGFldBlockFiles:  "Engellenen dosyalar (global)",
+	CfgGFldBlockExts: "Engellenen uzantılar (global)",
 
 	CfgValueEmpty: "(boş)",
 

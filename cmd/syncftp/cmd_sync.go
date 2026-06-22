@@ -257,7 +257,6 @@ func syncToServerResult(w io.Writer, configDir string, cfg *config.Config, srv c
 	effectiveProtect = normalizePatterns(effectiveProtect, localPath)
 
 	effectiveBlockExts := append(append([]string{}, cfg.Sync.BlockExtensions...), srv.BlockExtensions...)
-	effectiveBlockFiles := append(append([]string{}, cfg.Sync.BlockFiles...), srv.BlockFiles...)
 
 	var toUpload []string
 
@@ -335,9 +334,9 @@ func syncToServerResult(w io.Writer, configDir string, cfg *config.Config, srv c
 	}
 
 	// Block filter
-	if len(effectiveBlockExts) > 0 || len(effectiveBlockFiles) > 0 {
+	if len(effectiveBlockExts) > 0 {
 		var blocked int
-		toUpload, blocked = filterByBlock(toUpload, effectiveBlockExts, effectiveBlockFiles)
+		toUpload, blocked = filterByBlock(toUpload, effectiveBlockExts)
 		if blocked > 0 {
 			fmt.Fprintf(w, lang.L.SyncBlockedFmt, blocked)
 			result.blocked = blocked
@@ -614,9 +613,10 @@ func jsonStringArray(ss []string) string {
 
 // ── Block filter ──────────────────────────────────────────────────────────────
 
-// filterByBlock uzantı veya dosya adına göre engeller, kalan yolları ve engellenen sayısını döner.
-func filterByBlock(paths []string, blockExts, blockFiles []string) (filtered []string, blocked int) {
-	if len(blockExts) == 0 && len(blockFiles) == 0 {
+// filterByBlock uzantıya göre engeller, kalan yolları ve engellenen sayısını döner.
+// Uzantılar nokta olmadan da girilebilir: "jpg" → ".jpg"
+func filterByBlock(paths []string, blockExts []string) (filtered []string, blocked int) {
+	if len(blockExts) == 0 {
 		return paths, 0
 	}
 	extSet := make(map[string]bool, len(blockExts))
@@ -627,14 +627,9 @@ func filterByBlock(paths []string, blockExts, blockFiles []string) (filtered []s
 		}
 		extSet[ext] = true
 	}
-	fileSet := make(map[string]bool, len(blockFiles))
-	for _, f := range blockFiles {
-		fileSet[strings.ToLower(f)] = true
-	}
 	for _, p := range paths {
-		name := filepath.Base(p)
 		ext := strings.ToLower(filepath.Ext(p))
-		if extSet[ext] || fileSet[strings.ToLower(name)] {
+		if extSet[ext] {
 			blocked++
 		} else {
 			filtered = append(filtered, p)

@@ -303,6 +303,13 @@ type StringSet struct {
 	StatusChangesListFmt        string // "%d changes"
 	StatusFrozenFmt             string // "❄ %d frozen"
 
+	// ── watch ────────────────────────────────────────────────────────────────
+	WatchStartFmt  string // "  ✓ [%s] izleniyor: %s\n"
+	WatchReady     string // "Değişiklikler bekleniyor. Durdurmak için Ctrl+C.\n"
+	WatchChangeFmt string // "  ⟳ [%s] değişiklik tespit edildi, sync başlatılıyor...\n"
+	WatchErrFmt    string // "  ! Watch hatası: %v\n"
+	WatchNoServers string // "İzlenecek aktif sunucu bulunamadı.\n"
+
 	// ── cmd_init ─────────────────────────────────────────────────────────────
 	InitWizardTitle     string // "=== syncFTP Kurulum Sihirbazı ==="
 	InitProjectName     string // "Proje adı"
@@ -369,8 +376,7 @@ type StringSet struct {
 	CfgFldWebhook     string // "Webhook URL"
 	CfgFldMinify      string // "Minify CSS/JS"
 	CfgFldObfuscate   string // "Obfuscate JS"
-	CfgFldBlockExts   string // "Block extensions"
-	CfgFldBlockFiles  string // "Block filenames"
+	CfgFldBlockExts string // "Block extensions"
 
 	// ── Config TUI — global settings ─────────────────────────────────────────
 	CfgGlobalEditTitle    string // "⚙  Global Ayarlar"
@@ -387,8 +393,7 @@ type StringSet struct {
 	CfgGFldExclude     string // "Exclude (global)"
 	CfgGFldIgnore      string // "Ignore files"
 	CfgGFldWebhook     string // "Webhook URL (global)"
-	CfgGFldBlockExts   string // "Block extensions (global)"
-	CfgGFldBlockFiles  string // "Block filenames (global)"
+	CfgGFldBlockExts string // "Block extensions (global)"
 
 	CfgValueEmpty string // "(boş)" — boş alan göstergesi
 

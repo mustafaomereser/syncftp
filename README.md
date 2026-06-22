@@ -5,11 +5,11 @@
 A Go CLI tool that detects changed files via SHA256 hashing and distributes them to one or more FTP servers.
 
 - **No git required** — change detection is hash-based, works in any directory
-- **Multi-server** — deploy to production and staging in a single command
+- **Multi-server** — deploy to production and staging in a single command, in parallel
 - **Server-side protection** — never overwrites `.env`, database configs, or any file you mark as protected
 - **Freeze list** — per-server list of files that are permanently skipped even when changed locally
 - **Connection profiles** — share one set of FTP credentials across multiple servers
-- **Parallel uploads** — configurable connection pool per server
+- **Parallel uploads** — configurable connection pool per server; multiple servers sync simultaneously
 - **Auto-retry** — failed uploads are retried automatically and saved for manual re-runs
 - **Config-free mode** — sync any directory to any FTP without a project config (`syncftp push`)
 - **HTTP API** — built-in local API server for PHP/web UI integration (`syncftp serve`)
@@ -17,6 +17,12 @@ A Go CLI tool that detects changed files via SHA256 hashing and distributes them
 - **CRLF normalization** — line endings are normalized before upload so PHP hosting servers don't inject blank lines
 - **Per-server local path** — each server can watch a different subdirectory; useful for monorepos
 - **Calibrate** — reconcile an existing deployment without re-uploading everything; compares file sizes (CRLF-aware) and initializes state
+- **Minify** — strip comments and whitespace from CSS/JS files before upload (pure Go, no external tools)
+- **Obfuscate** — run `terser --compress --mangle` on JS files before upload (requires `npm install -g terser`)
+- **Block extensions** — skip files by extension (e.g. `.jpg`, `.zip`, `.pdf`) per-server or globally
+- **Webhook** — send an HTTP POST to any URL after each sync with upload summary (Slack, Discord, custom endpoints)
+- **Watch mode** — monitor directories for changes and sync automatically; uses OS kernel events (zero CPU when idle)
+- **Config export** — print config as JSON with all passwords masked (`syncftp config --export`)
 
 The UI auto-detects your OS language (Turkish or English). Switch manually with `syncftp lang tr` (or `lang tr` inside the shell). The preference is saved to `.syncftp/lang`. Use `SYNCFTP_LANG=tr` to override for a single session without saving.
 
@@ -64,7 +70,9 @@ Created by `syncftp init` inside the `.syncftp/` directory. Stored with permissi
     "protect": [".env", "config/database.php", "storage/"],
     "include": [],
     "exclude": ["vendor/", "node_modules/"],
-    "ignore_files": []
+    "ignore_files": [],
+    "webhook": "https://hooks.example.com/deploy",
+    "block_extensions": [".jpg", ".zip", ".pdf"]
   },
   "first_sync": {
     "full": false
@@ -86,7 +94,11 @@ Created by `syncftp init` inside the `.syncftp/` directory. Stored with permissi
       "remote_path": "/public_html",
       "enabled": true,
       "max_connections": 3,
-      "max_retries": 2
+      "max_retries": 2,
+      "minify": true,
+      "obfuscate": false,
+      "webhook": "",
+      "block_extensions": []
     },
     {
       "name": "staging",
@@ -155,6 +167,70 @@ Created by `syncftp init` inside the `.syncftp/` directory. Stored with permissi
 | `server.exclude` | `[]` | Per-server blacklist — added on top of global `sync.exclude` |
 | `server.protect` | `[]` | Per-server protect list — never overwrite these paths on this server |
 | `server.enabled` | `true` | Set `false` to skip this server in all sync operations |
+| `server.minify` | `false` | Strip comments and whitespace from `.css`/`.js` before upload |
+| `server.obfuscate` | `false` | Run `terser --compress --mangle` on `.js` files (requires `npm i -g terser`) |
+| `server.block_extensions` | `[]` | Skip files with these extensions (e.g. `[".jpg", ".zip"]`); merged with global list |
+| `server.webhook` | `""` | Override the global webhook URL for this server |
+| `sync.webhook` | `""` | Global webhook URL — HTTP POST after sync with upload summary |
+| `sync.block_extensions` | `[]` | Global list of extensions to skip; per-server list is added on top |
+
+---
+
+## Minify, Obfuscate & Block
+
+### Minify CSS/JS
+
+Enable `server.minify: true` to strip comments and collapse whitespace in `.css` and `.js` files before upload. The original local file is never modified — a temporary copy is created, uploaded, and cleaned up automatically.
+
+```json
+{ "name": "production", "minify": true }
+```
+
+### Obfuscate JS
+
+Enable `server.obfuscate: true` to run `terser --compress --mangle` on `.js` files before upload. This renames variables/functions to short identifiers, making the code harder to read.
+
+**Requires:** `npm install -g terser`
+
+If `terser` is not found in PATH, a warning is printed and the file is uploaded without obfuscation.
+
+Minify and obfuscate can be used together — minify runs first, then terser processes the result.
+
+### Block extensions
+
+Skip files by extension — they are counted and reported but never uploaded.
+
+```json
+{
+  "sync": { "block_extensions": [".jpg", ".png", ".zip"] },
+  "servers": [
+    { "name": "assets", "block_extensions": [".pdf"] }
+  ]
+}
+```
+
+Per-server list is **added on top** of the global list (not a replacement).
+
+### Webhook
+
+Send an HTTP POST after each sync completes. Useful for triggering cache clears, deploys, or notifications.
+
+```json
+{ "sync": { "webhook": "https://hooks.example.com/deploy" } }
+```
+
+**POST body:**
+
+```json
+{
+  "server":   "production",
+  "uploaded": 5,
+  "failed":   0,
+  "files":    ["index.php", "css/app.css", "js/app.js"]
+}
+```
+
+Per-server `webhook` overrides the global one for that server.
 
 ---
 
@@ -288,6 +364,22 @@ Scanning: /home/user/my-project
 
 ---
 
+### `syncftp watch`
+
+Watches local directories for file changes and automatically syncs to the FTP server when a change is detected. Uses OS-level file system events (no polling) so CPU usage is near zero when idle.
+
+```bash
+syncftp watch                        # server picker if multiple servers
+syncftp watch --server production    # one specific server
+syncftp watch --all                  # all enabled servers simultaneously
+```
+
+An 800 ms debounce is applied — rapid saves (e.g. auto-formatter running) are batched into a single sync. Newly created subdirectories are added to the watch automatically.
+
+Press `Ctrl+C` to stop.
+
+---
+
 ### `syncftp calibrate`
 
 Reconciles an already-deployed project without uploading anything. Compares local file sizes with FTP remote sizes and writes matching hashes to the sync state. After calibrate, `status` and `sync` only show actual differences.
@@ -413,8 +505,11 @@ syncftp remote rm cache/ --recursive
 Manage servers, connection profiles, and global sync settings interactively — no need to edit `syncftp.json` by hand.
 
 ```bash
-syncftp config
+syncftp config             # interactive TUI
+syncftp config --export    # print config as JSON with passwords masked
 ```
+
+`--export` is safe to commit or share — all `password` fields are replaced with `"***"`. Redirect to a file with `syncftp config --export > template.json`.
 
 Inside the interactive shell, use `config` without the `syncftp` prefix.
 
@@ -463,7 +558,7 @@ Each profile has: **Name**, **Host**, **Port**, **User**, **Password**, **Passiv
 
 #### Field navigator (server edit screen)
 
-All 17 fields are listed in a single screen. Navigate with arrow keys.
+All 21 fields are listed in a single screen. Navigate with arrow keys.
 
 ```
 ⚙  Server Düzenle
@@ -486,6 +581,10 @@ All 17 fields are listed in a single screen. Navigate with arrow keys.
   Include           (boş)  [b=gözat]
   Exclude           vendor/  [b=gözat]
   Protect           .env, config/db.php  [b=gözat]
+  Webhook URL       https://hooks.example.com/deploy
+  Minify CSS/JS     ✓
+  Obfuscate JS      ○
+  Block extensions  .jpg, .zip, .pdf  [b=seç]
 ```
 
 When a connection profile is selected, credential fields (Host, Port, User, Password, Passive, EPSV, NAT) are shown read-only with `↳ profile-name`. Navigation automatically skips them. To edit credentials, go to **Connection Profiles** and edit the profile there.
@@ -539,6 +638,7 @@ syncftp
 | `pwd` | Show current remote path |
 | `status` | Show local changes per server (opens TUI) |
 | `sync [--all] [--full] [--dry-run] [--server name]` | Upload to FTP |
+| `watch [--all] [--server name]` | Watch for file changes and sync automatically |
 | `calibrate [--all] [--server name]` | Compare local sizes with FTP, update state (no upload) |
 | `freeze [--server name]` | Manage freeze list for a server |
 | `servers` | TUI server list |
@@ -654,8 +754,12 @@ Only listens on `127.0.0.1`. CORS enabled for all origins.
 | `GET` | `/api/servers` | List configured servers (passwords excluded) |
 | `GET` | `/api/status` | Changed files per server |
 | `GET` | `/api/status?server=production` | Changed files for one server |
-| `POST` | `/api/sync` | Run sync |
+| `POST` | `/api/sync` | Run sync (blocking, returns result JSON) |
+| `GET` | `/api/sync/stream?server=&full=false&dry_run=false` | Run sync with **SSE live log** — streams output line by line |
 | `GET` | `/api/failed` | Files that failed in last sync |
+| `GET` | `/api/releases?server=&limit=10` | Release history (newest first) |
+| `POST` | `/api/reload` | Validate and reload config, returns server count |
+| `POST` | `/api/trigger/github?server=&branch=main&secret=xxx` | GitHub push webhook → async sync; validates HMAC-SHA256 if `secret` provided |
 | `GET` | `/api/remote/ls?server=&path=` | List remote directory |
 | `GET` | `/api/remote/ls?server=&path=&recursive=true` | Recursive listing |
 | `GET` | `/api/remote/cat?server=&path=&max_kb=10` | Preview file |
@@ -663,6 +767,18 @@ Only listens on `127.0.0.1`. CORS enabled for all origins.
 | `GET` | `/api/remote/get?server=&path=&json=true` | Download file (base64 JSON) |
 | `DELETE` | `/api/remote/rm?server=&path=` | Delete file |
 | `DELETE` | `/api/remote/rm?server=&path=&recursive=true` | Delete directory |
+
+**SSE live log** — connects once, receives each log line as it happens:
+
+```js
+const es = new EventSource('http://127.0.0.1:8080/api/sync/stream?server=production');
+es.onmessage = e => console.log(e.data);
+es.onerror   = () => es.close();
+```
+
+```bash
+curl -N "http://127.0.0.1:8080/api/sync/stream?server=production"
+```
 
 **POST /api/sync body:**
 

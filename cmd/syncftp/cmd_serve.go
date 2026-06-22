@@ -1,9 +1,13 @@
 package main
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -45,7 +49,11 @@ func runServe(cmd *cobra.Command, args []string) error {
 	mux.HandleFunc("/api/servers", wrap(dir, handleServers))
 	mux.HandleFunc("/api/status", wrap(dir, handleStatus))
 	mux.HandleFunc("/api/sync", wrap(dir, handleSync))
+	mux.HandleFunc("/api/sync/stream", wrap(dir, handleSyncStream))
 	mux.HandleFunc("/api/failed", wrap(dir, handleFailed))
+	mux.HandleFunc("/api/releases", wrap(dir, handleReleases))
+	mux.HandleFunc("/api/reload", wrap(dir, handleReload))
+	mux.HandleFunc("/api/trigger/github", wrap(dir, handleGitHubTrigger))
 	mux.HandleFunc("/api/remote/ls", wrap(dir, handleRemoteLs))
 	mux.HandleFunc("/api/remote/cat", wrap(dir, handleRemoteCat))
 	mux.HandleFunc("/api/remote/get", wrap(dir, handleRemoteGet))
@@ -57,7 +65,11 @@ func runServe(cmd *cobra.Command, args []string) error {
 	fmt.Printf("  GET    /api/servers\n")
 	fmt.Printf("  GET    /api/status[?server=<ad>]\n")
 	fmt.Printf("  POST   /api/sync\n")
+	fmt.Printf("  GET    /api/sync/stream?server=<ad>[&full=true&dry_run=true]   (SSE canlı log)\n")
 	fmt.Printf("  GET    /api/failed[?server=<ad>]\n")
+	fmt.Printf("  GET    /api/releases[?server=<ad>&limit=10]\n")
+	fmt.Printf("  POST   /api/reload\n")
+	fmt.Printf("  POST   /api/trigger/github[?server=<ad>&branch=main&secret=xxx]\n")
 	fmt.Printf("  GET    /api/remote/ls?server=<ad>&path=<yol>[&recursive=true]\n")
 	fmt.Printf("  GET    /api/remote/cat?server=<ad>&path=<yol>[&max_kb=10]\n")
 	fmt.Printf("  GET    /api/remote/get?server=<ad>&path=<yol>\n")
@@ -757,6 +769,251 @@ func handleRemoteRm(w http.ResponseWriter, r *http.Request, configDir string) {
 	}
 
 	jsonOK(w, map[string]any{"deleted": remotePath, "was_dir": isDir})
+}
+
+// ── GET /api/sync/stream (SSE canlı log) ─────────────────────────────────────
+
+// sseWriter — io.Writer'ı SSE event akışına çevirir.
+type sseWriter struct {
+	w http.ResponseWriter
+	f http.Flusher
+}
+
+func (s *sseWriter) Write(p []byte) (n int, err error) {
+	text := strings.TrimRight(string(p), "\r\n")
+	for _, line := range strings.Split(text, "\n") {
+		fmt.Fprintf(s.w, "data: %s\n\n", line)
+	}
+	s.f.Flush()
+	return len(p), nil
+}
+
+func handleSyncStream(w http.ResponseWriter, r *http.Request, configDir string) {
+	if r.Method != http.MethodGet {
+		jsonErr(w, 405, fmt.Errorf("GET bekleniyor"))
+		return
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		jsonErr(w, 500, fmt.Errorf("SSE bu sunucu tarafından desteklenmiyor"))
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("X-Accel-Buffering", "no")
+	w.WriteHeader(http.StatusOK)
+	flusher.Flush()
+
+	sw := &sseWriter{w: w, f: flusher}
+
+	cfg, err := config.Load(configDir)
+	if err != nil {
+		fmt.Fprintf(sw, "config yüklenemedi: %v", err)
+		return
+	}
+
+	srvName := r.URL.Query().Get("server")
+	full := r.URL.Query().Get("full") == "true"
+	dryRun := r.URL.Query().Get("dry_run") == "true"
+
+	servers := cfg.EnabledServers()
+	if srvName != "" {
+		srv, err := getServer(cfg, srvName)
+		if err != nil {
+			fmt.Fprintf(sw, "sunucu bulunamadı: %v", err)
+			return
+		}
+		servers = []config.Server{srv}
+	}
+
+	for _, srv := range servers {
+		localDir := filepath.Join(configDir, srv.EffectiveLocalPath(cfg.Project))
+		matcher, _ := ignore.Load(localDir, cfg.Sync.IgnoreFiles)
+		files, err := scanner.Scan(localDir, matcher)
+		if err != nil {
+			fmt.Fprintf(sw, "[%s] scan hatası: %v", srv.Name, err)
+			continue
+		}
+		current := make(map[string]string, len(files))
+		byKey := make(map[string]scanner.File, len(files))
+		for _, f := range files {
+			current[f.RelPath] = f.Hash
+			byKey[f.RelPath] = f
+		}
+
+		// --full flag'ini geçici olarak uygula
+		origFull := flagFull
+		flagFull = full
+		_ = dryRun // dry-run SSE modunda henüz desteklenmiyor — gelecekte eklenebilir
+		syncToServerResult(sw, configDir, cfg, srv, current, byKey, nil, nil)
+		flagFull = origFull
+	}
+
+	fmt.Fprintf(sw, "[sync tamamlandı]")
+}
+
+// ── GET /api/releases ─────────────────────────────────────────────────────────
+
+func handleReleases(w http.ResponseWriter, r *http.Request, configDir string) {
+	if r.Method != http.MethodGet {
+		jsonErr(w, 405, fmt.Errorf("GET bekleniyor"))
+		return
+	}
+
+	srvFilter := r.URL.Query().Get("server")
+	limit := 10
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			limit = n
+		}
+	}
+
+	releasesDir := filepath.Join(configDir, ".syncftp", "releases")
+	type releaseEntry struct {
+		Server    string `json:"server"`
+		ID        string `json:"id"`
+		CreatedAt string `json:"created_at"`
+		FileCount int    `json:"file_count"`
+	}
+
+	var entries []releaseEntry
+	servers, _ := os.ReadDir(releasesDir)
+	for _, srvDir := range servers {
+		if !srvDir.IsDir() {
+			continue
+		}
+		if srvFilter != "" && srvDir.Name() != srvFilter {
+			continue
+		}
+		runs, _ := os.ReadDir(filepath.Join(releasesDir, srvDir.Name()))
+		// En yeniden eskiye
+		for i := len(runs) - 1; i >= 0 && len(entries) < limit; i-- {
+			run := runs[i]
+			if !run.IsDir() {
+				continue
+			}
+			manifestPath := filepath.Join(releasesDir, srvDir.Name(), run.Name(), "manifest.json")
+			data, err := os.ReadFile(manifestPath)
+			if err != nil {
+				continue
+			}
+			var m release.Manifest
+			if err := json.Unmarshal(data, &m); err != nil {
+				continue
+			}
+			entries = append(entries, releaseEntry{
+				Server:    srvDir.Name(),
+				ID:        run.Name(),
+				CreatedAt: m.CreatedAt.Format("2006-01-02 15:04:05"),
+				FileCount: m.FileCount,
+			})
+		}
+	}
+	jsonOK(w, entries)
+}
+
+// ── POST /api/reload ──────────────────────────────────────────────────────────
+
+func handleReload(w http.ResponseWriter, r *http.Request, configDir string) {
+	if r.Method != http.MethodPost {
+		jsonErr(w, 405, fmt.Errorf("POST bekleniyor"))
+		return
+	}
+	cfg, err := config.Load(configDir)
+	if err != nil {
+		jsonErr(w, 500, fmt.Errorf("config geçersiz: %w", err))
+		return
+	}
+	jsonOK(w, map[string]any{
+		"project": cfg.Project.Name,
+		"servers": len(cfg.Servers),
+		"status":  "ok",
+	})
+}
+
+// ── POST /api/trigger/github ──────────────────────────────────────────────────
+
+func handleGitHubTrigger(w http.ResponseWriter, r *http.Request, configDir string) {
+	if r.Method != http.MethodPost {
+		jsonErr(w, 405, fmt.Errorf("POST bekleniyor"))
+		return
+	}
+
+	event := r.Header.Get("X-GitHub-Event")
+	if event != "push" {
+		jsonOK(w, map[string]string{"status": "skipped", "event": event})
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		jsonErr(w, 400, fmt.Errorf("body okunamadı: %w", err))
+		return
+	}
+
+	// HMAC imzası doğrulama (opsiyonel — ?secret=xxx query param ile)
+	if secret := r.URL.Query().Get("secret"); secret != "" {
+		sig := r.Header.Get("X-Hub-Signature-256")
+		if !verifyGitHubSignature(body, secret, sig) {
+			jsonErr(w, 401, fmt.Errorf("geçersiz imza"))
+			return
+		}
+	}
+
+	var payload struct {
+		Ref string `json:"ref"`
+	}
+	json.Unmarshal(body, &payload)
+
+	// Branch filtresi
+	if branch := r.URL.Query().Get("branch"); branch != "" {
+		if payload.Ref != "refs/heads/"+branch {
+			jsonOK(w, map[string]string{"status": "skipped", "ref": payload.Ref})
+			return
+		}
+	}
+
+	srvName := r.URL.Query().Get("server")
+	jsonOK(w, map[string]string{"status": "accepted", "ref": payload.Ref})
+
+	// Sync'i arka planda başlat
+	go func() {
+		cfg, err := config.Load(configDir)
+		if err != nil {
+			return
+		}
+		servers := cfg.EnabledServers()
+		if srvName != "" {
+			srv, err := getServer(cfg, srvName)
+			if err != nil {
+				return
+			}
+			servers = []config.Server{srv}
+		}
+		for _, srv := range servers {
+			localDir := filepath.Join(configDir, srv.EffectiveLocalPath(cfg.Project))
+			matcher, _ := ignore.Load(localDir, cfg.Sync.IgnoreFiles)
+			files, err := scanner.Scan(localDir, matcher)
+			if err != nil {
+				continue
+			}
+			current := make(map[string]string, len(files))
+			byKey := make(map[string]scanner.File, len(files))
+			for _, f := range files {
+				current[f.RelPath] = f.Hash
+				byKey[f.RelPath] = f
+			}
+			syncToServer(configDir, cfg, srv, current, byKey, nil, nil)
+		}
+	}()
+}
+
+func verifyGitHubSignature(body []byte, secret, sig string) bool {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(body)
+	expected := "sha256=" + hex.EncodeToString(mac.Sum(nil))
+	return hmac.Equal([]byte(expected), []byte(sig))
 }
 
 // ── küçük yardımcılar ─────────────────────────────────────────────────────────

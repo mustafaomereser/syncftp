@@ -198,6 +198,7 @@ type multiPickerModel struct {
 	items    []PickerItem
 	checked  []bool
 	cursor   int
+	scroll   int
 	result   []string
 	quit     bool
 	width    int
@@ -219,10 +220,26 @@ func (m multiPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "up", "k":
 			if m.cursor > 0 {
 				m.cursor--
+				if m.cursor < m.scroll {
+					m.scroll = m.cursor
+				}
 			}
 		case "down", "j":
 			if m.cursor < len(m.items)-1 {
 				m.cursor++
+				vis := m.visibleRows()
+				if m.cursor >= m.scroll+vis {
+					m.scroll = m.cursor - vis + 1
+				}
+			}
+		case "g":
+			m.cursor = 0
+			m.scroll = 0
+		case "G":
+			m.cursor = len(m.items) - 1
+			vis := m.visibleRows()
+			if m.scroll = m.cursor - vis + 1; m.scroll < 0 {
+				m.scroll = 0
 			}
 		case " ": // boşluk ile işaretle
 			m.checked[m.cursor] = !m.checked[m.cursor]
@@ -238,14 +255,11 @@ func (m multiPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.checked[i] = !all
 			}
 		case "enter":
+			m.result = []string{}
 			for i, item := range m.items {
 				if m.checked[i] {
 					m.result = append(m.result, item.Value)
 				}
-			}
-			if len(m.result) == 0 && len(m.items) > 0 {
-				// Hiçbir şey seçilmemişse cursor'dakini seç
-				m.result = []string{m.items[m.cursor].Value}
 			}
 			return m, tea.Quit
 		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
@@ -256,6 +270,19 @@ func (m multiPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+func (m multiPickerModel) visibleRows() int {
+	h := m.height
+	if h < 10 {
+		h = 24
+	}
+	// başlık(1) + subtitle(1) + divider(1) + boşluk(1) + hint(1) + alt boşluk(1) = 6
+	v := h - 6
+	if v < 1 {
+		v = 1
+	}
+	return v
 }
 
 func (m multiPickerModel) View() string {
@@ -269,9 +296,17 @@ func (m multiPickerModel) View() string {
 	if m.width > 10 {
 		w = m.width - 4
 	}
-	b.WriteString(stylePickerDivider.Render("  "+strings.Repeat("─", w)) + "\n\n")
+	b.WriteString(stylePickerDivider.Render("  "+strings.Repeat("─", w)) + "\n")
 
-	for i, item := range m.items {
+	vis := m.visibleRows()
+	scroll := m.scroll
+	end := scroll + vis
+	if end > len(m.items) {
+		end = len(m.items)
+	}
+
+	for i := scroll; i < end; i++ {
+		item := m.items[i]
 		icon := item.Icon
 		if icon == "" {
 			icon = " "
@@ -293,7 +328,13 @@ func (m multiPickerModel) View() string {
 		}
 	}
 
-	b.WriteString("\n")
+	// Scroll göstergesi
+	if len(m.items) > vis {
+		scrollInfo := stylePickerDesc.Render(fmt.Sprintf("  %d/%d", m.cursor+1, len(m.items)))
+		b.WriteString(scrollInfo + "\n")
+	} else {
+		b.WriteString("\n")
+	}
 	b.WriteString(stylePickerHint.Render(lang.L.MultiPickerNavHint) + "\n")
 	return b.String()
 }

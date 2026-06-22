@@ -155,6 +155,7 @@ Remote server commands:
 Sync:
   status                  Show local changes per server (TUI)
   sync [--all] [--full] [--dry-run] [--server name]   Upload to FTP
+  watch [--all] [--server name]   Watch for file changes and sync automatically
   calibrate [--all] [--server name]   Compare local sizes with FTP, update state (no upload)
   freeze [--server name]  Manage freeze list — mark files to never upload
 
@@ -163,18 +164,24 @@ Server management:
   server [name]           Select / connect to server
   disconnect              Close current FTP connection (prompt returns to no-server mode)
   config                  Manage servers and connection profiles — full TUI
+  config --export         Print config as JSON with passwords masked (safe to share)
                             List: ↑↓ navigate | Enter/e edit | Space enable/disable | d delete | n new
-                            ── Global Settings: project-wide default dir, protect, include, exclude
+                            ── Global Settings: default dir, protect, include, exclude,
+                               webhook URL, block extensions
                             ── Connection Profiles: shared FTP credentials (host/port/user/pass)
                                Multiple servers can reference the same profile.
                                Edit profile once → all servers using it are updated.
-                            ── Server edit (17 fields):
+                            ── Server edit (21 fields):
                                Connection = select a profile (b/Enter to pick)
                                When a profile is active, credential fields are read-only (↳ profile)
                                Local dir: per-server local directory
                                  "(project default)" = inherits from Global Settings
                                Include/Exclude/Protect: b = local file browser
                                  n = enter custom path (glob patterns, paths outside project root)
+                               Minify CSS/JS: strip comments and whitespace before upload (pure Go)
+                               Obfuscate JS: run terser --compress --mangle (requires: npm i -g terser)
+                               Block extensions: skip files by extension (e.g. .jpg .zip .pdf)
+                               Webhook URL: HTTP POST after each sync with upload summary
                             s = save  |  q = cancel
 
 Other:
@@ -337,6 +344,13 @@ Other:
 	StatusFrozenFmt:             "❄ %d frozen",
 
 	// cmd_init
+	// watch
+	WatchStartFmt:  "  ✓ [%s] watching: %s\n",
+	WatchReady:     "Waiting for changes. Press Ctrl+C to stop.\n",
+	WatchChangeFmt: "  ⟳ [%s] change detected, syncing...\n",
+	WatchErrFmt:    "  ! Watch error: %v\n",
+	WatchNoServers: "No active servers found to watch.\n",
+
 	InitWizardTitle:   "=== syncFTP Setup Wizard ===",
 	InitProjectName:   "Project name",
 	InitLocalDir:      "Local directory",
@@ -402,8 +416,7 @@ Other:
 	CfgFldWebhook:    "Webhook URL",
 	CfgFldMinify:     "Minify CSS/JS",
 	CfgFldObfuscate:  "Obfuscate JS",
-	CfgFldBlockExts:  "Block extensions",
-	CfgFldBlockFiles: "Block filenames",
+	CfgFldBlockExts: "Block extensions",
 
 	// Config TUI — global settings
 	CfgGlobalEditTitle:    "⚙  Global Settings",
@@ -420,8 +433,7 @@ Other:
 	CfgGFldExclude:     "Exclude (global)",
 	CfgGFldIgnore:      "Ignore files",
 	CfgGFldWebhook:     "Webhook URL (global)",
-	CfgGFldBlockExts:   "Block extensions (global)",
-	CfgGFldBlockFiles:  "Block filenames (global)",
+	CfgGFldBlockExts: "Block extensions (global)",
 
 	CfgValueEmpty: "(empty)",
 

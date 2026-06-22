@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,6 +18,7 @@ import (
 )
 
 func init() {
+	configCmd.Flags().Bool("export", false, "Config'i şifresiz JSON olarak stdout'a yaz")
 	rootCmd.AddCommand(configCmd)
 }
 
@@ -25,8 +27,28 @@ var configCmd = &cobra.Command{
 	Short: "Server ayarlarını yönet (ekle, düzenle, sil)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dir, _ := os.Getwd()
+		if exp, _ := cmd.Flags().GetBool("export"); exp {
+			return runConfigExport(dir)
+		}
 		return runServerMgr(dir)
 	},
+}
+
+func runConfigExport(dir string) error {
+	cfg, err := config.Load(dir)
+	if err != nil {
+		return err
+	}
+	// Şifreleri maskele
+	for i := range cfg.Connections {
+		cfg.Connections[i].Password = "***"
+	}
+	for i := range cfg.Servers {
+		cfg.Servers[i].Password = "***"
+	}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(cfg)
 }
 
 // ── yardımcı ─────────────────────────────────────────────────────────────────
@@ -45,6 +67,14 @@ func listDisplay(l []string) string {
 	return strings.Join(l, ", ")
 }
 
+func padLabel(s string, w int) string {
+	r := []rune(s)
+	if len(r) >= w {
+		return s
+	}
+	return s + strings.Repeat(" ", w-len(r))
+}
+
 func srvFieldLabel(i int) string {
 	labels := []string{
 		lang.L.CfgFldName, lang.L.CfgFldConnection, lang.L.CfgFldHost,
@@ -54,7 +84,7 @@ func srvFieldLabel(i int) string {
 		lang.L.CfgFldMaxConn, lang.L.CfgFldMaxRetry,
 		lang.L.CfgFldInclude, lang.L.CfgFldExclude, lang.L.CfgFldProtect,
 		lang.L.CfgFldWebhook, lang.L.CfgFldMinify, lang.L.CfgFldObfuscate,
-		lang.L.CfgFldBlockExts, lang.L.CfgFldBlockFiles,
+		lang.L.CfgFldBlockExts,
 	}
 	if i >= 0 && i < len(labels) {
 		return labels[i]
@@ -66,6 +96,7 @@ func globalFieldLabel(i int) string {
 	labels := []string{
 		lang.L.CfgGFldDefaultPath, lang.L.CfgGFldProtect,
 		lang.L.CfgGFldInclude, lang.L.CfgGFldExclude, lang.L.CfgGFldIgnore,
+		lang.L.CfgGFldWebhook, lang.L.CfgGFldBlockExts,
 	}
 	if i >= 0 && i < len(labels) {
 		return labels[i]
@@ -110,7 +141,7 @@ var (
 	cfgWarn     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("1"))
 	cfgAdd      = lipgloss.NewStyle().Foreground(lipgloss.Color("4"))
 	cfgDiv      = lipgloss.NewStyle().Faint(true)
-	cfgLabel    = lipgloss.NewStyle().Width(20).Foreground(lipgloss.Color("7"))
+	cfgLabel    = lipgloss.NewStyle().Foreground(lipgloss.Color("7"))
 	cfgValue    = lipgloss.NewStyle().Foreground(lipgloss.Color("15"))
 	cfgEditing  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("11"))
 	cfgBrowse   = lipgloss.NewStyle().Faint(true).Foreground(lipgloss.Color("6"))
@@ -379,27 +410,26 @@ func isCredentialField(idx int) bool {
 
 var serverFields = []srvField{
 	{"Ad", "text", ""},
-	{"Connection", "conn", ""},     // idx 1 — bağlantı profili; boş = manuel giriş
-	{"Host", "text", ""},           // idx 2
-	{"Port", "int", ""},            // idx 3
-	{"Kullanıcı", "text", ""},      // idx 4
-	{"Şifre", "pass", ""},          // idx 5
-	{"Uzak dizin", "text", ""},     // idx 6
-	{"Yerel dizin", "localdir", ""}, // idx 7
-	{"Aktif", "bool", ""},          // idx 8
-	{"Passive mode", "bool", ""},   // idx 9
-	{"EPSV devre dışı", "bool", ""}, // idx 10
-	{"NAT workaround", "bool", ""}, // idx 11
-	{"Max bağlantı", "int", ""},    // idx 12
-	{"Max retry", "int", ""},       // idx 13
-	{"Include", "list", "include"},    // idx 14
-	{"Exclude", "list", "exclude"},    // idx 15
-	{"Protect", "list", "protect"},    // idx 16
-	{"Webhook URL", "text", ""},       // idx 17
-	{"Minify CSS/JS", "bool", ""},     // idx 18
-	{"Obfuscate JS", "bool", ""},      // idx 19
-	{"Block extensions", "list", "block_ext"},   // idx 20
-	{"Block filenames", "list", "block_files"},  // idx 21
+	{"Connection", "conn", ""},                // idx 1 — bağlantı profili; boş = manuel giriş
+	{"Host", "text", ""},                      // idx 2
+	{"Port", "int", ""},                       // idx 3
+	{"Kullanıcı", "text", ""},                 // idx 4
+	{"Şifre", "pass", ""},                     // idx 5
+	{"Uzak dizin", "text", ""},                // idx 6
+	{"Yerel dizin", "localdir", ""},           // idx 7
+	{"Aktif", "bool", ""},                     // idx 8
+	{"Passive mode", "bool", ""},              // idx 9
+	{"EPSV devre dışı", "bool", ""},           // idx 10
+	{"NAT workaround", "bool", ""},            // idx 11
+	{"Max bağlantı", "int", ""},               // idx 12
+	{"Max retry", "int", ""},                  // idx 13
+	{"Include", "list", "include"},            // idx 14
+	{"Exclude", "list", "exclude"},            // idx 15
+	{"Protect", "list", "protect"},            // idx 16
+	{"Webhook URL", "text", ""},               // idx 17
+	{"Minify CSS/JS", "bool", ""},             // idx 18
+	{"Obfuscate JS", "bool", ""},              // idx 19
+	{"Block extensions", "list", "block_ext"}, // idx 20
 }
 
 type serverEditModel struct {
@@ -476,8 +506,6 @@ func (m *serverEditModel) getDisplayValue(i int) string {
 		return boolIcon(m.srv.Obfuscate)
 	case 20:
 		return listDisplay(m.srv.BlockExtensions)
-	case 21:
-		return listDisplay(m.srv.BlockFiles)
 	}
 	return ""
 }
@@ -512,8 +540,6 @@ func (m *serverEditModel) getEditableValue(i int) string {
 		return m.srv.Webhook
 	case 20:
 		return strings.Join(m.srv.BlockExtensions, ", ")
-	case 21:
-		return strings.Join(m.srv.BlockFiles, ", ")
 	}
 	return ""
 }
@@ -554,8 +580,6 @@ func (m *serverEditModel) applyValue(i int, val string) {
 		m.srv.Webhook = val
 	case 20:
 		m.srv.BlockExtensions = parseList(val)
-	case 21:
-		m.srv.BlockFiles = parseList(val)
 	}
 }
 
@@ -698,7 +722,7 @@ func (m serverEditModel) View() string {
 
 	for i, f := range serverFields {
 		locked := m.srv.Connection != "" && isCredentialField(i)
-		label := cfgLabel.Render(srvFieldLabel(i))
+		label := cfgLabel.Render(padLabel(srvFieldLabel(i), 32))
 		var valStr string
 
 		if i == m.cursor && m.editing {
@@ -791,34 +815,41 @@ func runServerEdit(srv *config.Server, connections []config.Connection, projectD
 			}
 		case "browse":
 			*srv = fm.srv
-			localRoot := projectDir
-			if srv.LocalPath != "" {
-				candidate := filepath.Join(projectDir, filepath.FromSlash(srv.LocalPath))
-				if fi, err := os.Stat(candidate); err == nil && fi.IsDir() {
-					localRoot = candidate
+			if fm.browseFor == "block_ext" {
+				cursor = 20
+				if result, ok := runBlockExtPicker(srv.BlockExtensions); ok {
+					srv.BlockExtensions = result
 				}
-			}
-			var current []string
-			switch fm.browseFor {
-			case "include":
-				current = srv.Include
-				cursor = 14
-			case "exclude":
-				current = srv.Exclude
-				cursor = 15
-			case "protect":
-				current = srv.Protect
-				cursor = 16
-			}
-			selected, ok := runLocalBrowser(localRoot, current)
-			if ok {
+			} else {
+				localRoot := projectDir
+				if srv.LocalPath != "" {
+					candidate := filepath.Join(projectDir, filepath.FromSlash(srv.LocalPath))
+					if fi, err := os.Stat(candidate); err == nil && fi.IsDir() {
+						localRoot = candidate
+					}
+				}
+				var current []string
 				switch fm.browseFor {
 				case "include":
-					srv.Include = selected
+					current = srv.Include
+					cursor = 14
 				case "exclude":
-					srv.Exclude = selected
+					current = srv.Exclude
+					cursor = 15
 				case "protect":
-					srv.Protect = selected
+					current = srv.Protect
+					cursor = 16
+				}
+				selected, ok := runLocalBrowser(localRoot, current)
+				if ok {
+					switch fm.browseFor {
+					case "include":
+						srv.Include = selected
+					case "exclude":
+						srv.Exclude = selected
+					case "protect":
+						srv.Protect = selected
+					}
 				}
 			}
 		case "browse-localpath":
@@ -850,7 +881,6 @@ var globalFields = []globalField{
 	{"Ignore files", "list", "ignore"},
 	{"Webhook URL (global)", "text", ""},
 	{"Block extensions (global)", "list", "block_ext"},
-	{"Block filenames (global)", "list", "block_files"},
 }
 
 type globalEditModel struct {
@@ -898,8 +928,6 @@ func (m *globalEditModel) getDisplayValue(i int) string {
 		return lang.L.CfgValueEmpty
 	case 6:
 		return listDisplay(m.sync.BlockExtensions)
-	case 7:
-		return listDisplay(m.sync.BlockFiles)
 	}
 	return ""
 }
@@ -920,8 +948,6 @@ func (m *globalEditModel) getEditableValue(i int) string {
 		return m.sync.Webhook
 	case 6:
 		return strings.Join(m.sync.BlockExtensions, ", ")
-	case 7:
-		return strings.Join(m.sync.BlockFiles, ", ")
 	}
 	return ""
 }
@@ -942,8 +968,6 @@ func (m *globalEditModel) applyValue(i int, val string) {
 		m.sync.Webhook = val
 	case 6:
 		m.sync.BlockExtensions = parseList(val)
-	case 7:
-		m.sync.BlockFiles = parseList(val)
 	}
 }
 
@@ -1025,7 +1049,7 @@ func (m globalEditModel) View() string {
 	b.WriteString(div + "\n\n")
 
 	for i, f := range globalFields {
-		label := cfgLabel.Render(globalFieldLabel(i))
+		label := cfgLabel.Render(padLabel(globalFieldLabel(i), 32))
 		var valStr string
 		if i == m.cursor && m.editing {
 			valStr = cfgEditing.Render(m.editBuf + "█")
@@ -1090,6 +1114,13 @@ func runGlobalEdit(proj *config.Project, s *config.Sync, projectDir string) bool
 				}
 				break
 			}
+			if fm.browseFor == "block_ext" {
+				cursor = 6
+				if result, ok := runBlockExtPicker(s.BlockExtensions); ok {
+					s.BlockExtensions = result
+				}
+				break
+			}
 			localRoot := projectDir
 			if fm.project.DefaultPath != "" {
 				candidate := filepath.Join(projectDir, filepath.FromSlash(fm.project.DefaultPath))
@@ -1122,6 +1153,64 @@ func runGlobalEdit(proj *config.Project, s *config.Sync, projectDir string) bool
 			}
 		}
 	}
+}
+
+// runBlockExtPicker yaygın uzantıları multi-select olarak gösterir; mevcut olanlar önceden işaretli gelir.
+// Elle eklenmiş (listede olmayan) uzantılar korunur.
+func runBlockExtPicker(current []string) ([]string, bool) {
+	common := []string{
+		".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".ico", ".bmp", ".tiff",
+		".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+		".zip", ".rar", ".tar", ".gz", ".7z", ".bz2",
+		".mp4", ".mp3", ".avi", ".mov", ".mkv", ".wav", ".ogg", ".flac",
+		".woff", ".woff2", ".ttf", ".eot", ".otf",
+		".exe", ".dll", ".so", ".dylib",
+		".map",
+	}
+	commonSet := make(map[string]bool, len(common))
+	for _, e := range common {
+		commonSet[e] = true
+	}
+
+	currentSet := make(map[string]bool, len(current))
+	for _, c := range current {
+		ext := strings.ToLower(c)
+		if !strings.HasPrefix(ext, ".") {
+			ext = "." + ext
+		}
+		currentSet[ext] = true
+	}
+
+	items := make([]PickerItem, len(common))
+	checked := make([]bool, len(common))
+	for i, ext := range common {
+		items[i] = PickerItem{Label: ext, Value: ext}
+		checked[i] = currentSet[ext]
+	}
+
+	// Listede olmayan, elle eklenmiş uzantıları koru
+	var extra []string
+	for _, c := range current {
+		ext := strings.ToLower(c)
+		if !strings.HasPrefix(ext, ".") {
+			ext = "." + ext
+		}
+		if !commonSet[ext] {
+			extra = append(extra, ext)
+		}
+	}
+
+	m := multiPickerModel{
+		title:    lang.L.CfgFldBlockExts,
+		subtitle: "Boşluk=işaretle  Enter=onayla  Esc=iptal  |  Elle eklemek için TUI'dan çık, Enter ile düzenle",
+		items:    items,
+		checked:  checked,
+	}
+	selected, err := runMultiPickerRaw(m)
+	if err != nil || selected == nil {
+		return nil, false
+	}
+	return append(selected, extra...), true
 }
 
 // runLocalDirPicker yerel dosya sisteminde tek bir dizin seçtirir.
@@ -1392,7 +1481,7 @@ func (m localBrowserModel) View() string {
 
 	var b strings.Builder
 	b.WriteString("\n")
-	b.WriteString(cfgTitle.Render("  📁 " + m.relCwd()) + "\n")
+	b.WriteString(cfgTitle.Render("  📁 "+m.relCwd()) + "\n")
 	if m.dirPickMode {
 		b.WriteString(cfgHint.Render(lang.L.CfgLocalDirPickHint) + "\n")
 	} else if m.addingCustom {
@@ -1896,7 +1985,7 @@ func (m connEditModel) View() string {
 	b.WriteString(div + "\n\n")
 
 	for i, f := range connFields {
-		label := cfgLabel.Render(connFieldLabel(i))
+		label := cfgLabel.Render(padLabel(connFieldLabel(i), 32))
 		var valStr string
 		if i == m.cursor && m.editing {
 			valStr = cfgEditing.Render(m.editBuf + "█")

@@ -1104,10 +1104,9 @@ func (sh *shellState) shellSyncServer(srv config.Server, full, dryRun bool) {
 	// Block filter
 	{
 		effectiveBlockExts := append(append([]string{}, cfg.Sync.BlockExtensions...), srv.BlockExtensions...)
-		effectiveBlockFiles := append(append([]string{}, cfg.Sync.BlockFiles...), srv.BlockFiles...)
-		if len(effectiveBlockExts) > 0 || len(effectiveBlockFiles) > 0 {
+		if len(effectiveBlockExts) > 0 {
 			var blocked int
-			toUpload, blocked = filterByBlock(toUpload, effectiveBlockExts, effectiveBlockFiles)
+			toUpload, blocked = filterByBlock(toUpload, effectiveBlockExts)
 			if blocked > 0 {
 				fmt.Printf(lang.L.SyncBlockedFmt, blocked)
 			}
