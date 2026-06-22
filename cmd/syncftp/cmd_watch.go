@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -35,7 +37,10 @@ func runWatchCmd(cmd *cobra.Command, args []string) error {
 	dir, _ := os.Getwd()
 	all, _ := cmd.Flags().GetBool("all")
 	srvFilter, _ := cmd.Flags().GetString("server")
+	return runWatch(dir, all, srvFilter)
+}
 
+func runWatch(dir string, all bool, srvFilter string) error {
 	cfg, err := config.Load(dir)
 	if err != nil {
 		return err
@@ -57,9 +62,9 @@ func runWatchCmd(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Tek sunucu varsa direkt izle; birden fazlaysa --all yoksa picker aç
+	// Tek sunucu varsa direkt izle; birden fazlaysa --all yoksa multi-select picker aç
 	if !all && srvFilter == "" && len(servers) > 1 {
-		items := make([]PickerItem, len(servers)+1)
+		items := make([]PickerItem, len(servers))
 		for i, s := range servers {
 			localDir := filepath.Join(dir, s.EffectiveLocalPath(cfg.Project))
 			items[i] = PickerItem{
@@ -69,24 +74,21 @@ func runWatchCmd(cmd *cobra.Command, args []string) error {
 				Value: s.Name,
 			}
 		}
-		items[len(servers)] = PickerItem{Icon: "⊕", Label: "Tümünü izle", Desc: "all", Value: "__all__"}
-		val, err := RunPicker("Watch — sunucu seç", "birden fazla seçmek için 'Tümünü izle'", items)
-		if err != nil {
+		selected, err := RunMultiPicker("Watch — sunucu seç", "Space = seç/bırak  |  Enter = başlat  |  q = iptal", items)
+		if err != nil || len(selected) == 0 {
 			return err
 		}
-		if val == "" {
-			return nil
+		selSet := make(map[string]bool, len(selected))
+		for _, v := range selected {
+			selSet[v] = true
 		}
-		if val != "__all__" {
-			filtered := servers[:0]
-			for _, s := range servers {
-				if s.Name == val {
-					filtered = append(filtered, s)
-					break
-				}
+		filtered := servers[:0]
+		for _, s := range servers {
+			if selSet[s.Name] {
+				filtered = append(filtered, s)
 			}
-			servers = filtered
 		}
+		servers = filtered
 	}
 
 	watcher, err := fsnotify.NewWatcher()
@@ -111,14 +113,23 @@ func runWatchCmd(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Print(lang.L.WatchReady)
 
+	// SIGINT/SIGTERM yakalanınca watch durur, shell'e döner (terminal kapanmaz)
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
+
 	var (
 		timersMu sync.Mutex
 		timers   = make(map[string]*time.Timer)
-		syncMu   sync.Mutex // eş zamanlı sync'i önle (aynı server)
+		syncMu   sync.Mutex
 	)
 
 	for {
 		select {
+		case <-sigCh:
+			fmt.Println("\nWatch durduruldu.")
+			return nil
+
 		case event, ok := <-watcher.Events:
 			if !ok {
 				return nil

@@ -178,6 +178,9 @@ func runShell() error {
 		case "sync":
 			sh.cmdSync(args)
 
+		case "watch":
+			sh.cmdWatch(args)
+
 		case "calibrate":
 			sh.cmdCalibrate(args)
 
@@ -927,6 +930,25 @@ func (sh *shellState) cmdSync(args []string) {
 	for _, srv := range servers {
 		fmt.Printf("\n── %s ──\n", srv.Name)
 		sh.shellSyncServer(srv, full, dryRun)
+	}
+}
+
+func (sh *shellState) cmdWatch(args []string) {
+	serverName := ""
+	all := false
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--all":
+			all = true
+		case "--server":
+			if i+1 < len(args) {
+				serverName = args[i+1]
+				i++
+			}
+		}
+	}
+	if err := runWatch(sh.configDir, all, serverName); err != nil {
+		fmt.Printf(lang.L.ShellErrFmt, err)
 	}
 }
 
