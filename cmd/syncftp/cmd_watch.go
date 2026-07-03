@@ -97,17 +97,20 @@ func runWatch(dir string, all bool, srvFilter string) error {
 	}
 	defer watcher.Close()
 
-	// dizin → server adı eşlemesi
-	dirToServer := make(map[string]string)
+	// dizin → o dizini izleyen sunucular (aynı local_path birden fazla sunucuda olabilir)
+	dirToServers := make(map[string][]string)
 	serverMap := make(map[string]config.Server)
 
 	for _, srv := range servers {
 		localDir := filepath.Clean(filepath.Join(dir, srv.EffectiveLocalPath(cfg.Project)))
-		dirToServer[localDir] = srv.Name
+		alreadyWatched := len(dirToServers[localDir]) > 0
+		dirToServers[localDir] = append(dirToServers[localDir], srv.Name)
 		serverMap[srv.Name] = srv
-		if err := watchAddRecursive(watcher, localDir); err != nil {
-			fmt.Printf(lang.L.WatchErrFmt, err)
-			continue
+		if !alreadyWatched {
+			if err := watchAddRecursive(watcher, localDir); err != nil {
+				fmt.Printf(lang.L.WatchErrFmt, err)
+				continue
+			}
 		}
 		fmt.Printf(lang.L.WatchStartFmt, srv.Name, localDir)
 	}
@@ -138,8 +141,8 @@ func runWatch(dir string, all bool, srvFilter string) error {
 				continue
 			}
 
-			srvName := watchResolveServer(event.Name, dirToServer)
-			if srvName == "" {
+			srvNames := watchResolveServers(event.Name, dirToServers)
+			if len(srvNames) == 0 {
 				continue
 			}
 
@@ -150,11 +153,13 @@ func runWatch(dir string, all bool, srvFilter string) error {
 				}
 			}
 
-			// Debounce: timer'ı sıfırla ya da yenisini oluştur
+			// Debounce: dizini izleyen HER sunucu için timer'ı sıfırla ya da yenisini oluştur
 			timersMu.Lock()
-			if t, exists := timers[srvName]; exists {
-				t.Reset(watchDebounce)
-			} else {
+			for _, srvName := range srvNames {
+				if t, exists := timers[srvName]; exists {
+					t.Reset(watchDebounce)
+					continue
+				}
 				sn := srvName
 				srv := serverMap[sn]
 				timers[sn] = time.AfterFunc(watchDebounce, func() {
@@ -194,20 +199,29 @@ func watchAddRecursive(w *fsnotify.Watcher, root string) error {
 	})
 }
 
-// watchIsSyncftpPath — .syncftp dizini/dosyalarını elendirir.
+// watchIsSyncftpPath — .syncftp ve .git dizinlerini/dosyalarını elendirir (segment bazlı).
 func watchIsSyncftpPath(p string) bool {
-	return strings.Contains(p, ".syncftp")
-}
-
-// watchResolveServer — dosya yolunun hangi server'a ait olduğunu bulur.
-func watchResolveServer(filePath string, dirToServer map[string]string) string {
-	clean := filepath.Clean(filePath)
-	for d, name := range dirToServer {
-		if strings.HasPrefix(clean, d) {
-			return name
+	s := filepath.ToSlash(p)
+	for _, seg := range []string{".syncftp", ".git"} {
+		if s == seg || strings.HasSuffix(s, "/"+seg) || strings.Contains(s, "/"+seg+"/") || strings.HasPrefix(s, seg+"/") {
+			return true
 		}
 	}
-	return ""
+	return false
+}
+
+// watchResolveServers — dosya yolunu izleyen TÜM sunucuları döner.
+// Aynı dizini paylaşan ve iç içe dizinleri izleyen sunucuların hepsi eşleşir.
+// Prefix eşleşmesi ayraç sınırında yapılır ("frontend" ≠ "frontend2").
+func watchResolveServers(filePath string, dirToServers map[string][]string) []string {
+	clean := filepath.Clean(filePath)
+	var out []string
+	for d, names := range dirToServers {
+		if clean == d || strings.HasPrefix(clean, d+string(filepath.Separator)) {
+			out = append(out, names...)
+		}
+	}
+	return out
 }
 
 // watchDoSync — debounce süresi dolunca çağrılır; scan + sync.
