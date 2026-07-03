@@ -223,7 +223,14 @@ func runCalibrate(dir string, srv config.Server, cfg *config.Config) {
 	fmt.Print(lang.L.ResyncConnected)
 
 	fmt.Printf("  %s\n", lang.L.ResyncListing)
-	remoteFiles, err := client.ListRecursive(srv.RemotePath)
+	lastList := time.Now()
+	remoteFiles, err := client.ListRecursiveProgress(srv.RemotePath, func(n int) {
+		if time.Since(lastList) >= 80*time.Millisecond {
+			fmt.Printf(lang.L.ResyncListProgressFmt, n)
+			lastList = time.Now()
+		}
+	})
+	fmt.Print("\r                                        \r")
 	if err != nil {
 		fmt.Printf(lang.L.ResyncListErr, err)
 		return

@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -24,6 +25,7 @@ import (
 	"syncftp/internal/release"
 	"syncftp/internal/scanner"
 	"syncftp/internal/state"
+	"syncftp/internal/synclog"
 )
 
 var (
@@ -166,11 +168,16 @@ func runSync(cmd *cobra.Command, args []string) error {
 	}
 	wg.Wait()
 
-	// Çıktıları sıralı yazdır
+	// Çıktıları sıralı yazdır + değişiklik olan sunucular için log kaydet
 	allResults := make([]serverSyncResult, len(runResults))
 	for _, rr := range runResults {
 		fmt.Print(rr.output)
 		allResults[rr.idx] = rr.result
+		if !flagDryRun && (rr.result.uploaded > 0 || rr.result.failed > 0) {
+			if p, err := synclog.Save(dir, rr.result.name, rr.output); err == nil {
+				fmt.Printf(lang.L.SyncLogSavedFmt, p)
+			}
+		}
 	}
 
 	// Birden fazla sunucu varsa özet TUI göster
@@ -188,6 +195,7 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 // syncToServerResult çıktıyı w'ye yazar, sayım bilgilerini döner (parallel sync için).
 func syncToServerResult(w io.Writer, configDir string, cfg *config.Config, srv config.Server, current map[string]string, byKey map[string]scanner.File, cliInclude, cliExclude []string) serverSyncResult {
 	result := serverSyncResult{name: srv.Name}
+	startTime := time.Now()
 
 	// Failsafe: artık diskte olmayan tam dosya yollarını include/exclude/protect listelerinden sil
 	{
@@ -446,13 +454,16 @@ func syncToServerResult(w io.Writer, configDir string, cfg *config.Config, srv c
 			}
 			successFiles[r.RelPath] = r.Hash
 			uploaded++
+			result.bytes += r.Size
 			result.uploadedFiles = append(result.uploadedFiles, r.RelPath)
 		}
 	}
 	result.uploaded = uploaded
 	result.failed = failedCount
+	result.duration = time.Since(startTime)
 
 	fmt.Fprintf(w, lang.L.SyncDoneFullFmt, uploaded, skipped, failedCount)
+	fmt.Fprintf(w, lang.L.SyncReportFmt+"\n", humanBytes(result.bytes), result.duration.Round(time.Second))
 
 	var failedPaths []string
 	for _, r := range uploadResults {
@@ -647,9 +658,23 @@ type serverSyncResult struct {
 	protected     int
 	blocked       int
 	frozenSkipped int
+	bytes         int64
+	duration      time.Duration
 	err           error
 	uploadedFiles []string
 	failedFiles   []string
+}
+
+// humanBytes byte sayısını okunur biçimde döner: "1.4 MB", "230 KB", "87 B".
+func humanBytes(n int64) string {
+	switch {
+	case n >= 1<<20:
+		return fmt.Sprintf("%.1f MB", float64(n)/float64(1<<20))
+	case n >= 1<<10:
+		return fmt.Sprintf("%.1f KB", float64(n)/float64(1<<10))
+	default:
+		return fmt.Sprintf("%d B", n)
+	}
 }
 
 // syncSummaryTUI birden fazla sunucu sync'i sonrası özet gösterir.
@@ -792,6 +817,9 @@ func (m syncSummaryTUI) View() string {
 				}
 				if r.protected > 0 {
 					info += "  " + ssHint.Render(fmt.Sprintf("🔒%d", r.protected))
+				}
+				if r.bytes > 0 {
+					info += "  " + ssHint.Render(humanBytes(r.bytes)+" · "+r.duration.Round(time.Second).String())
 				}
 				info += ssHint.Render("  →")
 			}

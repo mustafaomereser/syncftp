@@ -2,6 +2,7 @@ package ftp
 
 import (
 	"fmt"
+	"os"
 	"sync"
 
 	"syncftp/internal/config"
@@ -18,6 +19,7 @@ type UploadTask struct {
 type UploadResult struct {
 	RelPath   string
 	Hash      string
+	Size      int64 // yüklenen dosyanın yerel boyutu (byte); hatada 0
 	Err       error
 	Attempts  int
 	RetryErrs []error // her başarısız denemenin hatası (son hariç)
@@ -147,9 +149,14 @@ func (p *Pool) uploadWithRetry(client *Client, task UploadTask) UploadResult {
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		lastErr = client.Upload(task.LocalPath, task.RelPath)
 		if lastErr == nil {
+			var size int64
+			if fi, statErr := os.Stat(task.LocalPath); statErr == nil {
+				size = fi.Size()
+			}
 			return UploadResult{
 				RelPath:   task.RelPath,
 				Hash:      task.Hash,
+				Size:      size,
 				Attempts:  attempt,
 				RetryErrs: retryErrs,
 			}

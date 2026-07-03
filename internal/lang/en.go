@@ -185,6 +185,13 @@ Server management:
                             s = save  |  q = cancel
 
 Other:
+  serve [--port N]        Start local HTTP API server (default: 127.0.0.1:8080)
+                            GET  /api/servers, /api/status, /api/failed, /api/releases
+                            POST /api/sync         (blocking, returns JSON result)
+                            GET  /api/sync/stream  (SSE live log)
+                            POST /api/reload       (validate config)
+                            POST /api/trigger/github?server=&branch=&secret=
+                            GET/DELETE /api/remote/ls|cat|get|rm
   lang [en|tr]            Show or change display language (auto-detected from OS on first run)
   clear / cls             Clear screen
   help / ?                This help
@@ -470,4 +477,35 @@ Other:
 	CfgIgnoreTitle:   "⚙  Ignore files",
 	CfgIgnoreNavHint: "  Space = select/deselect  |  s = save  |  q = cancel",
 	CfgIgnoreNote:    "  If none selected, ignore files will not be loaded.",
+
+	// Sync log + report
+	SyncLogSavedFmt: "  Log: %s\n",
+	SyncLogHint:     "  ·  s = save log",
+	SyncReportFmt:   "  ↑ %s · %s",
+
+	// Status — frozen
+	StatusFrozenHeader: "  ❄ Frozen (skipped during sync)",
+
+	// Calibrate — live listing counter
+	ResyncListProgressFmt: "\r  Listing: %d files",
+
+	// Init — ignore template
+	InitTemplateTitle:      "Ignore template",
+	InitTemplateSub:        "Pick a template for .syncftp/syncftp.ignore",
+	InitTemplateGeneric:    "Generic",
+	InitTemplateNone:       "None",
+	InitTemplateNoneDesc:   "Don't create a template",
+	InitTemplateWrittenFmt: "  ✓ .syncftp/syncftp.ignore created (%s)\n",
+
+	// Diff command
+	DiffPickA:         "First server",
+	DiffPickB:         "Second server",
+	DiffPickSub:       "Pick a server to compare",
+	DiffNeedTwo:       "  Comparison requires two different servers.\n",
+	DiffTitleFmt:      "── %s ↔ %s ──\n",
+	DiffListingFmt:    "  Listing %s...\n",
+	DiffOnlyFmt:       "  Only on %s (%d):\n",
+	DiffSizeHeaderFmt: "  Size differs (%d):\n",
+	DiffSizeLineFmt:   "    ~ %s  (%s: %s · %s: %s)\n",
+	DiffSameFmt:       "  ✓ %d files identical\n",
 }

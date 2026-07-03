@@ -430,6 +430,37 @@ type StringSet struct {
 	CfgIgnoreTitle   string // "⚙  Ignore dosyaları"
 	CfgIgnoreNavHint string // "  Space = seç/kaldır  |  s = kaydet  |  q = iptal"
 	CfgIgnoreNote    string // "  Hiçbirini seçmezsen ignore kullanılmaz."
+
+	// ── Sync log + rapor ──────────────────────────────────────────────────────
+	SyncLogSavedFmt string // "  Log: %s\n"
+	SyncLogHint     string // "  ·  s = log kaydet"
+	SyncReportFmt   string // "  ↑ %s · %s" (boyut, süre)
+
+	// ── Status — frozen ───────────────────────────────────────────────────────
+	StatusFrozenHeader string // "  ❄ Frozen (sync'te atlanır)"
+
+	// ── Calibrate — canlı listeleme sayacı ────────────────────────────────────
+	ResyncListProgressFmt string // "\r  Listeleniyor: %d dosya"
+
+	// ── Init — ignore şablonu ─────────────────────────────────────────────────
+	InitTemplateTitle      string // "Ignore şablonu"
+	InitTemplateSub        string // ".syncftp/syncftp.ignore için şablon seç"
+	InitTemplateGeneric    string // "Genel"
+	InitTemplateNone       string // "Yok"
+	InitTemplateNoneDesc   string // "Şablon oluşturma"
+	InitTemplateWrittenFmt string // "  ✓ .syncftp/syncftp.ignore oluşturuldu (%s)\n"
+
+	// ── Diff komutu ───────────────────────────────────────────────────────────
+	DiffPickA         string // "Birinci sunucu"
+	DiffPickB         string // "İkinci sunucu"
+	DiffPickSub       string // "Karşılaştırılacak sunucuyu seç"
+	DiffNeedTwo       string // "  Karşılaştırma için iki farklı sunucu gerekir.\n"
+	DiffTitleFmt      string // "── %s ↔ %s ──\n"
+	DiffListingFmt    string // "  %s listeleniyor...\n"
+	DiffOnlyFmt       string // "  Sadece %s üzerinde (%d):\n"
+	DiffSizeHeaderFmt string // "  Boyut farklı (%d):\n"
+	DiffSizeLineFmt   string // "    ~ %s  (%s: %s · %s: %s)\n"
+	DiffSameFmt       string // "  ✓ %d dosya aynı\n"
 }
 
 // L is the active locale. Defaults to English.

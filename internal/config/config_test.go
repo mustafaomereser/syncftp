@@ -13,7 +13,11 @@ func writeJSON(t *testing.T, dir, name string, v any) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, name), data, 0644); err != nil {
+	cfgDir := filepath.Join(dir, ".syncftp")
+	if err := os.MkdirAll(cfgDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cfgDir, name), data, 0644); err != nil {
 		t.Fatal(err)
 	}
 }

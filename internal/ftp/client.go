@@ -261,6 +261,12 @@ func (c *Client) Preview(remotePath string, maxBytes int64) ([]byte, error) {
 // ListRecursive remotePath altındaki tüm dosyaları rekürsif listeler.
 // relPath → boyut (byte). Her List çağrısı ayrı mu ile serialize edilir.
 func (c *Client) ListRecursive(remotePath string) (map[string]uint64, error) {
+	return c.ListRecursiveProgress(remotePath, nil)
+}
+
+// ListRecursiveProgress ListRecursive ile aynıdır; progress nil değilse
+// her yeni dosya bulunduğunda toplam sayıyla çağrılır (gerçek zamanlı sayaç).
+func (c *Client) ListRecursiveProgress(remotePath string, progress func(count int)) (map[string]uint64, error) {
 	result := make(map[string]uint64)
 	var walk func(dir, rel string)
 	walk = func(dir, rel string) {
@@ -282,6 +288,9 @@ func (c *Client) ListRecursive(remotePath string) (map[string]uint64, error) {
 				walk(path.Join(dir, e.Name), entryRel)
 			} else {
 				result[entryRel] = e.Size
+				if progress != nil {
+					progress(len(result))
+				}
 			}
 		}
 	}

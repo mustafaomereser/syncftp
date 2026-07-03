@@ -23,6 +23,9 @@ A Go CLI tool that detects changed files via SHA256 hashing and distributes them
 - **Webhook** — send an HTTP POST to any URL after each sync with upload summary (Slack, Discord, custom endpoints)
 - **Watch mode** — monitor directories for changes and sync automatically; uses OS kernel events (zero CPU when idle)
 - **Config export** — print config as JSON with all passwords masked (`syncftp config --export`)
+- **Server diff** — compare two servers' FTP contents (`syncftp diff production staging`)
+- **Sync logs & report** — every sync writes a timestamped log to `.syncftp/logs/`; the TUI shows total bytes and duration, press `s` to save its log
+- **Ignore templates** — `syncftp init` offers ready-made ignore templates (Laravel, WordPress, Node.js, generic)
 
 The UI auto-detects your OS language (Turkish or English). Switch manually with `syncftp lang tr` (or `lang tr` inside the shell). The preference is saved to `.syncftp/lang`. Use `SYNCFTP_LANG=tr` to override for a single session without saving.
 
@@ -265,6 +268,8 @@ The `.syncftp/` metadata directory is always excluded from scanning regardless o
 
 Interactive wizard. Prompts for project name, FTP credentials, and writes `.syncftp/syncftp.json`. Also adds `.syncftp/`, `syncftp.exe`, and `syncftp` to `.gitignore`.
 
+After the basic questions, a template picker offers a ready-made `.syncftp/syncftp.ignore` for **Laravel**, **WordPress**, **Node.js**, or a **generic** project (or none). An existing `syncftp.ignore` is never overwritten.
+
 ```
 === syncFTP Setup Wizard ===
 
@@ -309,6 +314,8 @@ Files   : 142
 ```
 
 > Deleted files are reported but **never removed** from the FTP server — intentional safety behaviour.
+
+If the server has a freeze list, frozen files are listed at the end under `❄ Frozen (skipped during sync)`.
 
 Running `syncftp status` without arguments opens an interactive TUI where you can browse per-server changes and launch a sync directly.
 
@@ -359,7 +366,35 @@ Scanning: /home/user/my-project
     ✓ css/dark-mode.css
     ✓ index.php
   Done: 3 uploaded, 0 protected, 0 failed
+  ↑ 1.2 MB · 4s
   Release: .syncftp/releases/production/20260612-143012
+Log: .syncftp/logs/production/20260612-143012.txt
+```
+
+Every sync that uploads (or fails to upload) at least one file also writes a plain-text log to `.syncftp/logs/<server>/<timestamp>.txt`. In the interactive sync TUI, press `s` after the sync finishes to save its log.
+
+---
+
+### `syncftp diff`
+
+Compares the FTP contents of two servers — useful for checking production against staging.
+
+```bash
+syncftp diff production staging       # explicit server names
+syncftp diff                          # interactive pickers
+```
+
+```
+── production ↔ staging ──
+  Listing production...
+  Listing staging...
+
+  Only on production (2):
+    + js/new-feature.js
+    + css/dark.css
+  Size differs (1):
+    ~ index.php  (production: 12.4 KB · staging: 11.9 KB)
+  ✓ 139 files identical
 ```
 
 ---
@@ -641,6 +676,7 @@ syncftp
 | `watch [--all] [--server name]` | Watch for file changes and sync automatically |
 | `calibrate [--all] [--server name]` | Compare local sizes with FTP, update state (no upload) |
 | `freeze [--server name]` | Manage freeze list for a server |
+| `serve [--port N]` | Start the local HTTP API server (same as `syncftp serve`) |
 | `servers` | TUI server list |
 | `server [name]` | Connect to a server |
 | `disconnect` | Close current FTP connection |
@@ -864,6 +900,9 @@ syncFTP stores everything in `.syncftp/` in your project directory:
 │   └── production/
 │       └── 20260612-143012/
 │           └── manifest.json
+├── logs/
+│   └── production/
+│       └── 20260612-143012.txt   # plain-text sync log (auto + TUI `s` key)
 └── lang                   # saved language preference ("en" or "tr")
 ```
 
@@ -883,8 +922,9 @@ syncFTP stores everything in `.syncftp/` in your project directory:
 | `internal/failed` | Failed file list persistence |
 | `internal/release` | Release manifest writer |
 | `internal/frozen` | Per-server freeze list (load / save) |
+| `internal/synclog` | Sync log writer — ANSI-stripped plain-text logs under `.syncftp/logs/` |
 | `internal/lang` | i18n — `lang.go` (struct + funcs), `en.go` (English), `tr.go` (Turkish); auto-detect OS language, runtime switching |
-| `cmd/syncftp` | CLI commands (init, status, sync, calibrate, push, remote, serve, freeze, lang, config, shell) |
+| `cmd/syncftp` | CLI commands (init, status, sync, calibrate, push, remote, serve, freeze, lang, config, watch, diff, shell) |
 
 ---
 

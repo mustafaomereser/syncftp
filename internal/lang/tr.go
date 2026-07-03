@@ -185,6 +185,13 @@ Sunucu yönetimi:
                             s = kaydet  |  q = iptal
 
 Diğer:
+  serve [--port N]        Yerel HTTP API sunucusu başlatır (varsayılan: 127.0.0.1:8080)
+                            GET  /api/servers, /api/status, /api/failed, /api/releases
+                            POST /api/sync         (senkron, JSON sonuç döner)
+                            GET  /api/sync/stream  (SSE canlı log)
+                            POST /api/reload       (config doğrula)
+                            POST /api/trigger/github?server=&branch=&secret=
+                            GET/DELETE /api/remote/ls|cat|get|rm
   lang [en|tr]            Dili göster veya değiştir (ilk çalışmada OS dilinden otomatik algılanır)
   clear / cls             Ekranı temizle
   help / ?                Bu yardım
@@ -470,4 +477,35 @@ Diğer:
 	CfgIgnoreTitle:   "⚙  Ignore dosyaları",
 	CfgIgnoreNavHint: "  Space = seç/kaldır  |  s = kaydet  |  q = iptal",
 	CfgIgnoreNote:    "  Hiçbirini seçmezsen ignore kullanılmaz.",
+
+	// Sync log + rapor
+	SyncLogSavedFmt: "  Log: %s\n",
+	SyncLogHint:     "  ·  s = log kaydet",
+	SyncReportFmt:   "  ↑ %s · %s",
+
+	// Status — frozen
+	StatusFrozenHeader: "  ❄ Frozen (sync'te atlanır)",
+
+	// Calibrate — canlı listeleme sayacı
+	ResyncListProgressFmt: "\r  Listeleniyor: %d dosya",
+
+	// Init — ignore şablonu
+	InitTemplateTitle:      "Ignore şablonu",
+	InitTemplateSub:        ".syncftp/syncftp.ignore için şablon seç",
+	InitTemplateGeneric:    "Genel",
+	InitTemplateNone:       "Yok",
+	InitTemplateNoneDesc:   "Şablon oluşturma",
+	InitTemplateWrittenFmt: "  ✓ .syncftp/syncftp.ignore oluşturuldu (%s)\n",
+
+	// Diff komutu
+	DiffPickA:         "Birinci sunucu",
+	DiffPickB:         "İkinci sunucu",
+	DiffPickSub:       "Karşılaştırılacak sunucuyu seç",
+	DiffNeedTwo:       "  Karşılaştırma için iki farklı sunucu gerekir.\n",
+	DiffTitleFmt:      "── %s ↔ %s ──\n",
+	DiffListingFmt:    "  %s listeleniyor...\n",
+	DiffOnlyFmt:       "  Sadece %s üzerinde (%d):\n",
+	DiffSizeHeaderFmt: "  Boyut farklı (%d):\n",
+	DiffSizeLineFmt:   "    ~ %s  (%s: %s · %s: %s)\n",
+	DiffSameFmt:       "  ✓ %d dosya aynı\n",
 }

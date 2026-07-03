@@ -181,6 +181,9 @@ func runShell() error {
 		case "watch":
 			sh.cmdWatch(args)
 
+		case "serve":
+			sh.cmdServe(args)
+
 		case "calibrate":
 			sh.cmdCalibrate(args)
 
@@ -933,6 +936,22 @@ func (sh *shellState) cmdSync(args []string) {
 	}
 }
 
+func (sh *shellState) cmdServe(args []string) {
+	port := 8080
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--port" && i+1 < len(args) {
+			if n, err := fmt.Sscanf(args[i+1], "%d", &port); n != 1 || err != nil {
+				port = 8080
+			}
+			i++
+		}
+	}
+	servePort = port
+	if err := runServe(nil, nil); err != nil {
+		fmt.Printf(lang.L.ShellErrFmt, err)
+	}
+}
+
 func (sh *shellState) cmdWatch(args []string) {
 	serverName := ""
 	all := false
@@ -1148,12 +1167,12 @@ func (sh *shellState) shellSyncServer(srv config.Server, full, dryRun bool) {
 	sort.Strings(toUpload)
 
 	if dryRun {
-		RunSyncTUI(srv.Name, len(toUpload), true, toUpload, nil)
+		RunSyncTUI(dir, srv.Name, len(toUpload), true, toUpload, nil)
 		return
 	}
 
 	if len(toUpload) == 0 {
-		RunSyncTUI(srv.Name, 0, false, nil, nil)
+		RunSyncTUI(dir, srv.Name, 0, false, nil, nil)
 		return
 	}
 
@@ -1192,7 +1211,7 @@ func (sh *shellState) shellSyncServer(srv config.Server, full, dryRun bool) {
 	}
 
 	ch := pool.UploadCh(tasks)
-	tuiResults, _ := RunSyncTUI(srv.Name, len(tasks), false, nil, ch)
+	tuiResults, _ := RunSyncTUI(dir, srv.Name, len(tasks), false, nil, ch)
 
 	successFiles := make(map[string]string)
 	var failedPaths []string

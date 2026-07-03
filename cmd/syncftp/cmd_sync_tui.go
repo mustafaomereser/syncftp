@@ -10,6 +10,7 @@ import (
 
 	ftpclient "syncftp/internal/ftp"
 	"syncftp/internal/lang"
+	"syncftp/internal/synclog"
 )
 
 // ── stiller ───────────────────────────────────────────────────────────────────
@@ -39,30 +40,36 @@ type syncTickMsg struct{}
 
 type syncTUIModel struct {
 	serverName string
+	configDir  string // log kaydı için; boşsa s tuşu devre dışı
 	total      int
 	dryRun     bool
 	dryFiles   []string
 
-	done     int
-	failed   int
-	results  []ftpclient.UploadResult
-	current  string
-	finished bool
-	spinner  int
-	width    int
-	height   int // terminal yüksekliği
+	done      int
+	failed    int
+	bytesDone int64
+	startTime time.Time
+	results   []ftpclient.UploadResult
+	current   string
+	finished  bool
+	spinner   int
+	width     int
+	height    int // terminal yüksekliği
+	statusMsg string
 
 	scroll int // log kaydırma offseti; 999999 = en alta git
 
 	resultCh <-chan ftpclient.UploadResult
 }
 
-func newSyncTUI(serverName string, total int, dryRun bool, dryFiles []string, ch <-chan ftpclient.UploadResult) syncTUIModel {
+func newSyncTUI(configDir, serverName string, total int, dryRun bool, dryFiles []string, ch <-chan ftpclient.UploadResult) syncTUIModel {
 	return syncTUIModel{
 		serverName: serverName,
+		configDir:  configDir,
 		total:      total,
 		dryRun:     dryRun,
 		dryFiles:   dryFiles,
+		startTime:  time.Now(),
 		resultCh:   ch,
 	}
 }
@@ -165,6 +172,7 @@ func (m syncTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.failed++
 		} else {
 			m.done++
+			m.bytesDone += r.Size
 			m.current = r.RelPath
 		}
 		return m, m.waitResult()
@@ -219,6 +227,15 @@ func (m syncTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.scroll = maxScroll
 					}
 					return m, nil
+				case "s":
+					if m.configDir != "" {
+						if p, err := synclog.Save(m.configDir, m.serverName, m.plainLog()); err == nil {
+							m.statusMsg = fmt.Sprintf(lang.L.SyncLogSavedFmt, p)
+						} else {
+							m.statusMsg = fmt.Sprintf("  ! %v\n", err)
+						}
+						return m, nil
+					}
 				}
 			}
 			return m, tea.Quit
@@ -340,22 +357,50 @@ func (m syncTUIModel) View() string {
 			summary += fmt.Sprintf(lang.L.SyncDoneFailFmt, stFail.Render(fmt.Sprintf("%d", m.failed)))
 		}
 		b.WriteString(stBold.Render(summary) + "\n")
+		b.WriteString(stDim.Render(fmt.Sprintf(lang.L.SyncReportFmt,
+			humanBytes(m.bytesDone), time.Since(m.startTime).Round(time.Second))) + "\n")
+		if m.statusMsg != "" {
+			b.WriteString(stOK.Render(m.statusMsg))
+		}
 
+		logHint := ""
+		if m.configDir != "" {
+			logHint = lang.L.SyncLogHint
+		}
 		if len(lines) > visH {
-			b.WriteString("\n" + stDim.Render(lang.L.SyncScrollHint) + "\n")
+			b.WriteString("\n" + stDim.Render(lang.L.SyncScrollHint+logHint) + "\n")
 		} else {
-			b.WriteString("\n" + stDim.Render(lang.L.SyncAnyKey) + "\n")
+			b.WriteString("\n" + stDim.Render(lang.L.SyncAnyKey+logHint) + "\n")
 		}
 	}
 
 	return b.String()
 }
 
+// plainLog TUI log satırlarını + özeti düz metin olarak döner (log dosyası için).
+func (m syncTUIModel) plainLog() string {
+	var b strings.Builder
+	b.WriteString("══ " + m.serverName + " ══\n\n")
+	for _, l := range m.buildLogLines() {
+		b.WriteString(l + "\n")
+	}
+	b.WriteString("\n")
+	b.WriteString(fmt.Sprintf(lang.L.SyncDoneFmt, fmt.Sprintf("%d", m.done)))
+	if m.failed > 0 {
+		b.WriteString(fmt.Sprintf(lang.L.SyncDoneFailFmt, fmt.Sprintf("%d", m.failed)))
+	}
+	b.WriteString("\n")
+	b.WriteString(fmt.Sprintf(lang.L.SyncReportFmt,
+		humanBytes(m.bytesDone), time.Since(m.startTime).Round(time.Second)) + "\n")
+	return b.String()
+}
+
 // RunSyncTUI sync işlemini TUI ile gösterir ve tamamlanan yükleme sonuçlarını döner.
 // dryRun=true ise yükleme yapmadan dosya listesini gösterir.
 // ch=nil ise sadece "değişiklik yok" gösterir.
-func RunSyncTUI(serverName string, total int, dryRun bool, dryFiles []string, ch <-chan ftpclient.UploadResult) ([]ftpclient.UploadResult, error) {
-	m := newSyncTUI(serverName, total, dryRun, dryFiles, ch)
+// configDir boş değilse sync bitince s tuşu logu .syncftp/logs/ altına kaydeder.
+func RunSyncTUI(configDir, serverName string, total int, dryRun bool, dryFiles []string, ch <-chan ftpclient.UploadResult) ([]ftpclient.UploadResult, error) {
+	m := newSyncTUI(configDir, serverName, total, dryRun, dryFiles, ch)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	final, err := p.Run()
 	if err != nil {

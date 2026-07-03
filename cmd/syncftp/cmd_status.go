@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"syncftp/internal/config"
+	"syncftp/internal/frozen"
 	"syncftp/internal/ignore"
 	"syncftp/internal/lang"
 	"syncftp/internal/scanner"
@@ -148,6 +149,16 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		printFileList(lang.L.StatusNewHeader, newFiles)
 		printFileList(lang.L.StatusChangedHeader, changedFiles)
 		printFileList(lang.L.StatusDeletedHeader, deletedFiles)
+
+		if fl, _ := frozen.Load(dir, srv.Name); fl != nil && len(fl.Files) > 0 {
+			var frozenPaths []string
+			for p, v := range fl.Files {
+				if v {
+					frozenPaths = append(frozenPaths, p)
+				}
+			}
+			printFileList(lang.L.StatusFrozenHeader, frozenPaths)
+		}
 		fmt.Println()
 	}
 
