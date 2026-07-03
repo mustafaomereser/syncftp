@@ -1176,6 +1176,15 @@ func (sh *shellState) shellSyncServer(srv config.Server, full, dryRun bool) {
 		return
 	}
 
+	// Pre-sync hook'ları (global + sunucu); hata → sync iptal
+	preHooks := append(append([]string{}, cfg.Sync.PreSync...), srv.PreSync...)
+	if len(preHooks) > 0 {
+		if hookErr := runHooks(os.Stdout, dir, preHooks, hookEnv(srv.Name, 0, 0)); hookErr != nil {
+			fmt.Printf(lang.L.SyncHookAbortFmt, hookErr)
+			return
+		}
+	}
+
 	pool, err := ftpclient.NewPool(srv)
 	if err != nil {
 		fmt.Printf(lang.L.ShellConnPoolErr, err)
@@ -1257,6 +1266,14 @@ func (sh *shellState) shellSyncServer(srv config.Server, full, dryRun bool) {
 			uploadedFiles = append(uploadedFiles, rel)
 		}
 		sendWebhook(webhookURL, srv.Name, len(successFiles), len(failedPaths), uploadedFiles)
+	}
+
+	// Post-sync hook'ları (global + sunucu); hata sync sonucunu etkilemez
+	postHooks := append(append([]string{}, cfg.Sync.PostSync...), srv.PostSync...)
+	if len(postHooks) > 0 {
+		if hookErr := runHooks(os.Stdout, dir, postHooks, hookEnv(srv.Name, len(successFiles), len(failedPaths))); hookErr != nil {
+			fmt.Printf(lang.L.SyncHookErrFmt, hookErr)
+		}
 	}
 }
 

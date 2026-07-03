@@ -38,3 +38,18 @@ func TestIsProtected_NotProtected(t *testing.T) {
 		t.Error("public/app.js korunmamalıydı")
 	}
 }
+
+func TestIsBinaryExt(t *testing.T) {
+	binary := []string{"img/logo.PNG", "photo.jpg", "docs/manual.pdf", "fonts/app.woff2", "backup.zip", "video.mp4"}
+	for _, p := range binary {
+		if !isBinaryExt(p) {
+			t.Errorf("%s binary sayılmalıydı", p)
+		}
+	}
+	text := []string{"index.php", "css/app.css", "js/app.js", "README.md", "data.json", "Makefile"}
+	for _, p := range text {
+		if isBinaryExt(p) {
+			t.Errorf("%s binary sayılmamalıydı", p)
+		}
+	}
+}

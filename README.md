@@ -24,6 +24,7 @@ A Go CLI tool that detects changed files via SHA256 hashing and distributes them
 - **Watch mode** — monitor directories for changes and sync automatically; uses OS kernel events (zero CPU when idle)
 - **Config export** — print config as JSON with all passwords masked (`syncftp config --export`)
 - **Server diff** — compare two servers' FTP contents (`syncftp diff production staging`)
+- **Pre/post sync hooks** — run custom shell commands before and after each sync (build steps, cache clears, migrations)
 - **Sync logs & report** — every sync writes a timestamped log to `.syncftp/logs/`; the TUI shows total bytes and duration, press `s` to save its log
 - **Ignore templates** — `syncftp init` offers ready-made ignore templates (Laravel, WordPress, Node.js, generic)
 
@@ -75,7 +76,9 @@ Created by `syncftp init` inside the `.syncftp/` directory. Stored with permissi
     "exclude": ["vendor/", "node_modules/"],
     "ignore_files": [],
     "webhook": "https://hooks.example.com/deploy",
-    "block_extensions": [".jpg", ".zip", ".pdf"]
+    "block_extensions": [".jpg", ".zip", ".pdf"],
+    "pre_sync": ["npm run build"],
+    "post_sync": ["curl -s https://example.com/clear-cache"]
   },
   "first_sync": {
     "full": false
@@ -176,6 +179,9 @@ Created by `syncftp init` inside the `.syncftp/` directory. Stored with permissi
 | `server.webhook` | `""` | Override the global webhook URL for this server |
 | `sync.webhook` | `""` | Global webhook URL — HTTP POST after sync with upload summary |
 | `sync.block_extensions` | `[]` | Global list of extensions to skip; per-server list is added on top |
+| `sync.pre_sync` | `[]` | Shell commands run **before** upload; any failure aborts that server's sync |
+| `sync.post_sync` | `[]` | Shell commands run **after** upload; failures are reported but don't affect the sync |
+| `server.pre_sync` / `server.post_sync` | `[]` | Per-server hooks, run after the global ones |
 
 ---
 
@@ -234,6 +240,33 @@ Send an HTTP POST after each sync completes. Useful for triggering cache clears,
 ```
 
 Per-server `webhook` overrides the global one for that server.
+
+### Pre/post sync hooks
+
+Run arbitrary shell commands around each sync — build steps, cache clears, database migrations, notifications.
+
+```json
+{
+  "sync": {
+    "pre_sync":  ["npm run build"],
+    "post_sync": ["curl -s https://example.com/api/clear-cache"]
+  },
+  "servers": [
+    { "name": "production", "post_sync": ["curl -s https://prod.example.com/migrate"] }
+  ]
+}
+```
+
+- Commands run through the system shell (`cmd /C` on Windows, `sh -c` elsewhere) in the project directory; their output is shown indented under a `⚙ hook:` line.
+- **`pre_sync`** runs after the file list is computed but before any upload — only when there is something to upload, and never on `--dry-run`. If a command fails, **that server's sync is aborted**.
+- **`post_sync`** runs after the upload (and webhook). Failures are printed but don't change the sync result.
+- Per-server hooks run **after** the global ones.
+- Hooks receive context via environment variables: `SYNCFTP_SERVER`, `SYNCFTP_UPLOADED`, `SYNCFTP_FAILED` (counts are `0` in `pre_sync`).
+- With parallel multi-server sync, hooks of different servers may run concurrently — keep them independent.
+
+### Binary files
+
+Binary files (images, PDFs, archives, fonts, media…) are uploaded byte-for-byte — the CRLF normalizer is skipped so they are never corrupted. Detection is two-layered: a known-binary extension list (`.jpg`, `.png`, `.pdf`, `.zip`, `.woff2`, `.mp4`, …) decides instantly; anything else is content-sniffed for null bytes in the first 8 KB.
 
 ---
 

@@ -483,6 +483,11 @@ Diğer:
 	SyncLogHint:     "  ·  s = log kaydet",
 	SyncReportFmt:   "  ↑ %s · %s",
 
+	// Hook'lar (pre_sync / post_sync)
+	SyncHookRunFmt:   "  ⚙ hook: %s\n",
+	SyncHookAbortFmt: "  ✗ pre_sync hook başarısız, sync iptal: %v\n",
+	SyncHookErrFmt:   "  ! post_sync hook hatası: %v\n",
+
 	// Status — frozen
 	StatusFrozenHeader: "  ❄ Frozen (sync'te atlanır)",
 

@@ -87,9 +87,10 @@ func (c *Client) Upload(localPath, relPath string) error {
 	defer f.Close()
 
 	// Metin dosyaları: \r\n → \n normalize et (PHP hosting ASCII mod sorunu).
-	// Binary dosyalar (resim, PDF, ZIP vb.): normalizer ATLANIR — null byte tespiti.
+	// Binary dosyalar (resim, PDF, ZIP vb.): normalizer ATLANIR — bozulmayı önler.
+	// Önce uzantı (kesin), sonra içerik (null byte) kontrolü.
 	var uploadReader io.Reader
-	if isBinaryContent(f) {
+	if isBinaryExt(relPath) || isBinaryContent(f) {
 		uploadReader = f
 	} else {
 		uploadReader = newCRLFNormalizer(f)
@@ -98,6 +99,32 @@ func (c *Client) Upload(localPath, relPath string) error {
 		return fmt.Errorf("yükleme başarısız (%s): %w", remoteFull, err)
 	}
 	return nil
+}
+
+// binaryExts — uzantısından kesin binary olduğu bilinen dosya türleri.
+// Bu dosyalarda içerik kontrolüne gerek kalmaz; ilk 8 KB'ında null byte
+// bulunmayan nadir binary'ler (bazı GIF/ICO varyantları vb.) de yakalanır.
+var binaryExts = map[string]bool{
+	// görseller
+	".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true,
+	".ico": true, ".bmp": true, ".tif": true, ".tiff": true, ".avif": true, ".heic": true,
+	// arşiv / belge
+	".pdf": true, ".zip": true, ".rar": true, ".7z": true, ".gz": true, ".bz2": true,
+	".tar": true, ".xz": true, ".xlsx": true, ".xls": true, ".docx": true, ".doc": true,
+	".pptx": true, ".ppt": true, ".odt": true, ".ods": true,
+	// medya
+	".mp3": true, ".mp4": true, ".wav": true, ".ogg": true, ".flac": true, ".m4a": true,
+	".avi": true, ".mov": true, ".mkv": true, ".webm": true,
+	// font
+	".woff": true, ".woff2": true, ".ttf": true, ".otf": true, ".eot": true,
+	// çalıştırılabilir / veri
+	".exe": true, ".dll": true, ".so": true, ".dylib": true, ".wasm": true,
+	".sqlite": true, ".db": true, ".dat": true, ".bin": true, ".phar": true,
+}
+
+// isBinaryExt dosya uzantısı bilinen binary türlerinden biriyse true döner.
+func isBinaryExt(relPath string) bool {
+	return binaryExts[strings.ToLower(path.Ext(relPath))]
 }
 
 // isBinaryContent dosyanın ilk 8 KB'ını okur; null byte varsa binary döner.

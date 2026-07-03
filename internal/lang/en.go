@@ -483,6 +483,11 @@ Other:
 	SyncLogHint:     "  ·  s = save log",
 	SyncReportFmt:   "  ↑ %s · %s",
 
+	// Hooks (pre_sync / post_sync)
+	SyncHookRunFmt:   "  ⚙ hook: %s\n",
+	SyncHookAbortFmt: "  ✗ pre_sync hook failed, sync aborted: %v\n",
+	SyncHookErrFmt:   "  ! post_sync hook error: %v\n",
+
 	// Status — frozen
 	StatusFrozenHeader: "  ❄ Frozen (skipped during sync)",
 

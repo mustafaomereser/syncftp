@@ -436,6 +436,11 @@ type StringSet struct {
 	SyncLogHint     string // "  ·  s = log kaydet"
 	SyncReportFmt   string // "  ↑ %s · %s" (boyut, süre)
 
+	// ── Hook'lar (pre_sync / post_sync) ───────────────────────────────────────
+	SyncHookRunFmt   string // "  ⚙ hook: %s\n"
+	SyncHookAbortFmt string // "  ✗ pre_sync hook başarısız, sync iptal: %v\n"
+	SyncHookErrFmt   string // "  ! post_sync hook hatası: %v\n"
+
 	// ── Status — frozen ───────────────────────────────────────────────────────
 	StatusFrozenHeader string // "  ❄ Frozen (sync'te atlanır)"
 

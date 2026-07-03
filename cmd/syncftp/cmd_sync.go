@@ -389,6 +389,16 @@ func syncToServerResult(w io.Writer, configDir string, cfg *config.Config, srv c
 		return result
 	}
 
+	// Pre-sync hook'ları (global + sunucu); hata → bu sunucunun sync'i iptal
+	preHooks := append(append([]string{}, cfg.Sync.PreSync...), srv.PreSync...)
+	if len(preHooks) > 0 {
+		if hookErr := runHooks(w, configDir, preHooks, hookEnv(srv.Name, 0, 0)); hookErr != nil {
+			fmt.Fprintf(w, lang.L.SyncHookAbortFmt, hookErr)
+			result.err = hookErr
+			return result
+		}
+	}
+
 	maxConn := srv.MaxConnections
 	if maxConn <= 0 {
 		maxConn = 1
@@ -510,6 +520,14 @@ func syncToServerResult(w io.Writer, configDir string, cfg *config.Config, srv c
 	}
 	if webhookURL != "" {
 		sendWebhook(webhookURL, srv.Name, uploaded, failedCount, result.uploadedFiles)
+	}
+
+	// Post-sync hook'ları (global + sunucu); hata sync sonucunu etkilemez
+	postHooks := append(append([]string{}, cfg.Sync.PostSync...), srv.PostSync...)
+	if len(postHooks) > 0 {
+		if hookErr := runHooks(w, configDir, postHooks, hookEnv(srv.Name, uploaded, failedCount)); hookErr != nil {
+			fmt.Fprintf(w, lang.L.SyncHookErrFmt, hookErr)
+		}
 	}
 
 	return result
