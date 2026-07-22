@@ -22,6 +22,7 @@ import (
 	"syncftp/internal/frozen"
 	"syncftp/internal/ignore"
 	"syncftp/internal/lang"
+	"syncftp/internal/milestone"
 	"syncftp/internal/release"
 	"syncftp/internal/scanner"
 	"syncftp/internal/state"
@@ -162,7 +163,7 @@ func runSync(cmd *cobra.Command, args []string) error {
 			buf.WriteString(fmt.Sprintf("══ %s (%s) ══\n", sc.srv.Name, sc.srv.Host))
 			buf.WriteString(fmt.Sprintf("  Taranıyor: %s → %d dosya\n\n", sc.srv.EffectiveLocalPath(cfg.Project), len(sc.current)))
 
-			result := syncToServerResult(&buf, dir, cfg, sc.srv, sc.current, sc.byKey, flagInclude, flagExclude)
+			result := syncToServerResult(&buf, dir, cfg, sc.srv, sc.current, sc.byKey, flagInclude, flagExclude, nil)
 			runResults[idx] = runResult{idx: idx, output: buf.String(), result: result}
 		}(i, sc)
 	}
@@ -188,12 +189,13 @@ func runSync(cmd *cobra.Command, args []string) error {
 
 // syncToServer eski signature — tek sunucu veya shell akışı için.
 func syncToServer(configDir string, cfg *config.Config, srv config.Server, current map[string]string, byKey map[string]scanner.File, cliInclude, cliExclude []string) error {
-	r := syncToServerResult(os.Stdout, configDir, cfg, srv, current, byKey, cliInclude, cliExclude)
+	r := syncToServerResult(os.Stdout, configDir, cfg, srv, current, byKey, cliInclude, cliExclude, nil)
 	return r.err
 }
 
 // syncToServerResult çıktıyı w'ye yazar, sayım bilgilerini döner (parallel sync için).
-func syncToServerResult(w io.Writer, configDir string, cfg *config.Config, srv config.Server, current map[string]string, byKey map[string]scanner.File, cliInclude, cliExclude []string) serverSyncResult {
+// since != nil → milestone modu: state diff yerine mtime >= since olan dosyalar yüklenir.
+func syncToServerResult(w io.Writer, configDir string, cfg *config.Config, srv config.Server, current map[string]string, byKey map[string]scanner.File, cliInclude, cliExclude []string, since *time.Time) serverSyncResult {
 	result := serverSyncResult{name: srv.Name}
 	startTime := time.Now()
 
@@ -268,7 +270,19 @@ func syncToServerResult(w io.Writer, configDir string, cfg *config.Config, srv c
 
 	var toUpload []string
 
-	if flagRetryFailed {
+	if since != nil {
+		fmt.Fprintf(w, lang.L.MilestoneSinceFmt, since.Format("2006-01-02 15:04:05"))
+		for rel := range current {
+			f := byKey[rel]
+			if info, statErr := os.Stat(f.AbsPath); statErr == nil && !info.ModTime().Before(*since) {
+				toUpload = append(toUpload, rel)
+			}
+		}
+		if len(effectiveInclude) > 0 {
+			toUpload = filterByInclude(toUpload, effectiveInclude)
+		}
+		toUpload = filterByExclude(toUpload, effectiveExclude)
+	} else if flagRetryFailed {
 		fl, err := failed.Load(configDir, srv.Name)
 		if err != nil {
 			result.err = fmt.Errorf("failed listesi okunamadı: %w", err)
@@ -320,6 +334,17 @@ func syncToServerResult(w io.Writer, configDir string, cfg *config.Config, srv c
 			}
 		}
 		toUpload = filterByExclude(toUpload, effectiveExclude)
+	}
+
+	// Milestone filtresi: sunucuda milestone varsa yalnızca o tarihten sonra
+	// değişen (mtime) dosyalar sync edilir (since modu zaten mtime bazlı seçim yaptı)
+	if since == nil && !flagRetryFailed {
+		if ms, _ := milestone.Load(configDir, srv.Name); ms != nil {
+			ld := filepath.Join(configDir, srv.EffectiveLocalPath(cfg.Project))
+			var dropped int
+			toUpload, dropped = milestoneFilterMtime(toUpload, ld, ms.Date)
+			fmt.Fprintf(w, lang.L.MilestoneFilterFmt, ms.Date.Format("2006-01-02 15:04"), dropped)
+		}
 	}
 
 	// Frozen dosyaları atla
@@ -499,7 +524,10 @@ func syncToServerResult(w io.Writer, configDir string, cfg *config.Config, srv c
 			delete(st.Files, rel)
 		}
 	}
-	st.FirstSyncDone = true
+	// Milestone modu ilk sync sayılmaz — auto-calibrate hakkını tüketme
+	if since == nil {
+		st.FirstSyncDone = true
+	}
 
 	if err := state.Save(configDir, st); err != nil {
 		fmt.Fprintf(w, lang.L.SyncStateErr, err)

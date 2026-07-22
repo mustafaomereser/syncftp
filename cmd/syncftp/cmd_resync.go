@@ -6,9 +6,11 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
 	"syncftp/internal/config"
@@ -18,6 +20,7 @@ import (
 	"syncftp/internal/lang"
 	"syncftp/internal/scanner"
 	"syncftp/internal/state"
+	"syncftp/internal/synclog"
 )
 
 var (
@@ -75,7 +78,7 @@ func runCalibrateCmd(cmd *cobra.Command, args []string) error {
 	}
 
 	for _, srv := range servers {
-		runCalibrate(dir, srv, cfg)
+		runCalibrateOpts(dir, srv, cfg, calibrateOpts{interactive: true, saveLog: true})
 	}
 	return nil
 }
@@ -139,7 +142,27 @@ func passesFilter(relPath string, include, exclude []string) bool {
 
 // runCalibrate yerel dosyaları FTP boyutlarıyla karşılaştırıp eşleşenleri state'e yazar.
 // Yükleme yapmaz. Hata olursa sessizce devam eder (state değişmez).
+// Sync içindeki otomatik tetikleme bu sürümü kullanır (TUI ve log yok — paralel güvenli).
 func runCalibrate(dir string, srv config.Server, cfg *config.Config) {
+	runCalibrateOpts(dir, srv, cfg, calibrateOpts{})
+}
+
+type calibrateOpts struct {
+	interactive bool // listeleme fazında inline TUI: → taranan dosyaları canlı gösterir
+	saveLog     bool // özet + taranan dosya listesi synclog'a kaydedilir
+}
+
+func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts calibrateOpts) {
+	// p hem terminale yazar hem (saveLog açıksa) log tamponuna toplar;
+	// \r'li canlı sayaç satırları p'den geçmez, log'a girmez.
+	var logBuf strings.Builder
+	p := func(format string, a ...any) {
+		fmt.Printf(format, a...)
+		if opts.saveLog {
+			fmt.Fprintf(&logBuf, format, a...)
+		}
+	}
+
 	localPath := srv.EffectiveLocalPath(cfg.Project)
 	localDir := filepath.Join(dir, localPath)
 
@@ -201,16 +224,16 @@ func runCalibrate(dir string, srv config.Server, cfg *config.Config) {
 
 	st, _ := state.Load(dir, srv.Name)
 
-	fmt.Printf("  [%s]\n", srv.Name)
-	fmt.Printf(lang.L.ResyncLocalFmt, len(current))
+	p("  [%s]\n", srv.Name)
+	p(lang.L.ResyncLocalFmt, len(current))
 	if len(ignoredDirs) > 0 {
-		fmt.Printf(lang.L.ResyncIgnoreDirsFmt, len(ignoredDirs), strings.Join(ignoredDirs, ", "))
+		p(lang.L.ResyncIgnoreDirsFmt, len(ignoredDirs), strings.Join(ignoredDirs, ", "))
 	}
 	if ignoredCount > 0 {
-		fmt.Printf(lang.L.ResyncIgnoreFilesFmt, ignoredCount)
+		p(lang.L.ResyncIgnoreFilesFmt, ignoredCount)
 	}
 	if excluded > 0 {
-		fmt.Printf(lang.L.ResyncFilteredFmt, excluded)
+		p(lang.L.ResyncFilteredFmt, excluded)
 	}
 	fmt.Print(lang.L.ResyncScanning)
 
@@ -223,19 +246,30 @@ func runCalibrate(dir string, srv config.Server, cfg *config.Config) {
 	fmt.Print(lang.L.ResyncConnected)
 
 	fmt.Printf("  %s\n", lang.L.ResyncListing)
-	lastList := time.Now()
-	remoteFiles, err := client.ListRecursiveProgress(srv.RemotePath, func(n int) {
-		if time.Since(lastList) >= 80*time.Millisecond {
-			fmt.Printf(lang.L.ResyncListProgressFmt, n)
-			lastList = time.Now()
+	var remoteFiles map[string]uint64
+	var err2 error
+	if opts.interactive {
+		var aborted bool
+		remoteFiles, aborted, err2 = runListingTUI(client, srv.RemotePath)
+		if aborted {
+			fmt.Print(lang.L.ResyncListCancelled)
+			return
 		}
-	})
-	fmt.Print("\r                                        \r")
-	if err != nil {
-		fmt.Printf(lang.L.ResyncListErr, err)
+	} else {
+		lastList := time.Now()
+		remoteFiles, err2 = client.ListRecursiveProgress(srv.RemotePath, func(n int) {
+			if time.Since(lastList) >= 80*time.Millisecond {
+				fmt.Printf(lang.L.ResyncListProgressFmt, n)
+				lastList = time.Now()
+			}
+		})
+		fmt.Print("\r                                        \r")
+	}
+	if err2 != nil {
+		fmt.Printf(lang.L.ResyncListErr, err2)
 		return
 	}
-	fmt.Printf(lang.L.ResyncFoundFmt, len(remoteFiles))
+	p(lang.L.ResyncFoundFmt, len(remoteFiles))
 
 	frozenList, _ := frozen.Load(dir, srv.Name)
 
@@ -283,13 +317,145 @@ func runCalibrate(dir string, srv config.Server, cfg *config.Config) {
 		}
 	}
 
-	fmt.Printf(lang.L.ResyncMatchedFmt, matched, different)
+	p(lang.L.ResyncMatchedFmt, matched, different)
 	if frozenDiff > 0 {
-		fmt.Printf(lang.L.ResyncFrozenDiffFmt, frozenDiff)
+		p(lang.L.ResyncFrozenDiffFmt, frozenDiff)
 	}
 
 	st.FirstSyncDone = true
 	_ = state.Save(dir, st)
 
-	fmt.Printf(lang.L.ResyncDoneFmt, srv.Name)
+	p(lang.L.ResyncDoneFmt, srv.Name)
+
+	if opts.saveLog {
+		fmt.Fprintf(&logBuf, lang.L.ResyncLogFilesHeader, len(remoteFiles))
+		keys := make([]string, 0, len(remoteFiles))
+		for k := range remoteFiles {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			fmt.Fprintf(&logBuf, "  %s (%s)\n", k, humanBytes(int64(remoteFiles[k])))
+		}
+		if lp, lerr := synclog.Save(dir, srv.Name, logBuf.String()); lerr == nil {
+			fmt.Printf(lang.L.SyncLogSavedFmt, lp)
+		}
+	}
+}
+
+// ── listeleme TUI (interaktif calibrate) ──────────────────────────────────────
+
+type calListEntryMsg struct {
+	count int
+	path  string
+}
+
+type calListDoneMsg struct {
+	files map[string]uint64
+	err   error
+}
+
+const calListRecentMax = 10
+
+type calListModel struct {
+	ch      chan tea.Msg
+	count   int
+	recent  []string // son bulunan dosyalar (verbose görünümde akar)
+	verbose bool
+	done    bool
+	aborted bool
+	files   map[string]uint64
+	err     error
+}
+
+func (m calListModel) Init() tea.Cmd { return m.wait() }
+
+func (m calListModel) wait() tea.Cmd {
+	ch := m.ch
+	return func() tea.Msg { return <-ch }
+}
+
+func (m calListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case calListEntryMsg:
+		m.count = msg.count
+		m.recent = append(m.recent, msg.path)
+		if len(m.recent) > calListRecentMax {
+			m.recent = m.recent[len(m.recent)-calListRecentMax:]
+		}
+		return m, m.wait()
+	case calListDoneMsg:
+		m.done = true
+		m.files = msg.files
+		m.err = msg.err
+		return m, tea.Quit
+	case tea.KeyMsg:
+		s := msg.String()
+		for strings.HasPrefix(s, "alt+") {
+			s = strings.TrimPrefix(s, "alt+")
+		}
+		switch s {
+		case "right", "l":
+			m.verbose = true
+		case "left", "h":
+			m.verbose = false
+		case "ctrl+c", "q":
+			m.aborted = true
+			return m, tea.Quit
+		}
+	}
+	return m, nil
+}
+
+func (m calListModel) View() string {
+	if m.done || m.aborted {
+		return "" // inline render temizlenir, akış normal printf'lerle sürer
+	}
+	var b strings.Builder
+	if m.verbose {
+		for _, pth := range m.recent {
+			b.WriteString(treeGrey.Render("    "+pth) + "\n")
+		}
+	}
+	b.WriteString(fmt.Sprintf(lang.L.ResyncListTUIFmt, m.count))
+	return b.String()
+}
+
+// runListingTUI listeleme fazını inline (alt-screen'siz) TUI ile çalıştırır:
+// canlı sayaç, → ile taranan dosyaların akışı. ctrl+c/q → aborted (calibrate iptal).
+func runListingTUI(client *ftpclient.Client, remotePath string) (map[string]uint64, bool, error) {
+	ch := make(chan tea.Msg, 1024)
+	go func() {
+		files, err := client.ListRecursiveProgressPath(remotePath, func(n int, latest string) {
+			select {
+			case ch <- calListEntryMsg{count: n, path: latest}:
+			default: // TUI yetişemezse ara mesaj düşebilir — done asla düşmez
+			}
+		})
+		ch <- calListDoneMsg{files: files, err: err}
+	}()
+
+	final, err := tea.NewProgram(calListModel{ch: ch}).Run()
+	if err != nil {
+		// TUI açılamadı — sayaçsız bekle, done gelince dön
+		for {
+			if d, ok := (<-ch).(calListDoneMsg); ok {
+				return d.files, false, d.err
+			}
+		}
+	}
+	fm := final.(calListModel)
+	if fm.aborted {
+		// Arka plandaki listeleme done gönderene kadar kanalı boşalt (goroutine sızmasın);
+		// caller'ın client.Close() çağrısı yürüyen List'i de sonlandırır.
+		go func() {
+			for {
+				if _, ok := (<-ch).(calListDoneMsg); ok {
+					return
+				}
+			}
+		}()
+		return nil, true, nil
+	}
+	return fm.files, false, fm.err
 }

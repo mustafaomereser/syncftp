@@ -195,6 +195,21 @@ type StringSet struct {
 	ResyncIgnoreFilesFmt string // "  Ignore: %d dosya atlandı\n"
 	ResyncFilteredFmt    string // "  Filtre (include/exclude): %d dosya kapsam dışı\n"
 	ResyncFrozenDiffFmt  string // "  ❄ %d frozen dosya farklı/eksik (sync sırasında atlanacak)\n"
+	ResyncListTUIFmt     string // "  Listeleniyor: %d dosya   (→ dosyaları göster | ← gizle | ctrl+c iptal)"
+	ResyncListCancelled  string // "  ! Listeleme iptal edildi — calibrate atlandı\n"
+	ResyncLogFilesHeader string // "\n── Taranan uzak dosyalar (%d) ──\n"
+
+	// ── cmd_milestone ────────────────────────────────────────────────────────
+	MilestoneSetFmt     string // "  ✓ Milestone [%s]: %s\n"
+	MilestoneShowFmt    string // "  %s: %s\n"
+	MilestoneNoneFmt    string // "  %s: (milestone yok)\n"
+	MilestoneClearedFmt string // "  ✓ Milestone silindi: %s\n"
+	MilestoneNotSetFmt  string // "  ⚠ %s: milestone tanımlı değil — önce 'milestone set' çalıştır\n"
+	MilestoneDateErrFmt string // "  ✗ Tarih anlaşılamadı: %q (format: 2006-01-02 [15:04[:05]])\n"
+	MilestoneSinceFmt   string // "  ⏱ Milestone: %s sonrası değişen dosyalar sync edilecek\n"
+	MilestoneFilterFmt  string // "  ⏱ Milestone filtresi (%s): %d dosya tarih öncesi — atlandı\n"
+	MilestoneShellNoSrv string // "  Önce bir sunucuya bağlan (server <ad>) — milestone bağlı sunucuya işler.\n"
+	MilestoneUsage      string // "  Kullanım: milestone [set [tarih] | sync [--dry-run] | clear | show]\n"
 
 	// ── cmd_status ───────────────────────────────────────────────────────────
 	StatusWhitelistFmt    string // "Whitelist (%d yol): yalnızca bu yollar gösterilecek\n"

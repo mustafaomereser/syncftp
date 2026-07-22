@@ -469,14 +469,52 @@ syncftp calibrate --all                  # explicitly all servers (including dis
   [production]
   Local:  142 files scanned
   Connecting to server... connected
-  / Listing remote files...
+  Listing: 3944 files   (→ show files | ← hide | ctrl+c cancel)
   Remote: 3944 files found
   Comparing: 142 / 142
   Matched: 139 (size OK)  |  Different/missing: 3
   [production] calibrate done
+  Log: .syncftp/logs/production/20260723-152201.txt
 ```
 
-> Note: calibrate is also triggered **automatically** by `status` and `sync` on the first run (when no state file exists). You only need to run it manually if the state was lost or you want to force a re-reconciliation.
+While the remote listing runs, press **`→`** to stream the file paths being scanned live (last 10 shown), **`←`** to hide them again, or **`ctrl+c`** to cancel. When calibrate finishes, the summary plus the full list of scanned remote files (with sizes) is saved to `.syncftp/logs/<server>/`.
+
+> Note: calibrate is also triggered **automatically** by `status` and `sync` on the first run (when no state file exists). You only need to run it manually if the state was lost or you want to force a re-reconciliation. The automatic version uses a plain counter (no interactive keys, no log) since it may run for several servers in parallel.
+
+---
+
+### `syncftp milestone`
+
+Sets a per-server **time marker**. While a milestone exists, `status` and `sync` only consider files modified (mtime) after that date — everything older is filtered out. Perfect for "deploy only what I changed since this morning" workflows.
+
+```bash
+syncftp milestone set                       # milestone = now (server picker if multiple)
+syncftp milestone set --date "3d"           # 3 days ago
+syncftp milestone set -s production --date "20.07 14:30"
+syncftp milestone                           # show milestones (same as: milestone show)
+syncftp milestone sync [--dry-run]          # upload ALL files modified after the milestone
+syncftp milestone clear                     # remove the milestone → full lists return
+```
+
+Accepted date formats (local time, language-independent — Turkish and English keywords both always work):
+
+| Input | Meaning |
+|---|---|
+| `now` / `şimdi` | right now |
+| `today` / `bugün`, `yesterday` / `dün` | that day at 00:00 |
+| `30m`, `5h`, `3d`, `2w` | that long ago |
+| `14:30` | today at 14:30 |
+| `20.07`, `20.07.2026 14:30` | day.month[.year] |
+| `2026-07-20 15:04` | ISO format |
+
+**Two modes:**
+
+- **Standing filter** — while the milestone exists, normal `status`/`sync` (CLI, shell, watch and the serve API) skip files whose mtime is older than the milestone. A `⏱ Milestone filter (...)` note shows how many files were hidden; the shell status TUI shows a `⏱ date` badge next to the server.
+- **`milestone sync`** — force-uploads *every* file modified after the milestone regardless of the hash state. Uploaded hashes are written to state so a following `sync` doesn't re-upload them.
+
+`sync --retry-failed` ignores the milestone filter on purpose. Milestones are stored in `.syncftp/milestones/<server>.json`.
+
+In the interactive shell the `milestone` command operates on the **connected server**: `milestone set [date]`, `milestone sync [--dry-run]`, `milestone clear`, `milestone` (show).
 
 ---
 
@@ -708,6 +746,7 @@ syncftp
 | `sync [--all] [--full] [--dry-run] [--server name]` | Upload to FTP |
 | `watch [--all] [--server name]` | Watch for file changes and sync automatically |
 | `calibrate [--all] [--server name]` | Compare local sizes with FTP, update state (no upload) |
+| `milestone [set [date] \| sync \| clear \| show]` | Time marker on the connected server — see `syncftp milestone` |
 | `freeze [--server name]` | Manage freeze list for a server |
 | `serve [--port N]` | Start the local HTTP API server (same as `syncftp serve`) |
 | `servers` | TUI server list |
@@ -866,7 +905,7 @@ curl -N "http://127.0.0.1:8080/api/sync/stream?server=production"
 
 ## Filtering System
 
-Three independent mechanisms that work together:
+Four independent mechanisms that work together:
 
 ### 1. `protect` — permanent server-side protection
 
@@ -900,12 +939,17 @@ Unlike `protect` (which is global and config-based), freeze lists are:
 
 **Failsafe auto-cleanup:** exact file paths (not globs, not directories) in include/exclude/protect are automatically removed if the file no longer exists on disk. A warning is printed and the config is saved.
 
+### 4. Milestone — time-based filter
+
+While a server has a milestone (`syncftp milestone set`), `status` and `sync` only consider files modified after the milestone date. See the [`syncftp milestone`](#syncftp-milestone) command.
+
 ### Summary
 
 | Mechanism | Scope | Managed via |
 |---|---|---|
 | `sync.protect` | Global, all servers | `syncftp.json` |
 | Freeze list | Per-server, file-level | `syncftp freeze` / browser `f` key |
+| Milestone | Per-server, mtime-based | `syncftp milestone` / shell `milestone` |
 | `sync.include` / `sync.exclude` | Global | `syncftp.json` |
 | `server.include` / `server.exclude` | Per-server | `syncftp.json` |
 | `--include` / `--exclude` flags | This run only | CLI |
@@ -929,6 +973,8 @@ syncFTP stores everything in `.syncftp/` in your project directory:
 ├── frozen/
 │   ├── production.json    # freeze list for production server
 │   └── staging.json
+├── milestones/
+│   └── production.json    # per-server milestone (time marker)
 ├── releases/
 │   └── production/
 │       └── 20260612-143012/
@@ -955,9 +1001,10 @@ syncFTP stores everything in `.syncftp/` in your project directory:
 | `internal/failed` | Failed file list persistence |
 | `internal/release` | Release manifest writer |
 | `internal/frozen` | Per-server freeze list (load / save) |
+| `internal/milestone` | Per-server milestone time marker (load / save / clear) |
 | `internal/synclog` | Sync log writer — ANSI-stripped plain-text logs under `.syncftp/logs/` |
 | `internal/lang` | i18n — `lang.go` (struct + funcs), `en.go` (English), `tr.go` (Turkish); auto-detect OS language, runtime switching |
-| `cmd/syncftp` | CLI commands (init, status, sync, calibrate, push, remote, serve, freeze, lang, config, watch, diff, shell) |
+| `cmd/syncftp` | CLI commands (init, status, sync, calibrate, milestone, push, remote, serve, freeze, lang, config, watch, diff, shell) |
 
 ---
 

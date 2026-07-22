@@ -22,6 +22,7 @@ import (
 	"syncftp/internal/failed"
 	ftpclient "syncftp/internal/ftp"
 	"syncftp/internal/ignore"
+	"syncftp/internal/milestone"
 	"syncftp/internal/release"
 	"syncftp/internal/scanner"
 	"syncftp/internal/state"
@@ -186,6 +187,7 @@ type statusData struct {
 	Server        string   `json:"server"`
 	Host          string   `json:"host"`
 	FirstSyncDone bool     `json:"first_sync_done"`
+	Milestone     string   `json:"milestone,omitempty"` // set ise new/changed mtime filtreli
 	New           []string `json:"new"`
 	Changed       []string `json:"changed"`
 	Deleted       []string `json:"deleted"`
@@ -241,10 +243,17 @@ func handleStatus(w http.ResponseWriter, r *http.Request, configDir string) {
 			continue
 		}
 		diff := state.Diff(st, current)
+		msDate := ""
+		if ms, _ := milestone.Load(configDir, srv.Name); ms != nil {
+			diff.New, _ = milestoneFilterMtime(diff.New, projectDir, ms.Date)
+			diff.Changed, _ = milestoneFilterMtime(diff.Changed, projectDir, ms.Date)
+			msDate = ms.Date.Format("2006-01-02 15:04:05")
+		}
 		results = append(results, statusData{
 			Server:        srv.Name,
 			Host:          srv.Host,
 			FirstSyncDone: st.FirstSyncDone,
+			Milestone:     msDate,
 			New:           nullSlice(diff.New),
 			Changed:       nullSlice(diff.Changed),
 			Deleted:       nullSlice(diff.Deleted),
@@ -391,6 +400,18 @@ func apiSyncServer(configDir string, cfg *config.Config, srv config.Server, curr
 			}
 		}
 		toUpload = filterByExclude(toUpload, effectiveExclude)
+
+		// Milestone filtresi: sunucuda milestone varsa yalnızca o tarihten sonra
+		// değişen (mtime) dosyalar sync edilir
+		if ms, _ := milestone.Load(configDir, srv.Name); ms != nil {
+			var kept []string
+			for _, rel := range toUpload {
+				if info, statErr := os.Stat(byRel[rel].AbsPath); statErr == nil && !info.ModTime().Before(ms.Date) {
+					kept = append(kept, rel)
+				}
+			}
+			toUpload = kept
+		}
 	}
 
 	sort.Strings(toUpload)
@@ -846,7 +867,7 @@ func handleSyncStream(w http.ResponseWriter, r *http.Request, configDir string) 
 		origFull := flagFull
 		flagFull = full
 		_ = dryRun // dry-run SSE modunda henüz desteklenmiyor — gelecekte eklenebilir
-		syncToServerResult(sw, configDir, cfg, srv, current, byKey, nil, nil)
+		syncToServerResult(sw, configDir, cfg, srv, current, byKey, nil, nil, nil)
 		flagFull = origFull
 	}
 

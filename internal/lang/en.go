@@ -157,6 +157,10 @@ Sync:
   sync [--all] [--full] [--dry-run] [--server name]   Upload to FTP
   watch [--all] [--server name]   Watch for file changes and sync automatically
   calibrate [--all] [--server name]   Compare local sizes with FTP, update state (no upload)
+  milestone [set [date] | sync | clear]   Time marker on the connected server;
+                            'milestone sync' uploads only files modified after it
+                            date: today, yesterday, 3d, 5h, 14:30, 20.07[.2026],
+                            2026-07-20 [15:04] (omit = now)
   freeze [--server name]  Manage freeze list — mark files to never upload
 
 Server management:
@@ -249,6 +253,20 @@ Other:
 	ResyncIgnoreFilesFmt: "  Ignore: %d file(s) skipped\n",
 	ResyncFilteredFmt:    "  Filter (include/exclude): %d file(s) out of scope\n",
 	ResyncFrozenDiffFmt:  "  ❄ %d frozen file(s) differ/missing (will be skipped on sync)\n",
+	ResyncListTUIFmt:     "  Listing: %d files   (→ show files | ← hide | ctrl+c cancel)",
+	ResyncListCancelled:  "  ! Listing cancelled — calibrate skipped\n",
+	ResyncLogFilesHeader: "\n── Scanned remote files (%d) ──\n",
+
+	MilestoneSetFmt:     "  ✓ Milestone [%s]: %s\n",
+	MilestoneShowFmt:    "  %s: %s\n",
+	MilestoneNoneFmt:    "  %s: (no milestone)\n",
+	MilestoneClearedFmt: "  ✓ Milestone cleared: %s\n",
+	MilestoneNotSetFmt:  "  ⚠ %s: no milestone set — run 'milestone set' first\n",
+	MilestoneDateErrFmt: "  ✗ Could not parse date: %q (e.g. today, yesterday, 3d, 5h, 14:30, 20.07.2026, 2026-07-20 15:04)\n",
+	MilestoneSinceFmt:   "  ⏱ Milestone: syncing files modified after %s\n",
+	MilestoneFilterFmt:  "  ⏱ Milestone filter (%s): %d file(s) older than milestone — skipped\n",
+	MilestoneShellNoSrv: "  Connect to a server first (server <name>) — milestone applies to the connected server.\n",
+	MilestoneUsage:      "  Usage: milestone [set [date] | sync [--dry-run] | clear | show]\n  Date: today, yesterday, 3d, 5h, 14:30, 20.07[.2026], 2026-07-20 [15:04] (omit = now)\n",
 
 	// cmd_status
 	StatusWhitelistFmt:     "Whitelist (%d paths): only these will be shown\n",

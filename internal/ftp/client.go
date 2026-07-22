@@ -294,6 +294,15 @@ func (c *Client) ListRecursive(remotePath string) (map[string]uint64, error) {
 // ListRecursiveProgress ListRecursive ile aynıdır; progress nil değilse
 // her yeni dosya bulunduğunda toplam sayıyla çağrılır (gerçek zamanlı sayaç).
 func (c *Client) ListRecursiveProgress(remotePath string, progress func(count int)) (map[string]uint64, error) {
+	if progress == nil {
+		return c.ListRecursiveProgressPath(remotePath, nil)
+	}
+	return c.ListRecursiveProgressPath(remotePath, func(count int, _ string) { progress(count) })
+}
+
+// ListRecursiveProgressPath ListRecursiveProgress ile aynıdır; callback'e toplam
+// sayıya ek olarak son bulunan dosyanın göreceli yolu da geçer (canlı dosya akışı).
+func (c *Client) ListRecursiveProgressPath(remotePath string, progress func(count int, latest string)) (map[string]uint64, error) {
 	result := make(map[string]uint64)
 	var walk func(dir, rel string)
 	walk = func(dir, rel string) {
@@ -316,7 +325,7 @@ func (c *Client) ListRecursiveProgress(remotePath string, progress func(count in
 			} else {
 				result[entryRel] = e.Size
 				if progress != nil {
-					progress(len(result))
+					progress(len(result), entryRel)
 				}
 			}
 		}

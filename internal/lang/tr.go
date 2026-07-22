@@ -157,6 +157,10 @@ Senkronizasyon:
   sync [--all] [--full] [--dry-run] [--server ad]   FTP'ye yükle
   watch [--all] [--server ad]   Dosya değişikliklerini izle, değişince otomatik sync yap
   calibrate [--all] [--server ad]   Yerel boyutları FTP ile karşılaştır, state güncelle (yükleme yok)
+  milestone [set [tarih] | sync | clear]   Bağlı sunucuya zaman işareti koy;
+                            'milestone sync' sadece o tarihten sonra değişen dosyaları yükler
+                            tarih: bugün, dün, 3d, 5h, 14:30, 20.07[.2026],
+                            2026-07-20 [15:04] (boş = şimdi)
   freeze [--server ad]    Freeze listesi — yüklenmesin istenen dosyaları işaretle
 
 Sunucu yönetimi:
@@ -249,6 +253,20 @@ Diğer:
 	ResyncIgnoreFilesFmt: "  Ignore: %d dosya atlandı\n",
 	ResyncFilteredFmt:    "  Filtre (include/exclude): %d dosya kapsam dışı\n",
 	ResyncFrozenDiffFmt:  "  ❄ %d frozen dosya farklı/eksik (sync sırasında atlanacak)\n",
+	ResyncListTUIFmt:     "  Listeleniyor: %d dosya   (→ dosyaları göster | ← gizle | ctrl+c iptal)",
+	ResyncListCancelled:  "  ! Listeleme iptal edildi — calibrate atlandı\n",
+	ResyncLogFilesHeader: "\n── Taranan uzak dosyalar (%d) ──\n",
+
+	MilestoneSetFmt:     "  ✓ Milestone [%s]: %s\n",
+	MilestoneShowFmt:    "  %s: %s\n",
+	MilestoneNoneFmt:    "  %s: (milestone yok)\n",
+	MilestoneClearedFmt: "  ✓ Milestone silindi: %s\n",
+	MilestoneNotSetFmt:  "  ⚠ %s: milestone tanımlı değil — önce 'milestone set' çalıştır\n",
+	MilestoneDateErrFmt: "  ✗ Tarih anlaşılamadı: %q (örn: bugün, dün, 3d, 5h, 14:30, 20.07.2026, 2026-07-20 15:04)\n",
+	MilestoneSinceFmt:   "  ⏱ Milestone: %s sonrası değişen dosyalar sync edilecek\n",
+	MilestoneFilterFmt:  "  ⏱ Milestone filtresi (%s): %d dosya tarih öncesi — atlandı\n",
+	MilestoneShellNoSrv: "  Önce bir sunucuya bağlan (server <ad>) — milestone bağlı sunucuya işler.\n",
+	MilestoneUsage:      "  Kullanım: milestone [set [tarih] | sync [--dry-run] | clear | show]\n  Tarih: bugün, dün, 3d, 5h, 14:30, 20.07[.2026], 2026-07-20 [15:04] (boş = şimdi)\n",
 
 	// cmd_status
 	StatusWhitelistFmt:     "Whitelist (%d yol): yalnızca bu yollar gösterilecek\n",

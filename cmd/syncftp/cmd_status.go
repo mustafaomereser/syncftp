@@ -13,6 +13,7 @@ import (
 	"syncftp/internal/frozen"
 	"syncftp/internal/ignore"
 	"syncftp/internal/lang"
+	"syncftp/internal/milestone"
 	"syncftp/internal/scanner"
 	"syncftp/internal/state"
 )
@@ -132,9 +133,21 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		changedFiles := applyStatusFilters(diff.Changed, srvInclude, srvExclude)
 		deletedFiles := applyStatusFilters(diff.Deleted, srvInclude, srvExclude)
 
+		// Milestone varsa yalnızca o tarihten sonra değişen dosyalar gösterilir
+		msNote := ""
+		if ms, _ := milestone.Load(dir, srv.Name); ms != nil {
+			var d1, d2 int
+			newFiles, d1 = milestoneFilterMtime(newFiles, localDir, ms.Date)
+			changedFiles, d2 = milestoneFilterMtime(changedFiles, localDir, ms.Date)
+			msNote = fmt.Sprintf(lang.L.MilestoneFilterFmt, ms.Date.Format("2006-01-02 15:04"), d1+d2)
+		}
+
 		fmt.Printf("── %s (%s) ──\n", srv.Name, srv.Host)
 		fmt.Printf(lang.L.StatusDirFmt, filepath.Join(dir, localPath))
 		fmt.Printf(lang.L.StatusFileFmt, len(current))
+		if msNote != "" {
+			fmt.Print(msNote)
+		}
 
 		if !st.FirstSyncDone {
 			fmt.Println(lang.L.StatusNoFirstSync)

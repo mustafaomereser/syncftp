@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -19,6 +20,7 @@ import (
 	"syncftp/internal/frozen"
 	"syncftp/internal/ignore"
 	"syncftp/internal/lang"
+	"syncftp/internal/milestone"
 	"syncftp/internal/release"
 	"syncftp/internal/scanner"
 	"syncftp/internal/state"
@@ -186,6 +188,9 @@ func runShell() error {
 
 		case "calibrate":
 			sh.cmdCalibrate(args)
+
+		case "milestone":
+			sh.cmdMilestone(args)
 
 		default:
 			fmt.Printf(lang.L.ShellUnknownCmd, cmd)
@@ -821,6 +826,14 @@ func (sh *shellState) cmdStatus() {
 		changed := applyStatusFilters(diff.Changed, srvInclude, srvExclude)
 		deleted := applyStatusFilters(diff.Deleted, srvInclude, srvExclude)
 
+		// Milestone varsa yalnızca o tarihten sonra değişen dosyalar gösterilir
+		msLabel := ""
+		if ms, _ := milestone.Load(dir, srv.Name); ms != nil {
+			added, _ = milestoneFilterMtime(added, localDir, ms.Date)
+			changed, _ = milestoneFilterMtime(changed, localDir, ms.Date)
+			msLabel = ms.Date.Format("2006-01-02 15:04")
+		}
+
 		// Frozen dosyaları ayır
 		fl, _ := frozen.Load(dir, srv.Name)
 		var frozenFiles []string
@@ -856,13 +869,14 @@ func (sh *shellState) cmdStatus() {
 		sort.Strings(frozenFiles)
 
 		entries = append(entries, statusSrvEntry{
-			name:     srv.Name,
-			localDir: localDir,
-			added:    added,
-			changed:  changed,
-			deleted:  deleted,
-			frozen:   frozenFiles,
-			size:     totalSize,
+			name:      srv.Name,
+			localDir:  localDir,
+			added:     added,
+			changed:   changed,
+			deleted:   deleted,
+			frozen:    frozenFiles,
+			size:      totalSize,
+			milestone: msLabel,
 		})
 	}
 
@@ -877,7 +891,7 @@ func (sh *shellState) cmdStatus() {
 		for _, srv := range sh.cfg.EnabledServers() {
 			if srv.Name == fm.syncServer {
 				fmt.Printf("\n── %s ──\n", srv.Name)
-				sh.shellSyncServer(srv, false, false)
+				sh.shellSyncServer(srv, false, false, nil)
 				break
 			}
 		}
@@ -932,7 +946,7 @@ func (sh *shellState) cmdSync(args []string) {
 
 	for _, srv := range servers {
 		fmt.Printf("\n── %s ──\n", srv.Name)
-		sh.shellSyncServer(srv, full, dryRun)
+		sh.shellSyncServer(srv, full, dryRun, nil)
 	}
 }
 
@@ -1014,7 +1028,7 @@ func (sh *shellState) cmdCalibrate(args []string) {
 
 	for _, srv := range servers {
 		fmt.Printf("\n── %s ──\n", srv.Name)
-		runCalibrate(sh.configDir, srv, &sh.cfg)
+		runCalibrateOpts(sh.configDir, srv, &sh.cfg, calibrateOpts{interactive: true, saveLog: true})
 	}
 
 	// Calibrate kendi FTP bağlantısını açar; bazı sunucular aynı kullanıcıdan iki
@@ -1026,7 +1040,9 @@ func (sh *shellState) cmdCalibrate(args []string) {
 	}
 }
 
-func (sh *shellState) shellSyncServer(srv config.Server, full, dryRun bool) {
+// shellSyncServer sync akışının shell sürümü.
+// since != nil → milestone modu: state diff yerine mtime >= since olan dosyalar yüklenir.
+func (sh *shellState) shellSyncServer(srv config.Server, full, dryRun bool, since *time.Time) {
 	cfg := sh.cfg
 	dir := sh.configDir
 
@@ -1113,7 +1129,15 @@ func (sh *shellState) shellSyncServer(srv config.Server, full, dryRun bool) {
 	}
 
 	var toUpload []string
-	if !st.FirstSyncDone || full {
+	if since != nil {
+		fmt.Printf(lang.L.MilestoneSinceFmt, since.Format("2006-01-02 15:04:05"))
+		for rel := range current {
+			f := byRel[rel]
+			if info, statErr := os.Stat(f.AbsPath); statErr == nil && !info.ModTime().Before(*since) {
+				toUpload = append(toUpload, rel)
+			}
+		}
+	} else if !st.FirstSyncDone || full {
 		toUpload = mapKeys(current)
 	} else {
 		diff := state.Diff(st, current)
@@ -1124,6 +1148,16 @@ func (sh *shellState) shellSyncServer(srv config.Server, full, dryRun bool) {
 		toUpload = filterByInclude(toUpload, effectiveInclude)
 	}
 	toUpload = filterByExclude(toUpload, effectiveExclude)
+
+	// Milestone filtresi: sunucuda milestone varsa yalnızca o tarihten sonra
+	// değişen (mtime) dosyalar sync edilir (since modu zaten mtime bazlı seçim yaptı)
+	if since == nil {
+		if ms, _ := milestone.Load(dir, srv.Name); ms != nil {
+			var dropped int
+			toUpload, dropped = milestoneFilterMtime(toUpload, localDir, ms.Date)
+			fmt.Printf(lang.L.MilestoneFilterFmt, ms.Date.Format("2006-01-02 15:04"), dropped)
+		}
+	}
 
 	// Frozen filtresi
 	if fl, _ := frozen.Load(dir, srv.Name); fl != nil {
@@ -1246,7 +1280,10 @@ func (sh *shellState) shellSyncServer(srv config.Server, full, dryRun bool) {
 			delete(st.Files, rel)
 		}
 	}
-	st.FirstSyncDone = true
+	// Milestone modu ilk sync sayılmaz — auto-calibrate hakkını tüketme
+	if since == nil {
+		st.FirstSyncDone = true
+	}
 	state.Save(dir, st)
 
 	if len(successFiles) > 0 {
@@ -1374,13 +1411,14 @@ func pickServerTUI(servers []config.Server) (*config.Server, error) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 type statusSrvEntry struct {
-	name     string
-	localDir string
-	added    []string
-	changed  []string
-	deleted  []string
-	frozen   []string // changed/added ama frozen — sync edilmeyecek
-	size     int64
+	name      string
+	localDir  string
+	added     []string
+	changed   []string
+	deleted   []string
+	frozen    []string // changed/added ama frozen — sync edilmeyecek
+	size      int64
+	milestone string // boş değilse mtime filtresi aktif (görüntülenen tarih)
 }
 
 func (e statusSrvEntry) totalChanges() int {
@@ -1568,7 +1606,11 @@ func (m statusTUI) View() string {
 			sizeStr = "  " + stSize.Render(formatSize(uint64(e.size)))
 		}
 		b.WriteString("\n")
-		b.WriteString(stTitle.Render("  "+e.name) + stCount.Render(fmt.Sprintf(lang.L.StatusDetailChangesCountFmt, e.totalChanges())) + sizeStr + "\n")
+		msStr := ""
+		if e.milestone != "" {
+			msStr = "  " + stHint.Render("⏱ "+e.milestone)
+		}
+		b.WriteString(stTitle.Render("  "+e.name) + stCount.Render(fmt.Sprintf(lang.L.StatusDetailChangesCountFmt, e.totalChanges())) + sizeStr + msStr + "\n")
 		if m.syncPending {
 			b.WriteString(stCount.Render(lang.L.StatusSyncConfirm) + stHint.Render(lang.L.StatusSyncHint) + "\n")
 		} else if m.searching {
@@ -1671,6 +1713,9 @@ func (m statusTUI) View() string {
 				if n > 0 {
 					info += stHint.Render("  →")
 				}
+			}
+			if e.milestone != "" {
+				info += "  " + stHint.Render("⏱ "+e.milestone)
 			}
 
 			if i == m.cursor {
