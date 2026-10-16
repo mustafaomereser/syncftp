@@ -1,10 +1,7 @@
 package main
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -683,45 +680,25 @@ func handleReleases(w http.ResponseWriter, r *http.Request, configDir string) {
 		}
 	}
 
-	releasesDir := filepath.Join(configDir, ".syncftp", "releases")
 	type releaseEntry struct {
 		Server    string `json:"server"`
 		ID        string `json:"id"`
 		CreatedAt string `json:"created_at"`
 		FileCount int    `json:"file_count"`
 	}
-
-	var entries []releaseEntry
-	servers, _ := os.ReadDir(releasesDir)
-	for _, srvDir := range servers {
-		if !srvDir.IsDir() {
-			continue
-		}
-		if srvFilter != "" && srvDir.Name() != srvFilter {
-			continue
-		}
-		runs, _ := os.ReadDir(filepath.Join(releasesDir, srvDir.Name()))
-		// En yeniden eskiye
-		for i := len(runs) - 1; i >= 0 && len(entries) < limit; i-- {
-			run := runs[i]
-			if !run.IsDir() {
+	// release.List: panel ve rollback ile aynı okuma (önbellekli, en yeniden eskiye)
+	entries := []releaseEntry{}
+	cfg, _ := loadCfg(configDir)
+	if cfg != nil {
+		for _, srv := range cfg.Servers {
+			if srvFilter != "" && srv.Name != srvFilter {
 				continue
 			}
-			manifestPath := filepath.Join(releasesDir, srvDir.Name(), run.Name(), "manifest.json")
-			data, err := os.ReadFile(manifestPath)
-			if err != nil {
-				continue
+			list, _ := release.List(configDir, srv.Name)
+			for i := 0; i < len(list) && i < limit; i++ {
+				entries = append(entries, releaseEntry{Server: srv.Name, ID: list[i].ID,
+					CreatedAt: list[i].CreatedAt.Format("2006-01-02 15:04:05"), FileCount: list[i].FileCount})
 			}
-			var m release.Manifest
-			if err := json.Unmarshal(data, &m); err != nil {
-				continue
-			}
-			entries = append(entries, releaseEntry{
-				Server:    srvDir.Name(),
-				ID:        run.Name(),
-				CreatedAt: m.CreatedAt.Format("2006-01-02 15:04:05"),
-				FileCount: m.FileCount,
-			})
 		}
 	}
 	jsonOK(w, entries)
@@ -769,7 +746,8 @@ func handleGitHubTrigger(w http.ResponseWriter, r *http.Request, configDir strin
 	// HMAC imzası doğrulama (opsiyonel — ?secret=xxx query param ile)
 	if secret := r.URL.Query().Get("secret"); secret != "" {
 		sig := r.Header.Get("X-Hub-Signature-256")
-		if !verifyGitHubSignature(body, secret, sig) {
+		// CI/CD dinleyicisiyle aynı HMAC + sabit zamanlı karşılaştırma (cmd_deploy.go)
+		if !eqConst("sha256="+hmacSHA256Hex(secret, body), sig) {
 			jsonErr(w, 401, fmt.Errorf("geçersiz imza"))
 			return
 		}
@@ -811,12 +789,6 @@ func handleGitHubTrigger(w http.ResponseWriter, r *http.Request, configDir strin
 	}()
 }
 
-func verifyGitHubSignature(body []byte, secret, sig string) bool {
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write(body)
-	expected := "sha256=" + hex.EncodeToString(mac.Sum(nil))
-	return hmac.Equal([]byte(expected), []byte(sig))
-}
 
 // ── küçük yardımcılar ─────────────────────────────────────────────────────────
 
