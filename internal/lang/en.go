@@ -628,6 +628,8 @@ Other:
 	GuiPathRequired:      "folder path is required",
 	GuiDirNotFoundFmt:    "folder not found: %s",
 	LocalDirMissingFmt:   "local folder not found: %s (%s) — fix the server's local path",
+	GuiJobTree:           "Tree",
+	TreeMoreFmt:          "+%d more...",
 	LogsNone:             "  No logs yet (every sync / rollback with changes is saved under .syncftp/logs/)",
 	LogsHint:             "\n  Show one: syncftp logs <file>  ·  newest: syncftp logs last",
 	ServerNotFoundFmt:    "server not found: %q",

@@ -670,6 +670,7 @@ type guiJobReq struct {
 	Fix         bool     `json:"fix"`
 	Max         int      `json:"max"`
 	Command     string   `json:"command"`
+	Path        string   `json:"path"` // tree: RemotePath'e göreceli başlangıç
 	Include     []string `json:"include"` // tek seferlik (CLI sync --include gibi; config'teki include'u geçersiz kılar)
 	Exclude     []string `json:"exclude"` // tek seferlik (CLI sync --exclude gibi; ek)
 }
@@ -794,6 +795,19 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 			defer c.Close()
 			fmt.Fprintf(j, "$ %s\n", command)
 			return nil, c.Exec(command, nil, j)
+		}))
+	case "tree":
+		srv := servers[0]
+		add(sv.jobs.start("tree", p.Name, srv.Name, lang.L.GuiJobTree, "", func(j *job) (any, error) {
+			c, err := ftpclient.Connect(srv)
+			if err != nil {
+				return nil, err
+			}
+			defer c.Close()
+			root := guiRemotePath(srv, req.Path)
+			fmt.Fprintln(j, root)
+			writeFTPTree(j, c, root, "", req.Max, func(p ...string) string { return strings.Join(p, "") }) // shell `tree` ile aynı çekirdek
+			return nil, nil
 		}))
 	case "diff":
 		if len(servers) != 2 {

@@ -628,6 +628,8 @@ Diğer:
 	GuiPathRequired:      "klasör yolu gerekli",
 	GuiDirNotFoundFmt:    "klasör bulunamadı: %s",
 	LocalDirMissingFmt:   "yerel klasör yok: %s (%s) — sunucunun yerel dizinini düzeltin",
+	GuiJobTree:           "Ağaç",
+	TreeMoreFmt:          "+%d daha...",
 	LogsNone:             "  Henüz log yok (her değişiklikli sync / rollback .syncftp/logs/ altına kaydedilir)",
 	LogsHint:             "\n  Göstermek için: syncftp logs <dosya>  ·  en yenisi: syncftp logs son",
 	ServerNotFoundFmt:    "sunucu bulunamadı: %q",

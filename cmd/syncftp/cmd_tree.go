@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -9,6 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	goftp "github.com/jlaffaye/ftp"
 
+	ftpclient "syncftp/internal/ftp"
 	"syncftp/internal/lang"
 )
 
@@ -66,40 +69,40 @@ func (sh *shellState) cmdTree(args []string) {
 }
 
 func (sh *shellState) printFTPTree(remotePath, prefix string, maxPerDir int) {
-	entries, err := remoteEntries(sh.client, remotePath) // ortak sıralı liste (remote_ops.go)
-	if err != nil {
-		fmt.Printf("%s  %s\n", prefix, fmt.Sprintf(lang.L.TreeErrFmt, err))
-		return
-	}
-	if len(entries) == 0 {
-		return
-	}
+	writeFTPTree(os.Stdout, sh.client, remotePath, prefix, maxPerDir, treeGrey.Render)
+}
 
+// writeFTPTree uzak klasör ağacını yazar — shell `tree` ve panelin "Ağaç" işi ortak.
+// grey dal karakterlerini boyar (panelde düz metin).
+func writeFTPTree(w io.Writer, c *ftpclient.Client, remotePath, prefix string, maxPerDir int, grey func(...string) string) {
+	entries, err := remoteEntries(c, remotePath) // ortak sıralı liste (remote_ops.go)
+	if err != nil {
+		fmt.Fprintf(w, "%s  %s\n", prefix, fmt.Sprintf(lang.L.TreeErrFmt, err))
+		return
+	}
 	// Limit kontrolü: fazlasını kes, kalanı not olarak ekle
 	remaining := 0
 	if maxPerDir > 0 && len(entries) > maxPerDir {
 		remaining = len(entries) - maxPerDir
 		entries = entries[:maxPerDir]
 	}
-
 	for i, e := range entries {
 		isLast := i == len(entries)-1 && remaining == 0
-		connector := treeGrey.Render("├─")
-		childPrefix := prefix + treeGrey.Render("│") + "  "
+		connector := grey("├─")
+		childPrefix := prefix + grey("│") + "  "
 		if isLast {
-			connector = treeGrey.Render("└─")
+			connector = grey("└─")
 			childPrefix = prefix + "   "
 		}
-
 		if e.Type == goftp.EntryTypeFolder {
-			fmt.Printf("%s%s 📁 %s/\n", prefix, connector, e.Name)
-			sh.printFTPTree(path.Join(remotePath, e.Name), childPrefix, maxPerDir)
+			fmt.Fprintf(w, "%s%s 📁 %s/\n", prefix, connector, e.Name)
+			writeFTPTree(w, c, path.Join(remotePath, e.Name), childPrefix, maxPerDir, grey)
 		} else {
-			fmt.Printf("%s%s 📄 %s  %s\n", prefix, connector, e.Name, treeFormatSize(e.Size))
+			fmt.Fprintf(w, "%s%s 📄 %s  %s\n", prefix, connector, e.Name, treeFormatSize(e.Size))
 		}
 	}
 	if remaining > 0 {
-		fmt.Printf("%s%s +%d daha...\n", prefix, treeGrey.Render("└─"), remaining)
+		fmt.Fprintf(w, "%s%s "+lang.L.TreeMoreFmt+"\n", prefix, grey("└─"), remaining)
 	}
 }
 

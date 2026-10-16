@@ -569,6 +569,8 @@ type StringSet struct {
 	GuiDirNotFoundFmt    string // "klasör bulunamadı: %s"
 	LocalDirMissingFmt   string // "yerel klasör yok: %s (%s) — sunucunun yerel dizinini düzeltin"
 	GuiIgnoreNoFile      string
+	GuiJobTree           string
+	TreeMoreFmt          string
 	LogsNone             string
 	LogsHint             string
 	ServerNotFoundFmt    string // "sunucu bulunamadı: %q"
