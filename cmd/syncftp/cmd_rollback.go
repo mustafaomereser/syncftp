@@ -77,18 +77,7 @@ func runRollbackCmd(cmd *cobra.Command, args []string) error {
 	if len(args) == 1 {
 		target = args[0]
 	} else {
-		var items []PickerItem
-		for _, m := range list {
-			if m.RolledBack || !m.HasBackup() {
-				continue
-			}
-			items = append(items, PickerItem{
-				Icon:  "↺",
-				Label: m.ID,
-				Desc:  releaseDesc(m),
-				Value: m.ID,
-			})
-		}
+		items := rollbackPickerItems(list)
 		if len(items) == 0 {
 			fmt.Printf(lang.L.RollbackNoReleasesFmt, srv.Name)
 			return nil
@@ -116,13 +105,12 @@ func runRollbackCmd(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	var buf strings.Builder
-	w := io.MultiWriter(os.Stdout, &buf)
-	if _, err := performRollback(w, dir, srv, plan); err != nil {
+	_, logPath, err := rollbackLogged(os.Stdout, dir, srv, plan)
+	if err != nil {
 		return err
 	}
-	if p, err := synclog.Save(dir, srv.Name, buf.String()); err == nil {
-		fmt.Printf(lang.L.SyncLogSavedFmt, p)
+	if logPath != "" {
+		fmt.Printf(lang.L.SyncLogSavedFmt, logPath)
 	}
 	return nil
 }
@@ -262,4 +250,26 @@ func performRollback(w io.Writer, configDir string, srv config.Server, plan []*r
 	}
 	fmt.Fprintf(w, lang.L.RollbackDoneFmt, rep.Restored, rep.Deleted, len(rep.Failed))
 	return rep, nil
+}
+
+// rollbackPickerItems geri alınabilir release'ler (CLI + shell seçicisi).
+func rollbackPickerItems(list []*release.Manifest) []PickerItem {
+	var items []PickerItem
+	for _, m := range list {
+		if m.Restorable() {
+			items = append(items, PickerItem{Icon: "↺", Label: m.ID, Desc: releaseDesc(m), Value: m.ID})
+		}
+	}
+	return items
+}
+
+// rollbackLogged geri alır ve çıktıyı sync log'una kaydeder (CLI, shell, panel ortak).
+func rollbackLogged(w io.Writer, configDir string, srv config.Server, plan []*release.Manifest) (rollbackReport, string, error) {
+	var buf strings.Builder
+	rep, err := performRollback(io.MultiWriter(w, &buf), configDir, srv, plan)
+	if err != nil {
+		return rep, "", err
+	}
+	p, _ := synclog.Save(configDir, srv.Name, buf.String())
+	return rep, p, nil
 }

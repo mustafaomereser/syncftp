@@ -224,3 +224,6 @@ func Prune(configDir, serverName string, keep int) int {
 	}
 	return n
 }
+
+// Restorable release hâlâ geri alınabilir mi (yedeği var ve daha önce geri alınmamış).
+func (m *Manifest) Restorable() bool { return m.HasBackup() && !m.RolledBack }

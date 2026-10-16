@@ -22,7 +22,6 @@ import (
 	"syncftp/internal/projects"
 	"syncftp/internal/release"
 	"syncftp/internal/state"
-	"syncftp/internal/synclog"
 )
 
 // appVersion — GUI ve `syncftp --version`.
@@ -379,7 +378,7 @@ func (sv *guiServer) serverInfo(p projects.Project, cfg *config.Config, srv conf
 		gi.Releases = len(list)
 		gi.LastRelease = list[0].CreatedAt.Format("2006-01-02 15:04")
 		for _, m := range list {
-			if m.HasBackup() && !m.RolledBack {
+			if m.Restorable() {
 				gi.Rollbackable++
 			}
 		}
@@ -738,11 +737,7 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return nil, err
 			}
-			var buf strings.Builder
-			rep, err := performRollback(io.MultiWriter(j, &buf), dir, srv, plan)
-			if err == nil {
-				_, _ = synclog.Save(dir, srv.Name, buf.String())
-			}
+			rep, _, err := rollbackLogged(j, dir, srv, plan)
 			return rep, err
 		}))
 	case "detect":
@@ -761,15 +756,8 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 					fresh = append(fresh, s)
 				}
 			}
-			maxProbe := req.Max
-			if maxProbe <= 0 {
-				maxProbe = 32
-			}
-			if detectLimits(j, c, fresh, maxProbe, nil) {
-				if err := config.Save(dir, c); err != nil {
-					return nil, err
-				}
-				fmt.Fprint(j, lang.L.DetectSaved)
+			if _, err := detectAndSave(j, dir, c, fresh, req.Max, nil, true); err != nil {
+				return nil, err
 			}
 			out := map[string]int{}
 			for _, s := range c.Servers {

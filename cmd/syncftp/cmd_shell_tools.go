@@ -2,14 +2,12 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
 	"syncftp/internal/config"
 	"syncftp/internal/lang"
 	"syncftp/internal/release"
-	"syncftp/internal/synclog"
 )
 
 // shellTargetServer — bağlı sunucu varsa onu, yoksa seçiciyi kullanır (--server ad öncelikli).
@@ -79,13 +77,7 @@ func (sh *shellState) cmdRollback(args []string) {
 	}
 	target := firstPositional(args)
 	if target == "" {
-		var items []PickerItem
-		for _, m := range list {
-			if m.RolledBack || !m.HasBackup() {
-				continue
-			}
-			items = append(items, PickerItem{Icon: "↺", Label: m.ID, Desc: releaseDesc(m), Value: m.ID})
-		}
+		items := rollbackPickerItems(list)
 		if len(items) == 0 {
 			fmt.Printf(lang.L.RollbackNoReleasesFmt, srv.Name)
 			return
@@ -109,13 +101,13 @@ func (sh *shellState) cmdRollback(args []string) {
 		fmt.Println(lang.L.ShellSyncCancelled)
 		return
 	}
-	var buf strings.Builder
-	if _, err := performRollback(io.MultiWriter(os.Stdout, &buf), sh.configDir, srv, plan); err != nil {
+	_, logPath, err := rollbackLogged(os.Stdout, sh.configDir, srv, plan)
+	if err != nil {
 		fmt.Printf(lang.L.ShellErrFmt, err)
 		return
 	}
-	if p, err := synclog.Save(sh.configDir, srv.Name, buf.String()); err == nil {
-		fmt.Printf(lang.L.SyncLogSavedFmt, p)
+	if logPath != "" {
+		fmt.Printf(lang.L.SyncLogSavedFmt, logPath)
 	}
 }
 
@@ -150,13 +142,14 @@ func (sh *shellState) cmdDetectLimit(args []string) {
 		sh.client = nil
 		sh.pendingReconnect = true
 	}
-	if detectLimits(os.Stdout, &sh.cfg, []config.Server{srv}, maxProbe, func(n int) {
+	changed, err := detectAndSave(os.Stdout, sh.configDir, &sh.cfg, []config.Server{srv}, maxProbe, func(n int) {
 		fmt.Printf(lang.L.DetectProgressFmt, n)
-	}) {
-		if err := config.Save(sh.configDir, &sh.cfg); err != nil {
-			fmt.Printf(lang.L.ShellErrFmt, err)
-			return
-		}
+	}, true)
+	if err != nil {
+		fmt.Printf(lang.L.ShellErrFmt, err)
+		return
+	}
+	if changed {
 		// Bağlı sunucunun kopyasını da güncelle
 		if sh.srv != nil {
 			for _, s := range sh.cfg.Servers {
@@ -166,7 +159,6 @@ func (sh *shellState) cmdDetectLimit(args []string) {
 				}
 			}
 		}
-		fmt.Print(lang.L.DetectSaved)
 	}
 }
 

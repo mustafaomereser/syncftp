@@ -61,16 +61,10 @@ Not: o anda açık başka bağlantılar (shell, FileZilla…) ölçülen değeri
 		if err != nil || servers == nil {
 			return err
 		}
-		changed := detectLimits(os.Stdout, cfg, servers, dlFlagMax, func(n int) {
+		_, err = detectAndSave(os.Stdout, dir, cfg, servers, dlFlagMax, func(n int) {
 			fmt.Printf(lang.L.DetectProgressFmt, n)
-		})
-		if changed && !dlFlagNoSave {
-			if err := config.Save(dir, cfg); err != nil {
-				return err
-			}
-			fmt.Print(lang.L.DetectSaved)
-		}
-		return nil
+		}, !dlFlagNoSave)
+		return err
 	},
 }
 
@@ -336,4 +330,19 @@ func setKeyringMode(w io.Writer, dir string, cfg *config.Config, on bool) error 
 	markers := strings.Count(string(raw), `"keyring:"`)
 	fmt.Fprintf(w, lang.L.SecureOnFmt, markers)
 	return nil
+}
+
+// detectAndSave bağlantı limitini ölçer, değiştiyse config'e yazar (CLI, shell, panel ortak).
+func detectAndSave(w io.Writer, configDir string, cfg *config.Config, servers []config.Server, maxProbe int, progress func(int), save bool) (bool, error) {
+	if maxProbe <= 0 {
+		maxProbe = 32
+	}
+	changed := detectLimits(w, cfg, servers, maxProbe, progress)
+	if changed && save {
+		if err := config.Save(configDir, cfg); err != nil {
+			return changed, err
+		}
+		fmt.Fprint(w, lang.L.DetectSaved)
+	}
+	return changed, nil
 }
