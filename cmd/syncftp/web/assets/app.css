@@ -238,14 +238,14 @@ textarea { font-family: var(--mono); font-size: 12.5px; min-height: 84px; resize
 .arac-cubuk .ara input { padding-left: 34px; }
 
 /* ── Modal ─────────────────────────────────────────────── */
-.modal-arka { position: fixed; inset: 0; background: rgb(0 0 0 / .55); display: grid; place-items: center; z-index: 100; padding: 24px; animation: belir .12s ease-out; }
+.modal-arka { position: fixed; inset: 0; background: rgb(0 0 0 / .55); display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); place-items: center; z-index: 100; padding: 24px; animation: belir .12s ease-out; }
 @keyframes belir { from { opacity: 0; } }
 .modal { background: var(--frame); border: 1px solid var(--line-2); border-radius: 16px; width: min(560px, 100%); max-height: calc(100vh - 48px); display: flex; flex-direction: column; box-shadow: 0 30px 80px rgb(0 0 0 / .6); }
 .modal.genis { width: min(980px, 100%); }
 .modal.orta { width: min(720px, 100%); }
 .modal-bas { display: flex; align-items: center; gap: 10px; padding: 16px 18px 12px; }
 .modal-bas h3 { margin: 0; font-size: 16px; font-weight: 600; flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
-.modal-ic { padding: 4px 18px 16px; overflow: auto; min-height: 0; }
+.modal-ic { padding: 4px 18px 16px; overflow: auto; min-height: 0; min-width: 0; }
 .modal-ic p { margin: 0 0 12px; color: var(--muted); }
 .modal-alt { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px 16px; border-top: 1px solid var(--line); }
 .modal-alt .sol { margin-right: auto; display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--faint); }
