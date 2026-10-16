@@ -91,10 +91,12 @@ type searchDoneMsg struct {
 	gen  int
 	info string
 }
-type folderFreezeMsg struct {
-	folderRel string            // klasörün root'a göre göreceli yolu
-	files     map[string]uint64 // klasöre göre göreceli dosya yolları
-	err       error
+type freezeDoneMsg struct {
+	files  map[string]bool
+	frozen bool
+	n      int
+	label  string
+	err    error
 }
 type reconnectDoneMsg struct {
 	client *ftpclient.Client
@@ -401,41 +403,16 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loading = false
 		m.err = msg.err
 
-	case folderFreezeMsg:
+	case freezeDoneMsg:
 		if msg.err != nil {
-			m.statusMsg = "❌ freeze başarısız: " + msg.err.Error()
-		} else if len(msg.files) == 0 {
-			m.statusMsg = "⚠ klasör boş veya erişilemiyor"
+			m.statusMsg = "❌ freeze: " + msg.err.Error()
 		} else {
-			// Klasördeki dosyaların tüm root-göreceli yollarını hesapla
-			var filePaths []string
-			for rel := range msg.files {
-				full := rel
-				if msg.folderRel != "" {
-					full = msg.folderRel + "/" + rel
-				}
-				filePaths = append(filePaths, full)
-			}
-			// Hepsi zaten frozen ise unfreeze, değilse freeze
-			allFrozen := true
-			for _, p := range filePaths {
-				if !m.frozenFiles[p] {
-					allFrozen = false
-					break
-				}
-			}
-			for _, p := range filePaths {
-				if allFrozen {
-					delete(m.frozenFiles, p)
-				} else {
-					m.frozenFiles[p] = true
-				}
-			}
+			m.frozenFiles = msg.files
 			m.saveFrozen()
-			if allFrozen {
-				m.statusMsg = fmt.Sprintf("❄ %s çözüldü (%d dosya)", msg.folderRel, len(filePaths))
+			if msg.frozen {
+				m.statusMsg = fmt.Sprintf("❄ %s donduruldu (%d dosya)", msg.label, msg.n)
 			} else {
-				m.statusMsg = fmt.Sprintf("❄ %s donduruldu (%d dosya)", msg.folderRel, len(filePaths))
+				m.statusMsg = fmt.Sprintf("❄ %s çözüldü (%d dosya)", msg.label, msg.n)
 			}
 		}
 
@@ -865,13 +842,11 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				break
 			}
 
-			// İşaretli öğeler varsa hepsine mevcut freeze mantığını uygula
+			// Hedefler: işaretliler, yoksa imleçteki öğe — ortak çekirdek (cmd_freeze_core.go), panel de bunu kullanır
+			var targets []freezeTarget
+			label := ""
 			if len(m.marked) > 0 {
-				// Hepsi frozen mu? (dosyalar için direkt, klasörler için prefix)
-				allFrozen := true
 				for fullPath := range m.marked {
-					rel := m.ftpRelPath(fullPath)
-					// Klasör mü dosya mı bulmak için vis'e bak
 					isFolder := false
 					for _, ve := range vis {
 						if ve.entry != nil && m.entryFullPath(ve) == fullPath {
@@ -879,91 +854,26 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							break
 						}
 					}
-					if isFolder {
-						// Klasör: altında frozen var mı?
-						prefix := rel + "/"
-						hasChild := m.frozenFiles[rel]
-						if !hasChild {
-							for p, v := range m.frozenFiles {
-								if v && strings.HasPrefix(p, prefix) {
-									hasChild = true
-									break
-								}
-							}
-						}
-						if !hasChild {
-							allFrozen = false
-						}
-					} else {
-						if !m.frozenFiles[rel] {
-							allFrozen = false
-						}
-					}
+					targets = append(targets, freezeTarget{Rel: m.ftpRelPath(fullPath), Dir: isFolder})
 				}
-
-				// Dosyaları direkt freeze/unfreeze; klasörler için async fetch
-				var cmds []tea.Cmd
-				for fullPath := range m.marked {
-					rel := m.ftpRelPath(fullPath)
-					isFolder := false
-					for _, ve := range vis {
-						if ve.entry != nil && m.entryFullPath(ve) == fullPath {
-							isFolder = ve.entry.Type == goftp.EntryTypeFolder
-							break
-						}
-					}
-					if isFolder {
-						if allFrozen {
-							// Unfreeze: klasörün altındaki dosyaları kaldır
-							prefix := rel + "/"
-							delete(m.frozenFiles, rel)
-							for p := range m.frozenFiles {
-								if strings.HasPrefix(p, prefix) {
-									delete(m.frozenFiles, p)
-								}
-							}
-						} else {
-							// Freeze: mevcut klasör freeze mantığıyla async fetch
-							cmds = append(cmds, m.fetchFolderForFreeze(fullPath, rel))
-						}
-					} else {
-						if allFrozen {
-							delete(m.frozenFiles, rel)
-						} else {
-							m.frozenFiles[rel] = true
-						}
-					}
-				}
-				m.saveFrozen()
-				if allFrozen {
-					m.statusMsg = fmt.Sprintf("❄ %d öğe çözüldü", len(m.marked))
-				} else {
-					m.statusMsg = fmt.Sprintf("❄ %d öğe donduruldu", len(m.marked))
-				}
-				return m, tea.Batch(cmds...)
-			}
-
-			// İşaretli yok → cursor altındaki öğeye uygula
-			e := vis[m.cursor]
-			if e.selectMe || e.entry == nil {
-				break
-			}
-			if e.entry.Type == goftp.EntryTypeFolder {
-				// Klasör: içindeki tüm dosyaları async olarak freeze/unfreeze
-				folderPath := m.entryFullPath(e)
-				folderRel := m.ftpRelPath(folderPath)
-				return m, m.fetchFolderForFreeze(folderPath, folderRel)
-			}
-			// Dosya: anında toggle
-			rel := m.ftpRelPath(m.entryFullPath(e))
-			if m.frozenFiles[rel] {
-				delete(m.frozenFiles, rel)
-				m.statusMsg = "❄ çözüldü: " + e.entry.Name
+				label = fmt.Sprintf("%d", len(targets))
 			} else {
-				m.frozenFiles[rel] = true
-				m.statusMsg = "❄ donduruldu: " + e.entry.Name
+				e := vis[m.cursor]
+				if e.selectMe || e.entry == nil {
+					break
+				}
+				targets = []freezeTarget{{Rel: m.ftpRelPath(m.entryFullPath(e)), Dir: e.entry.Type == goftp.EntryTypeFolder}}
+				label = e.entry.Name
 			}
-			m.saveFrozen()
+			set := make(map[string]bool, len(m.frozenFiles))
+			for k, v := range m.frozenFiles {
+				set[k] = v
+			}
+			client, root := m.client, m.root
+			return m, func() tea.Msg {
+				frozenNow, n, err := freezeToggle(set, targets, remoteFolderLister(client, root))
+				return freezeDoneMsg{files: set, frozen: frozenNow, n: n, label: label, err: err}
+			}
 
 		case "r", "R":
 			// Bağlantı kopuksa yeniden bağlan
@@ -1010,14 +920,6 @@ func (m browserModel) saveFrozen() {
 }
 
 // fetchFolderForFreeze klasördeki tüm dosyaları async olarak listeler.
-func (m browserModel) fetchFolderForFreeze(folderPath, folderRel string) tea.Cmd {
-	client := m.client
-	return func() tea.Msg {
-		files, err := client.ListRecursive(folderPath)
-		return folderFreezeMsg{folderRel: folderRel, files: files, err: err}
-	}
-}
-
 func (m browserModel) goUp() (tea.Model, tea.Cmd) {
 	parent := path.Dir(m.cwd)
 	if parent == "." {

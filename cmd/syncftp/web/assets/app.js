@@ -1439,17 +1439,12 @@ async function tabFiles(proj, srvName, relPath) {
   const sel = new Set();
 
   // Freeze ekle/çıkar: dosyalar doğrudan, klasörler yereldeki dosyalarına açılır
+  // CLI tarayıcısıyla aynı çekirdek: klasör → sunucudaki dosyaları; hepsi frozen ise çözer
   async function toggleFreeze(items) {
-    const cur = new Set(await GET(`/api/p/${enc(P)}/frozen?${q}`).catch(() => []));
-    let paths = [];
-    for (const it of items) {
-      if (it.type === 'dir') paths.push(...(await GET(`/api/p/${enc(P)}/local/files?${q}&path=${enc(it.path)}`).catch(() => [])));
-      else paths.push(it.path);
-    }
-    const allIn = paths.length && paths.every((p) => cur.has(p));
-    paths.forEach((p) => (allIn ? cur.delete(p) : cur.add(p)));
-    await api('PUT', `/api/p/${enc(P)}/frozen`, { server: srv, files: [...cur] });
-    toast(allIn ? t('frozenRemoved', paths.length) : t('frozenAdded', paths.length));
+    try {
+      const r = await api('POST', `/api/p/${enc(P)}/frozen/toggle?${q}`, { items: items.map((it) => ({ path: it.path, dir: it.type === 'dir' })) });
+      toast(r.frozen ? t('frozenAdded', r.n) : t('frozenRemoved', r.n));
+    } catch (e) { fail(e); }
     render(true);
   }
   async function removeItems(items) {

@@ -66,6 +66,7 @@ func (sv *guiServer) routes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/p/{p}/milestones", sv.apiMilestoneClear)
 	mux.HandleFunc("GET /api/p/{p}/frozen", sv.apiFrozenGet)
 	mux.HandleFunc("PUT /api/p/{p}/frozen", sv.apiFrozenPut)
+	mux.HandleFunc("POST /api/p/{p}/frozen/toggle", sv.apiFrozenToggle)
 	mux.HandleFunc("GET /api/p/{p}/failed", sv.apiFailed)
 
 	// Uzak dosyalar — bağlantı önbellekli (cmd_gui_remote.go)
@@ -1214,6 +1215,46 @@ func (sv *guiServer) apiFrozenPut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	guiJSON(w, len(clean))
+}
+
+// apiFrozenToggle dosya tarayıcısındaki freeze — CLI tarayıcısıyla aynı çekirdek (freezeToggle):
+// klasörler SUNUCUDAKİ dosyalarına açılır, çözerken klasör önekiyle tüm kayıtlar silinir.
+func (sv *guiServer) apiFrozenToggle(w http.ResponseWriter, r *http.Request) {
+	pname, srv, ok := sv.remoteServer(w, r)
+	if !ok {
+		return
+	}
+	p, _ := projects.Find(pname)
+	var req struct {
+		Items []freezeTarget `json:"items"`
+	}
+	if err := guiDecode(r, &req); err != nil || len(req.Items) == 0 {
+		guiErr(w, 400, errors.New("items"))
+		return
+	}
+	fl, _ := frozen.Load(p.Path, srv.Name)
+	set := map[string]bool{}
+	if fl != nil {
+		for k, v := range fl.Files {
+			set[k] = v
+		}
+	}
+	var frozenNow bool
+	var n int
+	err := withRemote(pname, srv, func(c *ftpclient.Client) error {
+		var e error
+		frozenNow, n, e = freezeToggle(set, req.Items, remoteFolderLister(c, srv.RemotePath))
+		return e
+	})
+	if err != nil {
+		guiErr(w, 502, err)
+		return
+	}
+	if err := frozen.Save(p.Path, srv.Name, frozenSetList(set)); err != nil {
+		guiErr(w, 500, err)
+		return
+	}
+	guiJSON(w, map[string]any{"frozen": frozenNow, "n": n})
 }
 
 func (sv *guiServer) apiFailed(w http.ResponseWriter, r *http.Request) {
