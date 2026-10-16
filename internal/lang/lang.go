@@ -568,6 +568,7 @@ type StringSet struct {
 	GuiPathRequired      string // "klasör yolu gerekli"
 	GuiDirNotFoundFmt    string // "klasör bulunamadı: %s"
 	LocalDirMissingFmt   string // "yerel klasör yok: %s (%s) — sunucunun yerel dizinini düzeltin"
+	GuiIgnoreNoFile      string
 	GuiOutsideBaseFmt    string // "%s panelin açıldığı klasörün (%s) dışında"
 	GuiValConnName       string // "her bağlantı profilinin bir adı olmalı"
 	GuiValDupFmt         string // "ad iki kez kullanılmış: %s"

@@ -1789,7 +1789,8 @@ func runLocalBrowser(root string, preSelected []string) ([]string, bool) {
 // Ignore Dosyası Seçici
 // ══════════════════════════════════════════════════════════════════════════════
 
-var ignoreFileOptions = []string{".gitignore", "syncftp.ignore"}
+// .syncftp/syncftp.ignore: dosya 2.0'dan beri .syncftp/ içinde (eski "syncftp.ignore" yazımı okunurken aynı seçenek sayılır)
+var ignoreFileOptions = []string{".gitignore", ".syncftp/syncftp.ignore"}
 
 type ignorePickerModel struct {
 	checked [2]bool // 0=.gitignore, 1=syncftp.ignore
@@ -1806,6 +1807,9 @@ func newIgnorePickerModel(current []string) ignorePickerModel {
 		m.checked[1] = true
 	} else {
 		for _, f := range current {
+			if f == "syncftp.ignore" {
+				f = ignoreFileOptions[1]
+			}
 			for i, opt := range ignoreFileOptions {
 				if f == opt {
 					m.checked[i] = true

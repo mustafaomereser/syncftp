@@ -79,3 +79,18 @@ func (m *Matcher) MatchDir(relPath string) bool {
 	}
 	return m.gi.MatchesPath(relPath) || m.gi.MatchesPath(relPath+"/")
 }
+
+// EditableFile sync'in okuduğu syncFTP'ye özel ignore dosyasının (localDir'e göreceli) yolu:
+// liste nil → ".syncftp/syncftp.ignore"; değilse .gitignore dışındaki ilk giriş. Listede böyle bir
+// dosya yoksa (ör. yalnızca .gitignore ya da boş liste) "" — düzenlenecek dosya sync'te okunmaz.
+func EditableFile(ignoreFiles []string) string {
+	if ignoreFiles == nil {
+		return defaultIgnoreFiles[1]
+	}
+	for _, f := range ignoreFiles {
+		if filepath.Base(filepath.FromSlash(f)) != ".gitignore" {
+			return f
+		}
+	}
+	return ""
+}

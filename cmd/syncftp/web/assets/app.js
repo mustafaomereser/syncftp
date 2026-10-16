@@ -10,7 +10,7 @@ const T = {
   tr: {
     brandSub: 'Dağıtım paneli', navAll: 'Tüm projeler', navJobs: 'İşler', navProjects: 'Projeler',
     addProject: 'Proje ekle', navNoProjects: 'Bu klasörde proje yok', watching: 'Watch', language: 'Dil', quit: 'Kapat',
-    loading: 'Yükleniyor…', viewCode: 'Kod', viewRendered: 'Önizleme', viewRenderedLocal: 'Önizleme (yerel)', viewRenderedRemote: 'Önizleme (sunucu)', scanningLocal: 'Taranıyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
+    loading: 'Yükleniyor…', ignoreNoFile: 'ignore_files listesinde syncFTP dosyası yok — yalnızca .gitignore okunuyor', viewCode: 'Kod', viewRendered: 'Önizleme', viewRenderedLocal: 'Önizleme (yerel)', viewRenderedRemote: 'Önizleme (sunucu)', scanningLocal: 'Taranıyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
     edit: 'Düzenle', back: 'Geri', yes: 'Evet', confirm: 'Onayla', browse: 'Gözat', add: 'Ekle', open: 'Aç',
     saved: 'Kaydedildi', copied: 'Kopyalandı', never: 'hiç', none: 'yok', all: 'Tümü', manual: '(manuel giriş)',
     projectsTitle: 'Projeler', projectsSub: `{0} klasöründeki syncFTP projeleri (CLI gibi: panel açıldığı klasörü esas alır)`,
@@ -119,7 +119,7 @@ const T = {
   en: {
     brandSub: 'Deploy panel', navAll: 'All projects', navJobs: 'Jobs', navProjects: 'Projects',
     addProject: 'Add project', navNoProjects: 'No project in this folder', watching: 'Watch', language: 'Language', quit: 'Quit',
-    loading: 'Loading…', viewCode: 'Code', viewRendered: 'Preview', viewRenderedLocal: 'Preview (local)', viewRenderedRemote: 'Preview (server)', scanningLocal: 'Scanning…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
+    loading: 'Loading…', ignoreNoFile: 'ignore_files has no syncFTP file — only .gitignore is read', viewCode: 'Code', viewRendered: 'Preview', viewRenderedLocal: 'Preview (local)', viewRenderedRemote: 'Preview (server)', scanningLocal: 'Scanning…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
     edit: 'Edit', back: 'Back', yes: 'Yes', confirm: 'Confirm', browse: 'Browse', add: 'Add', open: 'Open',
     saved: 'Saved', copied: 'Copied', never: 'never', none: 'none', all: 'All', manual: '(manual entry)',
     projectsTitle: 'Projects', projectsSub: `syncFTP projects in {0} (like the CLI: the panel works on the folder it was opened in)`,
@@ -1343,8 +1343,20 @@ async function tabSettings(proj) {
       if (v) { const ta = $('#ign-text', root); ta.value = (ta.value.trim() ? ta.value.trimEnd() + '\n\n' : '') + v.trim() + '\n'; }
       e.target.value = '';
     };
+    const ignSel = $('#ign-dir', root);
+    const ignShow = () => {
+      $('#ign-text', root).value = ignCur.content || '';
+      $('#ign-text', root).disabled = !ignCur.file;
+      $('#ign-save', root).disabled = !ignCur.file;
+      $('#ign-file', root).textContent = ignCur.file ? `${ignCur.dir === '.' ? '' : ignCur.dir + '/'}${ignCur.file}` : t('ignoreNoFile');
+    };
+    if (ignSel) ignSel.onchange = () => { ignCur = ignTargets[+ignSel.value]; ignShow(); };
     $('#ign-save', root).onclick = async () => {
-      try { await api('PUT', `/api/p/${enc(P)}/ignore`, { content: $('#ign-text', root).value }); toast(t('ignoreSaved')); } catch (e) { fail(e); }
+      try {
+        await api('PUT', `/api/p/${enc(P)}/ignore`, { dir: ignCur.dir, content: $('#ign-text', root).value });
+        ignCur.content = $('#ign-text', root).value;
+        toast(t('ignoreSaved'));
+      } catch (e) { fail(e); }
     };
     $('#b-save', root).onclick = async () => {
       const next = JSON.parse(JSON.stringify(cfg));
@@ -1372,7 +1384,10 @@ async function tabSettings(proj) {
     };
     bindProjTools(root, P);
   });
-  const ign = await GET(`/api/p/${enc(P)}/ignore`).catch(() => ({ content: '', gitignore: '' }));
+  // Sync'in okuduğu ignore dosyaları — farklı yerel dizinli her sunucu grubu için bir tane
+  const ignTargets = (await GET(`/api/p/${enc(P)}/ignore`).catch(() => ({ targets: [] }))).targets || [];
+  let ignCur = ignTargets[0] || { dir: '.', file: '', content: '', gitignore: '', servers: [] };
+  const ign = ignCur;
   const tmpls = await GET('/api/ignore-templates').catch(() => ({}));
   const gitLines = (ign.gitignore || '').split('\n').filter((l) => l.trim() && !l.trim().startsWith('#')).length;
   return `<div class="form" id="set-form" data-p="${esc(P)}" data-ppath="${esc(proj.path)}" data-srv="">
@@ -1390,9 +1405,11 @@ async function tabSettings(proj) {
       </div>`)}
     ${section('log', t('secHooks'), t('secHooksDesc'), `<div class="alanlar">${fArea('sync.pre_sync', t('fPre'), sy.pre_sync, { wide: false, rows: 3 })}${fArea('sync.post_sync', t('fPost'), sy.post_sync, { wide: false, rows: 3 })}</div>`)}
     <div class="bolum"><h3>${icon('x')}${t('ignoreTitle')}</h3><p class="aciklama">${t('ignoreDesc')}${gitLines ? ' · ' + t('gitignoreNote', gitLines) : ''}</p>
-      <div class="aksiyonlar" style="margin-bottom:10px"><select id="ign-tmpl" style="width:auto"><option value="">${t('ignoreTemplate')}</option>${Object.keys(tmpls).map((k) => `<option value="${esc(k)}">${esc(k)}</option>`).join('')}</select>
+      <div class="aksiyonlar" style="margin-bottom:10px">${ignTargets.length > 1 ? `<select id="ign-dir" style="width:auto">${ignTargets.map((g, i) => `<option value="${i}">${esc(g.dir)} — ${esc((g.servers || []).join(', '))}</option>`).join('')}</select>` : ''}
+        <span class="mono faint" id="ign-file" style="font-size:12px">${ign.file ? esc(`${ign.dir === '.' ? '' : ign.dir + '/'}${ign.file}`) : t('ignoreNoFile')}</span>
+        <select id="ign-tmpl" style="width:auto"><option value="">${t('ignoreTemplate')}</option>${Object.keys(tmpls).map((k) => `<option value="${esc(k)}">${esc(k)}</option>`).join('')}</select>
         <span style="margin-left:auto"></span><button class="btn" id="ign-save">${icon('check')}${t('save')}</button></div>
-      <textarea id="ign-text" rows="10" spellcheck="false">${esc(ign.content || '')}</textarea></div>
+      <textarea id="ign-text" rows="10" spellcheck="false" ${ign.file ? '' : 'disabled'}>${esc(ign.content || '')}</textarea></div>
     <div class="bolum"><h3>${icon('lock')}${t('secSecurity')}</h3><div style="height:10px"></div>
       <label class="anahtar"><span class="metin"><b>${t('keyringTitle')}</b><small>${t('keyringHint')}</small></span><span class="switch"><input type="checkbox" id="kr" ${cfg.project.keyring ? 'checked' : ''}><i></i></span></label></div>
     ${projToolsHTML()}

@@ -627,6 +627,7 @@ Diğer:
 	GuiPathRequired:      "klasör yolu gerekli",
 	GuiDirNotFoundFmt:    "klasör bulunamadı: %s",
 	LocalDirMissingFmt:   "yerel klasör yok: %s (%s) — sunucunun yerel dizinini düzeltin",
+	GuiIgnoreNoFile:      "ignore_files listesinde syncFTP'ye özel bir dosya yok (yalnızca .gitignore okunuyor) — önce listeye .syncftp/syncftp.ignore ekleyin",
 	GuiOutsideBaseFmt:    "%s, panelin açıldığı klasörün (%s) dışında — o klasördeki syncftp ile yönetin",
 	GuiValConnName:       "her bağlantı profilinin bir adı olmalı",
 	GuiValDupFmt:         "ad iki kez kullanılmış: %s",

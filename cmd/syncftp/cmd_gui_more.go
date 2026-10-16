@@ -438,35 +438,97 @@ func (sv *guiServer) apiWebhookTest(w http.ResponseWriter, r *http.Request) {
 
 // ── .syncftp/syncftp.ignore editörü ───────────────────────────────────────────
 
+// ignoreTargets sync'in gerçekten okuduğu ignore dosyaları: her farklı sunucu yerel dizini için
+// <yerel dizin>/<ignore.EditableFile>. Eskiden hep <proje>/.syncftp/syncftp.ignore düzenleniyordu —
+// local_path "." değilse ya da ignore_files özelse sync o dosyayı hiç okumuyordu.
+type ignoreTarget struct {
+	Dir       string   `json:"dir"`  // proje köküne göreceli yerel dizin
+	File      string   `json:"file"` // dizine göreceli ignore dosyası ("" → ignore_files'ta syncFTP dosyası yok)
+	Content   string   `json:"content"`
+	Gitignore string   `json:"gitignore"`
+	Servers   []string `json:"servers"`
+}
+
+func ignoreTargets(projectDir string, cfg *config.Config) []ignoreTarget {
+	file := ignore.EditableFile(cfg.Sync.IgnoreFiles)
+	var out []ignoreTarget
+	idx := map[string]int{}
+	add := func(dir, srvName string) {
+		key := filepath.ToSlash(filepath.Clean(dir))
+		if i, ok := idx[key]; ok {
+			if srvName != "" {
+				out[i].Servers = append(out[i].Servers, srvName)
+			}
+			return
+		}
+		t := ignoreTarget{Dir: key, File: file}
+		base := filepath.Join(projectDir, dir)
+		if file != "" {
+			data, _ := os.ReadFile(filepath.Join(base, filepath.FromSlash(file)))
+			t.Content = strings.ReplaceAll(string(data), "\r\n", "\n")
+		}
+		gi, _ := os.ReadFile(filepath.Join(base, ".gitignore"))
+		t.Gitignore = strings.ReplaceAll(string(gi), "\r\n", "\n")
+		if srvName != "" {
+			t.Servers = []string{srvName}
+		}
+		idx[key] = len(out)
+		out = append(out, t)
+	}
+	for _, s := range cfg.Servers {
+		add(s.EffectiveLocalPath(cfg.Project), s.Name)
+	}
+	if len(out) == 0 {
+		add(cfg.Project.EffectiveLocalPath(), "")
+	}
+	return out
+}
+
 func (sv *guiServer) apiIgnoreGet(w http.ResponseWriter, r *http.Request) {
-	p, _, err := sv.project(r)
+	p, cfg, err := sv.project(r)
 	if err != nil {
 		guiErr(w, 404, err)
 		return
 	}
-	data, _ := os.ReadFile(filepath.Join(p.Path, ".syncftp", "syncftp.ignore"))
-	gi, _ := os.ReadFile(filepath.Join(p.Path, ".gitignore"))
-	guiJSON(w, map[string]string{"content": strings.ReplaceAll(string(data), "\r\n", "\n"), "gitignore": strings.ReplaceAll(string(gi), "\r\n", "\n")})
+	guiJSON(w, map[string]any{"targets": ignoreTargets(p.Path, cfg)})
 }
 
 func (sv *guiServer) apiIgnorePut(w http.ResponseWriter, r *http.Request) {
-	p, _, err := sv.project(r)
+	p, cfg, err := sv.project(r)
 	if err != nil {
 		guiErr(w, 404, err)
 		return
 	}
 	var req struct {
+		Dir     string `json:"dir"`
 		Content string `json:"content"`
 	}
 	if err := guiDecode(r, &req); err != nil {
 		guiErr(w, 400, err)
 		return
 	}
-	if err := os.WriteFile(filepath.Join(p.Path, ".syncftp", "syncftp.ignore"), []byte(req.Content), 0644); err != nil {
-		guiErr(w, 500, err)
+	for _, t := range ignoreTargets(p.Path, cfg) {
+		if t.Dir != req.Dir {
+			continue
+		}
+		if t.File == "" {
+			guiErr(w, 400, errors.New(lang.L.GuiIgnoreNoFile))
+			return
+		}
+		full := filepath.Join(p.Path, filepath.FromSlash(t.Dir), filepath.FromSlash(t.File))
+		werr := os.MkdirAll(filepath.Dir(full), 0755)
+		if werr == nil {
+			werr = os.WriteFile(full, []byte(req.Content), 0644)
+		}
+		if werr != nil {
+			err = werr
+			guiErr(w, 500, err)
+			return
+		}
+		guiJSON(w, true)
 		return
 	}
-	guiJSON(w, true)
+	guiErr(w, 400, errors.New("dir"))
 }
 
 // apiLocalFiles bir yerel klasörün altındaki (ignore edilmeyen) tüm dosyaların göreceli yollarını
