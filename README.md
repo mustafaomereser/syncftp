@@ -117,7 +117,7 @@ syncftp gui --foreground --no-window   # don't open a window, print the login UR
 syncftp gui --foreground --background  # tray only (used by "Start with Windows")
 ```
 
-The panel is a local web app served on `127.0.0.1` with a per-session token, shown in an Edge/Chrome app window. Only one instance runs — launching again brings the window to front.
+The panel is a local web app served on `127.0.0.1` with a per-session token, shown in an Edge/Chrome app window. Like the CLI it works on the folder it was started in: it shows the syncFTP project in that folder and in its subfolders (two levels). One panel runs per folder — launching again from the same folder brings its window to front; *Quit* also closes the window.
 
 **Tabs per project**
 
@@ -126,10 +126,12 @@ The panel is a local web app served on `127.0.0.1` with a per-session token, sho
 | **Overview** | pending changes per server (`+new ~changed −deleted`; click for the list and a coloured local ↔ server diff), sync / dry-run / full sync / retry failed, calibrate, verify (+fix), measure connection limit, compare two servers, milestone, freeze list, watch on/off, run a command on the server (SFTP) |
 | **Servers** | add / edit / duplicate / enable / delete servers; protocol, SSH key, tunnel, paths, performance, filters, hooks, remote SSH commands; *Test connection* without saving |
 | **Connections** | shared credential profiles |
-| **Files** | remote browser: preview with syntax highlighting, compare with local, download, upload, new folder, rename / move, multi-select, freeze toggle, recursive search |
+| **Files** | remote browser: preview with syntax highlighting (HTML files also rendered in a sandboxed frame), compare with local, download, upload, new folder, rename / move, multi-select, freeze toggle, recursive search with live results, tree view |
 | **History** | releases with backup state, roll back to before any release, sync logs |
 | **CI/CD** | deploy triggers, webhook listener, trycloudflare tunnel, recent deliveries |
-| **Settings** | global sync settings, ignore rules editor with templates, OS keyring, project registry |
+| **Settings** | global sync settings, ignore rules editor with templates (per local folder), OS keyring, config import / export, local HTTP API |
+
+The sidebar also has app-wide **Settings** (start with Windows, webhook port, connection library, new-project defaults, known SSH hosts, hash cache) and a **Terminal** that runs the syncFTP shell inside the panel.
 
 Folder and file pickers run **inside the panel** (no native dialogs); include / exclude / protect / freeze lists can be ticked in a file tree. Every operation runs as a background job with a live log in the bottom-right corner. A **Help** page (sidebar, and the `?` button on every tab) contains task guides and a CLI reference generated from the program itself.
 
@@ -195,7 +197,7 @@ For each session syncFTP writes `.syncftp/ai/` — `README.md` (rules), `CLI.md`
 | `project.keyring` | `false` | Passwords stored in the OS keyring; JSON keeps a `"keyring:"` marker (`syncftp secure`) |
 | `sync.protect` | `[]` | Never overwrite these on any server (`dir/` for folders) |
 | `sync.include` | `[]` | Whitelist — sync only these paths (empty = all) |
-| `sync.exclude` | `[]` | Skip these paths (exact path or folder prefix) |
+| `sync.exclude` | `[]` | Skip these paths — see [pattern rules](#pattern-rules) |
 | `sync.ignore_files` | `null` | Which ignore files to load — `null`/empty = `.gitignore` + `.syncftp/syncftp.ignore` |
 | `sync.block_extensions` | `[]` | Never upload these extensions; per-server list is added on top |
 | `sync.webhook` | `""` | POST after each sync (Slack / Discord URLs are formatted automatically) |
@@ -292,6 +294,20 @@ Files deleted locally are **reported, never deleted** from the server. Every syn
 | **Milestone** | per server | only files modified after a date | `syncftp milestone` |
 
 Include priority: CLI `--include` → server `include` → global `sync.include`. Exclude and protect lists are combined. Exact file paths that no longer exist locally are removed from include / exclude / protect automatically (globs and folders are kept).
+
+### Pattern rules
+
+Include, exclude and protect use the same matcher everywhere (sync, status, calibrate, verify, the panel):
+
+| Pattern | Matches |
+|---|---|
+| `app` or `app/` | the folder `app` and everything in it (a trailing `/` marks a folder); a leading `/` is ignored |
+| `config/app.php` | exactly that file |
+| `*.log` | any `.log` file at any depth (no `/` in the pattern → matched against every file and folder name) |
+| `src/*.min.js` | `.min.js` files directly in `src` (a `/` in the pattern → matched against the whole path) |
+| `build*/` | every folder starting with `build` and its contents |
+
+The status views (CLI, shell, panel) list frozen, protected and blocked files separately, so the pending count is exactly what `sync` will upload.
 
 ---
 
@@ -420,6 +436,7 @@ Run `syncftp <command> --help` for every flag. The panel's **Help** page shows t
 | `diff` | compare two servers |
 | `detect-limit` | measure the connection limit |
 | `remote ls / cat / get / rm / exec` | work on the server |
+| `logs [FILE\|last]` | list / show sync, rollback and calibrate logs |
 | `push` | one-off sync of any folder without a config |
 | `config` | server / profile editor (TUI), `--export` |
 | `hook serve / list` | CI/CD webhook listener |
@@ -573,6 +590,7 @@ Run `syncftp` without arguments.
 | `rollback [ID] [--list]` | undo releases on the connected server |
 | `milestone [set [DATE] \| sync \| clear \| show]` | on the connected server |
 | `freeze` | freeze list |
+| `logs [FILE \| last]` | sync logs (of the connected server) |
 | `exec <command>` | run over SSH on the connected SFTP server |
 | `config` / `lang [en\|tr]` / `gui` / `serve` | settings, language, open the panel, HTTP API |
 | `help` / `clear` / `exit` | — |
