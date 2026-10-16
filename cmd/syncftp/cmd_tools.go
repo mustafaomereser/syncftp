@@ -189,14 +189,12 @@ func verifyServer(w io.Writer, configDir string, cfg *config.Config, srv config.
 		return rep, err
 	}
 
-	localPath := srv.EffectiveLocalPath(cfg.Project)
-	localDir := filepath.Join(configDir, localPath)
-	effectiveInclude := cfg.Sync.Include
-	if len(srv.Include) > 0 {
-		effectiveInclude = srv.Include
-	}
-	effectiveExclude := append(append([]string{}, cfg.Sync.Exclude...), srv.Exclude...)
+	localDir := filepath.Join(configDir, srv.EffectiveLocalPath(cfg.Project))
+	flt := effectiveFilters(cfg, srv, nil, nil) // sync ile aynı filtreler (cmd_plan.go)
 	matcher, _ := ignore.Load(localDir, cfg.Sync.IgnoreFiles)
+	// Bekleyenler sync'in yükleyeceği listeyle aynı hesap: korunan / freeze'li değişiklikler "bekleyen" sayılmaz
+	pi := pendingChanges(configDir, cfg, srv, current, st, nil, nil)
+	rep.Pending = len(pi.newL) + len(pi.changed)
 
 	fmt.Fprintf(w, lang.L.VerifyStartFmt, srv.Name, srv.ProtocolName(), srv.Host)
 	client, err := ftpclient.Connect(srv)
@@ -204,7 +202,7 @@ func verifyServer(w io.Writer, configDir string, cfg *config.Config, srv config.
 		return rep, err
 	}
 	defer client.Close()
-	skip := remoteSkipFunc(matcher, normalizePatterns(effectiveInclude, localPath), normalizePatterns(effectiveExclude, localPath))
+	skip := remoteSkipFunc(matcher, flt.include, flt.exclude)
 	remote, err := client.ListRecursiveFiltered(srv.RemotePath, skip, nil)
 	if err != nil {
 		return rep, err
@@ -216,8 +214,7 @@ func verifyServer(w io.Writer, configDir string, cfg *config.Config, srv config.
 			continue // yerelde silinmiş — sync zaten raporluyor
 		}
 		if hash != stHash {
-			rep.Pending++
-			continue
+			continue // yerelde değişmiş: sapma değil (yüklenecekse rep.Pending'de)
 		}
 		rep.Checked++
 		rsize, exists := remote[rel]
