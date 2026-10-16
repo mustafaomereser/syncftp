@@ -102,7 +102,7 @@ func TestRestoreSecretsAndValidate(t *testing.T) {
 			{Name: "prod", Host: "h", RemotePath: "/", Password: keepSecret, SSHTunnel: config.SSHTunnel{TunnelPassword: keepSecret}},
 			{Name: "new", Connection: "host", RemotePath: "/x", Password: "fresh"},
 		},
-		Connections: []config.Connection{{Name: "host", Password: keepSecret}},
+		Connections: []config.Connection{{Name: "host", Host: "ftp.example.com", Password: keepSecret}},
 	}
 	restoreSecrets(in, old)
 	if in.Servers[0].Password != "p1" || in.Servers[0].TunnelPassword != "t1" {
@@ -111,16 +111,16 @@ func TestRestoreSecretsAndValidate(t *testing.T) {
 	if in.Servers[1].Password != "fresh" || in.Connections[0].Password != "c1" {
 		t.Fatal("fresh password overwritten or connection not restored")
 	}
-	if err := validateConfig(in); err != nil {
+	if err := in.Validate(); err != nil {
 		t.Fatalf("valid config rejected: %v", err)
 	}
 	in.Servers[1].Connection = "missing"
-	if err := validateConfig(in); err == nil {
+	if err := in.Validate(); err == nil {
 		t.Fatal("missing connection must be rejected")
 	}
 	in.Servers[1].Connection = "host"
 	in.Servers = append(in.Servers, config.Server{Name: "prod", Host: "h", RemotePath: "/"})
-	if err := validateConfig(in); err == nil {
+	if err := in.Validate(); err == nil {
 		t.Fatal("duplicate name must be rejected")
 	}
 }

@@ -49,6 +49,15 @@ func runConfigExport(dir string) error {
 
 // ── yardımcı ─────────────────────────────────────────────────────────────────
 
+// saveCfgValidated panelle aynı doğrulamadan (Config.Validate) geçmeyen config'i kaydetmez;
+// döngü bir sonraki turda diskteki config'i yeniden yüklediği için değişiklik geri alınmış olur.
+func saveCfgValidated(configDir string, cfg *config.Config) error {
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	return config.Save(configDir, cfg)
+}
+
 func boolIcon(b bool) string {
 	if b {
 		return "✓"
@@ -376,7 +385,7 @@ func runServerMgr(configDir string) error {
 		switch fm.action {
 		case "edit-global":
 			if runGlobalEdit(&cfg.Project, &cfg.Sync, projectDir) {
-				if e := config.Save(configDir, cfg); e != nil {
+				if e := saveCfgValidated(configDir, cfg); e != nil {
 					fmt.Printf(lang.L.CfgSaveErr, e)
 				}
 			}
@@ -388,7 +397,7 @@ func runServerMgr(configDir string) error {
 			srv := cfg.Servers[fm.actionIdx]
 			if runServerEdit(&srv, cfg.Connections, projectDir, false) {
 				cfg.Servers[fm.actionIdx] = srv
-				if e := config.Save(configDir, cfg); e != nil {
+				if e := saveCfgValidated(configDir, cfg); e != nil {
 					fmt.Printf(lang.L.CfgSaveErr, e)
 				} else {
 					fmt.Printf(lang.L.CfgUpdatedFmt, srv.Name)
@@ -399,7 +408,7 @@ func runServerMgr(configDir string) error {
 			srv := config.Server{Port: 21, Passive: true, Enabled: true, MaxConnections: 1, MaxRetries: 2}
 			if runServerEdit(&srv, cfg.Connections, projectDir, true) {
 				cfg.Servers = append(cfg.Servers, srv)
-				if e := config.Save(configDir, cfg); e != nil {
+				if e := saveCfgValidated(configDir, cfg); e != nil {
 					fmt.Printf(lang.L.CfgSaveErr, e)
 				} else {
 					fmt.Printf(lang.L.CfgAddedFmt, srv.Name)
@@ -410,7 +419,7 @@ func runServerMgr(configDir string) error {
 			name := cfg.Servers[fm.actionIdx].Name
 			cfg.Servers = append(cfg.Servers[:fm.actionIdx], cfg.Servers[fm.actionIdx+1:]...)
 			// connection referansları kaldı — kasıtlı, kullanıcı bunları yönetir
-			if e := config.Save(configDir, cfg); e != nil {
+			if e := saveCfgValidated(configDir, cfg); e != nil {
 				fmt.Printf(lang.L.CfgSaveErr, e)
 			} else {
 				fmt.Printf(lang.L.CfgDeletedFmt, name)
@@ -422,7 +431,7 @@ func runServerMgr(configDir string) error {
 			if cfg.Servers[fm.actionIdx].Enabled {
 				s = lang.L.CfgEnabledLabel
 			}
-			if e := config.Save(configDir, cfg); e != nil {
+			if e := saveCfgValidated(configDir, cfg); e != nil {
 				fmt.Printf(lang.L.CfgSaveErr, e)
 			} else {
 				fmt.Printf("✓ [%s] %s\n", cfg.Servers[fm.actionIdx].Name, s)
@@ -2307,7 +2316,7 @@ func runConnectionMgr(configDir string, cfg *config.Config) {
 			conn := cfg.Connections[fm.actionIdx]
 			if runConnectionEdit(&conn, false) {
 				cfg.Connections[fm.actionIdx] = conn
-				if e := config.Save(configDir, cfg); e != nil {
+				if e := saveCfgValidated(configDir, cfg); e != nil {
 					fmt.Printf(lang.L.CfgSaveErr, e)
 				} else {
 					fmt.Printf(lang.L.CfgUpdatedFmt, conn.Name)
@@ -2317,7 +2326,7 @@ func runConnectionMgr(configDir string, cfg *config.Config) {
 			conn := config.Connection{Port: 21, Passive: true}
 			if runConnectionEdit(&conn, true) {
 				cfg.Connections = append(cfg.Connections, conn)
-				if e := config.Save(configDir, cfg); e != nil {
+				if e := saveCfgValidated(configDir, cfg); e != nil {
 					fmt.Printf(lang.L.CfgSaveErr, e)
 				} else {
 					fmt.Printf(lang.L.CfgAddedFmt, conn.Name)
@@ -2326,7 +2335,7 @@ func runConnectionMgr(configDir string, cfg *config.Config) {
 		case "delete":
 			name := cfg.Connections[fm.actionIdx].Name
 			cfg.Connections = append(cfg.Connections[:fm.actionIdx], cfg.Connections[fm.actionIdx+1:]...)
-			if e := config.Save(configDir, cfg); e != nil {
+			if e := saveCfgValidated(configDir, cfg); e != nil {
 				fmt.Printf(lang.L.CfgSaveErr, e)
 			} else {
 				fmt.Printf(lang.L.CfgDeletedFmt, name)

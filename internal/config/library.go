@@ -124,23 +124,7 @@ func (l *Library) FindConnection(name string) (Connection, bool) {
 }
 
 // ValidateConnections boş/yinelenen adları reddeder.
-func (l *Library) ValidateConnections() error {
-	seen := map[string]bool{}
-	for _, c := range l.Connections {
-		n := strings.ToLower(strings.TrimSpace(c.Name))
-		if n == "" {
-			return fmt.Errorf("connection name required")
-		}
-		if seen[n] {
-			return fmt.Errorf("duplicate connection name: %s", c.Name)
-		}
-		if strings.TrimSpace(c.Host) == "" {
-			return fmt.Errorf("%s: host required", c.Name)
-		}
-		seen[n] = true
-	}
-	return nil
-}
+func (l *Library) ValidateConnections() error { return validateConnections(l.Connections) }
 
 // ApplyDefaults varsayılanları YENİ bir config'e uygular (mevcut projeyi ezmek için kullanılmaz).
 func (d Defaults) ApplyDefaults(cfg *Config) {

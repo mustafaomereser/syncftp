@@ -281,7 +281,7 @@ func (sv *guiServer) apiConfigImport(w http.ResponseWriter, r *http.Request) {
 			counts["deploy"] = len(src.Deploy)
 		}
 	}
-	if err := validateConfig(cfg); err != nil {
+	if err := cfg.Validate(); err != nil {
 		guiErr(w, 400, err)
 		return
 	}

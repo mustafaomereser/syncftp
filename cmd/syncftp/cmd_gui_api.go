@@ -546,38 +546,6 @@ func restoreSecrets(in, old *config.Config) {
 	}
 }
 
-func validateConfig(cfg *config.Config) error {
-	seen := map[string]bool{}
-	for _, c := range cfg.Connections {
-		if strings.TrimSpace(c.Name) == "" {
-			return errors.New(lang.L.GuiValConnName)
-		}
-		if seen["c:"+c.Name] {
-			return fmt.Errorf(lang.L.GuiValDupFmt, c.Name)
-		}
-		seen["c:"+c.Name] = true
-	}
-	for _, s := range cfg.Servers {
-		if strings.TrimSpace(s.Name) == "" {
-			return errors.New(lang.L.GuiValServerName)
-		}
-		if seen["s:"+s.Name] {
-			return fmt.Errorf(lang.L.GuiValDupFmt, s.Name)
-		}
-		seen["s:"+s.Name] = true
-		if s.Connection != "" && !seen["c:"+s.Connection] {
-			return fmt.Errorf(lang.L.GuiValConnMissingFmt, s.Name, s.Connection)
-		}
-		if s.Connection == "" && strings.TrimSpace(s.Host) == "" {
-			return fmt.Errorf(lang.L.GuiValHostFmt, s.Name)
-		}
-		if strings.TrimSpace(s.RemotePath) == "" {
-			return fmt.Errorf(lang.L.GuiValRemoteFmt, s.Name)
-		}
-	}
-	return nil
-}
-
 func (sv *guiServer) apiConfigPut(w http.ResponseWriter, r *http.Request) {
 	p, old, err := sv.project(r)
 	if err != nil {
@@ -591,7 +559,7 @@ func (sv *guiServer) apiConfigPut(w http.ResponseWriter, r *http.Request) {
 	}
 	restoreSecrets(&in, old)
 	in.Project.Keyring = old.Project.Keyring // anahtarlık modu ayrı uçtan değişir
-	if err := validateConfig(&in); err != nil {
+	if err := in.Validate(); err != nil {
 		guiErr(w, 400, err)
 		return
 	}
