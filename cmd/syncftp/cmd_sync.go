@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"bytes"
 	"fmt"
 	"io"
@@ -441,6 +442,12 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 			return result
 		}
 	}
+	// Uzak pre-sync (SFTP/SSH): hata → sync iptal
+	if hookErr := runRemoteHooks(w, srv, srv.RemotePreSync, 0, 0); hookErr != nil {
+		fmt.Fprintf(w, lang.L.SyncHookAbortFmt, hookErr)
+		result.err = hookErr
+		return result
+	}
 
 	maxConn := srv.MaxConnections
 	if maxConn <= 0 {
@@ -534,6 +541,11 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 
 	if outcome.releaseDir != "" {
 		fmt.Fprintf(w, lang.L.SyncReleaseFmt, outcome.releaseDir)
+	}
+
+	// Uzak post-sync (SFTP/SSH): migrate, cache clear, restart… — hata sync sonucunu değiştirmez
+	if hookErr := runRemoteHooks(w, srv, srv.RemotePostSync, uploaded, failedCount); hookErr != nil {
+		fmt.Fprintf(w, lang.L.SyncHookErrFmt, hookErr)
 	}
 
 	// Webhook
@@ -637,10 +649,7 @@ func sendWebhook(w io.Writer, webhookURL, serverName string, uploaded, failed in
 	if webhookURL == "" {
 		return
 	}
-	payload := fmt.Sprintf(
-		`{"server":%q,"uploaded":%d,"failed":%d,"files":%s}`,
-		serverName, uploaded, failed, jsonStringArray(files),
-	)
+	payload := webhookPayload(webhookURL, serverName, uploaded, failed, files)
 	resp, err := webhookClient.Post(webhookURL, "application/json", bytes.NewBufferString(payload))
 	if err != nil {
 		fmt.Fprintf(w, lang.L.SyncWebhookErrFmt, err)
@@ -648,6 +657,35 @@ func sendWebhook(w io.Writer, webhookURL, serverName string, uploaded, failed in
 	}
 	resp.Body.Close()
 	fmt.Fprintf(w, lang.L.SyncWebhookSentFmt, webhookURL, resp.StatusCode)
+}
+
+// webhookPayload URL'e göre biçim seçer: Slack ({"text"}), Discord ({"content"}),
+// diğerleri syncFTP JSON'u ({"server","uploaded","failed","files"}).
+func webhookPayload(webhookURL, serverName string, uploaded, failed int, files []string) string {
+	summary := fmt.Sprintf("syncFTP · %s — ↑ %d, ✗ %d", serverName, uploaded, failed)
+	if len(files) > 0 {
+		shown := files
+		if len(shown) > 10 {
+			shown = shown[:10]
+		}
+		summary += "\n" + strings.Join(shown, "\n")
+		if len(files) > 10 {
+			summary += fmt.Sprintf("\n… +%d", len(files)-10)
+		}
+	}
+	u := strings.ToLower(webhookURL)
+	switch {
+	case strings.Contains(u, "hooks.slack.com"):
+		return fmt.Sprintf(`{"text":%s}`, jsonQuote(summary))
+	case strings.Contains(u, "discord.com/api/webhooks") || strings.Contains(u, "discordapp.com/api/webhooks"):
+		return fmt.Sprintf(`{"content":%s}`, jsonQuote(summary))
+	}
+	return fmt.Sprintf(`{"server":%q,"uploaded":%d,"failed":%d,"files":%s}`, serverName, uploaded, failed, jsonStringArray(files))
+}
+
+func jsonQuote(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
 }
 
 func jsonStringArray(ss []string) string {

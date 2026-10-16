@@ -3,7 +3,6 @@
 package main
 
 import (
-	"errors"
 	"os"
 	"os/exec"
 	"runtime"
@@ -48,4 +47,5 @@ func openDefaultBrowser(url string) error {
 
 func bringWindowToFront(string) bool { return false }
 
-func pickFolder(string) (string, error) { return "", errors.New("unsupported") }
+
+func hideCmdWindow(*exec.Cmd) {}

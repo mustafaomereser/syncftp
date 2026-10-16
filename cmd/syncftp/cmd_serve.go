@@ -43,9 +43,8 @@ var serveCmd = &cobra.Command{
 
 // ── sunucu ────────────────────────────────────────────────────────────────────
 
-func runServe(cmd *cobra.Command, args []string) error {
-	dir, _ := os.Getwd()
-
+// newServeHandler proje dizini için HTTP API'yi kurar (CLI serve ve paneldeki "HTTP API" ortak).
+func newServeHandler(dir string) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/servers", wrap(dir, handleServers))
 	mux.HandleFunc("/api/status", wrap(dir, handleStatus))
@@ -59,7 +58,12 @@ func runServe(cmd *cobra.Command, args []string) error {
 	mux.HandleFunc("/api/remote/cat", wrap(dir, handleRemoteCat))
 	mux.HandleFunc("/api/remote/get", wrap(dir, handleRemoteGet))
 	mux.HandleFunc("/api/remote/rm", wrap(dir, handleRemoteRm))
+	return corsMiddleware(mux)
+}
 
+func runServe(cmd *cobra.Command, args []string) error {
+	dir, _ := os.Getwd()
+	handler := newServeHandler(dir)
 	addr := fmt.Sprintf("127.0.0.1:%d", servePort)
 	fmt.Printf("syncFTP API → http://%s\n\n", addr)
 	fmt.Println("Endpoint'ler:")
@@ -77,7 +81,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	fmt.Printf("  DELETE /api/remote/rm?server=<ad>&path=<yol>[&recursive=true]\n")
 	fmt.Println("\nDurdurmak için Ctrl+C")
 
-	return http.ListenAndServe(addr, corsMiddleware(mux))
+	return http.ListenAndServe(addr, handler)
 }
 
 // ── middleware ────────────────────────────────────────────────────────────────

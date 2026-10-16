@@ -27,7 +27,7 @@ func init() {
 	remoteRmCmd.Flags().BoolVar(&remoteRmRecursive, "recursive", false, "Dizini içeriğiyle birlikte sil")
 	remoteCatCmd.Flags().IntVar(&remoteCatMaxKB, "max-kb", 10, "Gösterilecek maksimum kilobayt")
 
-	remoteCmd.AddCommand(remoteLsCmd, remoteGetCmd, remoteRmCmd, remoteCatCmd)
+	remoteCmd.AddCommand(remoteLsCmd, remoteGetCmd, remoteRmCmd, remoteCatCmd, remoteExecCmd)
 	rootCmd.AddCommand(remoteCmd)
 }
 
@@ -280,6 +280,27 @@ var remoteCatCmd = &cobra.Command{
 			fmt.Printf(lang.L.RemoteCatTruncFmt, remoteCatMaxKB, args[0])
 		}
 		return nil
+	},
+}
+
+// ── remote exec ───────────────────────────────────────────────────────────────
+
+var remoteExecCmd = &cobra.Command{
+	Use:   "exec <komut>",
+	Short: "SFTP sunucusunda SSH ile komut çalıştırır (uzak dizinde)",
+	Long: `Komut, sunucunun remote_path dizininde SSH üzerinden çalışır; çıktı canlı akar.
+Yalnızca protocol=sftp sunucularda kullanılabilir.
+
+  syncftp remote exec -s production "php artisan migrate --force"
+  syncftp remote exec -s production "composer install --no-dev && php artisan optimize"`,
+	Args: cobra.MinimumNArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		_, client, err := connectRemote()
+		if err != nil {
+			return err
+		}
+		defer client.Close()
+		return client.Exec(strings.Join(args, " "), nil, os.Stdout)
 	},
 }
 

@@ -194,14 +194,26 @@ func cachePath(dir string) string {
 		abs = dir
 	}
 	sum := sha1.Sum([]byte(strings.ToLower(filepath.Clean(abs))))
+	return filepath.Join(CacheDir(), hex.EncodeToString(sum[:])+".json")
+}
+
+// CacheDir hash cache dosyalarının bulunduğu dizin (<UserCacheDir>/syncftp/hashcache).
+func CacheDir() string {
 	if cacheDirOverride != "" {
-		return filepath.Join(cacheDirOverride, hex.EncodeToString(sum[:])+".json")
+		return cacheDirOverride
 	}
 	base, err := os.UserCacheDir()
 	if err != nil {
 		base = os.TempDir()
 	}
-	return filepath.Join(base, "syncftp", "hashcache", hex.EncodeToString(sum[:])+".json")
+	return filepath.Join(base, "syncftp", "hashcache")
+}
+
+// ClearAllCache tüm projelerin hash cache dosyalarını siler.
+func ClearAllCache() error {
+	cacheMu.Lock()
+	defer cacheMu.Unlock()
+	return os.RemoveAll(CacheDir())
 }
 
 func loadCache(dir string) hashCache {

@@ -34,7 +34,8 @@ func main() {
 
 	// Explorer'dan çift tık: süreç konsolunun tek sahibi → konsolu gizle, GUI'yi aç.
 	// Terminalden argümansız çalıştırma shell'de kalır.
-	if len(os.Args) == 1 && ownsConsole() {
+	// Panel içi terminal (SYNCFTP_EMBEDDED_SHELL) ConPTY'de tek süreç olduğu için ownsConsole true döner — orada shell kalmalı.
+	if len(os.Args) == 1 && os.Getenv("SYNCFTP_EMBEDDED_SHELL") == "" && ownsConsole() {
 		hideConsole()
 		if err := runGUIForeground(); err != nil {
 			os.Exit(1)

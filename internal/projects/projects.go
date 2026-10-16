@@ -79,6 +79,9 @@ func HasConfig(dir string) bool {
 
 // List kayıtlı projeleri son kullanılana göre sıralı döner.
 func List() []Project {
+	if base != "" {
+		return scanBase()
+	}
 	mu.Lock()
 	defer mu.Unlock()
 	r := load()
@@ -97,6 +100,18 @@ func Add(dir, name string) (Project, error) {
 	}
 	if !HasConfig(abs) {
 		return Project{}, fmt.Errorf("%s: .syncftp/syncftp.json yok (önce `syncftp init`)", abs)
+	}
+	if base != "" {
+		if !InBase(abs) {
+			return Project{}, fmt.Errorf("%s: panelin açıldığı klasörün (%s) dışında", abs, base)
+		}
+		Invalidate()
+		for _, p := range scanBase() {
+			if samePath(p.Path, abs) {
+				return p, nil
+			}
+		}
+		return Project{}, fmt.Errorf("%s: proje bulunamadı (çok derinde ya da gizli klasörde olabilir)", abs)
 	}
 	if name == "" {
 		name = configProjectName(abs)
@@ -138,6 +153,9 @@ func uniqueName(r registry, name string, self int) string {
 
 // Remove kaydı siler (proje dosyalarına dokunmaz). Ad veya yol kabul eder.
 func Remove(nameOrPath string) error {
+	if base != "" {
+		return fmt.Errorf("klasör modunda proje listeden kaldırılamaz; proje %s altındaki .syncftp klasöründen gelir", base)
+	}
 	mu.Lock()
 	defer mu.Unlock()
 	r := load()
@@ -152,6 +170,9 @@ func Remove(nameOrPath string) error {
 
 // Rename projenin görünen adını değiştirir.
 func Rename(nameOrPath, newName string) error {
+	if base != "" {
+		return fmt.Errorf("klasör modunda ad config'teki project.name'dir")
+	}
 	mu.Lock()
 	defer mu.Unlock()
 	r := load()
@@ -176,6 +197,9 @@ func Find(nameOrPath string) (Project, bool) {
 
 // Touch projenin son kullanım zamanını günceller; kayıtlı değilse sessizce ekler.
 func Touch(dir string) {
+	if base != "" {
+		return
+	}
 	abs, err := filepath.Abs(dir)
 	if err != nil || !HasConfig(abs) {
 		return
@@ -219,4 +243,92 @@ func configProjectName(dir string) string {
 		return ""
 	}
 	return strings.TrimSpace(c.Project.Name)
+}
+
+// ── Klasör modu (GUI) ─────────────────────────────────────────────────────────
+// Panel CLI gibi açıldığı klasörü esas alır: SetBase sonrası List/Find/Add makine geneli
+// kayıt yerine o klasörü (kendisi + 2 seviyeye kadar alt klasörleri) tarar; kayıt dosyasına
+// hiçbir şey yazılmaz.
+
+var base string
+
+var (
+	scanMu   sync.Mutex
+	scanAt   time.Time
+	scanList []Project
+)
+
+// SetBase klasör modunu açar ("" kapatır).
+func SetBase(dir string) {
+	if dir != "" {
+		if abs, err := filepath.Abs(dir); err == nil {
+			dir = abs
+		}
+	}
+	base = dir
+	scanMu.Lock()
+	scanAt = time.Time{}
+	scanMu.Unlock()
+}
+
+// Base klasör modunun kök dizini ("" = makine geneli kayıt).
+func Base() string { return base }
+
+// InBase dir kök klasörün kendisi ya da altında mı.
+func InBase(dir string) bool {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(base, abs)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// Invalidate tarama önbelleğini boşaltır (proje oluşturma / ad değişikliği sonrası).
+func Invalidate() {
+	scanMu.Lock()
+	scanAt = time.Time{}
+	scanMu.Unlock()
+}
+
+var scanSkip = map[string]bool{"node_modules": true, "vendor": true, "bower_components": true, "__pycache__": true}
+
+func scanBase() []Project {
+	scanMu.Lock()
+	defer scanMu.Unlock()
+	if !scanAt.IsZero() && time.Since(scanAt) < 2*time.Second {
+		return append([]Project(nil), scanList...)
+	}
+	var dirs []string
+	var walk func(dir string, depth int)
+	walk = func(dir string, depth int) {
+		if HasConfig(dir) {
+			dirs = append(dirs, dir)
+		}
+		if depth == 2 {
+			return
+		}
+		ents, err := os.ReadDir(dir)
+		if err != nil {
+			return
+		}
+		for _, e := range ents {
+			n := e.Name()
+			if !e.IsDir() || strings.HasPrefix(n, ".") || scanSkip[n] {
+				continue
+			}
+			walk(filepath.Join(dir, n), depth+1)
+		}
+	}
+	walk(base, 0)
+	var r registry
+	for _, d := range dirs {
+		name := configProjectName(d)
+		if name == "" {
+			name = filepath.Base(d)
+		}
+		r.Projects = append(r.Projects, Project{Name: uniqueName(r, name, -1), Path: d})
+	}
+	scanList, scanAt = r.Projects, time.Now()
+	return append([]Project(nil), scanList...)
 }

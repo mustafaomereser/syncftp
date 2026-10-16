@@ -9,18 +9,18 @@
 const T = {
   tr: {
     brandSub: 'Dağıtım paneli', navAll: 'Tüm projeler', navJobs: 'İşler', navProjects: 'Projeler',
-    addProject: 'Proje ekle', watching: 'Watch', language: 'Dil', quit: 'Kapat',
+    addProject: 'Proje ekle', navNoProjects: 'Bu klasörde proje yok', watching: 'Watch', language: 'Dil', quit: 'Kapat',
     loading: 'Yükleniyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
     edit: 'Düzenle', back: 'Geri', yes: 'Evet', confirm: 'Onayla', browse: 'Gözat', add: 'Ekle', open: 'Aç',
     saved: 'Kaydedildi', copied: 'Kopyalandı', never: 'hiç', none: 'yok', all: 'Tümü', manual: '(manuel giriş)',
-    projectsTitle: 'Projeler', projectsSub: 'Bu bilgisayarda kayıtlı syncFTP projeleri',
-    noProjects: 'Henüz proje yok', noProjectsSub: 'Bir proje klasörü seçin. syncFTP config\'i yoksa sizin için oluşturulur; terminalde `syncftp init` çalıştırılan projeler de burada otomatik görünür.',
+    projectsTitle: 'Projeler', projectsSub: `{0} klasöründeki syncFTP projeleri (CLI gibi: panel açıldığı klasörü esas alır)`,
+    noProjects: 'Henüz proje yok', noProjectsSub: 'Bu klasörde (ya da alt klasörlerinde) .syncftp/ yok. Buraya proje kurun; terminalde `syncftp init` çalıştırdığınız alt klasörler de burada kendiliğinden görünür.',
     serversN: '{0} sunucu', enabledN: '{0} aktif', configError: 'Config okunamadı',
-    addProjectTitle: 'Proje ekle', folder: 'Proje klasörü', folderHint: 'İçinde .syncftp/ olan ya da olacak klasör',
+    addProjectTitle: 'Proje ekle', folder: 'Proje klasörü', folderHint: 'Panelin açıldığı klasör ya da altındaki bir klasör (.syncftp/ yoksa oluşturulur)',
     displayName: 'Görünen ad', displayNameHint: 'Boş bırakılırsa klasör adı kullanılır',
     createConfigTitle: 'Config oluşturulsun mu?', createConfigBody: 'Bu klasörde syncFTP config\'i yok. Boş bir config oluşturup projeyi ekleyeyim mi? Ardından sunucu ekleyebilirsiniz.',
     create: 'Oluştur',
-    tabOverview: 'Genel bakış', tabServers: 'Sunucular', tabConnections: 'Bağlantılar', tabSettings: 'Ayarlar',
+    tabOverview: 'Genel bakış', tabServers: 'Sunucular', tabConnections: 'Bağlantılar', tabSettings: 'Proje ayarları',
     tabFiles: 'Dosyalar', tabHistory: 'Geçmiş',
     sumServers: 'Sunucular', sumPending: 'Bekleyen değişiklik', sumLastSync: 'Son sync', sumWatch: 'Watch',
     syncAll: 'Tümünü sync et', dryRunAll: 'Dry-run', more: 'Diğer',
@@ -99,27 +99,37 @@ const T = {
     colJob: 'İş', colProject: 'Proje', colStarted: 'Başladı', colDuration: 'Süre',
     stRunning: 'çalışıyor', stDone: 'tamam', stError: 'hata', stop: 'Durdur',
     jobDone: '{0} tamamlandı', jobFailed: '{0}: {1}', jobStarted: '{0} başladı', jobLog: 'İş günlüğü', resultLine: '↑ {0} yüklendi · {1} hata · {2}',
-    quitConfirm: 'Panel kapatılsın mı? Çalışan watch\'lar da durur.', quitDone: 'Panel kapandı — bu pencereyi kapatabilirsiniz.',
+    quitConfirm: 'syncFTP tamamen kapatılsın mı? Çalışan watch\'lar ve webhook dinleyicisi de durur. (Pencereyi kapatırsanız tray\'de çalışmaya devam eder.)', quitDone: 'Panel kapandı — bu pencereyi kapatabilirsiniz.',
     sessionLost: 'Panel bağlantısı koptu', ago: '{0} önce', justNow: 'az önce', min: 'dk', hour: 'sa', day: 'gün',
     copyPath: 'Yolu kopyala', notFound: 'Bulunamadı', minutes: '{0} dk', seconds: '{0} sn',
     compare: 'Yerelle karşılaştır', diffTitle: 'Fark', diffLocal: 'Yerel', diffRemote: 'Sunucu', diffSame: 'Yerel ve sunucu sürümü aynı',
-    diffRemoteMissing: 'Sunucuda yok — sync bu dosyayı yeni olarak yükler', diffLocalMissing: 'Yerelde yok', diffTooBig: 'Dosya karşılaştırma için çok büyük — tam görünüm gösteriliyor',
+    diffRemoteMissing: 'Sunucuda yok — sync bu dosyayı yeni olarak yükler',
+    secRemote: 'SSH komutları (sunucuda)', secRemoteDesc: 'Yalnızca SFTP sunucularında: SSH ile uzak dizinde çalışır. pre hata verirse sync iptal olur; post deploy sonrası çalışır (migrate, cache, restart…).', fRemotePre: 'remote_pre_sync', fRemotePost: 'remote_post_sync',
+    whTest: 'Test et', whTestOk: 'Webhook gönderildi: {0}', ignoreTitle: 'Ignore kuralları (.syncftp/syncftp.ignore)', ignoreDesc: 'Gitignore sözdizimi. .gitignore ile birleştirilir; ignore edilen klasörlere yerelde ve sunucuda hiç girilmez.',
+    ignoreTemplate: 'Şablon ekle…', ignoreSaved: 'Ignore kuralları kaydedildi', gitignoreNote: '.gitignore ({0} satır) de uygulanıyor',
+    treePick: 'Ağaçtan seç', failedTitle: '{0} — başarısız dosyalar', failedBody: 'Son sync\'te yüklenemeyen dosyalar. Tekrar denemek yalnızca bunları yükler.',
+    compareServers: 'Sunucuları karşılaştır', compareServersHint: 'İki sunucunun uzak içeriğini karşılaştırır (sadece birinde olan / boyutu farklı)', compareA: 'Sunucu A', compareB: 'Sunucu B', compareGo: 'Karşılaştır',
+    upload: 'Yükle', newFolder: 'Yeni klasör', folderName: 'Klasör adı', rename: 'Yeniden adlandır / taşı', newPath: 'Yeni yol (uzak dizine göreceli)',
+    moveTo: 'Taşı', moveTarget: 'Hedef klasör (uzak dizine göreceli)', selectedN: '{0} seçili', clearSel: 'Seçimi temizle',
+    freezeToggle: 'Freeze / unfreeze', frozenBadge: 'frozen', searchAll: 'Alt klasörlerde ara', searchTitle: '"{0}" araması', searchNone: 'Sonuç yok', searching: 'Aranıyor…',
+    uploaded: '{0} dosya yüklendi', created: 'Oluşturuldu', moved: 'Taşındı', frozenAdded: '{0} dosya freeze listesine eklendi', frozenRemoved: '{0} dosya freeze listesinden çıkarıldı',
+    deleteManyConfirm: '{0} öğe sunucudan KALICI olarak silinsin mi? (klasörler içerikleriyle)', runCmd: 'Sunucuda komut çalıştır', runCmdHint: 'SSH ile uzak dizinde komut çalıştırır', diffLocalMissing: 'Yerelde yok', diffTooBig: 'Dosya karşılaştırma için çok büyük — tam görünüm gösteriliyor',
     diffHint: 'Sunucu → yerel: <span class="bad-t">−</span> sunucudan gidecek, <span class="ok-t">+</span> sync ile gelecek', foldN: '⋯ {0} aynı satır', clickToDiff: 'Farkı görmek için dosyaya tıklayın',
   },
   en: {
     brandSub: 'Deploy panel', navAll: 'All projects', navJobs: 'Jobs', navProjects: 'Projects',
-    addProject: 'Add project', watching: 'Watch', language: 'Language', quit: 'Quit',
+    addProject: 'Add project', navNoProjects: 'No project in this folder', watching: 'Watch', language: 'Language', quit: 'Quit',
     loading: 'Loading…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
     edit: 'Edit', back: 'Back', yes: 'Yes', confirm: 'Confirm', browse: 'Browse', add: 'Add', open: 'Open',
     saved: 'Saved', copied: 'Copied', never: 'never', none: 'none', all: 'All', manual: '(manual entry)',
-    projectsTitle: 'Projects', projectsSub: 'syncFTP projects registered on this computer',
-    noProjects: 'No projects yet', noProjectsSub: 'Pick a project folder. If it has no syncFTP config, one is created for you; projects where you ran `syncftp init` show up here automatically.',
+    projectsTitle: 'Projects', projectsSub: `syncFTP projects in {0} (like the CLI: the panel works on the folder it was opened in)`,
+    noProjects: 'No projects yet', noProjectsSub: 'This folder (and its subfolders) has no .syncftp/. Set a project up here; subfolders where you run `syncftp init` show up automatically.',
     serversN: '{0} servers', enabledN: '{0} enabled', configError: 'Config could not be read',
-    addProjectTitle: 'Add project', folder: 'Project folder', folderHint: 'The folder that has (or will have) .syncftp/',
+    addProjectTitle: 'Add project', folder: 'Project folder', folderHint: 'The folder the panel was opened in, or one below it (.syncftp/ is created if missing)',
     displayName: 'Display name', displayNameHint: 'Defaults to the folder name',
     createConfigTitle: 'Create config?', createConfigBody: 'This folder has no syncFTP config. Create an empty one and add the project? You can add servers next.',
     create: 'Create',
-    tabOverview: 'Overview', tabServers: 'Servers', tabConnections: 'Connections', tabSettings: 'Settings',
+    tabOverview: 'Overview', tabServers: 'Servers', tabConnections: 'Connections', tabSettings: 'Project settings',
     tabFiles: 'Files', tabHistory: 'History',
     sumServers: 'Servers', sumPending: 'Pending changes', sumLastSync: 'Last sync', sumWatch: 'Watch',
     syncAll: 'Sync all', dryRunAll: 'Dry-run', more: 'More',
@@ -198,11 +208,21 @@ const T = {
     colJob: 'Job', colProject: 'Project', colStarted: 'Started', colDuration: 'Duration',
     stRunning: 'running', stDone: 'done', stError: 'error', stop: 'Stop',
     jobDone: '{0} finished', jobFailed: '{0}: {1}', jobStarted: '{0} started', jobLog: 'Job log', resultLine: '↑ {0} uploaded · {1} failed · {2}',
-    quitConfirm: 'Quit the panel? Running watches stop too.', quitDone: 'Panel stopped — you can close this window.',
+    quitConfirm: 'Quit syncFTP completely? Running watches and the webhook listener stop too. (Closing the window keeps it running in the tray.)', quitDone: 'Panel stopped — you can close this window.',
     sessionLost: 'Lost connection to the panel', ago: '{0} ago', justNow: 'just now', min: 'min', hour: 'h', day: 'd',
     copyPath: 'Copy path', notFound: 'Not found', minutes: '{0} min', seconds: '{0} s',
     compare: 'Compare with local', diffTitle: 'Diff', diffLocal: 'Local', diffRemote: 'Server', diffSame: 'Local and server versions are identical',
-    diffRemoteMissing: 'Not on the server — sync uploads it as a new file', diffLocalMissing: 'Missing locally', diffTooBig: 'File too large to diff — showing full view',
+    diffRemoteMissing: 'Not on the server — sync uploads it as a new file',
+    secRemote: 'SSH commands (on the server)', secRemoteDesc: 'SFTP servers only: run over SSH in the remote folder. If pre fails the sync is aborted; post runs after the deploy (migrate, cache, restart…).', fRemotePre: 'remote_pre_sync', fRemotePost: 'remote_post_sync',
+    whTest: 'Test', whTestOk: 'Webhook sent: {0}', ignoreTitle: 'Ignore rules (.syncftp/syncftp.ignore)', ignoreDesc: 'Gitignore syntax. Merged with .gitignore; ignored folders are never walked locally or on the server.',
+    ignoreTemplate: 'Add template…', ignoreSaved: 'Ignore rules saved', gitignoreNote: '.gitignore ({0} lines) is applied too',
+    treePick: 'Pick from tree', failedTitle: '{0} — failed files', failedBody: 'Files that could not be uploaded in the last sync. Retrying uploads only these.',
+    compareServers: 'Compare servers', compareServersHint: 'Compare the remote contents of two servers (only on one side / size differs)', compareA: 'Server A', compareB: 'Server B', compareGo: 'Compare',
+    upload: 'Upload', newFolder: 'New folder', folderName: 'Folder name', rename: 'Rename / move', newPath: 'New path (relative to remote root)',
+    moveTo: 'Move', moveTarget: 'Target folder (relative to remote root)', selectedN: '{0} selected', clearSel: 'Clear selection',
+    freezeToggle: 'Freeze / unfreeze', frozenBadge: 'frozen', searchAll: 'Search subfolders', searchTitle: 'Search "{0}"', searchNone: 'No results', searching: 'Searching…',
+    uploaded: '{0} file(s) uploaded', created: 'Created', moved: 'Moved', frozenAdded: '{0} file(s) added to the freeze list', frozenRemoved: '{0} file(s) removed from the freeze list',
+    deleteManyConfirm: 'PERMANENTLY delete {0} item(s) from the server? (folders with their contents)', runCmd: 'Run command on server', runCmdHint: 'Runs a command over SSH in the remote folder', diffLocalMissing: 'Missing locally', diffTooBig: 'File too large to diff — showing full view',
     diffHint: 'Server → local: <span class="bad-t">−</span> leaves the server, <span class="ok-t">+</span> arrives with sync', foldN: '⋯ {0} unchanged lines', clickToDiff: 'Click a file to see the diff',
   },
 };
@@ -454,7 +474,7 @@ async function showJobLog(id) {
 function onJobFinished(j) {
   // Açık sayfa bu projeye aitse veriyi tazele
   const r = parseRoute();
-  if (r.project && r.project === j.project && ['overview', 'history', 'servers'].includes(r.tab)) render(true);
+  if (r.project && r.project === j.project && ['overview', 'history', 'servers', 'cicd', 'files'].includes(r.tab)) render(true);
   if (r.page === 'jobs') render(true);
 }
 
@@ -470,6 +490,9 @@ function parseRoute() {
   const parts = location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent);
   if (parts[0] === 'p' && parts[1]) return { page: 'project', project: parts[1], tab: parts[2] || 'overview', sub: parts[3] ?? null, sub2: parts[4] ?? null };
   if (parts[0] === 'jobs') return { page: 'jobs' };
+  if (parts[0] === 'help') return { page: 'help', sub: parts[1] || '' };
+  if (parts[0] === 'settings') return { page: 'settings' };
+  if (parts[0] === 'terminal') return { page: 'terminal', sub: parts.length > 1 ? parts[1] : null };
   return { page: 'home' };
 }
 const go = (h) => { if (location.hash === h) render(); else location.hash = h; };
@@ -479,14 +502,19 @@ window.addEventListener('hashchange', () => render());
 async function render(soft = false) {
   const seq = ++S.renderSeq;
   const r = parseRoute();
+  if (r.project) S.lastProject = r.project;
+  document.body.classList.toggle('terminal-modu', r.page === 'terminal');
   $$('.nav a').forEach((a) => a.classList.toggle('aktif',
-    !!((a.dataset.nav === 'home' && r.page === 'home') || (a.dataset.nav === 'jobs' && r.page === 'jobs') || (a.dataset.proj && a.dataset.proj === r.project))));
+    !!((a.dataset.nav === 'home' && r.page === 'home') || (a.dataset.nav === 'jobs' && r.page === 'jobs') || (a.dataset.nav === 'help' && r.page === 'help') || (a.dataset.nav === 'settings' && r.page === 'settings') || (a.dataset.nav === 'terminal' && r.page === 'terminal') || (a.dataset.proj && a.dataset.proj === r.project))));
   const root = $('#sayfa');
   if (!soft) root.innerHTML = `<div class="yukleniyor">${icon('refresh', 'spin')} ${t('loading')}</div>`;
   try {
     let html;
     if (r.page === 'home') html = await pageHome();
     else if (r.page === 'jobs') html = await pageJobs();
+    else if (r.page === 'help') html = await pageHelp(r.sub);
+    else if (r.page === 'settings') html = await pageSettings();
+    else if (r.page === 'terminal') html = await pageTerminal(r.sub);
     else html = await pageProject(r);
     if (seq !== S.renderSeq) return;
     if (typeof html === 'string') root.innerHTML = html;
@@ -505,7 +533,11 @@ async function loadProjects() {
   const r = parseRoute();
   el.innerHTML = S.projects.map((p) => `<a href="${pHash(p.name)}" data-proj="${esc(p.name)}" class="${r.project === p.name ? 'aktif' : ''}">
       ${p.watching ? `<span class="busy" style="display:flex"><span class="nokta"></span></span>` : icon(p.ok ? 'folder' : 'alert', p.ok ? '' : 'bad-t')}
-      <span class="ad">${esc(p.name)}</span><span class="sag">${p.ok ? p.enabled : ''}</span></a>`).join('');
+      <span class="ad">${esc(p.name)}</span><span class="sag">${p.ok ? p.enabled : ''}</span></a>`).join('')
+    || `<div class="nav-bos">${icon('folder')}<span data-t="navNoProjects">${t('navNoProjects')}</span>
+        <button class="btn kucuk" id="nav-bos-ekle">${icon('plus')}<span data-t="addProject">${t('addProject')}</span></button></div>`;
+  const nb = $('#nav-bos-ekle');
+  if (nb) nb.onclick = addProjectFlow;
   $('#sb-watch').textContent = S.projects.filter((p) => p.watching).length;
 }
 
@@ -525,11 +557,13 @@ async function pageHome() {
     $$('.pkart', root).forEach((c) => (c.onclick = () => go(pHash(c.dataset.p))));
   });
   if (!ps.length) {
-    return `<div class="sayfa"><div class="baslik-satir"><div><h1>${t('projectsTitle')}</h1><p>${t('projectsSub')}</p></div></div>
+    return `<div class="sayfa"><div class="baslik-satir"><div><h1>${t('projectsTitle')}</h1><p>${esc(t('projectsSub', (S.meta && S.meta.base) || ''))}</p></div></div>
       <div class="bos"><div class="buyuk">${icon('folder', 'lg')}</div><h3>${t('noProjects')}</h3><p>${esc(t('noProjectsSub'))}</p>
-      <button class="btn birincil" data-add>${icon('plus')}${t('addProject')}</button></div></div>`;
+      <div class="aksiyonlar" style="justify-content:center;flex-wrap:wrap"><button class="btn birincil" data-add>${icon('plus')}${t('addProject')}</button>
+        <button class="btn ai-btn" onclick="aiSetupStart()">${icon('spark')}${t('aiSetupNav')}</button>
+        <a class="btn" href="#/settings">${icon('sliders')}${t('navSettings')}</a></div></div></div>`;
   }
-  return `<div class="sayfa"><div class="baslik-satir"><div><h1>${t('projectsTitle')}</h1><p>${t('projectsSub')}</p></div>
+  return `<div class="sayfa"><div class="baslik-satir"><div><h1>${t('projectsTitle')}</h1><p>${esc(t('projectsSub', (S.meta && S.meta.base) || ''))}</p></div>
     <div class="aksiyonlar"><button class="btn birincil" data-add>${icon('plus')}${t('addProject')}</button></div></div>
     <div class="izgara">${ps.map((p) => `<div class="pkart" data-p="${esc(p.name)}">
       <h3>${icon(p.ok ? 'folder' : 'alert', p.ok ? '' : 'bad-t')}${esc(p.name)}${p.watching ? `<span class="pill busy"><span class="nokta"></span>watch</span>` : ''}</h3>
@@ -538,22 +572,32 @@ async function pageHome() {
       <span style="margin-left:auto" class="faint">${p.last_used ? ago(p.last_used) : ''}</span></div></div>`).join('')}</div></div>`;
 }
 
-function addProjectFlow() {
+async function addProjectFlow() {
+  const lib = await GET('/api/library').catch(() => ({ connections: [], defaults: {}, templates: [] }));
+  const defT = (lib.defaults || {}).ignore_template || '';
+  const tmplOpts = [['', t('apTemplateDefault', defT ? (TEMPLATE_LABEL[defT] || defT) : t('defTemplateNone'))], ['none', t('defTemplateNone')],
+    ...(lib.templates || []).map((k) => [k, TEMPLATE_LABEL[k] || k])];
+  const conns = lib.connections || [];
   const m = modal({
-    title: t('addProjectTitle'),
-    body: `<div class="form"><div class="alan"><label>${t('folder')}</label><div class="girdi-grup"><input type="text" id="ap-path" placeholder="D:\\projeler\\site" spellcheck="false">
+    title: t('addProjectTitle'), size: 'orta',
+    body: `<div class="form"><div class="alan"><label>${t('folder')}</label><div class="girdi-grup"><input type="text" id="ap-path" placeholder="D:\\projeler\\site" spellcheck="false" value="${esc((S.meta && S.meta.base) || '')}">
       <button class="btn" id="ap-browse">${icon('folder')}${t('browse')}</button></div><small>${t('folderHint')}</small></div>
-      <div class="alan"><label>${t('displayName')}</label><input type="text" id="ap-name"><small>${t('displayNameHint')}</small></div></div>`,
+      <div class="alan"><label>${t('displayName')}</label><input type="text" id="ap-name"><small>${t('displayNameHint')}</small></div>
+      <div class="alanlar"><div class="alan"><label>${t('apTemplate')}</label><select id="ap-tmpl">${tmplOpts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</select></div>
+        <div class="alan"><label>${t('apFirstServer')}</label><select id="ap-conn"><option value="">${t('apNoServer')}</option>${conns.map((c) => `<option value="${esc(c.name)}">${esc(c.name)} — ${esc(connURL(c))}</option>`).join('')}</select></div></div>
+      <div class="alan gizli" id="ap-remote-box"><label>${t('apRemote')}</label><input type="text" id="ap-remote" class="mono" value="/public_html" spellcheck="false"></div></div>`,
     actions: [
+      { label: icon('spark') + t('aiSetupNav'), cls: 'hayalet ai-btn', run: (root) => { aiSetupStart($('#ap-path', root).value.trim()); } },
       { label: t('cancel'), cls: 'hayalet' },
       { label: icon('plus') + t('add'), cls: 'birincil', run: async (root) => {
         const path = $('#ap-path', root).value.trim(), name = $('#ap-name', root).value.trim();
         let res = await api('POST', '/api/projects', { path, name });
         if (res && res.needs_create) {
           if (!(await confirmBox(t('createConfigTitle'), esc(t('createConfigBody')), t('create')))) return false;
-          res = await api('POST', '/api/projects', { path, name, create: true });
+          const connection = $('#ap-conn', root).value;
+          res = await api('POST', '/api/projects', { path, name, create: true, template: $('#ap-tmpl', root).value, connection, remote: $('#ap-remote', root).value.trim() });
           await loadProjects();
-          go(pHash(res.name, 'server', 'new'));
+          go(connection ? pHash(res.name) : pHash(res.name, 'server', 'new'));
           return;
         }
         await loadProjects();
@@ -561,9 +605,11 @@ function addProjectFlow() {
       } },
     ],
   });
+  const cs = $('#ap-conn', m.root);
+  cs.onchange = () => $('#ap-remote-box', m.root).classList.toggle('gizli', !cs.value);
   $('#ap-browse', m.root).onclick = async () => {
-    const r = await api('POST', '/api/pick-folder', { initial: $('#ap-path', m.root).value }).catch(fail);
-    if (r && r.path) $('#ap-path', m.root).value = r.path;
+    const picked = await pickPath({ mode: 'dir', initial: $('#ap-path', m.root).value.trim() });
+    if (picked) $('#ap-path', m.root).value = picked;
   };
 }
 
@@ -574,12 +620,14 @@ async function pageProject(r) {
   if (!proj) throw new Error(t('notFound') + ': ' + r.project);
   const tabs = [
     ['overview', 'layers', t('tabOverview')], ['servers', 'server', t('tabServers')], ['connections', 'link', t('tabConnections')],
-    ['files', 'folder', t('tabFiles')], ['history', 'history', t('tabHistory')], ['settings', 'sliders', t('tabSettings')],
+    ['files', 'folder', t('tabFiles')], ['history', 'history', t('tabHistory')], ['cicd', 'zap', t('tabCicd')], ['settings', 'sliders', t('tabSettings')],
   ];
   const activeTab = r.tab === 'server' ? 'servers' : r.tab === 'connection' ? 'connections' : r.tab;
   const head = `<div class="baslik-satir"><div><h1>${esc(proj.name)}</h1>
       <div class="yol">${icon('folder')}<span>${esc(proj.path)}</span><button class="ikon-btn" style="width:24px;height:24px" data-copy="${esc(proj.path)}" title="${t('copyPath')}">${icon('copy')}</button></div></div>
-      <div class="aksiyonlar" id="proj-aks"></div></div>
+      <div class="aksiyonlar"><span id="proj-aks" class="aksiyonlar"></span>
+        <button class="btn kucuk ai-btn" onclick="aiToggle(true)">${icon('spark')}${t('aiNav')}</button>
+        <a class="ikon-btn" href="#/help/${({ overview: 'sync', servers: 'start', server: 'start', connections: 'ssh', connection: 'ssh', files: 'filters', history: 'rollback', cicd: 'cicd', settings: 'filters' })[r.tab] || 'start'}" title="${t('navHelp')}">${icon('help')}</a></div></div>
     <div class="tabs">${tabs.map(([k, ic, l]) => `<a href="${pHash(proj.name, k)}" class="${activeTab === k ? 'aktif' : ''}">${icon(ic)}${l}</a>`).join('')}</div>`;
   let body;
   switch (r.tab) {
@@ -590,6 +638,7 @@ async function pageProject(r) {
     case 'settings': body = await tabSettings(proj); break;
     case 'files': body = await tabFiles(proj, r.sub, r.sub2); break;
     case 'history': body = await tabHistory(proj, r.sub); break;
+    case 'cicd': body = await tabCicd(proj); break;
     default: body = await tabOverview(proj);
   }
   const inner = $('#sayfa')._bind;
@@ -631,6 +680,8 @@ async function tabOverview(proj) {
       { icon: 'scan', label: t('calibrateAll'), hint: t('calibrateHint'), run: () => startJobs(P, { kind: 'calibrate' }, t('calibrate')).catch(fail) },
       { icon: 'shield', label: t('verifyAll'), hint: t('verifyHint'), run: () => startJobs(P, { kind: 'verify' }, t('verify')).catch(fail) },
       { icon: 'gauge', label: t('detectAll'), hint: t('detectHint'), run: () => startJobs(P, { kind: 'detect' }, t('detect')).catch(fail) },
+      servers.length > 1 ? 'hr' : null,
+      servers.length > 1 ? { icon: 'layers', label: t('compareServers'), hint: t('compareServersHint'), run: () => compareServersModal(P, servers) } : null,
     ]);
     $$('[data-add-server]', root).forEach((b) => (b.onclick = () => go(pHash(P, 'server', 'new'))));
     $$('.kart[data-s]', root).forEach((card) => bindServerCard(card, P, servers.find((s) => s.name === card.dataset.s)));
@@ -699,12 +750,13 @@ function bindServerCard(card, P, s) {
   act('status', () => statusModal(P, s));
   act('milestone', () => milestoneModal(P, s));
   act('freeze', () => freezeModal(P, s));
-  act('retry', () => job({ kind: 'sync', retry_failed: true }, t('retryFailed')));
+  act('retry', () => failedModal(P, s));
   act('history', () => go(pHash(P, 'history', s.name)));
   act('menu', (b) => openMenu(b, [
     { icon: 'eye', label: t('dryRun'), hint: t('dryRunHint'), run: () => job({ kind: 'sync', dry_run: true }, t('dryRun')) },
     { icon: 'upload', label: t('fullSync'), hint: t('fullSyncHint'), run: async () => { if (await confirmBox(t('fullSync'), esc(t('fullSyncConfirm', s.name)), t('fullSync'), true)) job({ kind: 'sync', full: true }, t('fullSync')); } },
     s.failed ? { icon: 'refresh', label: t('retryFailed'), hint: t('retryFailedHint', s.failed), run: () => job({ kind: 'sync', retry_failed: true }, t('retryFailed')) } : null,
+    { icon: 'sliders', label: t('syncOnce'), hint: 'include / exclude', run: () => filteredSyncModal(P, s) },
     'hr',
     { icon: 'scan', label: t('calibrate'), hint: t('calibrateHint'), run: () => job({ kind: 'calibrate' }, t('calibrate')) },
     { icon: 'shield', label: t('verify'), hint: t('verifyHint'), run: () => job({ kind: 'verify' }, t('verify')) },
@@ -716,6 +768,7 @@ function bindServerCard(card, P, s) {
     { icon: 'snow', label: t('freeze') + '…', hint: t('freezeHint'), run: () => freezeModal(P, s) },
     { icon: 'undo', label: t('rollback') + '…', hint: t('rollbackHint'), run: () => go(pHash(P, 'history', s.name)) },
     'hr',
+    s.protocol === 'sftp' ? { icon: 'terminal', label: t('runCmd') + '…', hint: t('runCmdHint'), run: () => execModal(P, s) } : null,
     { icon: 'folder', label: t('browseFiles'), run: () => go(pHash(P, 'files', s.name)) },
     { icon: 'edit', label: t('edit'), run: () => go(pHash(P, 'server', s.name)) },
   ]));
@@ -757,17 +810,62 @@ function milestoneModal(P, s) {
   });
 }
 
+function execModal(P, s) {
+  const recent = JSON.parse(localStorageGet('syncftp-cmds') || '[]');
+  modal({
+    title: `${icon('terminal')}${t('runCmd')} — ${esc(s.name)}`, size: 'orta',
+    body: `<p class="ipucu" style="margin:0 0 10px">${t('runCmdHint')} <code>${esc(s.remote_path)}</code></p>
+      <div class="alan"><input type="text" class="mono" id="cmd" placeholder="php artisan migrate --force"></div>
+      ${recent.length ? `<div class="liste-kutu" style="margin-top:10px">${recent.map((c) => `<div class="tikla" data-cmd="${esc(c)}">$ ${esc(c)}</div>`).join('')}</div>` : ''}`,
+    actions: [{ label: t('cancel'), cls: 'hayalet' }, { label: icon('play') + t('runCmd'), cls: 'birincil', run: async (root) => {
+      const command = $('#cmd', root).value.trim();
+      if (!command) return false;
+      localStorageSet('syncftp-cmds', JSON.stringify([command, ...recent.filter((c) => c !== command)].slice(0, 8)));
+      const ids = await startJobs(P, { kind: 'exec', servers: [s.name], command }, t('runCmd'));
+      if (ids[0]) showJobLog(ids[0]);
+    } }],
+  }).root.querySelectorAll('[data-cmd]').forEach((d) => (d.onclick = () => { d.closest('.modal').querySelector('#cmd').value = d.dataset.cmd; }));
+}
+const localStorageGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+const localStorageSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* gizli mod */ } };
+
+async function failedModal(P, s) {
+  const files = await GET(`/api/p/${enc(P)}/failed?server=${enc(s.name)}`).catch(fail);
+  if (!files) return;
+  modal({
+    title: `${icon('alert')}${t('failedTitle', esc(s.name))}`, size: 'orta',
+    body: `<p>${t('failedBody')}</p><div class="liste-kutu">${files.map((f) => `<div class="bad-t">✗ ${esc(f)}</div>`).join('') || `<div class="faint">${t('emptyList')}</div>`}</div>`,
+    actions: [{ label: t('close'), cls: 'hayalet' }, { label: icon('refresh') + t('retryFailed'), cls: 'mavi', run: () => startJobs(P, { kind: 'sync', servers: [s.name], retry_failed: true }, t('retryFailed')) }],
+  });
+}
+
+function compareServersModal(P, servers) {
+  const opts = servers.map((s) => [s.name, s.name]);
+  modal({
+    title: `${icon('layers')}${t('compareServers')}`,
+    body: `<p>${t('compareServersHint')}</p><div class="alanlar">${fSelect('a', t('compareA'), servers[0] ? servers[0].name : '', opts)}${fSelect('b', t('compareB'), servers[1] ? servers[1].name : '', opts)}</div>`,
+    actions: [{ label: t('cancel'), cls: 'hayalet' }, { label: icon('layers') + t('compareGo'), cls: 'birincil', run: async (root) => {
+      const a = $('[data-k="a"]', root).value, b = $('[data-k="b"]', root).value;
+      if (a === b) { toast(t('compareServersHint'), 'bad'); return false; }
+      const ids = await startJobs(P, { kind: 'diff', servers: [a, b] }, t('compareServers'));
+      if (ids[0]) showJobLog(ids[0]);
+    } }],
+  });
+}
+
 async function freezeModal(P, s) {
   const files = await GET(`/api/p/${enc(P)}/frozen?server=${enc(s.name)}`).catch(fail);
   if (!files) return;
-  modal({
+  const proj = S.projects.find((x) => x.name === P) || {};
+  const m = modal({
     title: t('freezeTitle', esc(s.name)), size: 'orta',
-    body: `<p>${t('freezeBody')}</p><textarea id="fz" style="min-height:280px" spellcheck="false">${esc(lines(files))}</textarea>`,
+    body: `<p>${t('freezeBody')}</p><div class="form" id="fz-form" data-p="${esc(P)}" data-ppath="${esc(proj.path || '')}" data-srv="${esc(s.name)}">${fArea('files', t('freezeFiles'), files, { tree: 'files' })}</div>`,
     actions: [{ label: t('cancel'), cls: 'hayalet' }, { label: t('save'), cls: 'birincil', run: async (root) => {
-      const n = await api('PUT', `/api/p/${enc(P)}/frozen`, { server: s.name, files: unlines($('#fz', root).value) });
+      const n = await api('PUT', `/api/p/${enc(P)}/frozen`, { server: s.name, files: readForm($('#fz-form', root), {}).files || [] });
       toast(t('freezeSaved', n)); render(true);
     } }],
   });
+  bindFormTools(m.root);
 }
 
 // ── Sunucular listesi ────────────────────────────────────────────────────────
@@ -821,16 +919,123 @@ async function tabServers(proj) {
 
 // ── form yardımcıları ────────────────────────────────────────────────────────
 // data-k="alan" data-ty="text|int|bool|list|words" — readForm bunları nesneye yazar.
-const fText = (k, label, val, { hint = '', type = 'text', wide = false, ph = '', ty = 'text', dis = false, mono = false } = {}) =>
-  `<div class="alan ${wide ? 'genis' : ''}"><label>${label}</label><input type="${type}" data-k="${k}" data-ty="${ty}" value="${esc(val ?? '')}" placeholder="${esc(ph)}" ${dis ? 'disabled' : ''} spellcheck="false" ${mono ? 'class="mono"' : ''} autocomplete="off">${hint ? `<small>${hint}</small>` : ''}</div>`;
+// browse: 'dir' | 'file' (mutlak yol) | 'reldir' (proje köküne göreceli klasör); whtest: webhook test düğmesi
+const fText = (k, label, val, { hint = '', type = 'text', wide = false, ph = '', ty = 'text', dis = false, mono = false, browse = '', whtest = false } = {}) => {
+  const input = `<input type="${type}" data-k="${k}" data-ty="${ty}" value="${esc(val ?? '')}" placeholder="${esc(ph)}" ${dis ? 'disabled' : ''} spellcheck="false" ${mono ? 'class="mono"' : ''} autocomplete="off">`;
+  const btns = (browse && !dis ? `<button class="btn" data-browse="${browse}" data-for="${k}">${icon(browse === 'file' ? 'file' : 'folder')}${t('browse')}</button>` : '') +
+    (whtest ? `<button class="btn" data-whtest="${k}">${icon('zap')}${t('whTest')}</button>` : '');
+  return `<div class="alan ${wide ? 'genis' : ''}"><label>${label}</label>${btns ? `<div class="girdi-grup">${input}${btns}</div>` : input}${hint ? `<small>${hint}</small>` : ''}</div>`;
+};
 const fNum = (k, label, val, o = {}) => fText(k, label, val ?? 0, { ...o, type: 'number', ty: 'int' });
-const fArea = (k, label, val, { hint = '', ty = 'list', rows = 4, wide = true } = {}) =>
-  `<div class="alan ${wide ? 'genis' : ''}"><label>${label}</label><textarea data-k="${k}" data-ty="${ty}" rows="${rows}" spellcheck="false">${esc(ty === 'words' ? (val || []).join(' ') : lines(val))}</textarea>${hint ? `<small>${hint}</small>` : ''}</div>`;
+// tree: 'paths' | 'protect' → etiketin yanında yerel ağaç seçici düğmesi
+// chips: tek tıkla eklenen hazır kalıplar (dizi) — 'exclude' | 'protect' | 'block' kısa adları da olur
+const PATTERN_CHIPS = {
+  exclude: ['node_modules/', 'vendor/', '.git/', '.env', '*.log', 'storage/logs/', 'dist/', 'build/', '.DS_Store', 'Thumbs.db'],
+  include: ['public/', 'src/', 'app/', 'dist/', 'build/'],
+  protect: ['.env', 'wp-config.php', 'config.php', '.htaccess', 'uploads/', 'storage/'],
+  block: ['.psd', '.zip', '.sql', '.bak', '.mp4'],
+};
+// fArea — liste alanı (textarea YOK): her girdi ayrı satır (ikon + ✕). Ekleme: "Gözat" (yerel ağaçtan
+// dosya/klasör işaretle), tek satırlık kalıp kutusu (Enter) ve hazır kalıp çipleri. Değer gizli input'ta
+// tutulur (data-k / data-ty list|words) — readForm aynen okur.
+const ledIcon = (v) => (/[*?{]/.test(v) ? icon('search', 'faint') : v.endsWith('/') || !/\.[^/]+$/.test(v) ? icon('folder', 'acc-t') : icon('file', 'faint'));
+const ledItem = (v) => `<div class="led-item" data-v="${esc(v)}">${ledIcon(v)}<span class="mono">${esc(v)}</span><button class="ikon-btn led-del" data-led-del title="${t('remove')}">${icon('x')}</button></div>`;
+const fArea = (k, label, val, { hint = '', ty = 'list', wide = true, tree = '', chips = null, ph = '' } = {}) => {
+  const items = (val || []).filter(Boolean);
+  const list = typeof chips === 'string' ? PATTERN_CHIPS[chips] : chips;
+  const placeholder = ph || (ty === 'words' ? '.jpg' : tree ? t('ledPh') : t('ledPhCmd'));
+  return `<div class="alan ${wide ? 'genis' : ''}"><label>${label}</label>
+    <div class="liste-ed" data-led="${k}" data-ledty="${ty}">
+      <input type="hidden" data-k="${k}" data-ty="${ty}" value="${esc(ty === 'words' ? items.join(' ') : items.join('\n'))}">
+      <div class="led-items">${items.length ? items.map(ledItem).join('') : `<div class="led-bos">${t('ledEmpty')}</div>`}</div>
+      <div class="led-ekle">${tree ? `<button class="btn kucuk" data-tree="${tree}" data-for="${k}">${icon('folder')}${t('browse')}</button>` : ''}
+        <input type="text" class="mono" data-led-input placeholder="${esc(placeholder)}" spellcheck="false" autocomplete="off">
+        <button class="btn kucuk" data-led-add>${icon('plus')}${t('ledAdd')}</button></div>
+      ${list ? `<div class="cipler">${list.map((c) => `<button class="cip" data-chip="${esc(c)}" data-for="${k}">+ ${esc(c)}</button>`).join('')}</div>` : ''}
+    </div>${hint ? `<small>${hint}</small>` : ''}</div>`;
+};
+// Liste editörü yardımcıları (event delegation — form ne zaman render edilirse edilsin çalışır)
+function ledBox(el) { return el.closest('[data-led]'); }
+function ledGet(box) { const h = box.querySelector('input[type=hidden]'); return box.dataset.ledty === 'words' ? unwords(h.value) : unlines(h.value); }
+function ledSet(box, arr) {
+  const uniq = [...new Set(arr.map((x) => String(x).trim()).filter(Boolean))];
+  box.querySelector('input[type=hidden]').value = box.dataset.ledty === 'words' ? uniq.join(' ') : uniq.join('\n');
+  box.querySelector('.led-items').innerHTML = uniq.length ? uniq.map(ledItem).join('') : `<div class="led-bos">${t('ledEmpty')}</div>`;
+}
+function ledAddFromInput(box) {
+  const inp = box.querySelector('[data-led-input]');
+  const vals = box.dataset.ledty === 'words' ? unwords(inp.value) : [inp.value.trim()];
+  if (!vals.filter(Boolean).length) return;
+  ledSet(box, [...ledGet(box), ...vals]);
+  inp.value = '';
+  inp.focus();
+}
+document.addEventListener('click', (e) => {
+  const del = e.target.closest('[data-led-del]');
+  if (del) { e.preventDefault(); const box = ledBox(del); ledSet(box, ledGet(box).filter((v) => v !== del.closest('.led-item').dataset.v)); return; }
+  const add = e.target.closest('[data-led-add]');
+  if (add) { e.preventDefault(); ledAddFromInput(ledBox(add)); return; }
+  const chip = e.target.closest('[data-chip]');
+  if (chip) { e.preventDefault(); const box = ledBox(chip); ledSet(box, [...ledGet(box), chip.dataset.chip]); }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.matches && e.target.matches('[data-led-input]')) { e.preventDefault(); ledAddFromInput(ledBox(e.target)); }
+});
 const fBool = (k, label, val, hint = '', dis = false) =>
   `<label class="anahtar"><span class="metin"><b>${label}</b>${hint ? `<small>${hint}</small>` : ''}</span><span class="switch"><input type="checkbox" data-k="${k}" data-ty="bool" ${val ? 'checked' : ''} ${dis ? 'disabled' : ''}><i></i></span></label>`;
 const fSelect = (k, label, val, opts, { hint = '', dis = false } = {}) =>
   `<div class="alan"><label>${label}</label><select data-k="${k}" data-ty="text" ${dis ? 'disabled' : ''}>${opts.map(([v, l]) => `<option value="${esc(v)}" ${v === (val ?? '') ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>${hint ? `<small>${hint}</small>` : ''}</div>`;
 const section = (icn, title, desc, inner) => `<div class="bolum"><h3>${icon(icn)}${title}</h3>${desc ? `<p class="aciklama">${desc}</p>` : '<div style="height:10px"></div>'}${inner}</div>`;
+
+// Form içindeki Gözat / ağaç / webhook test düğmelerini bağlar.
+// Bağlam form kökündeki data-p (proje), data-ppath (proje yolu), data-srv (sunucu) özniteliklerinden okunur.
+function bindFormTools(root) {
+  const ctx = root.closest('[data-ppath]') || root.querySelector('[data-ppath]') || root;
+  const P = ctx.dataset.p, ppath = ctx.dataset.ppath || '', srv = ctx.dataset.srv || '';
+  const input = (k) => root.querySelector(`[data-k="${k}"]`);
+  $$('[data-browse]', root).forEach((b) => (b.onclick = async (e) => {
+    e.preventDefault();
+    const inp = input(b.dataset.for), kind = b.dataset.browse;
+    let initial = inp.value.trim();
+    if (kind === 'reldir') initial = !initial || initial === '.' ? ppath : (/^([a-zA-Z]:|[\\/])/.test(initial) ? initial : ppath + '\\' + initial.replace(/\//g, '\\'));
+    if (kind === 'file' && !initial && S.meta) initial = S.meta.home + '\\.ssh';
+    if (kind === 'file' && initial && /\.[a-z0-9]+$/i.test(initial)) initial = initial.replace(/[\\/][^\\/]*$/, '');
+    const picked = await pickPath({ mode: kind === 'file' ? 'file' : 'dir', initial });
+    if (picked == null) return;
+    inp.value = kind === 'reldir' ? relToProject(ppath, picked) : picked;
+    inp.dispatchEvent(new Event('change'));
+  }));
+  // Ağaç kökü: proje (data-p) → projenin yerel dizini; yoksa data-rootfrom="#input" (ör. hızlı yüklemedeki kaynak);
+  // o da yoksa (varsayılanlar) bir kez örnek klasör sorulur ve hatırlanır.
+  const treeRoot = async () => {
+    if (P) return '';
+    const from = ctx.dataset.rootfrom && document.querySelector(ctx.dataset.rootfrom);
+    if (from) {
+      if (from.value.trim()) return from.value.trim();
+      toast(t('treeNeedRoot'), 'bad');
+      return null;
+    }
+    if (ctx.dataset.root) return ctx.dataset.root;
+    const picked = await pickPath({ mode: 'dir', title: t('treePickRoot') });
+    if (picked) ctx.dataset.root = picked;
+    return picked;
+  };
+  $$('[data-tree]', root).forEach((b) => (b.onclick = async (e) => {
+    e.preventDefault();
+    const box = ledBox(b);
+    const r = await treeRoot();
+    if (r === null) return;
+    const res = await pickLocalTree({ P, root: r, server: srv, current: ledGet(box), mode: b.dataset.tree });
+    if (res) ledSet(box, res);
+  }));
+  $$('[data-whtest]', root).forEach((b) => (b.onclick = async (e) => {
+    e.preventDefault();
+    const url = input(b.dataset.whtest).value.trim();
+    if (!url) return;
+    b.disabled = true;
+    try { toast(t('whTestOk', await api('POST', `/api/p/${enc(P)}/webhook-test`, { url }))); } catch (err) { fail(err); } finally { b.disabled = false; }
+  }));
+}
 
 function readForm(root, obj) {
   $$('[data-k]', root).forEach((el) => {
@@ -860,7 +1065,7 @@ function connFields(src, locked, prefix = '') {
       ${fNum(prefix + 'port', t('fPort'), src.port || (proto === 'sftp' ? 22 : 21), { dis })}
       ${fText(prefix + 'user', t('fUser'), src.user, { dis })}
       ${fText(prefix + 'password', t('fPassword'), src.password, { type: 'password', dis })}
-      ${fText(prefix + 'key_file', t('fKeyFile'), src.key_file, { dis, mono: true, ph: '~/.ssh/id_ed25519', hint: t('fKeyFileHint') })}
+      ${fText(prefix + 'key_file', t('fKeyFile'), src.key_file, { dis, mono: true, ph: '~/.ssh/id_ed25519', hint: t('fKeyFileHint'), browse: 'file' })}
     </div><div class="alanlar" style="margin-top:14px">
       ${fBool(prefix + 'passive', t('fPassive'), src.passive ?? true, '', dis)}
       ${fBool(prefix + 'tls_skip_verify', t('fTls'), src.tls_skip_verify, t('fTlsHint'), dis)}
@@ -875,7 +1080,7 @@ function tunnelFields(src, locked) {
     ${fNum('tunnel_port', t('fTunnelPort'), src.tunnel_port || 22, { dis })}
     ${fText('tunnel_user', t('fTunnelUser'), src.tunnel_user, { dis, hint: t('fTunnelUserHint') })}
     ${fText('tunnel_password', t('fTunnelPass'), src.tunnel_password, { type: 'password', dis })}
-    ${fText('tunnel_key_file', t('fTunnelKey'), src.tunnel_key_file, { dis, mono: true, wide: false, ph: '~/.ssh/id_ed25519' })}
+    ${fText('tunnel_key_file', t('fTunnelKey'), src.tunnel_key_file, { dis, mono: true, wide: false, ph: '~/.ssh/id_ed25519', browse: 'file' })}
   </div>`;
 }
 // Protokol değişince port varsayılandaysa çevir
@@ -904,6 +1109,7 @@ async function tabServerEdit(proj, name) {
   bind((root) => {
     $('#proj-aks', root).innerHTML = '';
     bindProtoPort(root);
+    bindFormTools($('#srv-form', root));
     $('[data-k="connection"]', root).onchange = (e) => {
       // Profil değişince credential alanlarını yeniden çiz
       const c = cfg.connections.find((x) => x.name === e.target.value);
@@ -912,6 +1118,7 @@ async function tabServerEdit(proj, name) {
       $('#conn-box', root).innerHTML = connBox(c);
       $('#tunnel-box', root).innerHTML = tunnelFields(c || s, !!c);
       bindProtoPort(root);
+      bindFormTools($('#srv-form', root));
     };
     const collect = () => {
       const out = JSON.parse(JSON.stringify(s));
@@ -953,11 +1160,11 @@ async function tabServerEdit(proj, name) {
 
   return `<a class="faint" href="${pHash(P, 'servers')}" style="display:inline-flex;gap:6px;align-items:center;margin-bottom:12px">${icon('left')}${t('back')}</a>
   <h2 style="margin-top:0">${isNew ? t('serverNew') : t('serverEdit') + ' — ' + esc(s.name)}</h2>
-  <div class="form" id="srv-form">
+  <div class="form" id="srv-form" data-p="${esc(P)}" data-ppath="${esc(proj.path)}" data-srv="${esc(isNew ? '' : s.name)}">
     ${section('server', t('secGeneral'), '', `<div class="alanlar">${fText('name', t('fName'), s.name, { ph: 'production' })}${fBool('enabled', t('fEnabled'), s.enabled, t('fEnabledHint'))}</div>`)}
     ${section('link', t('secConnection'), t('secConnectionDesc'), `<div class="alanlar" style="margin-bottom:14px">${fSelect('connection', t('fConnection'), s.connection || '', [['', t('manual')], ...cfg.connections.map((c) => [c.name, `${c.name} — ${c.host}`])])}</div><div id="conn-box">${connBox(conn)}</div>`)}
     ${section('tunnel', t('secTunnel'), t('secTunnelDesc'), `<div id="tunnel-box">${tunnelFields(conn || s, !!conn)}</div>`)}
-    ${section('folder', t('secPaths'), '', `<div class="alanlar">${fText('remote_path', t('fRemote'), s.remote_path, { mono: true, hint: t('fRemoteHint') })}${fText('local_path', t('fLocal'), s.local_path, { mono: true, ph: defPath, hint: t('fLocalHint', esc(defPath)) })}</div>`)}
+    ${section('folder', t('secPaths'), '', `<div class="alanlar">${fText('remote_path', t('fRemote'), s.remote_path, { mono: true, hint: t('fRemoteHint') })}${fText('local_path', t('fLocal'), s.local_path, { mono: true, ph: defPath, hint: t('fLocalHint', esc(defPath)), browse: 'reldir' })}</div>`)}
     ${section('zap', t('secPerf'), '', `<div class="alanlar uc">
         <div class="alan"><label>${t('fMaxConn')}</label><div class="girdi-grup"><input type="number" data-k="max_connections" data-ty="int" value="${s.max_connections || 1}" min="1">${isNew ? '' : `<button class="btn" id="b-detect">${icon('gauge')}${t('measure')}</button>`}</div><small>${t('fMaxConnHint')}</small></div>
         ${fNum('max_retries', t('fRetries'), s.max_retries)}
@@ -965,11 +1172,12 @@ async function tabServerEdit(proj, name) {
     ${section('upload', t('secUpload'), '', `<div class="alanlar">
         ${fBool('minify', t('fMinify'), s.minify, t('fMinifyHint'))}${fBool('obfuscate', t('fObfuscate'), s.obfuscate, t('fObfuscateHint'))}
         ${fBool('no_backup', t('fNoBackup'), s.no_backup, t('fNoBackupHint'))}${fBool('direct_upload', t('fDirect'), s.direct_upload, t('fDirectHint'))}
-        ${fText('webhook', t('fWebhook'), s.webhook, { wide: true, mono: true, hint: t('fWebhookHint'), ph: 'https://…' })}</div>`)}
+        ${fText('webhook', t('fWebhook'), s.webhook, { wide: true, mono: true, hint: t('fWebhookHint'), ph: 'https://…', whtest: true })}</div>`)}
     ${section('sliders', t('secFilters'), t('secFiltersDesc'), `<div class="alanlar">
-        ${fArea('include', t('fInclude'), s.include, { wide: false })}${fArea('exclude', t('fExclude'), s.exclude, { wide: false })}
-        ${fArea('protect', t('fProtect'), s.protect, { wide: false })}${fArea('block_extensions', t('fBlock'), s.block_extensions, { ty: 'words', wide: false, hint: t('fBlockHint') })}</div>`)}
+        ${fArea('include', t('fInclude'), s.include, { wide: false, tree: 'paths', chips: 'include' })}${fArea('exclude', t('fExclude'), s.exclude, { wide: false, tree: 'paths', chips: 'exclude' })}
+        ${fArea('protect', t('fProtect'), s.protect, { wide: false, tree: 'protect', chips: 'protect' })}${fArea('block_extensions', t('fBlock'), s.block_extensions, { ty: 'words', wide: false, hint: t('fBlockHint'), chips: 'block' })}</div>`)}
     ${section('log', t('secHooks'), t('secHooksDesc'), `<div class="alanlar">${fArea('pre_sync', t('fPre'), s.pre_sync, { wide: false, rows: 3 })}${fArea('post_sync', t('fPost'), s.post_sync, { wide: false, rows: 3 })}</div>`)}
+    ${section('terminal', t('secRemote'), t('secRemoteDesc'), `<div class="alanlar">${fArea('remote_pre_sync', t('fRemotePre'), s.remote_pre_sync, { wide: false, rows: 3 })}${fArea('remote_post_sync', t('fRemotePost'), s.remote_post_sync, { wide: false, rows: 3, hint: 'php artisan migrate --force' })}</div>`)}
   </div>
   <div class="form-alt"><div class="sol">${isNew ? '' : `<button class="btn tehlike" id="b-del">${icon('trash')}${t('delete')}</button>`}</div>
     <button class="btn" id="b-test">${icon('test')}${t('testConn')}</button>
@@ -982,20 +1190,27 @@ async function tabConnections(proj) {
   const P = proj.name;
   const cfg = await getConfig(P);
   bind((root) => {
-    $('#proj-aks', root).innerHTML = `<button class="btn birincil" id="b-add">${icon('plus')}${t('addConnection')}</button>`;
+    $('#proj-aks', root).innerHTML = `<button class="btn" id="b-lib">${icon('link')}${t('connFromLib')}</button><button class="btn birincil" id="b-add">${icon('plus')}${t('addConnection')}</button>`;
     $('#b-add', root).onclick = () => go(pHash(P, 'connection', 'new'));
+    $('#b-lib', root).onclick = () => connFromLibraryModal(P).catch(fail);
     $$('[data-row]', root).forEach((tr) => (tr.onclick = () => go(pHash(P, 'connection', tr.dataset.row))));
+    $$('[data-tolib]', root).forEach((b) => (b.onclick = async (e) => {
+      e.stopPropagation();
+      try { const r = await api('POST', `/api/p/${enc(P)}/connections/to-library`, { connection: b.dataset.tolib }); toast(t('connToLibDone', r.name)); } catch (err) { fail(err); }
+    }));
   });
   if (!cfg.connections.length) {
     return `<p class="muted" style="margin-top:-6px">${t('connectionsSub')}</p><div class="bos"><div class="buyuk">${icon('link', 'lg')}</div><h3>${t('noConnections')}</h3><p>${t('noConnectionsSub')}</p>
-      <button class="btn birincil" onclick="location.hash='${pHash(P, 'connection', 'new')}'">${icon('plus')}${t('addConnection')}</button></div>`;
+      <div class="aksiyonlar" style="justify-content:center"><button class="btn" onclick="connFromLibraryModal('${esc(P)}').catch(fail)">${icon('link')}${t('connFromLib')}</button>
+      <button class="btn birincil" onclick="location.hash='${pHash(P, 'connection', 'new')}'">${icon('plus')}${t('addConnection')}</button></div></div>`;
   }
-  return `<p class="muted" style="margin-top:-6px">${t('connectionsSub')}</p><div class="tablo-kap"><table class="tablo"><thead><tr><th>${t('colName')}</th><th>${t('colProtocol')}</th><th>${t('colHost')}</th><th>${t('usedBy')}</th></tr></thead><tbody>
+  return `<p class="muted" style="margin-top:-6px">${t('connectionsSub')}</p><div class="tablo-kap"><table class="tablo"><thead><tr><th>${t('colName')}</th><th>${t('colProtocol')}</th><th>${t('colHost')}</th><th>${t('usedBy')}</th><th></th></tr></thead><tbody>
     ${cfg.connections.map((c) => {
       const used = cfg.servers.filter((s) => s.connection === c.name).map((s) => s.name);
       const proto = (c.protocol || 'ftp').toLowerCase();
       return `<tr data-row="${esc(c.name)}" class="tikla"><td><div class="ad-hucre">${icon('link')}<b>${esc(c.name)}</b></div></td><td><span class="pill mono ${proto}">${proto.toUpperCase()}</span></td>
-        <td class="mono">${esc(c.user ? c.user + '@' : '')}${esc(c.host)}:${c.port}${c.tunnel_host ? ` <span class="pill vio">${icon('tunnel')}${t('tunnel')}</span>` : ''}</td><td class="muted">${esc(used.join(', ') || '—')}</td></tr>`;
+        <td class="mono">${esc(c.user ? c.user + '@' : '')}${esc(c.host)}:${c.port}${c.tunnel_host ? ` <span class="pill vio">${icon('tunnel')}${t('tunnel')}</span>` : ''}</td><td class="muted">${esc(used.join(', ') || '—')}</td>
+        <td class="sag"><button class="btn kucuk hayalet" data-tolib="${esc(c.name)}" title="${t('connToLib')}">${icon('download')}${t('connToLib')}</button></td></tr>`;
     }).join('')}</tbody></table></div>`;
 }
 
@@ -1009,6 +1224,7 @@ async function tabConnEdit(proj, name) {
   bind((root) => {
     $('#proj-aks', root).innerHTML = '';
     bindProtoPort(root);
+    bindFormTools($('#conn-form', root));
     $('#b-save', root).onclick = async () => {
       const out = readForm($('#conn-form', root), JSON.parse(JSON.stringify(c)));
       if (out.protocol === '') delete out.protocol;
@@ -1039,7 +1255,7 @@ async function tabConnEdit(proj, name) {
   });
   return `<a class="faint" href="${pHash(P, 'connections')}" style="display:inline-flex;gap:6px;align-items:center;margin-bottom:12px">${icon('left')}${t('back')}</a>
     <h2 style="margin-top:0">${isNew ? t('connNew') : t('connEdit') + ' — ' + esc(c.name)}</h2>
-    <div class="form" id="conn-form">
+    <div class="form" id="conn-form" data-p="${esc(P)}" data-ppath="${esc(proj.path)}">
       ${section('link', t('secGeneral'), '', `<div class="alanlar">${fText('name', t('fName'), c.name, { ph: 'my-host' })}</div>`)}
       ${section('server', t('secConnection'), '', connFields(c, false))}
       ${section('tunnel', t('secTunnel'), t('secTunnelDesc'), tunnelFields(c, false))}
@@ -1057,6 +1273,15 @@ async function tabSettings(proj) {
   const sy = cfg.sync || {};
   bind((root) => {
     $('#proj-aks', root).innerHTML = '';
+    bindFormTools($('#set-form', root));
+    $('#ign-tmpl', root).onchange = (e) => {
+      const v = tmpls[e.target.value];
+      if (v) { const ta = $('#ign-text', root); ta.value = (ta.value.trim() ? ta.value.trimEnd() + '\n\n' : '') + v.trim() + '\n'; }
+      e.target.value = '';
+    };
+    $('#ign-save', root).onclick = async () => {
+      try { await api('PUT', `/api/p/${enc(P)}/ignore`, { content: $('#ign-text', root).value }); toast(t('ignoreSaved')); } catch (e) { fail(e); }
+    };
     $('#b-save', root).onclick = async () => {
       const next = JSON.parse(JSON.stringify(cfg));
       readForm($('#set-form', root), next);
@@ -1081,18 +1306,18 @@ async function tabSettings(proj) {
       });
       return m;
     };
-    $('#b-remove', root).onclick = async () => {
-      if (!(await confirmBox(t('removeProject'), esc(t('removeProjectConfirm', P)), t('removeProject'), true))) return;
-      try { await api('DELETE', `/api/projects/${enc(P)}`); await loadProjects(); go('#/'); } catch (e) { fail(e); }
-    };
+    bindProjTools(root, P);
   });
-  return `<div class="form" id="set-form">
-    ${section('folder', t('secProject'), '', `<div class="alanlar">${fText('project.name', t('fProjectName'), cfg.project.name)}${fText('project.default_path', t('fDefaultPath'), cfg.project.default_path, { mono: true, ph: '.', hint: t('fDefaultPathHint') })}</div>`)}
+  const ign = await GET(`/api/p/${enc(P)}/ignore`).catch(() => ({ content: '', gitignore: '' }));
+  const tmpls = await GET('/api/ignore-templates').catch(() => ({}));
+  const gitLines = (ign.gitignore || '').split('\n').filter((l) => l.trim() && !l.trim().startsWith('#')).length;
+  return `<div class="form" id="set-form" data-p="${esc(P)}" data-ppath="${esc(proj.path)}" data-srv="">
+    ${section('folder', t('secProject'), '', `<div class="alanlar">${fText('project.name', t('fProjectName'), cfg.project.name)}${fText('project.default_path', t('fDefaultPath'), cfg.project.default_path, { mono: true, ph: '.', hint: t('fDefaultPathHint'), browse: 'reldir' })}</div>`)}
     ${section('sliders', t('secGlobal'), t('secGlobalDesc'), `<div class="alanlar">
-        ${fArea('sync.include', t('fInclude'), sy.include, { wide: false })}${fArea('sync.exclude', t('fExclude'), sy.exclude, { wide: false })}
-        ${fArea('sync.protect', t('fProtect'), sy.protect, { wide: false })}${fArea('sync.block_extensions', t('fBlock'), sy.block_extensions, { ty: 'words', wide: false, hint: t('fBlockHint') })}
-        ${fArea('sync.ignore_files', t('fIgnoreFiles'), sy.ignore_files, { wide: false, rows: 2, hint: t('fIgnoreFilesHint') })}
-        ${fText('sync.webhook', t('fWebhook'), sy.webhook, { mono: true, ph: 'https://…' })}
+        ${fArea('sync.include', t('fInclude'), sy.include, { wide: false, tree: 'paths', chips: 'include' })}${fArea('sync.exclude', t('fExclude'), sy.exclude, { wide: false, tree: 'paths', chips: 'exclude' })}
+        ${fArea('sync.protect', t('fProtect'), sy.protect, { wide: false, tree: 'protect', chips: 'protect' })}${fArea('sync.block_extensions', t('fBlock'), sy.block_extensions, { ty: 'words', wide: false, hint: t('fBlockHint'), chips: 'block' })}
+        ${fArea('sync.ignore_files', t('fIgnoreFiles'), sy.ignore_files, { wide: false, tree: 'paths', ph: '.gitignore', hint: t('fIgnoreFilesHint') })}
+        ${fText('sync.webhook', t('fWebhook'), sy.webhook, { mono: true, ph: 'https://…', whtest: true })}
         ${fNum('sync.bandwidth_limit', t('fBandwidth'), sy.bandwidth_limit, { hint: '0 = ∞' })}
         ${fNum('sync.backup_keep', t('fBackupKeep'), sy.backup_keep || 10, { hint: t('fBackupKeepHint') })}
         ${fBool('sync.no_backup', t('fNoBackup'), sy.no_backup, t('fNoBackupHint'))}
@@ -1100,10 +1325,15 @@ async function tabSettings(proj) {
         ${fBool('first_sync.full', t('fFirstFull'), cfg.first_sync && cfg.first_sync.full, t('fFirstFullHint'))}
       </div>`)}
     ${section('log', t('secHooks'), t('secHooksDesc'), `<div class="alanlar">${fArea('sync.pre_sync', t('fPre'), sy.pre_sync, { wide: false, rows: 3 })}${fArea('sync.post_sync', t('fPost'), sy.post_sync, { wide: false, rows: 3 })}</div>`)}
+    <div class="bolum"><h3>${icon('x')}${t('ignoreTitle')}</h3><p class="aciklama">${t('ignoreDesc')}${gitLines ? ' · ' + t('gitignoreNote', gitLines) : ''}</p>
+      <div class="aksiyonlar" style="margin-bottom:10px"><select id="ign-tmpl" style="width:auto"><option value="">${t('ignoreTemplate')}</option>${Object.keys(tmpls).map((k) => `<option value="${esc(k)}">${esc(k)}</option>`).join('')}</select>
+        <span style="margin-left:auto"></span><button class="btn" id="ign-save">${icon('check')}${t('save')}</button></div>
+      <textarea id="ign-text" rows="10" spellcheck="false">${esc(ign.content || '')}</textarea></div>
     <div class="bolum"><h3>${icon('lock')}${t('secSecurity')}</h3><div style="height:10px"></div>
       <label class="anahtar"><span class="metin"><b>${t('keyringTitle')}</b><small>${t('keyringHint')}</small></span><span class="switch"><input type="checkbox" id="kr" ${cfg.project.keyring ? 'checked' : ''}><i></i></span></label></div>
+    ${projToolsHTML()}
     <div class="bolum"><h3>${icon('layers')}${t('secRegistry')}</h3><p class="aciklama">${t('registryDesc')}</p>
-      <div class="aksiyonlar"><button class="btn" id="b-rename">${icon('edit')}${t('renameProject')}</button><button class="btn tehlike" id="b-remove">${icon('x')}${t('removeProject')}</button></div></div>
+      <div class="aksiyonlar"><button class="btn" id="b-rename">${icon('edit')}${t('renameProject')}</button></div></div>
   </div>
   <div class="form-alt"><button class="btn birincil" id="b-save">${icon('check')}${t('save')}</button></div>`;
 }
@@ -1113,48 +1343,177 @@ async function tabFiles(proj, srvName, relPath) {
   const P = proj.name;
   const cfg = await getConfig(P);
   if (!cfg.servers.length) return `<div class="bos"><h3>${t('noServers')}</h3></div>`;
-  const srv = srvName && cfg.servers.find((s) => s.name === srvName) ? srvName : (cfg.servers.find((s) => s.enabled) || cfg.servers[0]).name;
+  const srvObj = cfg.servers.find((s) => s.name === srvName) || cfg.servers.find((s) => s.enabled) || cfg.servers[0];
+  const srv = srvObj.name;
   const rel = relPath || '';
+  const q = `server=${enc(srv)}`;
   let data;
-  try { data = await GET(`/api/p/${enc(P)}/remote/ls?server=${enc(srv)}&path=${enc(rel)}`); }
+  try { data = await GET(`/api/p/${enc(P)}/remote/ls?${q}&path=${enc(rel)}`); }
   catch (e) { data = { error: e.message, entries: [] }; }
+  const frozenSet = new Set(await GET(`/api/p/${enc(P)}/frozen?${q}`).catch(() => []));
   const hashFor = (p) => `${pHash(P, 'files', srv)}/${enc(p)}`;
+  const full = (name) => (rel ? rel + '/' : '') + name;
   const crumbs = rel.split('/').filter(Boolean);
+  const entries = data.entries || [];
+  const sel = new Set();
+
+  // Freeze ekle/çıkar: dosyalar doğrudan, klasörler yereldeki dosyalarına açılır
+  async function toggleFreeze(items) {
+    const cur = new Set(await GET(`/api/p/${enc(P)}/frozen?${q}`).catch(() => []));
+    let paths = [];
+    for (const it of items) {
+      if (it.type === 'dir') paths.push(...(await GET(`/api/p/${enc(P)}/local/files?${q}&path=${enc(it.path)}`).catch(() => [])));
+      else paths.push(it.path);
+    }
+    const allIn = paths.length && paths.every((p) => cur.has(p));
+    paths.forEach((p) => (allIn ? cur.delete(p) : cur.add(p)));
+    await api('PUT', `/api/p/${enc(P)}/frozen`, { server: srv, files: [...cur] });
+    toast(allIn ? t('frozenRemoved', paths.length) : t('frozenAdded', paths.length));
+    render(true);
+  }
+  async function removeItems(items) {
+    const msg = items.length === 1 ? (items[0].type === 'dir' ? t('deleteDirConfirm', items[0].path) : t('deleteRemoteConfirm', items[0].path)) : t('deleteManyConfirm', items.length);
+    if (!(await confirmBox(t('delete'), esc(msg), t('delete'), true))) return;
+    try {
+      for (const it of items) await api('DELETE', `/api/p/${enc(P)}/remote/rm?${q}&path=${enc(it.path)}&dir=${it.type === 'dir'}`);
+      toast(t('deleted'));
+    } catch (err) { fail(err); }
+    render(true);
+  }
+  function moveItems(items) {
+    modal({
+      title: `${icon('folder')}${t('moveTo')}`,
+      body: `<div class="alan"><label>${t('moveTarget')}</label><input type="text" class="mono" id="mv" value="${esc(rel)}"></div>`,
+      actions: [{ label: t('cancel'), cls: 'hayalet' }, { label: t('moveTo'), cls: 'birincil', run: async (root) => {
+        const target = $('#mv', root).value.trim().replace(/^\/+|\/+$/g, '');
+        for (const it of items) {
+          const name = it.path.split('/').pop();
+          await api('POST', `/api/p/${enc(P)}/remote/rename?${q}&from=${enc(it.path)}&to=${enc((target ? target + '/' : '') + name)}`);
+        }
+        toast(t('moved')); render(true);
+      } }],
+    });
+  }
+  function renameItem(it) {
+    modal({
+      title: `${icon('edit')}${t('rename')}`,
+      body: `<div class="alan"><label>${t('newPath')}</label><input type="text" class="mono" id="rn" value="${esc(it.path)}"></div>`,
+      actions: [{ label: t('cancel'), cls: 'hayalet' }, { label: t('save'), cls: 'birincil', run: async (root) => {
+        const to = $('#rn', root).value.trim().replace(/^\/+/, '');
+        if (!to || to === it.path) return;
+        await api('POST', `/api/p/${enc(P)}/remote/rename?${q}&from=${enc(it.path)}&to=${enc(to)}`);
+        toast(t('moved')); render(true);
+      } }],
+    });
+  }
+  async function searchAll(term) {
+    const m = modal({ title: `${icon('search')}${t('searchTitle', esc(term))}`, size: 'orta', body: `<div class="yukleniyor">${icon('refresh', 'spin')} ${t('searching')}</div>`, actions: [{ label: t('close'), cls: 'birincil' }] });
+    let r;
+    try { r = await GET(`/api/p/${enc(P)}/remote/search?${q}&path=${enc(rel)}&q=${enc(term)}`); } catch (e) { $('.modal-ic', m.root).innerHTML = `<p class="bad-t">${esc(e.message)}</p>`; return; }
+    $('.modal-ic', m.root).innerHTML = r.hits.length ? `<div class="liste-kutu">${r.hits.map((h) => `<div class="tikla" data-hit="${esc(h.path)}" data-dir="${h.dir ? 1 : 0}">${icon(h.dir ? 'folder' : 'file', h.dir ? 'acc-t' : 'faint')} ${esc(h.path)}${h.dir ? '' : ` <span class="faint">${bytes(h.size)}</span>`}</div>`).join('')}</div>${r.truncated ? '<p class="ipucu">…</p>' : ''}` : `<p class="faint">${t('searchNone')}</p>`;
+    $$('[data-hit]', m.root).forEach((d) => (d.onclick = () => {
+      m.close();
+      const p = d.dataset.hit;
+      if (d.dataset.dir === '1') go(hashFor(p));
+      else { const parent = p.split('/').slice(0, -1).join('/'); go(parent ? hashFor(parent) : pHash(P, 'files', srv)); previewFile(P, srv, p); }
+    }));
+  }
+
   bind((root) => {
     $('#proj-aks', root).innerHTML = `<button class="ikon-btn" id="b-rf" title="${t('refresh')}">${icon('refresh')}</button>`;
     $('#b-rf', root).onclick = () => render(true);
     $('#f-srv', root).onchange = (e) => go(pHash(P, 'files', e.target.value));
     $$('[data-crumb]', root).forEach((b) => (b.onclick = () => go(b.dataset.crumb === '' ? pHash(P, 'files', srv) : hashFor(b.dataset.crumb))));
-    $('#f-filter', root).oninput = (e) => {
-      const q = e.target.value.toLowerCase();
-      $$('[data-entry]', root).forEach((tr) => (tr.hidden = q && !tr.dataset.entry.toLowerCase().includes(q)));
+    const filter = $('#f-filter', root);
+    filter.oninput = () => {
+      const v = filter.value.toLowerCase();
+      $$('[data-entry]', root).forEach((tr) => (tr.hidden = v && !tr.dataset.entry.toLowerCase().includes(v)));
     };
+    filter.onkeydown = (e) => { if (e.key === 'Enter' && filter.value.trim()) searchAll(filter.value.trim()); };
+    $('#f-search', root).onclick = () => { if (filter.value.trim()) searchAll(filter.value.trim()); else filter.focus(); };
+    const up = $('#f-upload-input', root);
+    $('#f-upload', root).onclick = () => up.click();
+    up.onchange = async () => {
+      if (!up.files.length) return;
+      const fd = new FormData();
+      [...up.files].forEach((f) => fd.append('files', f, f.name));
+      const b = $('#f-upload', root); b.disabled = true; b.innerHTML = icon('refresh', 'spin') + t('upload');
+      try {
+        const r = await fetch(`/api/p/${enc(P)}/remote/upload?${q}&path=${enc(rel)}`, { method: 'POST', body: fd }).then((x) => x.json());
+        if (!r.ok) throw new Error(r.error);
+        toast(t('uploaded', r.data.length));
+      } catch (err) { fail(err); }
+      render(true);
+    };
+    $('#f-mkdir', root).onclick = () => modal({
+      title: `${icon('folder')}${t('newFolder')}`, body: `<div class="alan"><label>${t('folderName')}</label><input type="text" class="mono" id="nf"></div>`,
+      actions: [{ label: t('cancel'), cls: 'hayalet' }, { label: t('create'), cls: 'birincil', run: async (r2) => {
+        const n = $('#nf', r2).value.trim().replace(/^\/+|\/+$/g, '');
+        if (!n) return false;
+        await api('POST', `/api/p/${enc(P)}/remote/mkdir?${q}&path=${enc(full(n))}`);
+        toast(t('created')); render(true);
+      } }],
+    });
+    // seçim
+    const bar = $('#f-selbar', root);
+    const items = () => [...sel].map((p) => ({ path: p, type: (entries.find((e) => full(e.name) === p) || {}).type }));
+    const refreshBar = () => {
+      bar.hidden = !sel.size;
+      $('[data-selcount]', bar).textContent = t('selectedN', sel.size);
+      if (allBox) allBox.checked = !!sel.size && sel.size === entries.length;
+    };
+    // Bağlantı hatası / boş klasörde tablo (ve "tümü" kutusu) çizilmez
+    const allBox = $('#f-all', root);
+    if (allBox) allBox.onchange = (e) => {
+      $$('[data-entry] input[type=checkbox]', root).forEach((c) => { c.checked = e.target.checked; c.dispatchEvent(new Event('change')); });
+    };
+    $('[data-sel="clear"]', bar).onclick = () => { sel.clear(); $$('[data-entry] input[type=checkbox]', root).forEach((c) => (c.checked = false)); refreshBar(); };
+    $('[data-sel="del"]', bar).onclick = () => removeItems(items());
+    $('[data-sel="move"]', bar).onclick = () => moveItems(items());
+    $('[data-sel="freeze"]', bar).onclick = () => toggleFreeze(items());
     $$('[data-entry]', root).forEach((tr) => {
-      const name = tr.dataset.entry, typ = tr.dataset.type, p = (rel ? rel + '/' : '') + name;
+      const name = tr.dataset.entry, typ = tr.dataset.type, p = full(name), it = { path: p, type: typ };
+      $('input[type=checkbox]', tr).onchange = (e) => { if (e.target.checked) sel.add(p); else sel.delete(p); refreshBar(); };
       tr.onclick = (e) => {
-        if (e.target.closest('button')) return;
+        if (e.target.closest('button,input,label')) return;
         if (typ === 'dir') go(hashFor(p)); else previewFile(P, srv, p);
       };
-      const pv = $('[data-pv]', tr); if (pv) pv.onclick = () => previewFile(P, srv, p);
-      const dl = $('[data-dl]', tr); if (dl) dl.onclick = () => { location.href = `/api/p/${enc(P)}/remote/get?server=${enc(srv)}&path=${enc(p)}`; };
-      $('[data-rm]', tr).onclick = async () => {
-        const msg = typ === 'dir' ? t('deleteDirConfirm', p) : t('deleteRemoteConfirm', p);
-        if (!(await confirmBox(t('delete'), esc(msg), t('delete'), true))) return;
-        try { await api('DELETE', `/api/p/${enc(P)}/remote/rm?server=${enc(srv)}&path=${enc(p)}&dir=${typ === 'dir'}`); toast(t('deleted')); render(true); } catch (err) { fail(err); }
-      };
+      const on = (k, fn) => { const b = $(`[data-${k}]`, tr); if (b) b.onclick = fn; };
+      on('pv', () => previewFile(P, srv, p));
+      on('cmp', () => compareModal(P, srv, p));
+      on('dl', () => { location.href = `/api/p/${enc(P)}/remote/get?${q}&path=${enc(p)}`; });
+      on('ren', () => renameItem(it));
+      on('fz', () => toggleFreeze([it]));
+      on('rm', () => removeItems([it]));
     });
   });
-  const entries = data.entries || [];
+
+  const frozenUnder = (p) => { const pre = p + '/'; for (const f of frozenSet) if (f.startsWith(pre)) return true; return false; };
   return `<div class="arac-cubuk">
       <select id="f-srv">${cfg.servers.map((s) => `<option value="${esc(s.name)}" ${s.name === srv ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>
-      <div class="ara">${icon('search')}<input type="text" id="f-filter" placeholder="${t('filter')}"></div></div>
+      <div class="ara">${icon('search')}<input type="text" id="f-filter" placeholder="${t('filter')}"></div>
+      <button class="btn" id="f-search" title="${t('searchAll')}">${icon('search')}${t('searchAll')}</button>
+      <button class="btn" id="f-mkdir">${icon('folder')}${t('newFolder')}</button>
+      <button class="btn mavi" id="f-upload">${icon('upload')}${t('upload')}</button><input type="file" id="f-upload-input" multiple hidden></div>
     <div class="yol-cubuk"><button data-crumb="">${esc(data.root || '/')}</button>${crumbs.map((c, i) => `<span>/</span><button data-crumb="${esc(crumbs.slice(0, i + 1).join('/'))}">${esc(c)}</button>`).join('')}</div>
+    <div class="secim-cubuk" id="f-selbar" hidden><b data-selcount></b>
+      <button class="btn kucuk" data-sel="move">${icon('folder')}${t('moveTo')}</button>
+      <button class="btn kucuk" data-sel="freeze">${icon('snow')}${t('freezeToggle')}</button>
+      <button class="btn kucuk tehlike" data-sel="del">${icon('trash')}${t('delete')}</button>
+      <button class="btn kucuk hayalet" data-sel="clear">${t('clearSel')}</button></div>
     ${data.error ? `<div class="kart"><div class="not bad">${icon('alert')}${esc(data.error)}</div></div>` : !entries.length ? `<div class="bos" style="padding:30px">${t('emptyDir')}</div>` :
-    `<div class="tablo-kap"><table class="tablo"><thead><tr><th>${t('colName')}</th><th class="sag">${t('colSize')}</th><th>${t('colDate')}</th><th></th></tr></thead><tbody>
-      ${entries.map((e) => `<tr data-entry="${esc(e.name)}" data-type="${e.type}" class="tikla"><td><div class="ad-hucre">${icon(e.type === 'dir' ? 'folder' : 'file', e.type === 'dir' ? 'acc-t' : 'faint')}<span>${esc(e.name)}</span></div></td>
+    `<div class="tablo-kap"><table class="tablo"><thead><tr><th class="sec-hucre"><label><input type="checkbox" id="f-all"></label></th><th>${t('colName')}</th><th class="sag">${t('colSize')}</th><th>${t('colDate')}</th><th></th></tr></thead><tbody>
+      ${entries.map((e) => {
+        const p = full(e.name);
+        const fz = e.type === 'dir' ? frozenUnder(p) : frozenSet.has(p);
+        return `<tr data-entry="${esc(e.name)}" data-type="${e.type}" class="tikla"><td class="sec-hucre"><label><input type="checkbox"></label></td>
+        <td><div class="ad-hucre">${icon(e.type === 'dir' ? 'folder' : 'file', e.type === 'dir' ? 'acc-t' : 'faint')}<span>${esc(e.name)}</span>${fz ? `<span class="pill" style="height:18px;font-size:11px">${icon('snow')}${t('frozenBadge')}</span>` : ''}</div></td>
         <td class="sag mono faint">${e.type === 'dir' ? '' : bytes(e.size)}</td><td class="mono faint">${e.time && !e.time.startsWith('0001') ? fmtDate(e.time) : ''}</td>
-        <td class="sag" style="white-space:nowrap">${e.type === 'dir' ? '' : `<button class="ikon-btn" data-pv title="${t('preview')}">${icon('eye')}</button><button class="ikon-btn" data-dl title="${t('download')}">${icon('download')}</button>`}
-          <button class="ikon-btn tehlike" data-rm title="${t('delete')}">${icon('trash')}</button></td></tr>`).join('')}</tbody></table></div>`}`;
+        <td class="sag" style="white-space:nowrap">${e.type === 'dir' ? '' : `<button class="ikon-btn" data-pv title="${t('preview')}">${icon('eye')}</button><button class="ikon-btn" data-cmp title="${t('compare')}">${icon('layers')}</button><button class="ikon-btn" data-dl title="${t('download')}">${icon('download')}</button>`}
+          <button class="ikon-btn ${fz ? 'acc-t' : ''}" data-fz title="${t('freezeToggle')}">${icon('snow')}</button>
+          <button class="ikon-btn" data-ren title="${t('rename')}">${icon('edit')}</button>
+          <button class="ikon-btn tehlike" data-rm title="${t('delete')}">${icon('trash')}</button></td></tr>`;
+      }).join('')}</tbody></table></div>`}`;
 }
 
 // Satır numaralı, renklendirilmiş kod görünümü
@@ -1322,6 +1681,7 @@ async function boot() {
   try {
     S.meta = await GET('/api/meta');
     LANG = S.meta.lang === 'en' ? 'en' : 'tr';
+    if (S.meta.base) document.title = 'syncFTP — ' + S.meta.base;
   } catch { /* oturum yoksa sayfa zaten 401 */ }
   applyLang();
   $('#sb-ver').textContent = S.meta ? 'v' + S.meta.version : '';
@@ -1329,6 +1689,7 @@ async function boot() {
     try { await api('PUT', '/api/lang', { lang: b.dataset.l }); LANG = b.dataset.l; applyLang(); render(true); } catch (e) { fail(e); }
   }));
   $('#btn-proje-ekle').onclick = addProjectFlow;
+  $('#nav-ai').onclick = () => aiToggle();
   $('#btn-kapat').onclick = async () => {
     if (!(await confirmBox(t('quit'), esc(t('quitConfirm')), t('quit'), true))) return;
     await api('POST', '/api/quit').catch(() => {});
@@ -1341,15 +1702,20 @@ async function boot() {
   // Varlık bağlantısı: pencere açık olduğu sürece süreç yaşar (küçültülünce de kopmaz)
   const presence = new EventSource('/api/presence');
   presence.addEventListener('bye', () => presence.close());
+  presence.addEventListener('navigate', (e) => { if (e.data && e.data.startsWith('#/')) location.hash = e.data; });
 
   // Yedek heartbeat + bağlantı kopma uyarısı
   let lost = 0;
   setInterval(async () => {
     try {
-      await GET('/api/ping');
+      const ping = await GET('/api/ping');
       if (lost) { lost = 0; }
+      // Sunucu tarafında başlayan işler (webhook deploy'ları, watch sync'leri) da dock'ta canlı görünsün
+      const known = [...S.jobs.values()].filter((j) => j.status === 'running').length;
+      if (ping.jobs > known) refreshJobsMeta();
     } catch { if (++lost === 2) toast(t('sessionLost'), 'bad'); }
   }, 5000);
   setInterval(loadProjects, 20000);
 }
-boot();
+// pickers.js / cicd.js app.js'ten sonra yüklenir → boot tüm script'ler hazır olunca
+window.addEventListener('DOMContentLoaded', boot);

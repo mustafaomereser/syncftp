@@ -3,7 +3,6 @@
 package main
 
 import (
-	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -141,29 +140,46 @@ func bringWindowToFront(suffix string) bool {
 	return true
 }
 
-// pickFolder yerel klasör seçme diyaloğu (PowerShell + WinForms, ek bağımlılık yok).
-func pickFolder(initial string) (string, error) {
-	script := `Add-Type -AssemblyName System.Windows.Forms;` +
-		`$f = New-Object System.Windows.Forms.FolderBrowserDialog;` +
-		`$f.ShowNewFolderButton = $true;` +
-		`if ($env:SYNCFTP_PICK_INIT) { $f.SelectedPath = $env:SYNCFTP_PICK_INIT };` +
-		`$w = New-Object System.Windows.Forms.Form; $w.TopMost = $true;` +
-		`if ($f.ShowDialog($w) -eq 'OK') { [Console]::OutputEncoding = [Text.Encoding]::UTF8; Write-Output $f.SelectedPath }`
-	c := exec.Command("powershell", "-NoProfile", "-STA", "-NonInteractive", "-Command", script)
-	c.Env = append(os.Environ(), "SYNCFTP_PICK_INIT="+initial)
+
+
+// hideCmdWindow alt sürecin (git, cloudflared) konsol penceresi açmasını engeller.
+func hideCmdWindow(c *exec.Cmd) {
 	c.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: windows.CREATE_NO_WINDOW}
-	out, err := c.Output()
-	if err != nil {
-		return "", err
-	}
-	p := strings.TrimSpace(string(out))
-	if p == "" {
-		return "", errors.New("cancelled")
-	}
-	return p, nil
 }
 
-func fileExistsPlain(p string) bool {
-	st, err := os.Stat(p)
-	return err == nil && !st.IsDir()
+// ── Windows açılışında başlat (HKCU\...\Run) ─────────────────────────────────
+
+const runKeyPath = `Software\Microsoft\Windows\CurrentVersion\Run`
+const runValueName = "syncFTP"
+
+func autostartEnabled() bool {
+	k, err := registry.OpenKey(registry.CURRENT_USER, runKeyPath, registry.QUERY_VALUE)
+	if err != nil {
+		return false
+	}
+	defer k.Close()
+	_, _, err = k.GetStringValue(runValueName)
+	return err == nil
+}
+
+// setAutostart oturum açılınca paneli pencere açmadan (yalnızca tray) başlatır;
+// kayıtlı watch'lar ve webhook dinleyicisi kaldığı yerden devam eder.
+func setAutostart(on bool) error {
+	k, err := registry.OpenKey(registry.CURRENT_USER, runKeyPath, registry.SET_VALUE)
+	if err != nil {
+		return err
+	}
+	defer k.Close()
+	if !on {
+		err := k.DeleteValue(runValueName)
+		if err == registry.ErrNotExist {
+			return nil
+		}
+		return err
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	return k.SetStringValue(runValueName, `"`+exe+`" gui --foreground --background`)
 }

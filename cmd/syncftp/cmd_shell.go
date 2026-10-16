@@ -200,6 +200,9 @@ func runShell() error {
 		case "detect-limit":
 			sh.cmdDetectLimit(args)
 
+		case "exec":
+			sh.cmdExec(args)
+
 		case "gui":
 			if err := launchGUIDetached(); err != nil {
 				fmt.Printf(lang.L.ShellErrFmt, err)
@@ -1233,6 +1236,10 @@ func (sh *shellState) shellSyncServer(srv config.Server, full, dryRun bool, sinc
 			return
 		}
 	}
+	if hookErr := runRemoteHooks(os.Stdout, srv, srv.RemotePreSync, 0, 0); hookErr != nil {
+		fmt.Printf(lang.L.SyncHookAbortFmt, hookErr)
+		return
+	}
 
 	tasks := make([]ftpclient.UploadTask, 0, len(toUpload))
 	for _, rel := range toUpload {
@@ -1326,6 +1333,10 @@ func (sh *shellState) shellSyncServer(srv config.Server, full, dryRun bool, sinc
 			uploadedFiles = append(uploadedFiles, rel)
 		}
 		sendWebhook(os.Stdout, webhookURL, srv.Name, len(successFiles), len(failedPaths), uploadedFiles)
+	}
+
+	if hookErr := runRemoteHooks(os.Stdout, srv, srv.RemotePostSync, len(successFiles), len(failedPaths)); hookErr != nil {
+		fmt.Printf(lang.L.SyncHookErrFmt, hookErr)
 	}
 
 	// Post-sync hook'ları (global + sunucu); hata sync sonucunu etkilemez

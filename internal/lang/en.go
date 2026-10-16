@@ -167,6 +167,7 @@ Sync:
   verify [--fix]          Find files changed/deleted on the server by hand (drift);
                             --fix makes the next sync re-upload them
   detect-limit [--max N]  Measure the server's simultaneous connection limit, save to max_connections
+  exec <command>          Run a command over SSH on the connected SFTP server (e.g. php artisan migrate)
 
 Server management:
   servers                 Server list
@@ -623,6 +624,7 @@ Other:
 	GuiBusyFmt:           "%s already has a running job (%s)",
 	GuiPathRequired:      "folder path is required",
 	GuiDirNotFoundFmt:    "folder not found: %s",
+	GuiOutsideBaseFmt:    "%s is outside the folder the panel was opened in (%s) — run syncftp from that folder to manage it",
 	GuiValConnName:       "every connection profile needs a name",
 	GuiValDupFmt:         "name used twice: %s",
 	GuiValServerName:     "every server needs a name",
@@ -641,4 +643,92 @@ Other:
 	GuiNoMilestoneFmt:    "%s has no milestone",
 	GuiJobNotCancelable:  "this job cannot be cancelled",
 	GuiWatchRunning:      "watch is already running for this project",
+
+	// Tray / CI-CD deploy
+	TrayOpen:             "Open panel",
+	TrayIdle:             "Idle",
+	TrayStatusFmt:        "%d job(s) · %d watch(es)",
+	TrayWatchesHeader:    "Active watches (click to stop)",
+	TrayStopWatchFmt:     "%s  (%s)",
+	TrayAutostart:        "Start with Windows",
+	TrayQuit:             "Quit",
+	TrayHookTunnel:       "webhook tunnel on",
+	GuiJobDeploy:         "Deploy",
+	GuiJobInstall:        "Install cloudflared",
+	DeployStartFmt:       "══ deploy %s / %s ══  %s\n",
+	DeployGitPull:        "  git pull --ff-only\n",
+	DeployGitPullErrFmt:  "  ✗ git pull failed: %v — deploy aborted\n",
+	DeploySrvErrFmt:      "  ✗ %s: %v\n",
+	DeployDone:           "  ✓ deploy finished\n",
+	DeployQueuedRun:      "\n  ↻ new push arrived during deploy — running again\n",
+	DeployNoCloudflared:  "cloudflared not found — install it from the panel (CI/CD tab) or put it on PATH",
+	DeployDownloadingFmt: "  downloading %s\n",
+	DeployInstalledFmt:   "  ✓ installed: %s (%s)\n",
+	DeployNoTriggers:     "  No deploy triggers. Add one in the panel (CI/CD tab) or under \"deploy\" in syncftp.json.\n",
+	DeployListeningFmt:   "syncFTP webhook listener → %s\n",
+	DeployTunnelFmt:      "Public URL (trycloudflare) → %s\n",
+	DeployCtrlC:          "\nWaiting for webhooks — Ctrl+C to stop.\n",
+	WebhookTestFmt:       "test from syncFTP (%s)",
+
+	// GUI 2.1
+	GuiJobDiff: "Compare servers",
+
+	// SSH uzak komutlar
+	RemoteHookSkipFmt: "  ! [%s] remote commands skipped — only available on SFTP (SSH) servers\n",
+	RemoteHookRunFmt:  "  ⚙ ssh $ %s\n",
+	ShellExecUsage:    "  Usage: exec <command>  — runs on the connected SFTP server (in remote_path)\n",
+	ShellExecNoSSH:    "  ! exec needs an SFTP (SSH) connection — this server uses FTP\n",
+	GuiJobExec:        "SSH command",
+	CfgFldRemotePre:   "Remote pre_sync (SSH)",
+	CfgFldRemotePost:  "Remote post_sync (SSH)",
+
+	// AI asistan (yalnızca GUI)
+	AIBusy:      "the assistant is still answering — wait or stop it",
+	AINoChat:    "this tool does not support in-panel chat — open it in a terminal",
+	AIDeniedFmt: "permission denied: %s %s (only file edits and syncftp commands are allowed)",
+
+	// Tray menü
+	TrayProjects: "Projects",
+	TrayJobs:     "Jobs",
+
+	// Tray menü (owner-draw)
+	TrayStop:        "stop",
+	TrayTunnelOpen:  "Open webhook tunnel",
+	TrayTunnelClose: "Close webhook tunnel",
+	TrayTunnelCopy:  "Copy tunnel address",
+	TrayTunnelNone:  "Tunnel: cloudflared not installed",
+	TrayHelp:        "Help",
+
+	// Tray tünel bildirimi
+	TrayTunnelStarting:  "Opening webhook tunnel…",
+	TrayTunnelOpened:    "Webhook tunnel is open",
+	TrayTunnelOpenedFmt: "%s\nAddress copied to clipboard.",
+	TrayTunnelFailed:    "Webhook tunnel could not be opened",
+	TrayTunnelClosed:    "Webhook tunnel closed",
+
+	// Tray tünel durumu
+	TrayTunnelOnShort:       "tunnel on",
+	TrayTunnelStartingShort: "tunnel opening…",
+
+	// Global ayarlar / init / push
+	InitExistsFmt:         "a syncFTP project already exists here: %s",
+	GlobalConnNotFoundFmt: "saved connection not found: %q (syncftp global conn list)",
+	GlobalLoadWarnFmt:     "  ⚠ global settings could not be read: %v\n",
+	InitConnManual:        "Enter manually",
+	InitConnPickTitle:     "Connection",
+	InitConnPickSub:       "Pick a saved connection or enter one manually",
+	InitUsingConnFmt:      "  ✓ Saved connection: %s (%s@%s:%d)\n",
+	GlobalFileFmt:         "  Global settings: %s\n",
+	GlobalDefaultsHeader:  "  New project defaults",
+	GlobalSecretWarnFmt:   "\n  ⚠ Passwords that could not be read from the keyring: %s\n",
+	GlobalConnHeaderFmt:   "  Saved connections (%d)\n",
+	GlobalConnNone:        "    — none (syncftp global conn add <name> --host …)",
+	GlobalConnAddedFmt:    "  ✓ Connection added: %s\n",
+	GlobalConnUpdatedFmt:  "  ✓ Connection updated: %s\n",
+	GlobalConnRemovedFmt:  "  ✓ Connection removed: %s\n",
+	GlobalConnImportedFmt: "  ✓ %d connection(s) imported from %s\n",
+	GlobalDefaultsFromFmt: "  ✓ Defaults taken from project %s\n",
+	GlobalTemplateSetFmt:  "  ✓ Default ignore template: %s\n",
+	GlobalDefaultsReset:   "  ✓ Defaults reset",
+	PushFailedErrFmt:      "%d file(s) could not be uploaded",
 }

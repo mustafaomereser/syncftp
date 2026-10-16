@@ -96,6 +96,7 @@ func srvFieldLabel(i int) string {
 		lang.L.CfgFldTunnelHost, lang.L.CfgFldTunnelPort, lang.L.CfgFldTunnelUser,
 		lang.L.CfgFldTunnelPass, lang.L.CfgFldTunnelKey,
 		lang.L.CfgFldBandwidth, lang.L.CfgFldNoBackup, lang.L.CfgFldDirectUpload,
+		lang.L.CfgFldRemotePre, lang.L.CfgFldRemotePost,
 	}
 	if i >= 0 && i < len(labels) {
 		return labels[i]
@@ -494,6 +495,8 @@ var serverFields = []srvField{
 	{"Bandwidth KB/s", "int", ""},             // idx 29 — 0 = global
 	{"No backup", "bool", ""},                 // idx 30 — rollback yedeği alma
 	{"Direct upload", "bool", ""},             // idx 31 — atomik upload kapalı
+	{"Remote pre_sync", "list", ""},           // idx 32 — SFTP: sunucuda SSH komutları
+	{"Remote post_sync", "list", ""},          // idx 33
 }
 
 type serverEditModel struct {
@@ -598,6 +601,10 @@ func (m *serverEditModel) getDisplayValue(i int) string {
 		return boolIcon(m.srv.NoBackup)
 	case 31:
 		return boolIcon(m.srv.DirectUpload)
+	case 32:
+		return listDisplay(m.srv.RemotePreSync)
+	case 33:
+		return listDisplay(m.srv.RemotePostSync)
 	}
 	return ""
 }
@@ -646,6 +653,10 @@ func (m *serverEditModel) getEditableValue(i int) string {
 		return m.srv.TunnelKeyFile
 	case 29:
 		return strconv.Itoa(m.srv.BandwidthLimit)
+	case 32:
+		return strings.Join(m.srv.RemotePreSync, "; ")
+	case 33:
+		return strings.Join(m.srv.RemotePostSync, "; ")
 	}
 	return ""
 }
@@ -704,7 +715,22 @@ func (m *serverEditModel) applyValue(i int, val string) {
 		if n, e := strconv.Atoi(val); e == nil && n >= 0 {
 			m.srv.BandwidthLimit = n
 		}
+	case 32:
+		m.srv.RemotePreSync = splitCmds(val)
+	case 33:
+		m.srv.RemotePostSync = splitCmds(val)
 	}
+}
+
+// splitCmds komut listesini ";" ile ayırır (komutlar virgül içerebilir — parseList kullanılamaz).
+func splitCmds(s string) []string {
+	var out []string
+	for _, c := range strings.Split(s, ";") {
+		if c = strings.TrimSpace(c); c != "" {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 func (m *serverEditModel) toggleBool(i int) {

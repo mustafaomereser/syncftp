@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha1"
 	"crypto/subtle"
 	"embed"
 	"encoding/hex"
@@ -24,6 +25,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"syncftp/internal/lang"
+	"syncftp/internal/projects"
 )
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -43,16 +45,19 @@ import (
 //go:embed web
 var guiWeb embed.FS
 
-const guiWindowTitle = "syncFTP" // index.html <title> bununla biter
+// Panel penceresinin başlığı "syncFTP — <klasör>" (app.js meta'dan kurar) → her klasörün paneli ayrı bulunur.
+func guiWindowTitle() string { return "syncFTP — " + guiStartDir() }
 
 var (
 	guiFlagForeground bool
 	guiFlagNoWindow   bool
+	guiFlagBackground bool
 )
 
 func init() {
 	guiCmd.Flags().BoolVar(&guiFlagForeground, "foreground", false, "Paneli bu süreçte çalıştır (terminal bloklanır)")
 	guiCmd.Flags().BoolVar(&guiFlagNoWindow, "no-window", false, "Pencere açma, giriş adresini yazdır (uzak/headless kullanım; --foreground ile)")
+	guiCmd.Flags().BoolVar(&guiFlagBackground, "background", false, "Yalnızca tray'de başla, pencere açma (Windows açılışında başlat bunu kullanır)")
 	rootCmd.AddCommand(guiCmd)
 }
 
@@ -93,7 +98,11 @@ func guiStateDir() string {
 	return filepath.Join(base, "syncftp")
 }
 
-func guiInstancePath() string { return filepath.Join(guiStateDir(), "gui.json") }
+// Tek örnek klasör başına: panel CLI gibi açıldığı klasörü esas alır, başka klasörden açılan exe kendi panelini açar.
+func guiInstancePath() string {
+	sum := sha1.Sum([]byte(strings.ToLower(filepath.Clean(guiStartDir()))))
+	return filepath.Join(guiStateDir(), "gui-"+hex.EncodeToString(sum[:])[:10]+".json")
+}
 
 func guiProfileDir() string {
 	base, err := os.UserCacheDir()
@@ -125,7 +134,7 @@ func (gi guiInstance) url() string {
 // launchGUIDetached panel çalışıyorsa penceresini öne getirir/açar; değilse ayrık süreçte başlatır.
 func launchGUIDetached() error {
 	if gi, ok := readGUIInstance(); ok {
-		if !bringWindowToFront(guiWindowTitle) {
+		if !bringWindowToFront(guiWindowTitle()) {
 			return openAppWindow(gi.url(), guiProfileDir())
 		}
 		return nil
@@ -136,7 +145,7 @@ func launchGUIDetached() error {
 // runGUIForeground paneli bu süreçte çalıştırır (çift tık + `gui --foreground`).
 func runGUIForeground() error {
 	if gi, ok := readGUIInstance(); ok {
-		if !bringWindowToFront(guiWindowTitle) {
+		if !bringWindowToFront(guiWindowTitle()) {
 			return openAppWindow(gi.url(), guiProfileDir())
 		}
 		return nil
@@ -158,7 +167,12 @@ func runGUIForeground() error {
 		jobs:    newJobManager(),
 		watches: newWatchManager(),
 		quit:    make(chan struct{}),
+		hasTray: trayAvailable() && !guiFlagNoWindow,
+		startDir: guiStartDir(),
 	}
+	projects.SetBase(sv.startDir)
+	sv.hooks = newDeployManager(sv.jobs, nil)
+	sv.ai = newAIManager()
 	gi := guiInstance{Port: sv.port, Token: sv.token, PID: os.Getpid()}
 	_ = os.MkdirAll(guiStateDir(), 0700)
 	if data, err := json.Marshal(gi); err == nil {
@@ -170,16 +184,36 @@ func runGUIForeground() error {
 	go func() { _ = srv.Serve(ln) }()
 	fmt.Printf(lang.L.GuiStartFmt, fmt.Sprintf("http://127.0.0.1:%d", sv.port))
 
-	if guiFlagNoWindow {
+	switch {
+	case guiFlagNoWindow:
 		fmt.Println(gi.url())
-	} else if err := openAppWindow(gi.url(), guiProfileDir()); err != nil {
-		fmt.Print(lang.L.GuiNoBrowser)
-		_ = openDefaultBrowser(gi.url())
+	case guiFlagBackground && sv.hasTray:
+		// yalnızca tray — pencere tray'den açılır
+	default:
+		if err := openAppWindow(gi.url(), guiProfileDir()); err != nil {
+			fmt.Print(lang.L.GuiNoBrowser)
+			_ = openDefaultBrowser(gi.url())
+		}
 	}
 
+	// CI/CD webhook dinleyicisi (yalnızca 127.0.0.1; dışarıya tünel ile açılır)
+	if err := sv.hooks.listen(""); err == nil {
+		if loadGUIPersist().HookTunnel {
+			go func() { _, _ = sv.hooks.startTunnel() }()
+		}
+	}
+	defer sv.hooks.close()
+	// Önceki oturumdan kalan watch'lar
+	sv.restoreWatches()
+
 	go sv.idleWatchdog()
-	<-sv.quit
+	if sv.hasTray {
+		sv.runTray(gi.url()) // tray "Çıkış" ya da panelden "Kapat" → döner
+	} else {
+		<-sv.quit
+	}
 	sv.watches.stopAll()
+	closeAllTerms()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	return srv.Shutdown(ctx)
@@ -211,6 +245,45 @@ type guiServer struct {
 	watches  *watchManager
 	quit     chan struct{}
 	quitOnce sync.Once
+	hasTray  bool           // tray varken pencere kapanınca süreç tray'de yaşamaya devam eder
+	hooks    *deployManager // CI/CD webhook dinleyicisi + cloudflared tüneli
+	ai       *aiManager     // yapay zekâ asistanı oturumları (yalnızca panel)
+	startDir string         // dosya seçicilerin başlangıç dizini (guiStartDir)
+
+	navMu   sync.Mutex
+	navSubs map[chan string]struct{} // açık panel pencereleri (presence) — tray'den sayfa değiştirme
+}
+
+// navigate açık panel pencerelerine sayfa değiştirme olayı yollar (örn. "#/p/shop").
+func (sv *guiServer) navigate(hash string) {
+	sv.navMu.Lock()
+	defer sv.navMu.Unlock()
+	for ch := range sv.navSubs {
+		select {
+		case ch <- hash:
+		default:
+		}
+	}
+}
+
+// guiStartDir panelin açıldığı dizin — CLI'daki gibi seçiciler buradan başlar: çift tıkta exe'nin
+// klasörü (Explorer çalışma dizinini oraya kurar), `syncftp gui` ile terminalin bulunduğu dizin.
+// Windows açılışında (Run anahtarı) çalışma dizini System32 olur → exe'nin klasörüne düşülür.
+func guiStartDir() string {
+	exeDir := ""
+	if exe, err := os.Executable(); err == nil {
+		exeDir = filepath.Dir(exe)
+	}
+	wd, err := os.Getwd()
+	if err != nil || wd == "" {
+		return exeDir
+	}
+	if root := os.Getenv("SystemRoot"); root != "" && exeDir != "" {
+		if rel, err := filepath.Rel(root, wd); err == nil && !strings.HasPrefix(rel, "..") {
+			return exeDir
+		}
+	}
+	return wd
 }
 
 func (sv *guiServer) shutdown() { sv.quitOnce.Do(func() { close(sv.quit) }) }
@@ -223,6 +296,9 @@ func (sv *guiServer) idleWatchdog() {
 	t := time.NewTicker(5 * time.Second)
 	defer t.Stop()
 	for range t.C {
+		if sv.hasTray {
+			return // tray'den "Çıkış" ile kapanır
+		}
 		if sv.clients.Load() > 0 {
 			sv.lastSeen.Store(time.Now().UnixNano())
 			continue
@@ -263,7 +339,15 @@ func (sv *guiServer) authed(r *http.Request) bool {
 func (sv *guiServer) handler() http.Handler {
 	mux := http.NewServeMux()
 	static, _ := fs.Sub(guiWeb, "web")
-	fileSrv := http.FileServer(http.FS(static))
+	var fileSrv http.Handler = http.FileServer(http.FS(static))
+	// Geliştirme: SYNCFTP_WEB_DIR=<.../cmd/syncftp/web> → arayüz diskten okunur, build gerekmez (F5 yeter)
+	if d := os.Getenv("SYNCFTP_WEB_DIR"); d != "" {
+		disk := http.FileServer(http.Dir(d))
+		fileSrv = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "no-store")
+			disk.ServeHTTP(w, r)
+		})
+	}
 
 	mux.HandleFunc("GET /api/alive", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
 	mux.HandleFunc("GET /login", func(w http.ResponseWriter, r *http.Request) {
@@ -272,7 +356,11 @@ func (sv *guiServer) handler() http.Handler {
 			return
 		}
 		http.SetCookie(w, &http.Cookie{Name: "syncftp_t", Value: sv.token, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode})
-		http.Redirect(w, r, "/", http.StatusFound)
+		dest := "/"
+		if next := r.URL.Query().Get("next"); strings.HasPrefix(next, "#/") {
+			dest = "/" + next // tray'den belirli bir sayfa (proje) açma
+		}
+		http.Redirect(w, r, dest, http.StatusFound)
 	})
 
 	api := http.NewServeMux()
@@ -531,6 +619,7 @@ type guiWatch struct {
 	LastSync string    `json:"last_sync,omitempty"`
 	Syncs    int       `json:"syncs"`
 	stop     chan struct{}
+	explicit bool // sunucular elle seçildi (kalıcı kayıtta listelenir; değilse "tüm aktifler")
 }
 
 type watchManager struct {
@@ -608,4 +697,9 @@ func stripANSI(s string) string {
 		b.WriteByte(s[i])
 	}
 	return b.String()
+}
+
+func fileExistsPlain(p string) bool {
+	st, err := os.Stat(p)
+	return err == nil && !st.IsDir()
 }

@@ -167,6 +167,7 @@ Senkronizasyon:
   verify [--fix]          Sunucuda elle değiştirilen/silinen dosyaları bul (drift);
                             --fix sonraki sync'te yeniden yüklenmelerini sağlar
   detect-limit [--max N]  Sunucunun eş zamanlı bağlantı limitini ölçer, max_connections'a yazar
+  exec <komut>            Bağlı SFTP sunucusunda SSH ile komut çalıştır (örn. php artisan migrate)
 
 Sunucu yönetimi:
   servers                 Sunucu listesi
@@ -623,6 +624,7 @@ Diğer:
 	GuiBusyFmt:           "%s üzerinde zaten çalışan bir iş var (%s)",
 	GuiPathRequired:      "klasör yolu gerekli",
 	GuiDirNotFoundFmt:    "klasör bulunamadı: %s",
+	GuiOutsideBaseFmt:    "%s, panelin açıldığı klasörün (%s) dışında — o klasördeki syncftp ile yönetin",
 	GuiValConnName:       "her bağlantı profilinin bir adı olmalı",
 	GuiValDupFmt:         "ad iki kez kullanılmış: %s",
 	GuiValServerName:     "her sunucunun bir adı olmalı",
@@ -641,4 +643,92 @@ Diğer:
 	GuiNoMilestoneFmt:    "%s için milestone yok",
 	GuiJobNotCancelable:  "bu iş iptal edilemez",
 	GuiWatchRunning:      "bu projede watch zaten çalışıyor",
+
+	// Tray / CI-CD deploy
+	TrayOpen:             "Paneli aç",
+	TrayIdle:             "Boşta",
+	TrayStatusFmt:        "%d iş · %d watch",
+	TrayWatchesHeader:    "Aktif watch'lar (tıkla → durdur)",
+	TrayStopWatchFmt:     "%s  (%s)",
+	TrayAutostart:        "Windows açılışında başlat",
+	TrayQuit:             "Çıkış",
+	TrayHookTunnel:       "webhook tüneli açık",
+	GuiJobDeploy:         "Deploy",
+	GuiJobInstall:        "cloudflared kurulumu",
+	DeployStartFmt:       "══ deploy %s / %s ══  %s\n",
+	DeployGitPull:        "  git pull --ff-only\n",
+	DeployGitPullErrFmt:  "  ✗ git pull başarısız: %v — deploy iptal\n",
+	DeploySrvErrFmt:      "  ✗ %s: %v\n",
+	DeployDone:           "  ✓ deploy tamamlandı\n",
+	DeployQueuedRun:      "\n  ↻ deploy sırasında yeni push geldi — tekrar çalışıyor\n",
+	DeployNoCloudflared:  "cloudflared bulunamadı — panelden (CI/CD sekmesi) kurun ya da PATH'e ekleyin",
+	DeployDownloadingFmt: "  indiriliyor: %s\n",
+	DeployInstalledFmt:   "  ✓ kuruldu: %s (%s)\n",
+	DeployNoTriggers:     "  Deploy tetikleyicisi yok. Panelden (CI/CD sekmesi) ya da syncftp.json'daki \"deploy\" dizisinden ekleyin.\n",
+	DeployListeningFmt:   "syncFTP webhook dinleyicisi → %s\n",
+	DeployTunnelFmt:      "Public URL (trycloudflare) → %s\n",
+	DeployCtrlC:          "\nWebhook bekleniyor — durdurmak için Ctrl+C.\n",
+	WebhookTestFmt:       "syncFTP test bildirimi (%s)",
+
+	// GUI 2.1
+	GuiJobDiff: "Sunucuları karşılaştır",
+
+	// SSH uzak komutlar
+	RemoteHookSkipFmt: "  ! [%s] uzak komutlar atlandı — yalnızca SFTP (SSH) sunucularında çalışır\n",
+	RemoteHookRunFmt:  "  ⚙ ssh $ %s\n",
+	ShellExecUsage:    "  Kullanım: exec <komut>  — bağlı SFTP sunucusunda (remote_path içinde) çalışır\n",
+	ShellExecNoSSH:    "  ! exec için SFTP (SSH) bağlantısı gerekir — bu sunucu FTP kullanıyor\n",
+	GuiJobExec:        "SSH komutu",
+	CfgFldRemotePre:   "Uzak pre_sync (SSH)",
+	CfgFldRemotePost:  "Uzak post_sync (SSH)",
+
+	// AI asistan (yalnızca GUI)
+	AIBusy:      "asistan hâlâ cevap veriyor — bekleyin ya da durdurun",
+	AINoChat:    "bu araç panel içi sohbeti desteklemiyor — terminalde açın",
+	AIDeniedFmt: "izin verilmedi: %s %s (yalnızca dosya düzenleme ve syncftp komutlarına izin var)",
+
+	// Tray menü
+	TrayProjects: "Projeler",
+	TrayJobs:     "İşler",
+
+	// Tray menü (owner-draw)
+	TrayStop:        "durdur",
+	TrayTunnelOpen:  "Webhook tünelini aç",
+	TrayTunnelClose: "Webhook tünelini kapat",
+	TrayTunnelCopy:  "Tünel adresini kopyala",
+	TrayTunnelNone:  "Tünel: cloudflared kurulu değil",
+	TrayHelp:        "Yardım",
+
+	// Tray tünel bildirimi
+	TrayTunnelStarting:  "Webhook tüneli açılıyor…",
+	TrayTunnelOpened:    "Webhook tüneli açıldı",
+	TrayTunnelOpenedFmt: "%s\nAdres panoya kopyalandı.",
+	TrayTunnelFailed:    "Webhook tüneli açılamadı",
+	TrayTunnelClosed:    "Webhook tüneli kapatıldı",
+
+	// Tray tünel durumu
+	TrayTunnelOnShort:       "tünel açık",
+	TrayTunnelStartingShort: "tünel açılıyor…",
+
+	// Global ayarlar / init / push
+	InitExistsFmt:         "burada zaten bir syncFTP projesi var: %s",
+	GlobalConnNotFoundFmt: "kayıtlı bağlantı bulunamadı: %q (syncftp global conn list)",
+	GlobalLoadWarnFmt:     "  ⚠ global ayarlar okunamadı: %v\n",
+	InitConnManual:        "Elle gir",
+	InitConnPickTitle:     "Bağlantı",
+	InitConnPickSub:       "Kayıtlı bir bağlantı seçin ya da elle girin",
+	InitUsingConnFmt:      "  ✓ Kayıtlı bağlantı: %s (%s@%s:%d)\n",
+	GlobalFileFmt:         "  Global ayarlar: %s\n",
+	GlobalDefaultsHeader:  "  Yeni proje varsayılanları",
+	GlobalSecretWarnFmt:   "\n  ⚠ Anahtarlıktan okunamayan şifreler: %s\n",
+	GlobalConnHeaderFmt:   "  Kayıtlı bağlantılar (%d)\n",
+	GlobalConnNone:        "    — yok (syncftp global conn add <ad> --host …)",
+	GlobalConnAddedFmt:    "  ✓ Bağlantı eklendi: %s\n",
+	GlobalConnUpdatedFmt:  "  ✓ Bağlantı güncellendi: %s\n",
+	GlobalConnRemovedFmt:  "  ✓ Bağlantı silindi: %s\n",
+	GlobalConnImportedFmt: "  ✓ %d bağlantı aktarıldı (%s)\n",
+	GlobalDefaultsFromFmt: "  ✓ Varsayılanlar %s projesinden alındı\n",
+	GlobalTemplateSetFmt:  "  ✓ Varsayılan ignore şablonu: %s\n",
+	GlobalDefaultsReset:   "  ✓ Varsayılanlar sıfırlandı",
+	PushFailedErrFmt:      "%d dosya yüklenemedi",
 }

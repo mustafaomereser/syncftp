@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"sort"
 
@@ -88,11 +89,27 @@ func runDiff(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	fmt.Printf(lang.L.DiffTitleFmt, srvA.Name, srvB.Name)
+	_, err = diffServers(os.Stdout, *srvA, *srvB)
+	return err
+}
 
-	listServer := func(srv *config.Server) (map[string]uint64, error) {
-		fmt.Printf(lang.L.DiffListingFmt, srv.Name)
-		client, err := ftpclient.Connect(*srv)
+type serverDiffReport struct {
+	A        string   `json:"a"`
+	B        string   `json:"b"`
+	OnlyA    []string `json:"only_a"`
+	OnlyB    []string `json:"only_b"`
+	SizeDiff []string `json:"size_diff"`
+	Same     int      `json:"same"`
+}
+
+// diffServers iki sunucunun uzak içeriğini karşılaştırır (CLI + GUI ortak çekirdek).
+func diffServers(w io.Writer, srvA, srvB config.Server) (serverDiffReport, error) {
+	rep := serverDiffReport{A: srvA.Name, B: srvB.Name, OnlyA: []string{}, OnlyB: []string{}, SizeDiff: []string{}}
+	fmt.Fprintf(w, lang.L.DiffTitleFmt, srvA.Name, srvB.Name)
+
+	listServer := func(srv config.Server) (map[string]uint64, error) {
+		fmt.Fprintf(w, lang.L.DiffListingFmt, srv.Name)
+		client, err := ftpclient.Connect(srv)
 		if err != nil {
 			return nil, err
 		}
@@ -102,56 +119,54 @@ func runDiff(cmd *cobra.Command, args []string) error {
 
 	filesA, err := listServer(srvA)
 	if err != nil {
-		return err
+		return rep, err
 	}
 	filesB, err := listServer(srvB)
 	if err != nil {
-		return err
+		return rep, err
 	}
 
-	var onlyA, onlyB, sizeDiff []string
-	same := 0
 	for p, sa := range filesA {
 		sb, ok := filesB[p]
 		switch {
 		case !ok:
-			onlyA = append(onlyA, p)
+			rep.OnlyA = append(rep.OnlyA, p)
 		case sa != sb:
-			sizeDiff = append(sizeDiff, p)
+			rep.SizeDiff = append(rep.SizeDiff, p)
 		default:
-			same++
+			rep.Same++
 		}
 	}
 	for p := range filesB {
 		if _, ok := filesA[p]; !ok {
-			onlyB = append(onlyB, p)
+			rep.OnlyB = append(rep.OnlyB, p)
 		}
 	}
-	sort.Strings(onlyA)
-	sort.Strings(onlyB)
-	sort.Strings(sizeDiff)
+	sort.Strings(rep.OnlyA)
+	sort.Strings(rep.OnlyB)
+	sort.Strings(rep.SizeDiff)
 
-	fmt.Println()
-	if len(onlyA) > 0 {
-		fmt.Printf(lang.L.DiffOnlyFmt, srvA.Name, len(onlyA))
-		for _, p := range onlyA {
-			fmt.Printf("    + %s\n", p)
+	fmt.Fprintln(w)
+	if len(rep.OnlyA) > 0 {
+		fmt.Fprintf(w, lang.L.DiffOnlyFmt, srvA.Name, len(rep.OnlyA))
+		for _, p := range rep.OnlyA {
+			fmt.Fprintf(w, "    + %s\n", p)
 		}
 	}
-	if len(onlyB) > 0 {
-		fmt.Printf(lang.L.DiffOnlyFmt, srvB.Name, len(onlyB))
-		for _, p := range onlyB {
-			fmt.Printf("    + %s\n", p)
+	if len(rep.OnlyB) > 0 {
+		fmt.Fprintf(w, lang.L.DiffOnlyFmt, srvB.Name, len(rep.OnlyB))
+		for _, p := range rep.OnlyB {
+			fmt.Fprintf(w, "    + %s\n", p)
 		}
 	}
-	if len(sizeDiff) > 0 {
-		fmt.Printf(lang.L.DiffSizeHeaderFmt, len(sizeDiff))
-		for _, p := range sizeDiff {
-			fmt.Printf(lang.L.DiffSizeLineFmt, p,
+	if len(rep.SizeDiff) > 0 {
+		fmt.Fprintf(w, lang.L.DiffSizeHeaderFmt, len(rep.SizeDiff))
+		for _, p := range rep.SizeDiff {
+			fmt.Fprintf(w, lang.L.DiffSizeLineFmt, p,
 				srvA.Name, humanBytes(int64(filesA[p])),
 				srvB.Name, humanBytes(int64(filesB[p])))
 		}
 	}
-	fmt.Printf(lang.L.DiffSameFmt, same)
-	return nil
+	fmt.Fprintf(w, lang.L.DiffSameFmt, rep.Same)
+	return rep, nil
 }

@@ -169,3 +169,22 @@ func (sh *shellState) cmdDetectLimit(args []string) {
 		fmt.Print(lang.L.DetectSaved)
 	}
 }
+
+// cmdExec — exec <komut>: bağlı SFTP sunucusunda SSH ile komut çalıştırır.
+func (sh *shellState) cmdExec(args []string) {
+	if sh.client == nil || sh.srv == nil {
+		fmt.Println(lang.L.ShellNotConnected)
+		return
+	}
+	if len(args) == 0 {
+		fmt.Print(lang.L.ShellExecUsage)
+		return
+	}
+	if !sh.client.CanExec() {
+		fmt.Print(lang.L.ShellExecNoSSH)
+		return
+	}
+	if err := sh.client.Exec(strings.Join(args, " "), nil, os.Stdout); err != nil {
+		fmt.Printf(lang.L.ShellErrFmt, err)
+	}
+}

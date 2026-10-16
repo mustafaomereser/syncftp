@@ -26,6 +26,23 @@ type Connection struct {
 	SSHTunnel
 }
 
+// Deploy — gelen webhook (GitHub/GitLab/Gitea/Bitbucket push ya da genel istek) ile
+// tetiklenen deploy. URL: <public>/hook/<proje>/<name>. İsteğe bağlı önce `git pull`,
+// sonra seçili sunuculara normal sync (yedek/rollback dahil).
+type Deploy struct {
+	Name     string   `json:"name"`               // URL'deki ad (benzersiz)
+	Provider string   `json:"provider"`           // github | gitlab | gitea | bitbucket | generic
+	Secret   string   `json:"secret"`             // imza/token doğrulama anahtarı
+	Branch   string   `json:"branch,omitempty"`   // boş = her branch
+	Servers  []string `json:"servers,omitempty"`  // boş = tüm aktif sunucular
+	GitPull  bool     `json:"git_pull,omitempty"` // sync öncesi `git pull --ff-only`
+	DryRun   bool     `json:"dry_run,omitempty"`  // yalnızca neyin yükleneceğini göster
+	Enabled  bool     `json:"enabled"`
+}
+
+// DeployProviders geçerli sağlayıcılar.
+var DeployProviders = []string{"github", "gitlab", "gitea", "bitbucket", "generic"}
+
 // SSHTunnel — bağlantının üzerinden geçeceği SSH atlama sunucusu (jump host).
 // TunnelHost boşsa tünel kullanılmaz. FTP'de kontrol + veri bağlantıları,
 // SFTP'de SSH bağlantısının kendisi bu sunucu üzerinden açılır.
@@ -46,6 +63,7 @@ type Config struct {
 	FirstSync   FirstSync    `json:"first_sync"`
 	Connections []Connection `json:"connections,omitempty"`
 	Servers     []Server     `json:"servers"`
+	Deploy      []Deploy     `json:"deploy,omitempty"` // CI/CD: gelen webhook ile tetiklenen deploy'lar
 
 	// SecretErrors anahtarlıktan okunamayan kayıtlar (Load doldurur, JSON'a yazılmaz).
 	SecretErrors []string `json:"-"`
@@ -116,6 +134,8 @@ type Server struct {
 	KeyFile         string   `json:"key_file,omitempty"`         // SFTP özel anahtar dosyası
 	TLSSkipVerify   bool     `json:"tls_skip_verify,omitempty"`  // FTPS: sertifika doğrulamasını atla
 	BandwidthLimit  int      `json:"bandwidth_limit,omitempty"`  // KB/s upload hız sınırı (0 = global değer)
+	RemotePreSync   []string `json:"remote_pre_sync,omitempty"`  // SFTP: upload öncesi SUNUCUDA (SSH) çalışacak komutlar; hata → sync iptal
+	RemotePostSync  []string `json:"remote_post_sync,omitempty"` // SFTP: upload sonrası SUNUCUDA çalışacak komutlar (migrate, cache clear, restart…)
 	NoBackup        bool     `json:"no_backup,omitempty"`        // true → bu sunucuda upload öncesi yedek alınmaz
 	DirectUpload    bool     `json:"direct_upload,omitempty"`    // true → atomik upload kapalı (rename desteklemeyen sunucular)
 	SSHTunnel

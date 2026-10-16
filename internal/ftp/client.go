@@ -138,6 +138,39 @@ func (c *Client) Ping() error {
 	return c.conn.NoOp()
 }
 
+// CanExec bağlantı SSH tabanlı mı (uzak komut çalıştırılabilir).
+func (c *Client) CanExec() bool { return c.sshConn != nil }
+
+// Exec SSH üzerinden uzak dizinde (RemotePath) komut çalıştırır; stdout+stderr w'ye akar.
+// env değişkenleri komutun önüne export olarak eklenir (sshd AcceptEnv gerektirmez).
+// Yalnızca SFTP sunucularında kullanılabilir (FTP'de SSH yok).
+func (c *Client) Exec(command string, env map[string]string, w io.Writer) error {
+	if c.sshConn == nil {
+		return fmt.Errorf("uzak komut yalnızca SFTP (SSH) sunucularında çalışır")
+	}
+	sess, err := c.sshConn.NewSession()
+	if err != nil {
+		return fmt.Errorf("SSH oturumu açılamadı: %w", err)
+	}
+	defer sess.Close()
+	sess.Stdout = w
+	sess.Stderr = w
+	var b strings.Builder
+	for k, v := range env {
+		fmt.Fprintf(&b, "export %s=%s; ", k, shellQuote(v))
+	}
+	if c.server.RemotePath != "" {
+		fmt.Fprintf(&b, "cd %s && ", shellQuote(c.server.RemotePath))
+	}
+	b.WriteString(command)
+	return sess.Run(b.String())
+}
+
+// shellQuote POSIX sh için tek tırnaklı güvenli değer.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
 // Close gracefully disconnects from the server.
 func (c *Client) Close() {
 	c.mu.Lock()
@@ -393,6 +426,23 @@ func (c *crlfNormalizer) Read(p []byte) (int, error) {
 		c.out = dst[written:]
 	}
 	return written, err
+}
+
+// MakeDirAll uzak dizini (ara dizinlerle birlikte) oluşturur.
+func (c *Client) MakeDirAll(remotePath string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.mkdirAllLocked(remotePath)
+}
+
+// UploadTo yerel dosyayı mutlak uzak yola yükler (GUI dosya tarayıcısı; RemotePath dışı yollar için).
+func (c *Client) UploadTo(localPath, remoteFull string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if err := c.mkdirAllLocked(path.Dir(remoteFull)); err != nil {
+		return err
+	}
+	return c.storLocked(localPath, path.Base(remoteFull), remoteFull)
 }
 
 // mkdirAllLocked — mu alınmış durumda çağrılmalı.

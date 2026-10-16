@@ -38,7 +38,6 @@ func (sv *guiServer) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/presence", sv.apiPresence)
 	mux.HandleFunc("GET /api/meta", sv.apiMeta)
 	mux.HandleFunc("PUT /api/lang", sv.apiLang)
-	mux.HandleFunc("POST /api/pick-folder", sv.apiPickFolder)
 	mux.HandleFunc("POST /api/quit", func(w http.ResponseWriter, r *http.Request) {
 		guiJSON(w, true)
 		go func() { time.Sleep(300 * time.Millisecond); sv.shutdown() }()
@@ -83,6 +82,8 @@ func (sv *guiServer) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/jobs", func(w http.ResponseWriter, r *http.Request) {
 		guiJSON(w, sv.jobs.list(r.URL.Query().Get("project")))
 	})
+	sv.routesMore(mux)
+	sv.routesAI(mux)
 	mux.HandleFunc("GET /api/jobs/{id}", sv.apiJobGet)
 	mux.HandleFunc("GET /api/jobs/{id}/stream", sv.apiJobStream)
 	mux.HandleFunc("DELETE /api/jobs/{id}", sv.apiJobCancel)
@@ -121,9 +122,19 @@ func (sv *guiServer) apiPresence(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, ": hello\n\n")
 	fl.Flush()
 	sv.clients.Add(1)
+	nav := make(chan string, 4)
+	sv.navMu.Lock()
+	if sv.navSubs == nil {
+		sv.navSubs = map[chan string]struct{}{}
+	}
+	sv.navSubs[nav] = struct{}{}
+	sv.navMu.Unlock()
 	defer func() {
 		sv.clients.Add(-1)
 		sv.lastSeen.Store(time.Now().UnixNano())
+		sv.navMu.Lock()
+		delete(sv.navSubs, nav)
+		sv.navMu.Unlock()
 	}()
 	t := time.NewTicker(20 * time.Second)
 	defer t.Stop()
@@ -135,6 +146,9 @@ func (sv *guiServer) apiPresence(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprint(w, "event: bye\ndata: quit\n\n")
 			fl.Flush()
 			return
+		case h := <-nav:
+			fmt.Fprintf(w, "event: navigate\ndata: %s\n\n", h)
+			fl.Flush()
 		case <-t.C:
 			fmt.Fprint(w, ": ping\n\n")
 			fl.Flush()
@@ -153,6 +167,8 @@ func (sv *guiServer) apiMeta(w http.ResponseWriter, r *http.Request) {
 		"home":        home,
 		"known_hosts": ftpclient.KnownHostsPath(),
 		"registry":    projects.Path(),
+		"start_dir":   sv.startDir,
+		"base":        projects.Base(),
 	})
 }
 
@@ -167,19 +183,6 @@ func (sv *guiServer) apiLang(w http.ResponseWriter, r *http.Request) {
 	lang.Set(req.Lang)
 	saveGUILang(req.Lang)
 	guiJSON(w, req.Lang)
-}
-
-func (sv *guiServer) apiPickFolder(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Initial string `json:"initial"`
-	}
-	_ = guiDecode(r, &req)
-	p, err := pickFolder(req.Initial)
-	if err != nil {
-		guiJSON(w, map[string]any{"path": ""})
-		return
-	}
-	guiJSON(w, map[string]any{"path": p})
 }
 
 // ── projeler ──────────────────────────────────────────────────────────────────
@@ -221,9 +224,13 @@ func (sv *guiServer) apiProjects(w http.ResponseWriter, r *http.Request) {
 // apiProjectAdd mevcut projeyi kaydeder; create=true ve config yoksa boş bir config oluşturur.
 func (sv *guiServer) apiProjectAdd(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Path   string `json:"path"`
-		Name   string `json:"name"`
-		Create bool   `json:"create"`
+		Path       string `json:"path"`
+		Name       string `json:"name"`
+		Create     bool   `json:"create"`
+		Template   string `json:"template"`   // "" → global varsayılan, "none" → yok
+		Connection string `json:"connection"` // kütüphaneden ilk sunucu (boş → sunucusuz)
+		Remote     string `json:"remote"`
+		ServerName string `json:"server_name"`
 	}
 	if err := guiDecode(r, &req); err != nil || strings.TrimSpace(req.Path) == "" {
 		guiErr(w, 400, errors.New(lang.L.GuiPathRequired))
@@ -234,21 +241,32 @@ func (sv *guiServer) apiProjectAdd(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 400, fmt.Errorf(lang.L.GuiDirNotFoundFmt, dir))
 		return
 	}
+	if !projects.InBase(dir) {
+		guiErr(w, 400, fmt.Errorf(lang.L.GuiOutsideBaseFmt, dir, projects.Base()))
+		return
+	}
 	if !projects.HasConfig(dir) {
 		if !req.Create {
 			guiJSON(w, map[string]any{"needs_create": true, "path": dir})
 			return
 		}
-		name := req.Name
-		if name == "" {
-			name = filepath.Base(dir)
+		var srv *config.Server
+		if req.Connection != "" {
+			lib, _ := config.LoadLibrary()
+			c, ok := lib.FindConnection(req.Connection)
+			if !ok {
+				guiErr(w, 400, fmt.Errorf(lang.L.GlobalConnNotFoundFmt, req.Connection))
+				return
+			}
+			s := lib.Defaults.NewServer(orDefault(strings.TrimSpace(req.ServerName), "production"))
+			s.ApplyConnection(c)
+			s.RemotePath = orDefault(strings.TrimSpace(req.Remote), "/")
+			srv = &s
 		}
-		cfg := &config.Config{Project: config.Project{Name: name, DefaultPath: "."}, Servers: []config.Server{}}
-		if err := config.Save(dir, cfg); err != nil {
+		if _, _, err := createProject(io.Discard, dir, newProjectOpts{Name: req.Name, Template: req.Template, Server: srv}); err != nil {
 			guiErr(w, 500, err)
 			return
 		}
-		addToIgnoreFile(dir)
 	}
 	p, err := projects.Add(dir, req.Name)
 	if err != nil {
@@ -266,10 +284,23 @@ func (sv *guiServer) apiProjectRename(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 400, errors.New("name"))
 		return
 	}
-	if err := projects.Rename(r.PathValue("p"), strings.TrimSpace(req.Name)); err != nil {
-		guiErr(w, 404, err)
+	// Klasör modu: görünen ad config'teki project.name
+	p, ok := projects.Find(r.PathValue("p"))
+	if !ok {
+		guiErr(w, 404, errors.New("project"))
 		return
 	}
+	cfg, err := config.Load(p.Path)
+	if err != nil {
+		guiErr(w, 400, err)
+		return
+	}
+	cfg.Project.Name = strings.TrimSpace(req.Name)
+	if err := config.Save(p.Path, cfg); err != nil {
+		guiErr(w, 500, err)
+		return
+	}
+	projects.Invalidate()
 	guiJSON(w, true)
 }
 
@@ -678,6 +709,9 @@ type guiJobReq struct {
 	Release     string   `json:"release"`
 	Fix         bool     `json:"fix"`
 	Max         int      `json:"max"`
+	Command     string   `json:"command"`
+	Include     []string `json:"include"` // tek seferlik (CLI sync --include gibi; config'teki include'u geçersiz kılar)
+	Exclude     []string `json:"exclude"` // tek seferlik (CLI sync --exclude gibi; ek)
 }
 
 func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
@@ -808,6 +842,31 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 			}
 			return out, nil
 		}))
+	case "exec":
+		srv := servers[0]
+		command := strings.TrimSpace(req.Command)
+		if command == "" {
+			guiErr(w, 400, errors.New("command"))
+			return
+		}
+		add(sv.jobs.start("exec", p.Name, srv.Name, lang.L.GuiJobExec, "", func(j *job) (any, error) {
+			c, err := ftpclient.Connect(srv)
+			if err != nil {
+				return nil, err
+			}
+			defer c.Close()
+			fmt.Fprintf(j, "$ %s\n", command)
+			return nil, c.Exec(command, nil, j)
+		}))
+	case "diff":
+		if len(servers) != 2 {
+			guiErr(w, 400, errors.New(strings.TrimSpace(lang.L.DiffNeedTwo)))
+			return
+		}
+		a, b := servers[0], servers[1]
+		add(sv.jobs.start("diff", p.Name, a.Name+" ↔ "+b.Name, lang.L.GuiJobDiff, "", func(j *job) (any, error) {
+			return diffServers(j, a, b)
+		}))
 	default:
 		guiErr(w, 400, fmt.Errorf("kind: %s", req.Kind))
 		return
@@ -845,7 +904,7 @@ func guiRunSync(j *job, dir string, srv config.Server, req guiJobReq) (any, erro
 		}
 		since = &ms.Date
 	}
-	r := syncToServerOpts(out, dir, cfg, srv, current, byKey, nil, nil, since,
+	r := syncToServerOpts(out, dir, cfg, srv, current, byKey, req.Include, req.Exclude, since,
 		syncOpts{full: req.Full, dryRun: req.DryRun, retryFailed: req.RetryFailed})
 	if !req.DryRun && (r.uploaded > 0 || r.failed > 0) {
 		if p, err := synclog.Save(dir, srv.Name, buf.String()); err == nil {
@@ -1201,38 +1260,57 @@ func (sv *guiServer) apiWatchGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (sv *guiServer) apiWatchStart(w http.ResponseWriter, r *http.Request) {
-	p, cfg, err := sv.project(r)
-	if err != nil {
-		guiErr(w, 404, err)
-		return
-	}
-	if sv.watches.get(p.Name) != nil {
-		guiErr(w, 409, errors.New(lang.L.GuiWatchRunning))
-		return
-	}
 	var req struct {
 		Servers []string `json:"servers"`
 	}
 	_ = guiDecode(r, &req)
+	gw, err := sv.startWatch(r.PathValue("p"), req.Servers)
+	if err != nil {
+		guiErr(w, 400, err)
+		return
+	}
+	sv.persistWatches()
+	guiJSON(w, gw)
+}
+
+func (sv *guiServer) apiWatchStop(w http.ResponseWriter, r *http.Request) {
+	ok := sv.watches.stop(r.PathValue("p"))
+	sv.persistWatches()
+	guiJSON(w, ok)
+}
+
+// startWatch projede arka plan watch'ı başlatır (panel, tray ve açılışta geri yükleme ortak).
+// servers boşsa tüm aktif sunucular izlenir.
+func (sv *guiServer) startWatch(project string, serverNames []string) (*guiWatch, error) {
+	p, ok := projects.Find(project)
+	if !ok {
+		return nil, fmt.Errorf(lang.L.ProjectNotFoundFmt, project)
+	}
+	cfg, err := config.Load(p.Path)
+	if err != nil {
+		return nil, err
+	}
+	if sv.watches.get(p.Name) != nil {
+		return nil, errors.New(lang.L.GuiWatchRunning)
+	}
 	var servers []config.Server
-	if len(req.Servers) == 0 {
+	if len(serverNames) == 0 {
 		servers = cfg.EnabledServers()
 	} else {
-		for _, n := range req.Servers {
+		for _, n := range serverNames {
 			if s, ok := findServer(cfg, n); ok {
 				servers = append(servers, s)
 			}
 		}
 	}
 	if len(servers) == 0 {
-		guiErr(w, 400, errors.New(lang.L.ShellNoServers))
-		return
+		return nil, errors.New(lang.L.ShellNoServers)
 	}
 	names := make([]string, len(servers))
 	for i, s := range servers {
 		names[i] = s.Name
 	}
-	gw := &guiWatch{Project: p.Name, Servers: names, Started: time.Now(), stop: make(chan struct{})}
+	gw := &guiWatch{Project: p.Name, Servers: names, Started: time.Now(), stop: make(chan struct{}), explicit: len(serverNames) > 0}
 	j, err := sv.jobs.start("watch", p.Name, strings.Join(names, ", "), lang.L.GuiJobWatch, "", func(j *job) (any, error) {
 		return nil, watchLoop(p.Path, cfg, servers, j, gw.stop, func(res serverSyncResult) {
 			sv.watches.mu.Lock()
@@ -1242,19 +1320,14 @@ func (sv *guiServer) apiWatchStart(w http.ResponseWriter, r *http.Request) {
 		})
 	})
 	if err != nil {
-		guiErr(w, 500, err)
-		return
+		return nil, err
 	}
-	j.cancel = func() { sv.watches.stop(p.Name) }
+	j.cancel = func() { sv.watches.stop(p.Name); sv.persistWatches() }
 	gw.JobID = j.ID
 	sv.watches.mu.Lock()
 	sv.watches.m[p.Name] = gw
 	sv.watches.mu.Unlock()
-	guiJSON(w, gw)
-}
-
-func (sv *guiServer) apiWatchStop(w http.ResponseWriter, r *http.Request) {
-	guiJSON(w, sv.watches.stop(r.PathValue("p")))
+	return gw, nil
 }
 
 func mustJSON(v any) string {

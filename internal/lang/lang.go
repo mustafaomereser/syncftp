@@ -565,6 +565,7 @@ type StringSet struct {
 	GuiBusyFmt           string // "%s üzerinde zaten çalışan bir iş var (%s)"
 	GuiPathRequired      string // "klasör yolu gerekli"
 	GuiDirNotFoundFmt    string // "klasör bulunamadı: %s"
+	GuiOutsideBaseFmt    string // "%s panelin açıldığı klasörün (%s) dışında"
 	GuiValConnName       string // "her bağlantı profilinin bir adı olmalı"
 	GuiValDupFmt         string // "ad iki kez kullanılmış: %s"
 	GuiValServerName     string // "her sunucunun bir adı olmalı"
@@ -583,6 +584,94 @@ type StringSet struct {
 	GuiNoMilestoneFmt    string // "%s için milestone yok"
 	GuiJobNotCancelable  string // "bu iş iptal edilemez"
 	GuiWatchRunning      string // "bu projede watch zaten çalışıyor"
+
+	// ── Tray / CI-CD deploy ─────────────────────────────────────────
+	TrayOpen             string // "Paneli aç"
+	TrayIdle             string // "Boşta"
+	TrayStatusFmt        string // "%d iş · %d watch"
+	TrayWatchesHeader    string // "Aktif watch'lar (tıkla → durdur)"
+	TrayStopWatchFmt     string // "■  %s  (%s)"
+	TrayAutostart        string // "Windows açılışında başlat"
+	TrayQuit             string // "syncFTP'den çık"
+	TrayHookTunnel       string // "webhook tüneli açık"
+	GuiJobDeploy         string // "Deploy"
+	GuiJobInstall        string // "cloudflared kurulumu"
+	DeployStartFmt       string // "══ deploy %s / %s ══  %s\n"
+	DeployGitPull        string // "  git pull --ff-only\n"
+	DeployGitPullErrFmt  string // "  ✗ git pull başarısız: %v — deploy iptal\n"
+	DeploySrvErrFmt      string // "  ✗ %s: %v\n"
+	DeployDone           string // "  ✓ deploy tamamlandı\n"
+	DeployQueuedRun      string // "\n  ↻ deploy sırasında yeni push geldi — tekrar çalışıyor\n"
+	DeployNoCloudflared  string // "cloudflared bulunamadı — panelden (CI/CD sekmesi) kurun ya da PATH'e ekleyin"
+	DeployDownloadingFmt string // "  indiriliyor: %s\n"
+	DeployInstalledFmt   string // "  ✓ kuruldu: %s (%s)\n"
+	DeployNoTriggers     string // "  Deploy tetikleyicisi yok. Panelden (CI/CD sekmesi) ya da syncftp.json'daki \"deploy\" dizisinden ekleyin.\n"
+	DeployListeningFmt   string // "syncFTP webhook dinleyicisi → %s\n"
+	DeployTunnelFmt      string // "Public URL (trycloudflare) → %s\n"
+	DeployCtrlC          string // "\nWebhook bekleniyor — durdurmak için Ctrl+C.\n"
+	WebhookTestFmt       string // "syncFTP test bildirimi (%s)"
+
+	// ── GUI 2.1 ─────────────────────────────────────────────────────
+	GuiJobDiff string // "Sunucuları karşılaştır"
+
+	// ── SSH uzak komutlar ───────────────────────────────────────────
+	RemoteHookSkipFmt string // "  ! [%s] uzak komutlar atlandı — yalnızca SFTP (SSH) sunucularında çalışır\n"
+	RemoteHookRunFmt  string // "  ⚙ ssh $ %s\n"
+	ShellExecUsage    string // "  Kullanım: exec <komut>  — bağlı SFTP sunucusunda (remote_path içinde) çalışır\n"
+	ShellExecNoSSH    string // "  ! exec için SFTP (SSH) bağlantısı gerekir — bu sunucu FTP kullanıyor\n"
+	GuiJobExec        string // "SSH komutu"
+	CfgFldRemotePre   string // "Uzak pre_sync (SSH)"
+	CfgFldRemotePost  string // "Uzak post_sync (SSH)"
+
+	// ── AI asistan (yalnızca GUI) ───────────────────────────────────
+	AIBusy      string // "asistan hâlâ cevap veriyor — bekleyin ya da durdurun"
+	AINoChat    string // "bu araç panel içi sohbeti desteklemiyor — terminalde açın"
+	AIDeniedFmt string // "izin verilmedi: %s %s (yalnızca dosya düzenleme ve syncftp komutlarına izin var)"
+
+	// ── Tray menü ───────────────────────────────────────────────────
+	TrayProjects string // "Projeler"
+	TrayJobs     string // "İşler"
+
+	// ── Tray menü (owner-draw) ──────────────────────────────────────
+	TrayStop        string // "durdur"
+	TrayTunnelOpen  string // "Webhook tünelini aç"
+	TrayTunnelClose string // "Webhook tünelini kapat"
+	TrayTunnelCopy  string // "Tünel adresini kopyala"
+	TrayTunnelNone  string // "Tünel: cloudflared kurulu değil"
+	TrayHelp        string // "Yardım"
+
+	// ── Tray tünel bildirimi ────────────────────────────────────────
+	TrayTunnelStarting  string // "Webhook tüneli açılıyor…"
+	TrayTunnelOpened    string // "Webhook tüneli açıldı"
+	TrayTunnelOpenedFmt string // "%s\nAdres panoya kopyalandı."
+	TrayTunnelFailed    string // "Webhook tüneli açılamadı"
+	TrayTunnelClosed    string // "Webhook tüneli kapatıldı"
+
+	// ── Tray tünel durumu ───────────────────────────────────────────
+	TrayTunnelOnShort       string // "tünel açık"
+	TrayTunnelStartingShort string // "tünel açılıyor…"
+
+	// ── Global ayarlar / init / push ────────────────────────────────
+	InitExistsFmt         string // "burada zaten bir syncFTP projesi var: %s"
+	GlobalConnNotFoundFmt string // "kayıtlı bağlantı bulunamadı: %q (syncftp global conn list)"
+	GlobalLoadWarnFmt     string // "  ⚠ global ayarlar okunamadı: %v\n"
+	InitConnManual        string // "Elle gir"
+	InitConnPickTitle     string // "Bağlantı"
+	InitConnPickSub       string // "Kayıtlı bir bağlantı seçin ya da elle girin"
+	InitUsingConnFmt      string // "  ✓ Kayıtlı bağlantı: %s (%s@%s:%d)\n"
+	GlobalFileFmt         string // "  Global ayarlar: %s\n"
+	GlobalDefaultsHeader  string // "  Yeni proje varsayılanları"
+	GlobalSecretWarnFmt   string // "\n  ⚠ Anahtarlıktan okunamayan şifreler: %s\n"
+	GlobalConnHeaderFmt   string // "  Kayıtlı bağlantılar (%d)\n"
+	GlobalConnNone        string // "    — yok (syncftp global conn add <ad> --host …)"
+	GlobalConnAddedFmt    string // "  ✓ Bağlantı eklendi: %s\n"
+	GlobalConnUpdatedFmt  string // "  ✓ Bağlantı güncellendi: %s\n"
+	GlobalConnRemovedFmt  string // "  ✓ Bağlantı silindi: %s\n"
+	GlobalConnImportedFmt string // "  ✓ %d bağlantı aktarıldı (%s)\n"
+	GlobalDefaultsFromFmt string // "  ✓ Varsayılanlar %s projesinden alındı\n"
+	GlobalTemplateSetFmt  string // "  ✓ Varsayılan ignore şablonu: %s\n"
+	GlobalDefaultsReset   string // "  ✓ Varsayılanlar sıfırlandı"
+	PushFailedErrFmt      string // "%d dosya yüklenemedi"
 }
 
 // L is the active locale. Defaults to English.

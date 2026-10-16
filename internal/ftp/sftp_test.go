@@ -79,6 +79,21 @@ func serveSSHConn(nc net.Conn, cfg *ssh.ServerConfig, h sftp.Handlers) {
 			}
 			go func() {
 				for req := range creqs {
+					if req.Type == "exec" && len(req.Payload) > 4 {
+						// Test: komut metnini geri yansıt, "fail" içeriyorsa çıkış kodu 1
+						cmdline := string(req.Payload[4:])
+						req.Reply(true, nil)
+						io.WriteString(ch, "ran: "+cmdline+"\n")
+						status := uint32(0)
+						if strings.Contains(cmdline, "fail") {
+							status = 1
+						}
+						b := make([]byte, 4)
+						binary.BigEndian.PutUint32(b, status)
+						ch.SendRequest("exit-status", false, b)
+						ch.Close()
+						continue
+					}
 					ok := req.Type == "subsystem" && len(req.Payload) > 4 && string(req.Payload[4:]) == "sftp"
 					req.Reply(ok, nil)
 					if ok {
@@ -363,4 +378,32 @@ func TestHostSemaphoreSharedAcrossPools(t *testing.T) {
 		t.Fatal("slot should be free")
 	}
 	s1.release(2)
+}
+
+func TestSSHExec(t *testing.T) {
+	withTempKnownHosts(t)
+	host, port, stop := startTestSSH(t, "u", "p")
+	defer stop()
+	srv := config.Server{Protocol: "sftp", Host: host, Port: port, User: "u", Password: "p", RemotePath: "/var/www/it's"}
+	c, err := Connect(srv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	if !c.CanExec() {
+		t.Fatal("sftp client must support exec")
+	}
+	var out strings.Builder
+	if err := c.Exec("php artisan migrate --force", map[string]string{"SYNCFTP_SERVER": "prod"}, &out); err != nil {
+		t.Fatalf("exec: %v", err)
+	}
+	got := out.String()
+	for _, want := range []string{"export SYNCFTP_SERVER='prod'", `cd '/var/www/it'\''s'`, "php artisan migrate --force"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("command line %q missing %q", got, want)
+		}
+	}
+	if err := c.Exec("will fail", nil, &out); err == nil {
+		t.Fatal("non-zero exit status must return error")
+	}
 }
