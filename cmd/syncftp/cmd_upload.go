@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"io"
 	"path/filepath"
 
@@ -145,6 +146,9 @@ func printUploadResult(w io.Writer, r ftpclient.UploadResult) {
 // scanForServer sunucunun kendi yerel dizinini (local_path / default_path) tarar.
 func scanForServer(configDir string, cfg *config.Config, srv config.Server) (map[string]string, map[string]scanner.File, error) {
 	localDir := filepath.Join(configDir, srv.EffectiveLocalPath(cfg.Project))
+	if st, err := os.Stat(localDir); err != nil || !st.IsDir() {
+		return nil, nil, fmt.Errorf(lang.L.LocalDirMissingFmt, srv.EffectiveLocalPath(cfg.Project), localDir)
+	}
 	matcher, err := ignore.Load(localDir, cfg.Sync.IgnoreFiles)
 	if err != nil {
 		return nil, nil, err

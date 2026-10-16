@@ -10,7 +10,7 @@ const T = {
   tr: {
     brandSub: 'Dağıtım paneli', navAll: 'Tüm projeler', navJobs: 'İşler', navProjects: 'Projeler',
     addProject: 'Proje ekle', navNoProjects: 'Bu klasörde proje yok', watching: 'Watch', language: 'Dil', quit: 'Kapat',
-    loading: 'Yükleniyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
+    loading: 'Yükleniyor…', scanningLocal: 'Taranıyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
     edit: 'Düzenle', back: 'Geri', yes: 'Evet', confirm: 'Onayla', browse: 'Gözat', add: 'Ekle', open: 'Aç',
     saved: 'Kaydedildi', copied: 'Kopyalandı', never: 'hiç', none: 'yok', all: 'Tümü', manual: '(manuel giriş)',
     projectsTitle: 'Projeler', projectsSub: `{0} klasöründeki syncFTP projeleri (CLI gibi: panel açıldığı klasörü esas alır)`,
@@ -119,7 +119,7 @@ const T = {
   en: {
     brandSub: 'Deploy panel', navAll: 'All projects', navJobs: 'Jobs', navProjects: 'Projects',
     addProject: 'Add project', navNoProjects: 'No project in this folder', watching: 'Watch', language: 'Language', quit: 'Quit',
-    loading: 'Loading…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
+    loading: 'Loading…', scanningLocal: 'Scanning…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
     edit: 'Edit', back: 'Back', yes: 'Yes', confirm: 'Confirm', browse: 'Browse', add: 'Add', open: 'Open',
     saved: 'Saved', copied: 'Copied', never: 'never', none: 'none', all: 'All', manual: '(manual entry)',
     projectsTitle: 'Projects', projectsSub: `syncFTP projects in {0} (like the CLI: the panel works on the folder it was opened in)`,
@@ -303,8 +303,13 @@ function modal({ title, body, size = '', actions = [], onClose }) {
   root.innerHTML = `<div class="modal ${size}" role="dialog"><div class="modal-bas"><h3>${title}</h3>
     <button class="ikon-btn" data-x>${icon('x')}</button></div><div class="modal-ic">${body}</div>
     ${actions.length ? '<div class="modal-alt"></div>' : ''}</div>`;
-  const close = () => { root.remove(); document.removeEventListener('keydown', onKey); onClose && onClose(); };
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  const close = () => {
+    if (!S.modals.delete(close)) return; // iki kez kapanmasın
+    root.remove(); document.removeEventListener('keydown', onKey); onClose && onClose();
+  };
+  S.modals.add(close);
+  // Esc yalnızca en üstteki modalı kapatır
+  const onKey = (e) => { if (e.key === 'Escape' && $('#modal-kok').lastElementChild === root) close(); };
   document.addEventListener('keydown', onKey);
   root.addEventListener('mousedown', (e) => { if (e.target === root) close(); });
   $('[data-x]', root).onclick = close;
@@ -326,6 +331,23 @@ function modal({ title, body, size = '', actions = [], onClose }) {
   if (f) setTimeout(() => f.focus(), 30);
   return { root, close };
 }
+// loadModal: veri beklerken boş tıklama hissi olmasın — önce yükleniyor modalı açılır.
+// fetcher hata verirse modal kapanır ve hata gösterilir; kullanıcı beklerken kapattıysa null döner.
+async function loadModal(title, size, fetcher) {
+  const ph = modal({ title, size, body: `<div class="yukleniyor" style="padding:28px 0">${icon('refresh', 'spin')} ${t('loading')}</div>` });
+  try {
+    const d = await fetcher();
+    if (!ph.root.isConnected) return null;
+    // Yeni modal eklendikten SONRA (aynı görev içinde) kapatılır → arada boş kare çizilmez
+    queueMicrotask(() => ph.close());
+    return { d };
+  } catch (e) {
+    ph.close();
+    fail(e);
+    return null;
+  }
+}
+
 function confirmBox(title, text, okLabel = t('confirm'), danger = false) {
   return new Promise((res) => {
     let done = false;
@@ -364,7 +386,7 @@ function closeMenus() { $$('.menu').forEach((m) => m.remove()); }
 document.addEventListener('click', (e) => { if (!e.target.closest('.menu') && !e.target.closest('[data-menu]')) closeMenus(); });
 
 // ── durum ────────────────────────────────────────────────────────────────────
-const S = { meta: null, projects: [], jobs: new Map(), renderSeq: 0 };
+const S = { meta: null, projects: [], jobs: new Map(), renderSeq: 0, modals: new Set() };
 
 // ── iş (job) yönetimi ───────────────────────────────────────────────────────
 function trackJob(id, opts = {}) {
@@ -507,7 +529,18 @@ async function render(soft = false) {
   $$('.nav a').forEach((a) => a.classList.toggle('aktif',
     !!((a.dataset.nav === 'home' && r.page === 'home') || (a.dataset.nav === 'jobs' && r.page === 'jobs') || (a.dataset.nav === 'help' && r.page === 'help') || (a.dataset.nav === 'settings' && r.page === 'settings') || (a.dataset.nav === 'terminal' && r.page === 'terminal') || (a.dataset.proj && a.dataset.proj === r.project))));
   const root = $('#sayfa');
-  if (!soft) root.innerHTML = `<div class="yukleniyor">${icon('refresh', 'spin')} ${t('loading')}</div>`;
+  if (!soft) {
+    [...S.modals].forEach((c) => c());
+    const tabsEl = r.page === 'project' && root.dataset.proj === r.project ? $('.sayfa > .tabs', root) : null;
+    if (tabsEl) {
+      const activeTab = r.tab === 'server' ? 'servers' : r.tab === 'connection' ? 'connections' : r.tab;
+      $$('a', tabsEl).forEach((a) => a.classList.toggle('aktif', a.getAttribute('href') === pHash(r.project, activeTab)));
+      while (tabsEl.nextSibling) tabsEl.nextSibling.remove();
+      tabsEl.insertAdjacentHTML('afterend', `<div class="yukleniyor">${icon('refresh', 'spin')} ${t('loading')}</div>`);
+      const aks = $('#proj-aks', root);
+      if (aks) aks.innerHTML = '';
+    } else root.innerHTML = `<div class="yukleniyor">${icon('refresh', 'spin')} ${t('loading')}</div>`;
+  }
   try {
     let html;
     if (r.page === 'home') html = await pageHome();
@@ -518,6 +551,7 @@ async function render(soft = false) {
     else html = await pageProject(r);
     if (seq !== S.renderSeq) return;
     if (typeof html === 'string') root.innerHTML = html;
+    root.dataset.proj = r.page === 'project' ? r.project : '';
     if (root._bind) { const b = root._bind; root._bind = null; b(root); }
   } catch (e) {
     if (seq !== S.renderSeq) return;
@@ -651,10 +685,12 @@ async function pageProject(r) {
 
 // ── Genel bakış ──────────────────────────────────────────────────────────────
 async function tabOverview(proj) {
-  const ov = await GET(`/api/p/${enc(proj.name)}/overview`);
+  const ov = await GET(`/api/p/${enc(proj.name)}/overview?scan=0`);
   const servers = ov.servers || [];
+  servers.forEach((s) => { s.scanning = s.enabled; });
   const enabled = servers.filter((s) => s.enabled);
   const pending = enabled.reduce((a, s) => a + s.new + s.changed, 0);
+  const seq = S.renderSeq;
   const last = servers.map((s) => s.last_sync).filter(Boolean).sort().pop();
   const w = ov.watch;
 
@@ -685,6 +721,30 @@ async function tabOverview(proj) {
     ]);
     $$('[data-add-server]', root).forEach((b) => (b.onclick = () => go(pHash(P, 'server', 'new'))));
     $$('.kart[data-s]', root).forEach((card) => bindServerCard(card, P, servers.find((s) => s.name === card.dataset.s)));
+    // Yerel tarama sunucu başına arka planda; biten kart yerinde güncellenir
+    const sumPending = () => {
+      const el = $('#ov-pending', root);
+      if (!el) return;
+      const busy = enabled.some((s) => s.scanning);
+      const n = enabled.reduce((a, s) => a + (s.scan_error ? 0 : s.new + s.changed), 0);
+      el.className = n ? 'warn-t' : '';
+      el.innerHTML = busy && !n ? icon('refresh', 'spin') : String(n);
+    };
+    enabled.forEach((s) => {
+      GET(`/api/p/${enc(P)}/scan?server=${enc(s.name)}`).catch((e) => ({ scan_error: e.message })).then((info) => {
+        if (seq !== S.renderSeq) return;
+        Object.assign(s, info, { scanning: false });
+        const old = $(`.kart[data-s="${CSS.escape(s.name)}"]`, root);
+        if (!old || !document.body.contains(old)) return;
+        const tmp = document.createElement('div');
+        tmp.innerHTML = serverCard(s);
+        const card = tmp.firstElementChild;
+        old.replaceWith(card);
+        bindServerCard(card, P, s);
+        sumPending();
+      });
+    });
+    sumPending();
   });
 
   if (!servers.length) {
@@ -694,7 +754,7 @@ async function tabOverview(proj) {
   const secretWarn = (ov.secret_errors || []).length ? `<div class="kart" style="margin-bottom:12px"><div class="not bad">${icon('alert')}${t('secretErrors')}: ${esc(ov.secret_errors.join('; '))}</div></div>` : '';
   return `${secretWarn}<div class="ozet">
       <div class="kutu"><span>${icon('server')}${t('sumServers')}</span><b>${enabled.length}<small> / ${servers.length}</small></b></div>
-      <div class="kutu"><span>${icon('upload')}${t('sumPending')}</span><b class="${pending ? 'warn-t' : ''}">${pending}</b></div>
+      <div class="kutu"><span>${icon('upload')}${t('sumPending')}</span><b id="ov-pending" class="${pending ? 'warn-t' : ''}">${pending}</b></div>
       <div class="kutu"><span>${icon('clock')}${t('sumLastSync')}</span><b style="font-size:20px">${last ? ago(last) : t('never')}</b></div>
       <div class="kutu"><span>${icon('eye')}${t('sumWatch')}</span><b style="font-size:20px" class="${w ? 'acc-t' : ''}">${w ? t('watchOn') : t('watchOff')}</b>
         ${w ? `<span style="margin-top:2px">${t('watchSince', fmtDate(w.started).slice(11), w.syncs)}</span>` : ''}</div>
@@ -730,7 +790,8 @@ function serverCard(s) {
       <span class="menu-kap"><button class="ikon-btn" data-act="menu" data-menu>${icon('dots')}</button></span>
     </div>
     <div class="alt">
-      ${s.enabled && !s.scan_error ? (pend ? `<span class="degisim" data-act="status">${t('pendingChip', s.new, s.changed, s.deleted)}</span>` : `<span class="rozet ok-t">${icon('check')}${t('upToDate')}</span>`) : ''}
+      ${s.scanning ? `<span class="rozet">${icon('refresh', 'spin')}${t('scanningLocal')}</span>` : ''}
+      ${s.enabled && !s.scanning && !s.scan_error ? (pend ? `<span class="degisim" data-act="status">${t('pendingChip', s.new, s.changed, s.deleted)}</span>` : `<span class="rozet ok-t">${icon('check')}${t('upToDate')}</span>`) : ''}
       ${s.files ? `<span class="rozet">${icon('file')}${t('filesTracked', s.files)}</span>` : ''}
       ${s.milestone ? `<button class="rozet" data-act="milestone">${icon('clock')}${esc(s.milestone)}</button>` : ''}
       ${s.frozen ? `<button class="rozet" data-act="freeze">${icon('snow')}${t('frozenN', s.frozen)}</button>` : ''}
@@ -775,8 +836,9 @@ function bindServerCard(card, P, s) {
 }
 
 async function statusModal(P, s) {
-  const st = await GET(`/api/p/${enc(P)}/status?server=${enc(s.name)}`).catch(fail);
-  if (!st) return;
+  const lm = await loadModal(t('statusTitle', esc(s.name)), 'orta', () => GET(`/api/p/${enc(P)}/status?server=${enc(s.name)}`));
+  if (!lm) return;
+  const st = lm.d;
   const list = (arr, mark, click) => arr.length ? `<div class="liste-kutu">${arr.map((x) => `<div ${click ? `class="tikla" data-diff="${esc(x)}"` : ''}>${mark} ${esc(x)}</div>`).join('')}</div>` : `<p class="faint">${t('emptyList')}</p>`;
   const tabs = [['new', t('newFiles'), st.new, '+'], ['changed', t('changedFiles'), st.changed, '~'], ['deleted', t('deletedFiles'), st.deleted, '−']];
   const first = Math.max(0, tabs.findIndex(([, , a]) => a.length)); // ilk dolu sekmede aç
@@ -830,8 +892,9 @@ const localStorageGet = (k) => { try { return localStorage.getItem(k); } catch {
 const localStorageSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* gizli mod */ } };
 
 async function failedModal(P, s) {
-  const files = await GET(`/api/p/${enc(P)}/failed?server=${enc(s.name)}`).catch(fail);
-  if (!files) return;
+  const lm = await loadModal(`${icon('alert')}${t('failedTitle', esc(s.name))}`, 'orta', () => GET(`/api/p/${enc(P)}/failed?server=${enc(s.name)}`));
+  if (!lm) return;
+  const files = lm.d || [];
   modal({
     title: `${icon('alert')}${t('failedTitle', esc(s.name))}`, size: 'orta',
     body: `<p>${t('failedBody')}</p><div class="liste-kutu">${files.map((f) => `<div class="bad-t">✗ ${esc(f)}</div>`).join('') || `<div class="faint">${t('emptyList')}</div>`}</div>`,
@@ -854,8 +917,9 @@ function compareServersModal(P, servers) {
 }
 
 async function freezeModal(P, s) {
-  const files = await GET(`/api/p/${enc(P)}/frozen?server=${enc(s.name)}`).catch(fail);
-  if (!files) return;
+  const lm = await loadModal(t('freezeTitle', esc(s.name)), 'orta', () => GET(`/api/p/${enc(P)}/frozen?server=${enc(s.name)}`));
+  if (!lm) return;
+  const files = lm.d || [];
   const proj = S.projects.find((x) => x.name === P) || {};
   const m = modal({
     title: t('freezeTitle', esc(s.name)), size: 'orta',
@@ -1460,12 +1524,15 @@ async function tabFiles(proj, srvName, relPath) {
     const refreshBar = () => {
       bar.hidden = !sel.size;
       $('[data-selcount]', bar).textContent = t('selectedN', sel.size);
-      if (allBox) allBox.checked = !!sel.size && sel.size === entries.length;
+      if (allBox) { const vis = $$('[data-entry]:not([hidden])', root).length; allBox.checked = !!sel.size && sel.size >= vis; allBox.indeterminate = !!sel.size && sel.size < vis; }
     };
     // Bağlantı hatası / boş klasörde tablo (ve "tümü" kutusu) çizilmez
     const allBox = $('#f-all', root);
-    if (allBox) allBox.onchange = (e) => {
-      $$('[data-entry] input[type=checkbox]', root).forEach((c) => { c.checked = e.target.checked; c.dispatchEvent(new Event('change')); });
+    if (allBox) allBox.onchange = () => {
+      // Değeri önce al: her satırın change'i refreshBar'ı tetikleyip allBox.checked'i ara değere çekiyor
+      const on = allBox.checked;
+      $$('[data-entry]:not([hidden]) input[type=checkbox]', root).forEach((c) => { c.checked = on; if (on) sel.add(full(c.closest('[data-entry]').dataset.entry)); else sel.delete(full(c.closest('[data-entry]').dataset.entry)); });
+      refreshBar();
     };
     $('[data-sel="clear"]', bar).onclick = () => { sel.clear(); $$('[data-entry] input[type=checkbox]', root).forEach((c) => (c.checked = false)); refreshBar(); };
     $('[data-sel="del"]', bar).onclick = () => removeItems(items());
@@ -1539,10 +1606,12 @@ function diffView(remote, local, name) {
 
 async function compareModal(P, srv, rel) {
   const q = `server=${enc(srv)}&path=${enc(rel)}`;
-  const [loc, rem] = await Promise.all([
+  const lm = await loadModal(`${icon('file')}<span class="mono" style="font-size:13px">${esc(rel)}</span>`, 'genis', () => Promise.all([
     GET(`/api/p/${enc(P)}/local/cat?${q}`).catch(() => ({ exists: false })),
     GET(`/api/p/${enc(P)}/remote/cat?${q}`).then((d) => ({ exists: true, ...d })).catch(() => ({ exists: false })),
-  ]);
+  ]));
+  if (!lm) return;
+  const [loc, rem] = lm.d;
   const binary = loc.binary || rem.binary;
   let views = {}, summary = '';
   if (binary) {
@@ -1574,8 +1643,9 @@ async function compareModal(P, srv, rel) {
 }
 
 async function previewFile(P, srv, p) {
-  const d = await GET(`/api/p/${enc(P)}/remote/cat?server=${enc(srv)}&path=${enc(p)}`).catch(fail);
-  if (!d) return;
+  const lm = await loadModal(`${icon('file')}<span class="mono" style="font-size:13px">${esc(p)}</span>`, 'genis', () => GET(`/api/p/${enc(P)}/remote/cat?server=${enc(srv)}&path=${enc(p)}`));
+  if (!lm) return;
+  const d = lm.d;
   modal({
     title: `${icon('file')}<span class="mono" style="font-size:13px">${esc(p)}</span>`, size: 'genis',
     body: d.binary ? `<div class="bos">${t('binaryFile')}</div>` : codeView(d.content, p),
@@ -1597,8 +1667,9 @@ async function tabHistory(proj, srvFilter) {
     $$('[data-rel]', root).forEach((b) => (b.onclick = () => releaseDetail(P, b.dataset.srv, b.dataset.rel)));
     $$('[data-undo]', root).forEach((b) => (b.onclick = () => rollbackFlow(P, b.dataset.srv, b.dataset.undo)));
     $$('[data-log]', root).forEach((tr) => (tr.onclick = async () => {
-      const txt = await GET(`/api/p/${enc(P)}/logs/${enc(tr.dataset.srv)}/${enc(tr.dataset.log)}`).catch(fail);
-      if (txt == null) return;
+      const lm = await loadModal(`${icon('log')}<span class="mono" style="font-size:13px">${esc(tr.dataset.srv)} / ${esc(tr.dataset.log)}</span>`, 'genis', () => GET(`/api/p/${enc(P)}/logs/${enc(tr.dataset.srv)}/${enc(tr.dataset.log)}`));
+      if (!lm || lm.d == null) return;
+      const txt = lm.d;
       modal({ title: `${icon('log')}<span class="mono" style="font-size:13px">${esc(tr.dataset.srv)} / ${esc(tr.dataset.log)}</span>`, size: 'genis',
         body: `<div class="log">${txt.split('\n').map(logLine).join('')}</div>`, actions: [{ label: t('close'), cls: 'birincil' }] });
     }));

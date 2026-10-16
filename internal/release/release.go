@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"sync"
 	"time"
 )
 
@@ -96,7 +97,22 @@ func Write(configDir, serverName, id string, m *Manifest) (string, error) {
 
 // Load tek bir release manifest'ini okur.
 func Load(configDir, serverName, id string) (*Manifest, error) {
-	data, err := os.ReadFile(filepath.Join(Dir(configDir, serverName, id), "manifest.json"))
+	p := filepath.Join(Dir(configDir, serverName, id), "manifest.json")
+	st, err := os.Stat(p)
+	if err != nil {
+		return nil, err
+	}
+	// Binlerce release'i olan projelerde (panel her açılışta hepsini listeler) dosyayı yeniden
+	// okumamak için: boyut + mtime aynıysa önbellekteki kopya döner.
+	key := manifestKey{size: st.Size(), mod: st.ModTime().UnixNano()}
+	cacheMu.Lock()
+	if c, ok := cache[p]; ok && c.key == key {
+		cacheMu.Unlock()
+		m := *c.m
+		return &m, nil
+	}
+	cacheMu.Unlock()
+	data, err := os.ReadFile(p)
 	if err != nil {
 		return nil, err
 	}
@@ -107,8 +123,27 @@ func Load(configDir, serverName, id string) (*Manifest, error) {
 	if m.ID == "" {
 		m.ID = id
 	}
+	cp := m
+	cacheMu.Lock()
+	cache[p] = cachedManifest{key: key, m: &cp}
+	cacheMu.Unlock()
 	return &m, nil
 }
+
+type manifestKey struct {
+	size int64
+	mod  int64
+}
+
+type cachedManifest struct {
+	key manifestKey
+	m   *Manifest
+}
+
+var (
+	cacheMu sync.Mutex
+	cache   = map[string]cachedManifest{}
+)
 
 // List sunucunun release'lerini en yeniden eskiye döner.
 func List(configDir, serverName string) ([]*Manifest, error) {
@@ -119,12 +154,35 @@ func List(configDir, serverName string) ([]*Manifest, error) {
 	if err != nil {
 		return nil, err
 	}
-	var out []*Manifest
+	// Binlerce release'li sunucularda ilk (önbelleksiz) okuma paralel yapılır
+	var ids []string
 	for _, e := range entries {
-		if !e.IsDir() {
-			continue
+		if e.IsDir() {
+			ids = append(ids, e.Name())
 		}
-		if m, err := Load(configDir, serverName, e.Name()); err == nil {
+	}
+	res := make([]*Manifest, len(ids))
+	var wg sync.WaitGroup
+	next := make(chan int)
+	for w := 0; w < 8 && w < len(ids); w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range next {
+				if m, err := Load(configDir, serverName, ids[i]); err == nil {
+					res[i] = m
+				}
+			}
+		}()
+	}
+	for i := range ids {
+		next <- i
+	}
+	close(next)
+	wg.Wait()
+	out := make([]*Manifest, 0, len(res))
+	for _, m := range res {
+		if m != nil {
 			out = append(out, m)
 		}
 	}

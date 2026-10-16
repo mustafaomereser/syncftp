@@ -624,6 +624,7 @@ Diğer:
 	GuiBusyFmt:           "%s üzerinde zaten çalışan bir iş var (%s)",
 	GuiPathRequired:      "klasör yolu gerekli",
 	GuiDirNotFoundFmt:    "klasör bulunamadı: %s",
+	LocalDirMissingFmt:   "yerel klasör yok: %s (%s) — sunucunun yerel dizinini düzeltin",
 	GuiOutsideBaseFmt:    "%s, panelin açıldığı klasörün (%s) dışında — o klasördeki syncftp ile yönetin",
 	GuiValConnName:       "her bağlantı profilinin bir adı olmalı",
 	GuiValDupFmt:         "ad iki kez kullanılmış: %s",

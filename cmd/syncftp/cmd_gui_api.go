@@ -49,6 +49,7 @@ func (sv *guiServer) routes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/projects/{p}", sv.apiProjectRemove)
 
 	mux.HandleFunc("GET /api/p/{p}/overview", sv.apiOverview)
+	mux.HandleFunc("GET /api/p/{p}/scan", sv.apiServerScan)
 	mux.HandleFunc("GET /api/p/{p}/status", sv.apiStatus)
 	mux.HandleFunc("GET /api/p/{p}/config", sv.apiConfigGet)
 	mux.HandleFunc("PUT /api/p/{p}/config", sv.apiConfigPut)
@@ -458,6 +459,22 @@ func (sv *guiServer) apiOverview(w http.ResponseWriter, r *http.Request) {
 		"servers":       infos,
 		"watch":         sv.watches.get(p.Name),
 	})
+}
+
+// apiServerScan tek sunucunun yerel taramalı bilgisi — genel bakış önce ?scan=0 ile anında çizilir,
+// kartlar bu uçla sunucu sunucu dolar (büyük/eksik klasörler sayfayı bekletmesin).
+func (sv *guiServer) apiServerScan(w http.ResponseWriter, r *http.Request) {
+	p, cfg, err := sv.project(r)
+	if err != nil {
+		guiErr(w, 404, err)
+		return
+	}
+	srv, ok := findServer(cfg, r.URL.Query().Get("server"))
+	if !ok {
+		guiErr(w, 404, errors.New("server"))
+		return
+	}
+	guiJSON(w, sv.serverInfo(p, cfg, srv, sv.jobs.busyServers(p.Name), srv.Enabled))
 }
 
 func (sv *guiServer) apiStatus(w http.ResponseWriter, r *http.Request) {

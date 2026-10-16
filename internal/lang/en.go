@@ -624,6 +624,7 @@ Other:
 	GuiBusyFmt:           "%s already has a running job (%s)",
 	GuiPathRequired:      "folder path is required",
 	GuiDirNotFoundFmt:    "folder not found: %s",
+	LocalDirMissingFmt:   "local folder not found: %s (%s) — fix the server's local path",
 	GuiOutsideBaseFmt:    "%s is outside the folder the panel was opened in (%s) — run syncftp from that folder to manage it",
 	GuiValConnName:       "every connection profile needs a name",
 	GuiValDupFmt:         "name used twice: %s",

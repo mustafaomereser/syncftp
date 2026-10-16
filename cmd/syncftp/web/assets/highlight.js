@@ -29,9 +29,9 @@
     go: [...C_COMMENTS, [/`[^`]*`?/y, 's'], ...STRINGS, [kw(GO_KW), 'k'], NUM, CALL, [/\b[A-Z]\w*/y, 't']],
     py: [[/#[^\n]*/y, 'c'], [/"""[\s\S]*?(?:"""|$)/y, 's'], [/'''[\s\S]*?(?:'''|$)/y, 's'], ...STRINGS, [kw(PY_KW), 'k'], NUM, CALL],
     css: [[/\/\*[\s\S]*?(?:\*\/|$)/y, 'c'], [/\/\/[^\n]*/y, 'c'], ...STRINGS, [/@[\w-]+/y, 'k'], [/#[\da-fA-F]{3,8}\b/y, 'n'],
-      [/--[\w-]+|[\w-]+(?=\s*:(?!:))/y, 'p'], [/-?\d*\.?\d+(?:px|em|rem|%|vh|vw|s|ms|deg|fr)?\b/y, 'n'], [/\$[\w-]+/y, 'v'], [/[.#][\w-]+/y, 't'], [/!important/y, 'k']],
+      [/--[\w-]+|(?<![\w-])[\w-]+(?=\s*:(?!:))/y, 'p'], [/-?\d*\.?\d+(?:px|em|rem|%|vh|vw|s|ms|deg|fr)?\b/y, 'n'], [/\$[\w-]+/y, 'v'], [/[.#][\w-]+/y, 't'], [/!important/y, 'k']],
     html: [[/<!--[\s\S]*?(?:-->|$)/y, 'c'], [/\{\{[\s\S]*?\}\}|\{!![\s\S]*?!!\}|@\w+/y, 'v'], [/<\?php[\s\S]*?(?:\?>|$)/y, 'v'],
-      [/<\/?[\w:-]+/y, 'k'], [/\/?>/y, 'k'], [/[\w:@.-]+(?==)/y, 'p'], ...STRINGS],
+      [/<\/?[\w:-]+/y, 'k'], [/\/?>/y, 'k'], [/(?<![\w:@.-])[\w:@.-]+(?==)/y, 'p'], ...STRINGS],
     json: [[/"(?:\\.|[^"\\])*"(?=\s*:)/y, 'p'], ...STRINGS, [/\b(?:true|false|null)\b/y, 'k'], NUM],
     sql: [[/--[^\n]*/y, 'c'], [/\/\*[\s\S]*?(?:\*\/|$)/y, 'c'], ...STRINGS, [/`[^`]*`/y, 'v'], [new RegExp('\\b(?:' + SQL_KW.split(' ').join('|') + ')\\b', 'iy'), 'k'], NUM],
     yaml: [[/#[^\n]*/y, 'c'], [/^[ \t-]*[\w.-]+(?=\s*:)/my, 'p'], ...STRINGS, [/\b(?:true|false|null|yes|no)\b/y, 'k'], NUM],
@@ -54,6 +54,7 @@
     return m ? EXT[m[1]] || null : null;
   }
 
+  const WORD = /\w+/y;
   function tokenize(code, rules) {
     const out = [];
     let i = 0, plain = '';
@@ -66,7 +67,15 @@
         if (m && m[0].length) { hit = [cls, m[0]]; break; }
       }
       if (hit) { flush(); out.push(hit); i += hit[1].length; }
-      else { plain += code[i]; i++; }
+      else {
+        // Eşleşmeyen kelimeyi TEK seferde geç: yoksa kelimenin her harfinde kurallar (ör. html'deki
+        // [\w:@.-]+(?==)) kelimenin sonuna kadar tarayıp başarısız oluyordu → uzun kelimelerde O(n²);
+        // "*/*" içeren 200 KB'lık bir HTML hata logu tarayıcıyı ~1 dakika donduruyordu.
+        WORD.lastIndex = i;
+        const w = WORD.exec(code);
+        const n = w ? w[0].length : 1;
+        plain += code.slice(i, i + n); i += n;
+      }
     }
     flush();
     return out;
