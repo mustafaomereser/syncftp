@@ -178,7 +178,7 @@ func (sv *guiServer) apiFSTree(w http.ResponseWriter, r *http.Request) {
 
 // listLocalTree bir dizinin girdilerini (klasörler önce, ignore işaretli) döndürür.
 func listLocalTree(w http.ResponseWriter, root, rel, full string, matcher *ignore.Matcher) {
-	ents, err := os.ReadDir(full)
+	ents, err := localDirEntries(full) // CLI yerel tarayıcısıyla aynı sıralama/eleme
 	if err != nil {
 		guiErr(w, 400, err)
 		return
@@ -192,9 +192,6 @@ func listLocalTree(w http.ResponseWriter, root, rel, full string, matcher *ignor
 	out := []le{}
 	for _, e := range ents {
 		name := e.Name()
-		if name == ".syncftp" || name == ".git" {
-			continue
-		}
 		er := name
 		if rel != "" {
 			er = rel + "/" + name
@@ -210,12 +207,6 @@ func listLocalTree(w http.ResponseWriter, root, rel, full string, matcher *ignor
 		}
 		out = append(out, x)
 	}
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].Dir != out[j].Dir {
-			return out[i].Dir
-		}
-		return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name)
-	})
 	guiJSON(w, map[string]any{"root": root, "path": rel, "entries": out})
 }
 

@@ -275,7 +275,7 @@ Yalnızca protocol=sftp sunucularda kullanılabilir.
 			return err
 		}
 		defer client.Close()
-		return client.Exec(strings.Join(args, " "), nil, os.Stdout)
+		return remoteExec(os.Stdout, client, strings.Join(args, " "), false)
 	},
 }
 

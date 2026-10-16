@@ -668,7 +668,7 @@ type guiJobReq struct {
 	Fix         bool     `json:"fix"`
 	Max         int      `json:"max"`
 	Command     string   `json:"command"`
-	Path        string   `json:"path"` // tree: RemotePath'e göreceli başlangıç
+	Path        string   `json:"path"`    // tree: RemotePath'e göreceli başlangıç
 	Include     []string `json:"include"` // tek seferlik (CLI sync --include gibi; config'teki include'u geçersiz kılar)
 	Exclude     []string `json:"exclude"` // tek seferlik (CLI sync --exclude gibi; ek)
 }
@@ -791,8 +791,7 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 				return nil, err
 			}
 			defer c.Close()
-			fmt.Fprintf(j, "$ %s\n", command)
-			return nil, c.Exec(command, nil, j)
+			return nil, remoteExec(j, c, command, true) // CLI remote exec / shell exec ile aynı (SFTP kontrolü dahil)
 		}))
 	case "tree":
 		srv := servers[0]

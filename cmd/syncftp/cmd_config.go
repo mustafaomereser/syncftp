@@ -1491,35 +1491,24 @@ func newLocalBrowserModel(root string, preSelected []string) localBrowserModel {
 }
 
 func (m localBrowserModel) loadEntries() []localEntry {
-	dirEntries, err := os.ReadDir(m.cwd)
+	dirEntries, err := localDirEntries(m.cwd) // panelin yerel seçicisiyle aynı sıralama/eleme
 	if err != nil {
 		return nil
 	}
 	rel, _ := filepath.Rel(m.root, m.cwd)
 
-	// .syncftp ve gizli klasörleri atla (. ile başlayanlar hariç seçilebilir dosyalar)
-	var dirs, files []localEntry
+	var out []localEntry
 	for _, e := range dirEntries {
 		name := e.Name()
-		if name == ".syncftp" {
-			continue
-		}
 		var entryRel string
 		if rel == "." {
 			entryRel = filepath.ToSlash(name)
 		} else {
 			entryRel = filepath.ToSlash(filepath.Join(rel, name))
 		}
-		le := localEntry{name: name, rel: entryRel, isDir: e.IsDir()}
-		if e.IsDir() {
-			dirs = append(dirs, le)
-		} else {
-			files = append(files, le)
-		}
+		out = append(out, localEntry{name: name, rel: entryRel, isDir: e.IsDir()})
 	}
-	sort.Slice(dirs, func(i, j int) bool { return strings.ToLower(dirs[i].name) < strings.ToLower(dirs[j].name) })
-	sort.Slice(files, func(i, j int) bool { return strings.ToLower(files[i].name) < strings.ToLower(files[j].name) })
-	return append(dirs, files...)
+	return out
 }
 
 func (m localBrowserModel) relCwd() string {

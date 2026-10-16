@@ -168,15 +168,7 @@ func (sh *shellState) cmdExec(args []string) {
 		fmt.Println(lang.L.ShellNotConnected)
 		return
 	}
-	if len(args) == 0 {
-		fmt.Print(lang.L.ShellExecUsage)
-		return
-	}
-	if !sh.client.CanExec() {
-		fmt.Print(lang.L.ShellExecNoSSH)
-		return
-	}
-	if err := sh.client.Exec(strings.Join(args, " "), nil, os.Stdout); err != nil {
+	if err := remoteExec(os.Stdout, sh.client, strings.Join(args, " "), false); err != nil {
 		fmt.Printf(lang.L.ShellErrFmt, err)
 	}
 }

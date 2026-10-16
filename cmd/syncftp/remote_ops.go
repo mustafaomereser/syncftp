@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	goftp "github.com/jlaffaye/ftp"
 
 	ftpclient "syncftp/internal/ftp"
+	"syncftp/internal/lang"
 )
 
 // Uzak dosya işlemlerinin ortak çekirdeği — CLI `remote`, shell, dosya tarayıcısı (TUI), serve API ve
@@ -163,4 +165,21 @@ func serveRemoteDownload(w http.ResponseWriter, r *http.Request, c *ftpclient.Cl
 	w.Header().Set("Content-Type", "application/octet-stream")
 	http.ServeContent(w, r, name, st.ModTime(), f)
 	return nil
+}
+
+// remoteExec sunucunun remote_path dizininde SSH ile komut çalıştırır (yalnızca SFTP) — CLI
+// `remote exec`, shell `exec` ve panelin "Sunucuda komut çalıştır" işi ortak. echo=true komutu
+// önce "$ komut" olarak yazar (panel günlüğü).
+func remoteExec(w io.Writer, c *ftpclient.Client, command string, echo bool) error {
+	command = strings.TrimSpace(command)
+	if command == "" {
+		return errors.New(strings.TrimSpace(lang.L.ShellExecUsage))
+	}
+	if !c.CanExec() {
+		return errors.New(strings.TrimSpace(lang.L.ShellExecNoSSH))
+	}
+	if echo {
+		fmt.Fprintf(w, "$ %s\n", command)
+	}
+	return c.Exec(command, nil, w)
 }
