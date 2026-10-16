@@ -10,7 +10,7 @@ const T = {
   tr: {
     brandSub: 'Dağıtım paneli', navAll: 'Tüm projeler', navJobs: 'İşler', navProjects: 'Projeler',
     addProject: 'Proje ekle', navNoProjects: 'Bu klasörde proje yok', watching: 'Watch', language: 'Dil', quit: 'Kapat',
-    loading: 'Yükleniyor…', scanningLocal: 'Taranıyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
+    loading: 'Yükleniyor…', viewCode: 'Kod', viewRendered: 'Önizleme', viewRenderedLocal: 'Önizleme (yerel)', viewRenderedRemote: 'Önizleme (sunucu)', scanningLocal: 'Taranıyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
     edit: 'Düzenle', back: 'Geri', yes: 'Evet', confirm: 'Onayla', browse: 'Gözat', add: 'Ekle', open: 'Aç',
     saved: 'Kaydedildi', copied: 'Kopyalandı', never: 'hiç', none: 'yok', all: 'Tümü', manual: '(manuel giriş)',
     projectsTitle: 'Projeler', projectsSub: `{0} klasöründeki syncFTP projeleri (CLI gibi: panel açıldığı klasörü esas alır)`,
@@ -119,7 +119,7 @@ const T = {
   en: {
     brandSub: 'Deploy panel', navAll: 'All projects', navJobs: 'Jobs', navProjects: 'Projects',
     addProject: 'Add project', navNoProjects: 'No project in this folder', watching: 'Watch', language: 'Language', quit: 'Quit',
-    loading: 'Loading…', scanningLocal: 'Scanning…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
+    loading: 'Loading…', viewCode: 'Code', viewRendered: 'Preview', viewRenderedLocal: 'Preview (local)', viewRenderedRemote: 'Preview (server)', scanningLocal: 'Scanning…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
     edit: 'Edit', back: 'Back', yes: 'Yes', confirm: 'Confirm', browse: 'Browse', add: 'Add', open: 'Open',
     saved: 'Saved', copied: 'Copied', never: 'never', none: 'none', all: 'All', manual: '(manual entry)',
     projectsTitle: 'Projects', projectsSub: `syncFTP projects in {0} (like the CLI: the panel works on the folder it was opened in)`,
@@ -1624,6 +1624,24 @@ async function tabFiles(proj, srvName, relPath) {
 }
 
 // Satır numaralı, renklendirilmiş kod görünümü
+const isHTMLFile = (name) => /\.(html?|xhtml|svg)$/i.test(name || '');
+function htmlFrame(text) {
+  // sandbox="" → script çalışmaz, form gönderilmez, panelin çerezine/DOM'una erişemez
+  return `<iframe class="html-onizle" sandbox="" referrerpolicy="no-referrer" srcdoc="${esc(text)}"></iframe>`;
+}
+// Sekmeli görünüm: [[anahtar, etiket, html], ...] → ilk sekme açık
+function viewTabs(views) {
+  if (views.length === 1) return views[0][2];
+  return `<div class="tabs" style="margin-bottom:12px">${views.map(([k, l], i) => `<a href="javascript:void 0" data-vt="${k}" class="${i ? '' : 'aktif'}">${l}</a>`).join('')}</div>
+    ${views.map(([k, , h], i) => `<div data-vtp="${k}" ${i ? 'hidden' : ''}>${h}</div>`).join('')}`;
+}
+function bindViewTabs(root) {
+  $$('[data-vt]', root).forEach((a) => (a.onclick = () => {
+    $$('[data-vt]', root).forEach((x) => x.classList.toggle('aktif', x === a));
+    $$('[data-vtp]', root).forEach((p) => (p.hidden = p.dataset.vtp !== a.dataset.vt));
+  }));
+}
+
 function codeView(text, name) {
   const rows = HL.hlLines(text, name);
   return `<div class="kod"><table>${rows.map((l, i) => `<tr><td class="no">${i + 1}</td><td class="l">${l || ' '}</td></tr>`).join('')}</table></div>`;
@@ -1669,7 +1687,12 @@ async function compareModal(P, srv, rel) {
   }
   if (loc.exists && !loc.binary) views.local = codeView(loc.content, rel);
   if (rem.exists && !rem.binary) views.remote = codeView(rem.content, rel);
-  const tabs = [['diff', t('diffTitle')], ['local', t('diffLocal')], ['remote', t('diffRemote')]].filter(([k]) => views[k]);
+  if (isHTMLFile(rel)) {
+    if (loc.exists && !loc.binary) views.localHtml = htmlFrame(loc.content);
+    if (rem.exists && !rem.binary) views.remoteHtml = htmlFrame(rem.content);
+  }
+  const tabs = [['diff', t('diffTitle')], ['local', t('diffLocal')], ['remote', t('diffRemote')],
+    ['localHtml', t('viewRenderedLocal')], ['remoteHtml', t('viewRenderedRemote')]].filter(([k]) => views[k]);
   const m = modal({
     title: `${icon('file')}<span class="mono" style="font-size:13px">${esc(rel)}</span> ${summary}`, size: 'genis',
     body: `<div class="tabs" style="margin-bottom:12px">${tabs.map(([k, l], i) => `<a href="javascript:void 0" data-cv="${k}" class="${i ? '' : 'aktif'}">${l}</a>`).join('')}</div>
@@ -1686,14 +1709,16 @@ async function previewFile(P, srv, p) {
   const lm = await loadModal(`${icon('file')}<span class="mono" style="font-size:13px">${esc(p)}</span>`, 'genis', () => GET(`/api/p/${enc(P)}/remote/cat?server=${enc(srv)}&path=${enc(p)}`));
   if (!lm) return;
   const d = lm.d;
-  modal({
+  const pm = modal({
     title: `${icon('file')}<span class="mono" style="font-size:13px">${esc(p)}</span>`, size: 'genis',
-    body: d.binary ? `<div class="bos">${t('binaryFile')}</div>` : codeView(d.content, p),
+    body: d.binary ? `<div class="bos">${t('binaryFile')}</div>`
+      : viewTabs([['code', t('viewCode'), codeView(d.content, p)], ...(isHTMLFile(p) ? [['html', t('viewRendered'), htmlFrame(d.content)]] : [])]),
     actions: [{ left: `${bytes(d.size)} ${d.truncated ? t('truncated') : ''}` },
       ...(d.binary ? [] : [{ label: icon('layers') + t('compare'), cls: '', run: () => { compareModal(P, srv, p); } }]),
       { label: icon('download') + t('download'), cls: '', run: () => { location.href = `/api/p/${enc(P)}/remote/get?server=${enc(srv)}&path=${enc(p)}`; } },
       { label: t('close'), cls: 'birincil' }],
   });
+  bindViewTabs(pm.root);
 }
 
 // ── Geçmiş (release + rollback + log) ────────────────────────────────────────
