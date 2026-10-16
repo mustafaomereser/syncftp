@@ -188,9 +188,10 @@ func (sv *guiServer) apiRemoteRm(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 400, errors.New("root"))
 		return
 	}
-	// Panel silmeden önce onay alır; klasör içeriğiyle silinir (türü sunucudan bulunur)
+	// CLI `remote rm` ile aynı: recursive=false iken dolu klasör silinmez (varsayılan true — panel onay sorar)
+	recursive := r.URL.Query().Get("recursive") != "false"
 	err := withRemote(pname, srv, func(c *ftpclient.Client) error {
-		_, e := remoteDelete(c, full, true)
+		_, e := remoteDelete(c, full, recursive)
 		return e
 	})
 	if err != nil {

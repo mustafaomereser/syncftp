@@ -312,17 +312,10 @@ func (sv *guiServer) apiProjectRename(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 404, errors.New("project"))
 		return
 	}
-	cfg, err := config.Load(p.Path)
-	if err != nil {
+	if err := renameProject(p.Path, req.Name); err != nil {
 		guiErr(w, 400, err)
 		return
 	}
-	cfg.Project.Name = strings.TrimSpace(req.Name)
-	if err := config.Save(p.Path, cfg); err != nil {
-		guiErr(w, 500, err)
-		return
-	}
-	projects.Invalidate()
 	guiJSON(w, true)
 }
 
@@ -482,7 +475,7 @@ func (sv *guiServer) apiStatus(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 500, err)
 		return
 	}
-	pi := pendingChanges(p.Path, cfg, srv, current, st, nil, nil)
+	pi := pendingChanges(p.Path, cfg, srv, current, st, splitPatterns(r.URL.Query().Get("include")), splitPatterns(r.URL.Query().Get("exclude")))
 	n, c, d := pi.newL, pi.changed, pi.deleted
 	var bytes int64 // yüklenecek toplam (shell status'taki gibi)
 	for _, rel := range pi.plan.upload {
@@ -1288,4 +1281,15 @@ func (sv *guiServer) startWatch(project string, serverNames []string) (*guiWatch
 func mustJSON(v any) string {
 	b, _ := json.Marshal(v)
 	return string(b)
+}
+
+// splitPatterns virgül / satır ayraçlı kalıp listesi (tek seferlik filtre parametreleri).
+func splitPatterns(v string) []string {
+	var out []string
+	for _, p := range strings.FieldsFunc(v, func(r rune) bool { return r == ',' || r == '\n' }) {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }

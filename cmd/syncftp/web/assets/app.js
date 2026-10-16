@@ -10,7 +10,7 @@ const T = {
   tr: {
     brandSub: 'Dağıtım paneli', navAll: 'Tüm projeler', navJobs: 'İşler', navProjects: 'Projeler',
     addProject: 'Proje ekle', navNoProjects: 'Bu klasörde proje yok', watching: 'Watch', language: 'Dil', quit: 'Kapat',
-    loading: 'Yükleniyor…', moreRows: '{0} öğe daha göster', stFrozen: 'Freeze', stProtected: 'Korunan', stBlocked: 'Engelli', stUploadSize: 'yüklenecek: {0}', treeView: 'Ağaç', treeHint: 'Bu klasörün altını ağaç olarak göster (shell tree)', treeAsk: 'Klasör başına en fazla kaç öğe gösterilsin?', treeAll: 'Tümü', ignoreNoFile: 'ignore_files listesinde syncFTP dosyası yok — yalnızca .gitignore okunuyor', viewCode: 'Kod', viewRendered: 'Önizleme', viewRenderedLocal: 'Önizleme (yerel)', viewRenderedRemote: 'Önizleme (sunucu)', scanningLocal: 'Taranıyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
+    loading: 'Yükleniyor…', deleteRecursive: 'İçeriğiyle birlikte sil', deleteRecursiveHint: 'Kapalıyken yalnızca boş klasörler silinir (CLI: remote rm --recursive)', stFilter: 'Filtrele', stFilterHint: 'Tek seferlik include / exclude (virgülle ayırın) — CLI: status --include / --exclude', moreRows: '{0} öğe daha göster', stFrozen: 'Freeze', stProtected: 'Korunan', stBlocked: 'Engelli', stUploadSize: 'yüklenecek: {0}', treeView: 'Ağaç', treeHint: 'Bu klasörün altını ağaç olarak göster (shell tree)', treeAsk: 'Klasör başına en fazla kaç öğe gösterilsin?', treeAll: 'Tümü', ignoreNoFile: 'ignore_files listesinde syncFTP dosyası yok — yalnızca .gitignore okunuyor', viewCode: 'Kod', viewRendered: 'Önizleme', viewRenderedLocal: 'Önizleme (yerel)', viewRenderedRemote: 'Önizleme (sunucu)', scanningLocal: 'Taranıyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
     edit: 'Düzenle', back: 'Geri', yes: 'Evet', confirm: 'Onayla', browse: 'Gözat', add: 'Ekle', open: 'Aç',
     saved: 'Kaydedildi', copied: 'Kopyalandı', never: 'hiç', none: 'yok', all: 'Tümü', manual: '(manuel giriş)',
     projectsTitle: 'Projeler', projectsSub: `{0} klasöründeki syncFTP projeleri (CLI gibi: panel açıldığı klasörü esas alır)`,
@@ -119,7 +119,7 @@ const T = {
   en: {
     brandSub: 'Deploy panel', navAll: 'All projects', navJobs: 'Jobs', navProjects: 'Projects',
     addProject: 'Add project', navNoProjects: 'No project in this folder', watching: 'Watch', language: 'Language', quit: 'Quit',
-    loading: 'Loading…', moreRows: 'Show {0} more', stFrozen: 'Frozen', stProtected: 'Protected', stBlocked: 'Blocked', stUploadSize: 'to upload: {0}', treeView: 'Tree', treeHint: 'Show everything below this folder as a tree (shell tree)', treeAsk: 'Show at most how many entries per folder?', treeAll: 'All', ignoreNoFile: 'ignore_files has no syncFTP file — only .gitignore is read', viewCode: 'Code', viewRendered: 'Preview', viewRenderedLocal: 'Preview (local)', viewRenderedRemote: 'Preview (server)', scanningLocal: 'Scanning…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
+    loading: 'Loading…', deleteRecursive: 'Delete with contents', deleteRecursiveHint: 'When off, only empty folders are deleted (CLI: remote rm --recursive)', stFilter: 'Filter', stFilterHint: 'One-off include / exclude (comma separated) — CLI: status --include / --exclude', moreRows: 'Show {0} more', stFrozen: 'Frozen', stProtected: 'Protected', stBlocked: 'Blocked', stUploadSize: 'to upload: {0}', treeView: 'Tree', treeHint: 'Show everything below this folder as a tree (shell tree)', treeAsk: 'Show at most how many entries per folder?', treeAll: 'All', ignoreNoFile: 'ignore_files has no syncFTP file — only .gitignore is read', viewCode: 'Code', viewRendered: 'Preview', viewRenderedLocal: 'Preview (local)', viewRenderedRemote: 'Preview (server)', scanningLocal: 'Scanning…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
     edit: 'Edit', back: 'Back', yes: 'Yes', confirm: 'Confirm', browse: 'Browse', add: 'Add', open: 'Open',
     saved: 'Saved', copied: 'Copied', never: 'never', none: 'none', all: 'All', manual: '(manual entry)',
     projectsTitle: 'Projects', projectsSub: `syncFTP projects in {0} (like the CLI: the panel works on the folder it was opened in)`,
@@ -386,7 +386,7 @@ function closeMenus() { $$('.menu').forEach((m) => m.remove()); }
 document.addEventListener('click', (e) => { if (!e.target.closest('.menu') && !e.target.closest('[data-menu]')) closeMenus(); });
 
 // ── durum ────────────────────────────────────────────────────────────────────
-const S = { meta: null, projects: [], jobs: new Map(), renderSeq: 0, modals: new Set() };
+const S = { meta: null, projects: [], jobs: new Map(), renderSeq: 0, modals: new Set(), lsCache: new Map() };
 
 // ── iş (job) yönetimi ───────────────────────────────────────────────────────
 function trackJob(id, opts = {}) {
@@ -835,8 +835,9 @@ function bindServerCard(card, P, s) {
   ]));
 }
 
-async function statusModal(P, s) {
-  const lm = await loadModal(t('statusTitle', esc(s.name)), 'orta', () => GET(`/api/p/${enc(P)}/status?server=${enc(s.name)}`));
+async function statusModal(P, s, flt = { include: '', exclude: '' }) {
+  const fq = `&include=${enc(flt.include)}&exclude=${enc(flt.exclude)}`;
+  const lm = await loadModal(t('statusTitle', esc(s.name)), 'orta', () => GET(`/api/p/${enc(P)}/status?server=${enc(s.name)}${fq}`));
   if (!lm) return;
   const st = lm.d;
   const list = (arr, mark, click) => arr.length ? `<div class="liste-kutu">${arr.map((x) => `<div ${click ? `class="tikla" data-diff="${esc(x)}"` : ''}>${mark} ${esc(x)}</div>`).join('')}</div>` : `<p class="faint">${t('emptyList')}</p>`;
@@ -848,11 +849,17 @@ async function statusModal(P, s) {
   const m = modal({
     title: t('statusTitle', esc(s.name)), size: 'orta',
     body: `<div class="tabs" style="margin-bottom:12px">${tabs.map(([k, l, a], i) => `<a href="javascript:void 0" data-st="${k}" class="${i === first ? 'aktif' : ''}">${l} <span class="sayac">${st.counts[k]}</span></a>`).join('')}</div>
+      <div class="girdi-grup" style="margin:-4px 0 10px;gap:6px"><input type="text" class="mono" id="st-inc" placeholder="include: src/, *.php" value="${esc(flt.include)}" spellcheck="false">
+        <input type="text" class="mono" id="st-exc" placeholder="exclude: vendor/, *.log" value="${esc(flt.exclude)}" spellcheck="false">
+        <button class="btn kucuk" id="st-flt" title="${t('stFilterHint')}">${icon('sliders')}${t('stFilter')}</button></div>
       <p class="ipucu" style="margin:-4px 0 10px">${t('clickToDiff')}${st.bytes ? ' · ' + t('stUploadSize', bytes(st.bytes)) : ''}</p>
       ${tabs.map(([k, , a, mk], i) => `<div data-stp="${k}" ${i !== first ? 'hidden' : ''}>${list(a, mk, k === 'new' || k === 'changed')}${k === 'deleted' ? `<p class="ipucu" style="margin-top:10px">${t('deletedNote')}</p>` : ''}</div>`).join('')}`,
     actions: [{ label: t('close'), cls: 'hayalet' }, { label: icon('upload') + t('sync'), cls: 'mavi', run: () => startJobs(P, { kind: 'sync', servers: [s.name] }, t('sync')) }],
   });
   $$('[data-diff]', m.root).forEach((d) => (d.onclick = () => compareModal(P, s.name, d.dataset.diff)));
+  const applyFlt = () => { const next = { include: $('#st-inc', m.root).value.trim(), exclude: $('#st-exc', m.root).value.trim() }; m.close(); statusModal(P, s, next); };
+  $('#st-flt', m.root).onclick = applyFlt;
+  $$('#st-inc, #st-exc', m.root).forEach((i) => (i.onkeydown = (e) => { if (e.key === 'Enter') applyFlt(); }));
   $$('[data-st]', m.root).forEach((a) => (a.onclick = () => {
     $$('[data-st]', m.root).forEach((x) => x.classList.toggle('aktif', x === a));
     $$('[data-stp]', m.root).forEach((p) => (p.hidden = p.dataset.stp !== a.dataset.st));
@@ -1432,9 +1439,17 @@ async function tabFiles(proj, srvName, relPath) {
   const srv = srvObj.name;
   const rel = relPath || '';
   const q = `server=${enc(srv)}`;
-  let data;
-  try { data = await GET(`/api/p/${enc(P)}/remote/ls?${q}&path=${enc(rel)}`); }
-  catch (e) { data = { error: e.message, entries: [] }; }
+  // Daha önce açılan klasör önbellekten anında çizilir, sunucudan arka planda tazelenir; fark varsa
+  // sayfa sessizce yenilenir (FTP listesi ağ gecikmesi kadar sürer — her girişte beklemeyelim)
+  const lsKey = `${P}|${srv}|${rel}`;
+  const fetchLs = () => GET(`/api/p/${enc(P)}/remote/ls?${q}&path=${enc(rel)}`);
+  let data = S.lsCache.get(lsKey);
+  const fromCache = !!data;
+  if (!data) {
+    try { data = await fetchLs(); S.lsCache.set(lsKey, data); }
+    catch (e) { data = { error: e.message, entries: [] }; }
+  }
+  const reload = () => { S.lsCache.delete(lsKey); render(true); };
   const frozenSet = new Set(await GET(`/api/p/${enc(P)}/frozen?${q}`).catch(() => []));
   const hashFor = (p) => `${pHash(P, 'files', srv)}/${enc(p)}`;
   const full = (name) => (rel ? rel + '/' : '') + name;
@@ -1449,16 +1464,26 @@ async function tabFiles(proj, srvName, relPath) {
       const r = await api('POST', `/api/p/${enc(P)}/frozen/toggle?${q}`, { items: items.map((it) => ({ path: it.path, dir: it.type === 'dir' })) });
       toast(r.frozen ? t('frozenAdded', r.n) : t('frozenRemoved', r.n));
     } catch (e) { fail(e); }
-    render(true);
+    reload();
   }
   async function removeItems(items) {
     const msg = items.length === 1 ? (items[0].type === 'dir' ? t('deleteDirConfirm', items[0].path) : t('deleteRemoteConfirm', items[0].path)) : t('deleteManyConfirm', items.length);
-    if (!(await confirmBox(t('delete'), esc(msg), t('delete'), true))) return;
+    const hasDir = items.some((it) => it.type === 'dir');
+    // CLI `remote rm --recursive` karşılığı: işaret kalkarsa yalnızca boş klasörler silinir
+    const recursive = await new Promise((res) => {
+      const m = modal({
+        title: t('delete'), onClose: () => res(null),
+        body: `<p>${esc(msg)}</p>${hasDir ? `<label class="anahtar"><span class="metin"><b>${t('deleteRecursive')}</b><small>${t('deleteRecursiveHint')}</small></span><span class="switch"><input type="checkbox" id="rm-rec" checked><i></i></span></label>` : ''}`,
+        actions: [{ label: t('cancel'), cls: 'hayalet' }, { label: t('delete'), cls: 'tehlike', run: (r) => { const c = $('#rm-rec', r); res(c ? c.checked : true); } }],
+      });
+      return m;
+    });
+    if (recursive === null) return;
     try {
-      for (const it of items) await api('DELETE', `/api/p/${enc(P)}/remote/rm?${q}&path=${enc(it.path)}&dir=${it.type === 'dir'}`);
+      for (const it of items) await api('DELETE', `/api/p/${enc(P)}/remote/rm?${q}&path=${enc(it.path)}&recursive=${recursive}`);
       toast(t('deleted'));
     } catch (err) { fail(err); }
-    render(true);
+    reload();
   }
   function moveItems(items) {
     modal({
@@ -1470,7 +1495,7 @@ async function tabFiles(proj, srvName, relPath) {
           const name = it.path.split('/').pop();
           await api('POST', `/api/p/${enc(P)}/remote/rename?${q}&from=${enc(it.path)}&to=${enc((target ? target + '/' : '') + name)}`);
         }
-        toast(t('moved')); render(true);
+        toast(t('moved')); reload();
       } }],
     });
   }
@@ -1482,7 +1507,7 @@ async function tabFiles(proj, srvName, relPath) {
         const to = $('#rn', root).value.trim().replace(/^\/+/, '');
         if (!to || to === it.path) return;
         await api('POST', `/api/p/${enc(P)}/remote/rename?${q}&from=${enc(it.path)}&to=${enc(to)}`);
-        toast(t('moved')); render(true);
+        toast(t('moved')); reload();
       } }],
     });
   }
@@ -1541,7 +1566,7 @@ async function tabFiles(proj, srvName, relPath) {
 
   bind((root) => {
     $('#proj-aks', root).innerHTML = `<button class="ikon-btn" id="b-rf" title="${t('refresh')}">${icon('refresh')}</button>`;
-    $('#b-rf', root).onclick = () => render(true);
+    $('#b-rf', root).onclick = () => reload();
     $('#f-srv', root).onchange = (e) => go(pHash(P, 'files', e.target.value));
     $$('[data-crumb]', root).forEach((b) => (b.onclick = () => go(b.dataset.crumb === '' ? pHash(P, 'files', srv) : hashFor(b.dataset.crumb))));
     const filter = $('#f-filter', root);
@@ -1560,7 +1585,7 @@ async function tabFiles(proj, srvName, relPath) {
         if (!r.ok) throw new Error(r.error);
         toast(t('uploaded', r.data.length));
       } catch (err) { fail(err); }
-      render(true);
+      reload();
     };
     // Ağaç: shell `tree` ile aynı çekirdek (iş olarak çalışır, çıktı canlı akar)
     $('#f-tree', root).onclick = () => {
@@ -1583,7 +1608,7 @@ async function tabFiles(proj, srvName, relPath) {
         const n = $('#nf', r2).value.trim().replace(/^\/+|\/+$/g, '');
         if (!n) return false;
         await api('POST', `/api/p/${enc(P)}/remote/mkdir?${q}&path=${enc(full(n))}`);
-        toast(t('created')); render(true);
+        toast(t('created')); reload();
       } }],
     });
     // Satırlar parça parça çizilir (5000 girdili klasör tek seferde ~5 MB HTML + 1 sn yerleşim
@@ -1660,6 +1685,14 @@ async function tabFiles(proj, srvName, relPath) {
         if (typ === 'dir') go(hashFor(p)); else previewFile(P, srv, p);
       };
       renderMore();
+    }
+    if (fromCache) {
+      const seq = S.renderSeq;
+      fetchLs().then((fresh) => {
+        if (JSON.stringify(fresh) === JSON.stringify(data)) return;
+        S.lsCache.set(lsKey, fresh);
+        if (seq === S.renderSeq) render(true);
+      }).catch(() => {});
     }
   });
 

@@ -1,11 +1,14 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
+	"syncftp/internal/config"
 	"syncftp/internal/lang"
 	"syncftp/internal/projects"
 )
@@ -112,10 +115,34 @@ var projectRenameCmd = &cobra.Command{
 	Short: "Projenin görünen adını değiştirir",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if err := projects.Rename(args[0], args[1]); err != nil {
+		p, ok := projects.Find(args[0])
+		if !ok {
+			return fmt.Errorf(lang.L.ProjectNotFoundFmt, args[0])
+		}
+		if err := renameProject(p.Path, args[1]); err != nil {
 			return err
 		}
+		_ = projects.Rename(p.Path, args[1]) // kayıttaki görünen ad da aynı kalsın
 		fmt.Printf(lang.L.ProjectRenamedFmt, args[0], args[1])
 		return nil
 	},
+}
+
+// renameProject projenin adını config'teki project.name'e yazar — CLI `project rename` ve panelin
+// "Projeyi yeniden adlandır"ı ortak (panel klasör modunda adı buradan okur).
+func renameProject(dir, name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return errors.New("name")
+	}
+	cfg, err := config.Load(dir)
+	if err != nil {
+		return err
+	}
+	cfg.Project.Name = name
+	if err := config.Save(dir, cfg); err != nil {
+		return err
+	}
+	projects.Invalidate()
+	return nil
 }
