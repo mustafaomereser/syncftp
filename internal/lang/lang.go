@@ -571,6 +571,7 @@ type StringSet struct {
 	GuiIgnoreNoFile      string
 	GuiJobTree           string
 	TreeMoreFmt          string
+	LangSavedUserFmt     string
 	LogsNone             string
 	LogsHint             string
 	ServerNotFoundFmt    string // "sunucu bulunamadı: %q"
@@ -712,8 +713,34 @@ func detectSystemLang() string {
 // Init reads language preference: .syncftp/lang file, then SYNCFTP_LANG env var.
 // Falls back to OS system language when no preference is saved.
 // Call once from main() before any output.
+// UserLangPath kullanıcı geneli dil tercihi (panelin dil seçimi buraya yazılır; CLI de okur).
+func UserLangPath() string {
+	base, err := os.UserConfigDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(base, "syncftp", "gui-lang")
+}
+
+// SaveUser kullanıcı geneli dil tercihini yazar (panelin dil seçimiyle aynı dosya).
+func SaveUser(l string) error {
+	p := UserLangPath()
+	if err := os.MkdirAll(filepath.Dir(p), 0700); err != nil {
+		return err
+	}
+	return os.WriteFile(p, []byte(l), 0600)
+}
+
+// Init öncelik: sistem dili < kullanıcı tercihi (panel) < proje (.syncftp/lang) < SYNCFTP_LANG.
 func Init(configDir string) {
 	l := detectSystemLang()
+	if p := UserLangPath(); p != "" {
+		if data, err := os.ReadFile(p); err == nil {
+			if saved := strings.TrimSpace(string(data)); saved != "" {
+				l = saved
+			}
+		}
+	}
 	if data, err := os.ReadFile(filepath.Join(configDir, ".syncftp", "lang")); err == nil {
 		if saved := strings.TrimSpace(string(data)); saved != "" {
 			l = saved

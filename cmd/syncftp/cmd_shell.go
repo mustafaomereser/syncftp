@@ -339,26 +339,16 @@ func (sh *shellState) cmdFreeze(args []string) {
 }
 
 func (sh *shellState) cmdLang(args []string) {
-	if len(args) == 0 {
-		fmt.Printf(lang.L.LangCurrentFmt, lang.Current())
-		return
+	global := false
+	var rest []string
+	for _, a := range args {
+		if a == "--global" || a == "-g" {
+			global = true
+		} else {
+			rest = append(rest, a)
+		}
 	}
-	l := args[0]
-	if l != "en" && l != "tr" {
-		fmt.Printf(lang.L.LangInvalid, l)
-		return
-	}
-	if l == lang.Current() {
-		fmt.Printf(lang.L.LangAlreadyFmt, l)
-		return
-	}
-	lang.Set(l)
-	fmt.Printf(lang.L.LangSwitchedFmt, l)
-	if err := lang.Save(sh.configDir, l); err != nil {
-		fmt.Printf("Warning: could not save: %v\n", err)
-	} else {
-		fmt.Print(lang.L.LangSavedFmt)
-	}
+	changeLang(sh.configDir, rest, global)
 }
 
 func (sh *shellState) cmdClear() {

@@ -630,6 +630,7 @@ Diğer:
 	LocalDirMissingFmt:   "yerel klasör yok: %s (%s) — sunucunun yerel dizinini düzeltin",
 	GuiJobTree:           "Ağaç",
 	TreeMoreFmt:          "+%d daha...",
+	LangSavedUserFmt:     "Kullanıcı geneli tercih olarak kaydedildi (panelle ortak)\n",
 	LogsNone:             "  Henüz log yok (her değişiklikli sync / rollback .syncftp/logs/ altına kaydedilir)",
 	LogsHint:             "\n  Göstermek için: syncftp logs <dosya>  ·  en yenisi: syncftp logs son",
 	ServerNotFoundFmt:    "sunucu bulunamadı: %q",

@@ -224,7 +224,7 @@ func runGUIForeground() error {
 
 // GUI dil tercihi (proje bağımsız): <UserConfigDir>/syncftp/gui-lang
 func loadGUILang() {
-	if data, err := os.ReadFile(filepath.Join(guiStateDir(), "gui-lang")); err == nil {
+	if data, err := os.ReadFile(lang.UserLangPath()); err == nil {
 		if l := strings.TrimSpace(string(data)); l == "en" || l == "tr" {
 			lang.Set(l)
 		}
@@ -233,7 +233,7 @@ func loadGUILang() {
 
 func saveGUILang(l string) {
 	_ = os.MkdirAll(guiStateDir(), 0700)
-	_ = os.WriteFile(filepath.Join(guiStateDir(), "gui-lang"), []byte(l), 0600)
+	_ = os.WriteFile(lang.UserLangPath(), []byte(l), 0600)
 }
 
 // ── Sunucu ────────────────────────────────────────────────────────────────────
