@@ -455,6 +455,8 @@ type StringSet struct {
 	SyncHookErrFmt   string // "  ! post_sync hook hatası: %v\n"
 
 	// ── Status — frozen ───────────────────────────────────────────────────────
+	StatusProtectedHeader string
+	StatusBlockedHeader   string
 	StatusFrozenHeader string // "  ❄ Frozen (sync'te atlanır)"
 
 	// ── Calibrate — canlı listeleme sayacı ────────────────────────────────────

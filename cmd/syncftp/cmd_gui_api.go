@@ -347,43 +347,6 @@ type guiServerInfo struct {
 	ScanError      string     `json:"scan_error,omitempty"`
 }
 
-// pendingFor sync'in gerçekten yükleyeceği dosyalar: diff → include → exclude →
-// milestone → frozen → block (sync akışıyla aynı sıra). Silinenler ham döner.
-func pendingFor(configDir string, cfg *config.Config, srv config.Server, current map[string]string, st *state.State) (newL, changedL, deleted []string) {
-	diff := state.Diff(st, current)
-	localPath := srv.EffectiveLocalPath(cfg.Project)
-	include := cfg.Sync.Include
-	if len(srv.Include) > 0 {
-		include = srv.Include
-	}
-	include = normalizePatterns(include, localPath)
-	exclude := normalizePatterns(append(append([]string{}, cfg.Sync.Exclude...), srv.Exclude...), localPath)
-	blocks := append(append([]string{}, cfg.Sync.BlockExtensions...), srv.BlockExtensions...)
-	fl, _ := frozen.Load(configDir, srv.Name)
-	ms, _ := milestone.Load(configDir, srv.Name)
-	localDir := filepath.Join(configDir, localPath)
-	filter := func(in []string) []string {
-		out := filterByExclude(filterByInclude(in, include), exclude)
-		if ms != nil {
-			out, _ = milestoneFilterMtime(out, localDir, ms.Date)
-		}
-		if fl != nil && len(fl.Files) > 0 {
-			var kept []string
-			for _, p := range out {
-				if !frozen.IsFrozen(fl, p) {
-					kept = append(kept, p)
-				}
-			}
-			out = kept
-		}
-		out, _ = filterByBlock(out, blocks)
-		sort.Strings(out)
-		return out
-	}
-	sort.Strings(diff.Deleted)
-	return filter(diff.New), filter(diff.Changed), diff.Deleted
-}
-
 func (sv *guiServer) serverInfo(p projects.Project, cfg *config.Config, srv config.Server, busy map[string]string, scan bool) guiServerInfo {
 	gi := guiServerInfo{
 		Name: srv.Name, Protocol: srv.ProtocolName(), Host: srv.Host, Port: srv.Port, User: srv.User,
@@ -426,8 +389,8 @@ func (sv *guiServer) serverInfo(p projects.Project, cfg *config.Config, srv conf
 			gi.ScanError = serr.Error()
 		} else {
 			gi.Files = len(current)
-			n, c, d := pendingFor(p.Path, cfg, srv, current, st)
-			gi.New, gi.Changed, gi.Deleted = len(n), len(c), len(d)
+			pi := pendingChanges(p.Path, cfg, srv, current, st, nil, nil)
+			gi.New, gi.Changed, gi.Deleted = len(pi.newL), len(pi.changed), len(pi.deleted)
 		}
 	}
 	return gi
@@ -498,7 +461,8 @@ func (sv *guiServer) apiStatus(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 500, err)
 		return
 	}
-	n, c, d := pendingFor(p.Path, cfg, srv, current, st)
+	pi := pendingChanges(p.Path, cfg, srv, current, st, nil, nil)
+	n, c, d := pi.newL, pi.changed, pi.deleted
 	capL := func(l []string) []string {
 		if l == nil {
 			return []string{}
@@ -509,7 +473,8 @@ func (sv *guiServer) apiStatus(w http.ResponseWriter, r *http.Request) {
 		return l
 	}
 	guiJSON(w, map[string]any{"new": capL(n), "changed": capL(c), "deleted": capL(d),
-		"counts": map[string]int{"new": len(n), "changed": len(c), "deleted": len(d)}, "first_sync_done": st.FirstSyncDone})
+		"counts": map[string]int{"new": len(n), "changed": len(c), "deleted": len(d)}, "first_sync_done": st.FirstSyncDone,
+		"frozen": capL(pi.plan.frozen), "protected": capL(pi.plan.protected), "blocked": capL(pi.plan.blocked)})
 }
 
 // ── config ────────────────────────────────────────────────────────────────────

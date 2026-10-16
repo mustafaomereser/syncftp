@@ -808,19 +808,10 @@ func (sh *shellState) cmdStatus() {
 		localPath := srv.EffectiveLocalPath(cfg.Project)
 		localDir := filepath.Join(dir, localPath)
 
-		matcher, err := ignore.Load(localDir, cfg.Sync.IgnoreFiles)
+		current, _, err := scanForServer(dir, &cfg, srv)
 		if err != nil {
 			fmt.Printf(lang.L.ShellErrFmt, err)
 			continue
-		}
-		files, err := scanner.Scan(localDir, matcher)
-		if err != nil {
-			fmt.Printf(lang.L.ShellErrFmt, err)
-			continue
-		}
-		current := make(map[string]string, len(files))
-		for _, f := range files {
-			current[f.RelPath] = f.Hash
 		}
 
 		st, err := state.Load(dir, srv.Name)
@@ -828,50 +819,12 @@ func (sh *shellState) cmdStatus() {
 			fmt.Printf(lang.L.ShellStatusStateErr, srv.Name, err)
 			continue
 		}
-		diff := state.Diff(st, current)
-
-		// Include önceliği: sunucu > global
-		srvInclude := cfg.Sync.Include
-		if len(srv.Include) > 0 {
-			srvInclude = srv.Include
-		}
-		srvInclude = normalizePatterns(srvInclude, localPath)
-
-		srvExclude := append(append([]string{}, cfg.Sync.Exclude...), srv.Exclude...)
-		srvExclude = normalizePatterns(srvExclude, localPath)
-
-		added := applyStatusFilters(diff.New, srvInclude, srvExclude)
-		changed := applyStatusFilters(diff.Changed, srvInclude, srvExclude)
-		deleted := applyStatusFilters(diff.Deleted, srvInclude, srvExclude)
-
-		// Milestone varsa yalnızca o tarihten sonra değişen dosyalar gösterilir
+		// Sync'in yükleyeceği liste ile birebir aynı hesap (cmd_plan.go)
+		pi := pendingChanges(dir, &cfg, srv, current, st, nil, nil)
+		added, changed, deleted, frozenFiles := pi.newL, pi.changed, pi.deleted, pi.plan.frozen
 		msLabel := ""
-		if ms, _ := milestone.Load(dir, srv.Name); ms != nil {
-			added, _ = milestoneFilterMtime(added, localDir, ms.Date)
-			changed, _ = milestoneFilterMtime(changed, localDir, ms.Date)
-			msLabel = ms.Date.Format("2006-01-02 15:04")
-		}
-
-		// Frozen dosyaları ayır
-		fl, _ := frozen.Load(dir, srv.Name)
-		var frozenFiles []string
-		if fl != nil {
-			var addedClean, changedClean []string
-			for _, f := range added {
-				if frozen.IsFrozen(fl, f) {
-					frozenFiles = append(frozenFiles, f)
-				} else {
-					addedClean = append(addedClean, f)
-				}
-			}
-			for _, f := range changed {
-				if frozen.IsFrozen(fl, f) {
-					frozenFiles = append(frozenFiles, f)
-				} else {
-					changedClean = append(changedClean, f)
-				}
-			}
-			added, changed = addedClean, changedClean
+		if pi.plan.msDate != nil {
+			msLabel = pi.plan.msDate.Format("2006-01-02 15:04")
 		}
 
 		var totalSize int64

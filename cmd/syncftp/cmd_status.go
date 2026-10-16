@@ -5,16 +5,11 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	"github.com/spf13/cobra"
 
 	"syncftp/internal/config"
-	"syncftp/internal/frozen"
-	"syncftp/internal/ignore"
 	"syncftp/internal/lang"
-	"syncftp/internal/milestone"
-	"syncftp/internal/scanner"
 	"syncftp/internal/state"
 )
 
@@ -84,20 +79,10 @@ func runStatus(cmd *cobra.Command, args []string) error {
 
 	for _, srv := range servers {
 		localPath := srv.EffectiveLocalPath(cfg.Project)
-		localDir := filepath.Join(dir, localPath)
-		matcher, err := ignore.Load(localDir, cfg.Sync.IgnoreFiles)
+		current, _, err := scanForServer(dir, cfg, srv)
 		if err != nil {
-			fmt.Printf("  ignore hatası: %v\n", err)
+			fmt.Printf("── %s ──\n  %v\n\n", srv.Name, err)
 			continue
-		}
-		files, err := scanner.Scan(localDir, matcher)
-		if err != nil {
-			fmt.Printf("  tarama hatası: %v\n", err)
-			continue
-		}
-		current := make(map[string]string)
-		for _, f := range files {
-			current[f.RelPath] = f.Hash
 		}
 
 		st, err := state.Load(dir, srv.Name)
@@ -114,44 +99,19 @@ func runStatus(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		diff := state.Diff(st, current)
-
-		// Include önceliği: CLI > sunucu > global
-		srvInclude := effectiveInclude
-		if len(srv.Include) > 0 && len(statusFlagInclude) == 0 {
-			srvInclude = srv.Include
-		}
-		// Exclude: global + sunucu + CLI
-		srvExclude := append(append([]string{}, cfg.Sync.Exclude...), srv.Exclude...)
-		srvExclude = append(srvExclude, statusFlagExclude...)
-
-		// Eski browser'la kaydedilen "local_path/dosya" prefix'li pattern'leri normalize et
-		srvInclude = normalizePatterns(srvInclude, localPath)
-		srvExclude = normalizePatterns(srvExclude, localPath)
-
-		newFiles := applyStatusFilters(diff.New, srvInclude, srvExclude)
-		changedFiles := applyStatusFilters(diff.Changed, srvInclude, srvExclude)
-		deletedFiles := applyStatusFilters(diff.Deleted, srvInclude, srvExclude)
-
-		// Milestone varsa yalnızca o tarihten sonra değişen dosyalar gösterilir
-		msNote := ""
-		if ms, _ := milestone.Load(dir, srv.Name); ms != nil {
-			var d1, d2 int
-			newFiles, d1 = milestoneFilterMtime(newFiles, localDir, ms.Date)
-			changedFiles, d2 = milestoneFilterMtime(changedFiles, localDir, ms.Date)
-			msNote = fmt.Sprintf(lang.L.MilestoneFilterFmt, ms.Date.Format("2006-01-02 15:04"), d1+d2)
-		}
+		// Sync'in yükleyeceği liste ile birebir aynı hesap (cmd_plan.go)
+		pi := pendingChanges(dir, cfg, srv, current, st, statusFlagInclude, statusFlagExclude)
 
 		fmt.Printf("── %s (%s) ──\n", srv.Name, srv.Host)
 		fmt.Printf(lang.L.StatusDirFmt, filepath.Join(dir, localPath))
 		fmt.Printf(lang.L.StatusFileFmt, len(current))
-		if msNote != "" {
-			fmt.Print(msNote)
+		if pi.plan.msDate != nil {
+			fmt.Printf(lang.L.MilestoneFilterFmt, pi.plan.msDate.Format("2006-01-02 15:04"), pi.plan.msDropped)
 		}
 
 		if !st.FirstSyncDone {
 			fmt.Println(lang.L.StatusNoFirstSync)
-		} else if len(newFiles)+len(changedFiles)+len(deletedFiles) == 0 {
+		} else if len(pi.newL)+len(pi.changed)+len(pi.deleted) == 0 {
 			if len(effectiveInclude)+len(statusFlagExclude) > 0 {
 				fmt.Println(lang.L.StatusFilteredUpToDate)
 			} else {
@@ -159,59 +119,18 @@ func runStatus(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		printFileList(lang.L.StatusNewHeader, newFiles)
-		printFileList(lang.L.StatusChangedHeader, changedFiles)
-		printFileList(lang.L.StatusDeletedHeader, deletedFiles)
-
-		if fl, _ := frozen.Load(dir, srv.Name); fl != nil && len(fl.Files) > 0 {
-			var frozenPaths []string
-			for p, v := range fl.Files {
-				if v {
-					frozenPaths = append(frozenPaths, p)
-				}
-			}
-			printFileList(lang.L.StatusFrozenHeader, frozenPaths)
-		}
+		printFileList(lang.L.StatusNewHeader, pi.newL)
+		printFileList(lang.L.StatusChangedHeader, pi.changed)
+		printFileList(lang.L.StatusDeletedHeader, pi.deleted)
+		printFileList(lang.L.StatusFrozenHeader, pi.plan.frozen)
+		printFileList(lang.L.StatusProtectedHeader, pi.plan.protected)
+		printFileList(lang.L.StatusBlockedHeader, pi.plan.blocked)
 		fmt.Println()
 	}
 
 	return nil
 }
 
-func applyStatusFilters(paths, include, exclude []string) []string {
-	result := paths
-	if len(include) > 0 {
-		var filtered []string
-		for _, p := range result {
-			for _, inc := range include {
-				inc = filepath.ToSlash(inc)
-				if p == inc || strings.HasPrefix(p, inc+"/") {
-					filtered = append(filtered, p)
-					break
-				}
-			}
-		}
-		result = filtered
-	}
-	if len(exclude) > 0 {
-		var filtered []string
-		for _, p := range result {
-			excluded := false
-			for _, exc := range exclude {
-				exc = filepath.ToSlash(exc)
-				if p == exc || strings.HasPrefix(p, exc+"/") {
-					excluded = true
-					break
-				}
-			}
-			if !excluded {
-				filtered = append(filtered, p)
-			}
-		}
-		result = filtered
-	}
-	return result
-}
 
 func printFileList(header string, items []string) {
 	if len(items) == 0 {

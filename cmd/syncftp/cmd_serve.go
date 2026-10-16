@@ -21,7 +21,6 @@ import (
 	"syncftp/internal/failed"
 	ftpclient "syncftp/internal/ftp"
 	"syncftp/internal/ignore"
-	"syncftp/internal/milestone"
 	"syncftp/internal/release"
 	"syncftp/internal/scanner"
 	"syncftp/internal/state"
@@ -234,22 +233,20 @@ func handleStatus(w http.ResponseWriter, r *http.Request, configDir string) {
 		if err != nil {
 			continue
 		}
-		projectDir := filepath.Join(configDir, srv.EffectiveLocalPath(cfg.Project))
-		diff := state.Diff(st, current)
+		// Sync'in yükleyeceği liste ile birebir aynı hesap (cmd_plan.go)
+		pi := pendingChanges(configDir, cfg, srv, current, st, nil, nil)
 		msDate := ""
-		if ms, _ := milestone.Load(configDir, srv.Name); ms != nil {
-			diff.New, _ = milestoneFilterMtime(diff.New, projectDir, ms.Date)
-			diff.Changed, _ = milestoneFilterMtime(diff.Changed, projectDir, ms.Date)
-			msDate = ms.Date.Format("2006-01-02 15:04:05")
+		if pi.plan.msDate != nil {
+			msDate = pi.plan.msDate.Format("2006-01-02 15:04:05")
 		}
 		results = append(results, statusData{
 			Server:        srv.Name,
 			Host:          srv.Host,
 			FirstSyncDone: st.FirstSyncDone,
 			Milestone:     msDate,
-			New:           nullSlice(diff.New),
-			Changed:       nullSlice(diff.Changed),
-			Deleted:       nullSlice(diff.Deleted),
+			New:           nullSlice(pi.newL),
+			Changed:       nullSlice(pi.changed),
+			Deleted:       nullSlice(pi.deleted),
 		})
 	}
 	jsonOK(w, results)

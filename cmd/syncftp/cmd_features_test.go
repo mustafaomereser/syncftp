@@ -143,13 +143,17 @@ func TestPendingForFilters(t *testing.T) {
 	dir := t.TempDir()
 	cfg := &config.Config{
 		Project: config.Project{DefaultPath: "."},
-		Sync:    config.Sync{Exclude: []string{"docs"}, BlockExtensions: []string{"zip"}},
+		Sync:    config.Sync{Exclude: []string{"docs"}, BlockExtensions: []string{"zip"}, Protect: []string{".env"}},
 	}
 	srv := config.Server{Name: "s"}
-	current := map[string]string{"a.php": "1", "docs/x.md": "1", "b.zip": "1", "c.php": "2"}
+	current := map[string]string{"a.php": "1", "docs/x.md": "1", "b.zip": "1", "c.php": "2", ".env": "1"}
 	st := &state.State{Files: map[string]string{"c.php": "1", "gone.php": "1"}}
-	n, c, d := pendingFor(dir, cfg, srv, current, st)
+	pi := pendingChanges(dir, cfg, srv, current, st, nil, nil); n, c, d := pi.newL, pi.changed, pi.deleted
 	if strings.Join(n, ",") != "a.php" || strings.Join(c, ",") != "c.php" || strings.Join(d, ",") != "gone.php" {
 		t.Fatalf("new=%v changed=%v deleted=%v", n, c, d)
+	}
+	// sync ile aynı: protect ve block yüklenmez, ayrı listelenir
+	if strings.Join(pi.plan.protected, ",") != ".env" || strings.Join(pi.plan.blocked, ",") != "b.zip" {
+		t.Fatalf("protected=%v blocked=%v", pi.plan.protected, pi.plan.blocked)
 	}
 }

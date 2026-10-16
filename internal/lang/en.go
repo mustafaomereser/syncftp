@@ -514,6 +514,8 @@ Other:
 	SyncHookErrFmt:   "  ! post_sync hook error: %v\n",
 
 	// Status — frozen
+	StatusProtectedHeader: "  🔒 Protected (not uploaded)",
+	StatusBlockedHeader:   "  ✗ Blocked extension (not uploaded)",
 	StatusFrozenHeader: "  ❄ Frozen (skipped during sync)",
 
 	// Calibrate — live listing counter

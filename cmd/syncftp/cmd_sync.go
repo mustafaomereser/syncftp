@@ -20,10 +20,8 @@ import (
 	"syncftp/internal/config"
 	"syncftp/internal/failed"
 	ftpclient "syncftp/internal/ftp"
-	"syncftp/internal/frozen"
 	"syncftp/internal/ignore"
 	"syncftp/internal/lang"
-	"syncftp/internal/milestone"
 	"syncftp/internal/scanner"
 	"syncftp/internal/state"
 	"syncftp/internal/synclog"
@@ -265,27 +263,8 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 		return result
 	}
 
-	// Include önceliği: CLI > sunucu > global
-	effectiveInclude := cfg.Sync.Include
-	if len(srv.Include) > 0 {
-		effectiveInclude = srv.Include
-	}
-	if len(cliInclude) > 0 {
-		effectiveInclude = cliInclude
-	}
-
-	// Exclude: global + sunucu + CLI (hepsi toplanır)
-	effectiveExclude := append(append([]string{}, cfg.Sync.Exclude...), srv.Exclude...)
-	effectiveExclude = append(effectiveExclude, cliExclude...)
-
-	localPath := srv.EffectiveLocalPath(cfg.Project)
-	effectiveInclude = normalizePatterns(effectiveInclude, localPath)
-	effectiveExclude = normalizePatterns(effectiveExclude, localPath)
-
-	effectiveProtect := append(append([]string{}, cfg.Sync.Protect...), srv.Protect...)
-	effectiveProtect = normalizePatterns(effectiveProtect, localPath)
-
-	effectiveBlockExts := append(append([]string{}, cfg.Sync.BlockExtensions...), srv.BlockExtensions...)
+	// Etkin filtreler (cmd_plan.go — status ekranlarıyla ortak)
+	flt := effectiveFilters(cfg, srv, cliInclude, cliExclude)
 
 	var toUpload []string
 
@@ -297,10 +276,7 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 				toUpload = append(toUpload, rel)
 			}
 		}
-		if len(effectiveInclude) > 0 {
-			toUpload = filterByInclude(toUpload, effectiveInclude)
-		}
-		toUpload = filterByExclude(toUpload, effectiveExclude)
+		toUpload = flt.pick(toUpload)
 	} else if opts.retryFailed {
 		fl, err := failed.Load(configDir, srv.Name)
 		if err != nil {
@@ -335,9 +311,6 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 				diff := state.Diff(st, current)
 				toUpload = append(diff.New, diff.Changed...)
 			}
-			if len(effectiveInclude) > 0 {
-				toUpload = filterByInclude(toUpload, effectiveInclude)
-			}
 		} else {
 			diff := state.Diff(st, current)
 			if len(diff.Deleted) > 0 {
@@ -348,71 +321,37 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 				}
 			}
 			toUpload = append(diff.New, diff.Changed...)
-			if len(effectiveInclude) > 0 {
-				toUpload = filterByInclude(toUpload, effectiveInclude)
-			}
 		}
-		toUpload = filterByExclude(toUpload, effectiveExclude)
+		toUpload = flt.pick(toUpload)
 	}
 
-	// Milestone filtresi: sunucuda milestone varsa yalnızca o tarihten sonra
-	// değişen (mtime) dosyalar sync edilir (since modu zaten mtime bazlı seçim yaptı)
-	if since == nil && !opts.retryFailed {
-		if ms, _ := milestone.Load(configDir, srv.Name); ms != nil {
-			ld := filepath.Join(configDir, srv.EffectiveLocalPath(cfg.Project))
-			var dropped int
-			toUpload, dropped = milestoneFilterMtime(toUpload, ld, ms.Date)
-			fmt.Fprintf(w, lang.L.MilestoneFilterFmt, ms.Date.Format("2006-01-02 15:04"), dropped)
-		}
+	// Milestone / frozen / block / protect — ortak plan (milestone sync ve retry-failed kalıcı filtreden muaf)
+	plan := planUploads(configDir, cfg, srv, toUpload, flt, since == nil && !opts.retryFailed)
+	if plan.msDate != nil {
+		fmt.Fprintf(w, lang.L.MilestoneFilterFmt, plan.msDate.Format("2006-01-02 15:04"), plan.msDropped)
 	}
-
-	// Frozen dosyaları atla
-	fl, _ := frozen.Load(configDir, srv.Name)
-	if fl != nil && len(fl.Files) > 0 {
-		var unfrozen []string
-		frozenSkipped := 0
-		for _, rel := range toUpload {
-			if frozen.IsFrozen(fl, rel) {
-				frozenSkipped++
-			} else {
-				unfrozen = append(unfrozen, rel)
-			}
-		}
-		if frozenSkipped > 0 {
-			fmt.Fprintf(w, "  ❄ %d frozen (skipped)\n", frozenSkipped)
-			result.frozenSkipped = frozenSkipped
-		}
-		toUpload = unfrozen
+	if n := len(plan.frozen); n > 0 {
+		fmt.Fprintf(w, "  ❄ %d frozen (skipped)\n", n)
+		result.frozenSkipped = n
 	}
-
-	// Block filter
-	if len(effectiveBlockExts) > 0 {
-		var blocked int
-		toUpload, blocked = filterByBlock(toUpload, effectiveBlockExts)
-		if blocked > 0 {
-			fmt.Fprintf(w, lang.L.SyncBlockedFmt, blocked)
-			result.blocked = blocked
-		}
+	if n := len(plan.blocked); n > 0 {
+		fmt.Fprintf(w, lang.L.SyncBlockedFmt, n)
+		result.blocked = n
 	}
-
-	sort.Strings(toUpload)
-
-	if len(toUpload) == 0 {
+	if len(plan.upload)+len(plan.protected) == 0 {
 		fmt.Fprintln(w, lang.L.SyncNoChange2)
 		return result
 	}
 
-	var tasks []ftpclient.UploadTask
-	skipped := 0
-	for _, rel := range toUpload {
-		f := byKey[rel]
-		if ftpclient.IsProtected(rel, effectiveProtect) {
-			skipped++
-			continue
-		}
-		tasks = append(tasks, ftpclient.UploadTask{LocalPath: f.AbsPath, RelPath: rel, Hash: current[rel]})
+	tasks := make([]ftpclient.UploadTask, 0, len(plan.upload))
+	for _, rel := range plan.upload {
+		tasks = append(tasks, ftpclient.UploadTask{LocalPath: byKey[rel].AbsPath, RelPath: rel, Hash: current[rel]})
 	}
+	skipped := len(plan.protected)
 	result.protected = skipped
+	// Aşağıdaki dry-run / protect listeleri: yüklenecekler + korunanlar
+	toUpload = append(append([]string{}, plan.upload...), plan.protected...)
+	sort.Strings(toUpload)
 
 	total := len(tasks) + skipped
 	fmt.Fprintf(w, lang.L.SyncProcessingFmt, total)
@@ -424,7 +363,7 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 	if opts.dryRun {
 		for _, rel := range toUpload {
 			f := byKey[rel]
-			if ftpclient.IsProtected(rel, effectiveProtect) || ftpclient.IsProtected(f.RelPath, effectiveProtect) {
+			if ftpclient.IsProtected(rel, flt.protect) || ftpclient.IsProtected(f.RelPath, flt.protect) {
 				fmt.Fprintf(w, lang.L.SyncProtectedLabel, rel)
 			} else {
 				fmt.Fprintf(w, lang.L.SyncUploadLabel, rel)
@@ -481,7 +420,7 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 	}
 
 	for _, rel := range toUpload {
-		if ftpclient.IsProtected(rel, effectiveProtect) {
+		if ftpclient.IsProtected(rel, flt.protect) {
 			fmt.Fprintf(w, lang.L.SyncProtectedLabel, rel)
 		}
 	}
