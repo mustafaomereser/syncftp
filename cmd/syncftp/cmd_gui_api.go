@@ -477,13 +477,17 @@ func (sv *guiServer) apiStatus(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 500, err)
 		return
 	}
-	current, _, err := scanForServer(p.Path, cfg, srv)
+	current, byKey, err := scanForServer(p.Path, cfg, srv)
 	if err != nil {
 		guiErr(w, 500, err)
 		return
 	}
 	pi := pendingChanges(p.Path, cfg, srv, current, st, nil, nil)
 	n, c, d := pi.newL, pi.changed, pi.deleted
+	var bytes int64 // yüklenecek toplam (shell status'taki gibi)
+	for _, rel := range pi.plan.upload {
+		bytes += byKey[rel].Size
+	}
 	capL := func(l []string) []string {
 		if l == nil {
 			return []string{}
@@ -494,7 +498,8 @@ func (sv *guiServer) apiStatus(w http.ResponseWriter, r *http.Request) {
 		return l
 	}
 	guiJSON(w, map[string]any{"new": capL(n), "changed": capL(c), "deleted": capL(d),
-		"counts": map[string]int{"new": len(n), "changed": len(c), "deleted": len(d)}, "first_sync_done": st.FirstSyncDone,
+		"counts": map[string]int{"new": len(n), "changed": len(c), "deleted": len(d), "frozen": len(pi.plan.frozen),
+			"protected": len(pi.plan.protected), "blocked": len(pi.plan.blocked)}, "first_sync_done": st.FirstSyncDone, "bytes": bytes,
 		"frozen": capL(pi.plan.frozen), "protected": capL(pi.plan.protected), "blocked": capL(pi.plan.blocked)})
 }
 

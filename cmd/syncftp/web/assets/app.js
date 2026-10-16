@@ -10,7 +10,7 @@ const T = {
   tr: {
     brandSub: 'Dağıtım paneli', navAll: 'Tüm projeler', navJobs: 'İşler', navProjects: 'Projeler',
     addProject: 'Proje ekle', navNoProjects: 'Bu klasörde proje yok', watching: 'Watch', language: 'Dil', quit: 'Kapat',
-    loading: 'Yükleniyor…', treeView: 'Ağaç', treeHint: 'Bu klasörün altını ağaç olarak göster (shell tree)', treeAsk: 'Klasör başına en fazla kaç öğe gösterilsin?', treeAll: 'Tümü', ignoreNoFile: 'ignore_files listesinde syncFTP dosyası yok — yalnızca .gitignore okunuyor', viewCode: 'Kod', viewRendered: 'Önizleme', viewRenderedLocal: 'Önizleme (yerel)', viewRenderedRemote: 'Önizleme (sunucu)', scanningLocal: 'Taranıyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
+    loading: 'Yükleniyor…', stFrozen: 'Freeze', stProtected: 'Korunan', stBlocked: 'Engelli', stUploadSize: 'yüklenecek: {0}', treeView: 'Ağaç', treeHint: 'Bu klasörün altını ağaç olarak göster (shell tree)', treeAsk: 'Klasör başına en fazla kaç öğe gösterilsin?', treeAll: 'Tümü', ignoreNoFile: 'ignore_files listesinde syncFTP dosyası yok — yalnızca .gitignore okunuyor', viewCode: 'Kod', viewRendered: 'Önizleme', viewRenderedLocal: 'Önizleme (yerel)', viewRenderedRemote: 'Önizleme (sunucu)', scanningLocal: 'Taranıyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
     edit: 'Düzenle', back: 'Geri', yes: 'Evet', confirm: 'Onayla', browse: 'Gözat', add: 'Ekle', open: 'Aç',
     saved: 'Kaydedildi', copied: 'Kopyalandı', never: 'hiç', none: 'yok', all: 'Tümü', manual: '(manuel giriş)',
     projectsTitle: 'Projeler', projectsSub: `{0} klasöründeki syncFTP projeleri (CLI gibi: panel açıldığı klasörü esas alır)`,
@@ -119,7 +119,7 @@ const T = {
   en: {
     brandSub: 'Deploy panel', navAll: 'All projects', navJobs: 'Jobs', navProjects: 'Projects',
     addProject: 'Add project', navNoProjects: 'No project in this folder', watching: 'Watch', language: 'Language', quit: 'Quit',
-    loading: 'Loading…', treeView: 'Tree', treeHint: 'Show everything below this folder as a tree (shell tree)', treeAsk: 'Show at most how many entries per folder?', treeAll: 'All', ignoreNoFile: 'ignore_files has no syncFTP file — only .gitignore is read', viewCode: 'Code', viewRendered: 'Preview', viewRenderedLocal: 'Preview (local)', viewRenderedRemote: 'Preview (server)', scanningLocal: 'Scanning…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
+    loading: 'Loading…', stFrozen: 'Frozen', stProtected: 'Protected', stBlocked: 'Blocked', stUploadSize: 'to upload: {0}', treeView: 'Tree', treeHint: 'Show everything below this folder as a tree (shell tree)', treeAsk: 'Show at most how many entries per folder?', treeAll: 'All', ignoreNoFile: 'ignore_files has no syncFTP file — only .gitignore is read', viewCode: 'Code', viewRendered: 'Preview', viewRenderedLocal: 'Preview (local)', viewRenderedRemote: 'Preview (server)', scanningLocal: 'Scanning…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
     edit: 'Edit', back: 'Back', yes: 'Yes', confirm: 'Confirm', browse: 'Browse', add: 'Add', open: 'Open',
     saved: 'Saved', copied: 'Copied', never: 'never', none: 'none', all: 'All', manual: '(manual entry)',
     projectsTitle: 'Projects', projectsSub: `syncFTP projects in {0} (like the CLI: the panel works on the folder it was opened in)`,
@@ -840,13 +840,16 @@ async function statusModal(P, s) {
   if (!lm) return;
   const st = lm.d;
   const list = (arr, mark, click) => arr.length ? `<div class="liste-kutu">${arr.map((x) => `<div ${click ? `class="tikla" data-diff="${esc(x)}"` : ''}>${mark} ${esc(x)}</div>`).join('')}</div>` : `<p class="faint">${t('emptyList')}</p>`;
-  const tabs = [['new', t('newFiles'), st.new, '+'], ['changed', t('changedFiles'), st.changed, '~'], ['deleted', t('deletedFiles'), st.deleted, '−']];
+  // Sync'in yükleyeceği liste ile aynı hesap: atlanacaklar (freeze / protect / engelli uzantı) ayrı sekmede
+  const tabs = [['new', t('newFiles'), st.new, '+'], ['changed', t('changedFiles'), st.changed, '~'], ['deleted', t('deletedFiles'), st.deleted, '−'],
+    ['frozen', t('stFrozen'), st.frozen || [], '❄'], ['protected', t('stProtected'), st.protected || [], '🔒'], ['blocked', t('stBlocked'), st.blocked || [], '✗']]
+    .filter(([k, , a], i) => i < 3 || a.length);
   const first = Math.max(0, tabs.findIndex(([, , a]) => a.length)); // ilk dolu sekmede aç
   const m = modal({
     title: t('statusTitle', esc(s.name)), size: 'orta',
     body: `<div class="tabs" style="margin-bottom:12px">${tabs.map(([k, l, a], i) => `<a href="javascript:void 0" data-st="${k}" class="${i === first ? 'aktif' : ''}">${l} <span class="sayac">${st.counts[k]}</span></a>`).join('')}</div>
-      <p class="ipucu" style="margin:-4px 0 10px">${t('clickToDiff')}</p>
-      ${tabs.map(([k, , a, mk], i) => `<div data-stp="${k}" ${i !== first ? 'hidden' : ''}>${list(a, mk, k !== 'deleted')}${k === 'deleted' ? `<p class="ipucu" style="margin-top:10px">${t('deletedNote')}</p>` : ''}</div>`).join('')}`,
+      <p class="ipucu" style="margin:-4px 0 10px">${t('clickToDiff')}${st.bytes ? ' · ' + t('stUploadSize', bytes(st.bytes)) : ''}</p>
+      ${tabs.map(([k, , a, mk], i) => `<div data-stp="${k}" ${i !== first ? 'hidden' : ''}>${list(a, mk, k === 'new' || k === 'changed')}${k === 'deleted' ? `<p class="ipucu" style="margin-top:10px">${t('deletedNote')}</p>` : ''}</div>`).join('')}`,
     actions: [{ label: t('close'), cls: 'hayalet' }, { label: icon('upload') + t('sync'), cls: 'mavi', run: () => startJobs(P, { kind: 'sync', servers: [s.name] }, t('sync')) }],
   });
   $$('[data-diff]', m.root).forEach((d) => (d.onclick = () => compareModal(P, s.name, d.dataset.diff)));
