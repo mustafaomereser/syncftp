@@ -15,19 +15,19 @@ import (
 )
 
 var (
-	kernel32                    = windows.NewLazySystemDLL("kernel32.dll")
-	user32                      = windows.NewLazySystemDLL("user32.dll")
-	procGetConsoleProcessList   = kernel32.NewProc("GetConsoleProcessList")
-	procGetConsoleWindow        = kernel32.NewProc("GetConsoleWindow")
-	procFreeConsole             = kernel32.NewProc("FreeConsole")
-	procShowWindow              = user32.NewProc("ShowWindow")
-	procEnumWindows             = user32.NewProc("EnumWindows")
-	procGetWindowTextW          = user32.NewProc("GetWindowTextW")
-	procIsWindowVisible         = user32.NewProc("IsWindowVisible")
-	procSetForegroundWindow     = user32.NewProc("SetForegroundWindow")
-	procIsIconic                = user32.NewProc("IsIconic")
+	kernel32                     = windows.NewLazySystemDLL("kernel32.dll")
+	user32                       = windows.NewLazySystemDLL("user32.dll")
+	procGetConsoleProcessList    = kernel32.NewProc("GetConsoleProcessList")
+	procGetConsoleWindow         = kernel32.NewProc("GetConsoleWindow")
+	procFreeConsole              = kernel32.NewProc("FreeConsole")
+	procShowWindow               = user32.NewProc("ShowWindow")
+	procEnumWindows              = user32.NewProc("EnumWindows")
+	procGetWindowTextW           = user32.NewProc("GetWindowTextW")
+	procIsWindowVisible          = user32.NewProc("IsWindowVisible")
+	procSetForegroundWindow      = user32.NewProc("SetForegroundWindow")
+	procIsIconic                 = user32.NewProc("IsIconic")
 	procAllowSetForegroundWindow = user32.NewProc("AllowSetForegroundWindow")
-	procPostMessageW            = user32.NewProc("PostMessageW")
+	procPostMessageW             = user32.NewProc("PostMessageW")
 )
 
 // ownsConsole süreç kendi konsolunun tek sahibi mi → Explorer'dan çift tıkla açılmış demektir.
@@ -160,8 +160,6 @@ func bringWindowToFront(suffix string) bool {
 	procSetForegroundWindow.Call(found)
 	return true
 }
-
-
 
 // hideCmdWindow alt sürecin (git, cloudflared) konsol penceresi açmasını engeller.
 func hideCmdWindow(c *exec.Cmd) {

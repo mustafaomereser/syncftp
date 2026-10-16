@@ -1,8 +1,8 @@
 package main
 
 import (
-	"encoding/json"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,7 +20,6 @@ import (
 	"syncftp/internal/config"
 	"syncftp/internal/failed"
 	ftpclient "syncftp/internal/ftp"
-	"syncftp/internal/ignore"
 	"syncftp/internal/lang"
 	"syncftp/internal/scanner"
 	"syncftp/internal/state"
@@ -105,77 +104,24 @@ func runSync(cmd *cobra.Command, args []string) error {
 		fmt.Println()
 	}
 
-	type scanResult struct {
-		srv     config.Server
-		current map[string]string
-		byKey   map[string]scanner.File
-		err     error
-	}
-
-	// Tarama fazı — sequential (local disk, hızlı)
-	scans := make([]scanResult, 0, len(servers))
-	for _, srv := range servers {
-		localPath := srv.EffectiveLocalPath(cfg.Project)
-		localDir := filepath.Join(dir, localPath)
-		matcher, merr := ignore.Load(localDir, cfg.Sync.IgnoreFiles)
-		if merr != nil {
-			scans = append(scans, scanResult{srv: srv, err: merr})
-			continue
-		}
-		files, ferr := scanner.Scan(localDir, matcher)
-		if ferr != nil {
-			scans = append(scans, scanResult{srv: srv, err: ferr})
-			continue
-		}
-		current := make(map[string]string, len(files))
-		byKey := make(map[string]scanner.File, len(files))
-		for _, f := range files {
-			current[f.RelPath] = f.Hash
-			byKey[f.RelPath] = f
-		}
-		scans = append(scans, scanResult{srv: srv, current: current, byKey: byKey})
-	}
-
-	// Upload fazı — parallel (her sunucu kendi FTP pool'unu açar)
-	type runResult struct {
-		idx    int
-		output string
-		result serverSyncResult
-	}
-	runResults := make([]runResult, len(scans))
+	// Her sunucu paralel (kendi taraması + FTP havuzu); çıktılar sırayla yazılır
+	outputs := make([]string, len(servers))
+	allResults := make([]serverSyncResult, len(servers))
 	var wg sync.WaitGroup
-
-	for i, sc := range scans {
+	for i, srv := range servers {
 		wg.Add(1)
-		go func(idx int, sc scanResult) {
+		go func(idx int, srv config.Server) {
 			defer wg.Done()
 			var buf strings.Builder
-
-			if sc.err != nil {
-				buf.WriteString(fmt.Sprintf("══ %s ══\n", sc.srv.Name))
-				buf.WriteString(fmt.Sprintf("  Tarama hatası: %v\n\n", sc.err))
-				runResults[idx] = runResult{idx: idx, output: buf.String(), result: serverSyncResult{name: sc.srv.Name, err: sc.err}}
-				return
-			}
-
-			buf.WriteString(fmt.Sprintf("══ %s (%s) ══\n", sc.srv.Name, sc.srv.Host))
-			buf.WriteString(fmt.Sprintf("  Taranıyor: %s → %d dosya\n\n", sc.srv.EffectiveLocalPath(cfg.Project), len(sc.current)))
-
-			result := syncToServerResult(&buf, dir, cfg, sc.srv, sc.current, sc.byKey, flagInclude, flagExclude, nil)
-			runResults[idx] = runResult{idx: idx, output: buf.String(), result: result}
-		}(i, sc)
+			allResults[idx] = syncServer(&buf, dir, cfg, srv, flagInclude, flagExclude, nil, cliSyncOpts())
+			outputs[idx] = buf.String()
+		}(i, srv)
 	}
 	wg.Wait()
-
-	// Çıktıları sıralı yazdır + değişiklik olan sunucular için log kaydet
-	allResults := make([]serverSyncResult, len(runResults))
-	for _, rr := range runResults {
-		fmt.Print(rr.output)
-		allResults[rr.idx] = rr.result
-		if !flagDryRun && (rr.result.uploaded > 0 || rr.result.failed > 0) {
-			if p, err := synclog.Save(dir, rr.result.name, rr.output); err == nil {
-				fmt.Printf(lang.L.SyncLogSavedFmt, p)
-			}
+	for i, out := range outputs {
+		fmt.Print(out)
+		if p := allResults[i].logPath; p != "" {
+			fmt.Printf(lang.L.SyncLogSavedFmt, p)
 		}
 	}
 
@@ -185,18 +131,38 @@ func runSync(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// syncToServer eski signature — tek sunucu veya shell akışı için.
-func syncToServer(configDir string, cfg *config.Config, srv config.Server, current map[string]string, byKey map[string]scanner.File, cliInclude, cliExclude []string) error {
-	r := syncToServerResult(os.Stdout, configDir, cfg, srv, current, byKey, cliInclude, cliExclude, nil)
-	return r.err
-}
-
 // syncOpts — tek bir sync çağrısının modları. Paket seviyesindeki CLI flag'lerinden
 // bağımsızdır: GUI/serve/watch eş zamanlı farklı modlarla sync çalıştırabilir.
 type syncOpts struct {
 	full        bool
 	dryRun      bool
 	retryFailed bool
+	// Shell'in canlı ilerleme ekranı için: yükleme başlamadan hemen önce toplam görev sayısı,
+	// sonra her dosyanın sonucu (onResult verilirse sonuçlar w'ye ayrıca yazılmaz).
+	onUploadStart func(total int)
+	onResult      func(ftpclient.UploadResult)
+}
+
+// syncServer tarama + sync + log — TÜM sync girişlerinin ortak sarmalayıcısı (CLI sync / milestone
+// sync, shell, panel işleri, watch, serve API, webhook). Değişiklik olan (dry-run olmayan) turun
+// çıktısı .syncftp/logs/<sunucu>/ altına kaydedilir; yol result.logPath'te döner.
+func syncServer(w io.Writer, configDir string, cfg *config.Config, srv config.Server, cliInclude, cliExclude []string, since *time.Time, opts syncOpts) serverSyncResult {
+	var buf strings.Builder
+	out := io.MultiWriter(w, &buf)
+	fmt.Fprintf(out, "══ %s (%s://%s) ══\n", srv.Name, srv.ProtocolName(), srv.Host)
+	current, byKey, err := scanForServer(configDir, cfg, srv)
+	if err != nil {
+		fmt.Fprintf(out, "  ✗ %v\n\n", err)
+		return serverSyncResult{name: srv.Name, err: err}
+	}
+	fmt.Fprintf(out, lang.L.GuiScannedFmt, srv.EffectiveLocalPath(cfg.Project), len(current))
+	r := syncToServerOpts(out, configDir, cfg, srv, current, byKey, cliInclude, cliExclude, since, opts)
+	if !opts.dryRun && (r.uploaded > 0 || r.failed > 0) {
+		if p, lerr := synclog.Save(configDir, srv.Name, buf.String()); lerr == nil {
+			r.logPath = p
+		}
+	}
+	return r
 }
 
 // cliSyncOpts CLI flag'lerinden syncOpts üretir.
@@ -425,7 +391,14 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 		}
 	}
 
+	if opts.onUploadStart != nil {
+		opts.onUploadStart(len(tasks))
+	}
 	outcome, sessErr := runUploadSession(w, configDir, cfg, srv, tasks, st, func(r ftpclient.UploadResult) {
+		if opts.onResult != nil {
+			opts.onResult(r)
+			return
+		}
 		printUploadResult(w, r)
 	})
 	if sessErr != nil {
@@ -685,6 +658,7 @@ type serverSyncResult struct {
 	releaseID     string
 	uploadedFiles []string
 	failedFiles   []string
+	logPath       string // syncServer kaydettiyse
 }
 
 // humanBytes byte sayısını okunur biçimde döner: "1.4 MB", "230 KB", "87 B".

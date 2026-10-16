@@ -516,7 +516,7 @@ Diğer:
 	// Status — frozen
 	StatusProtectedHeader: "  🔒 Korunan (protect — yüklenmez)",
 	StatusBlockedHeader:   "  ✗ Engelli uzantı (yüklenmez)",
-	StatusFrozenHeader: "  ❄ Frozen (sync'te atlanır)",
+	StatusFrozenHeader:    "  ❄ Frozen (sync'te atlanır)",
 
 	// Calibrate — canlı listeleme sayacı
 	ResyncListProgressFmt: "\r  Listeleniyor: %d dosya",

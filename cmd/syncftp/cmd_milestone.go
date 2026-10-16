@@ -12,11 +12,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"syncftp/internal/config"
-	"syncftp/internal/ignore"
 	"syncftp/internal/lang"
 	"syncftp/internal/milestone"
-	"syncftp/internal/scanner"
-	"syncftp/internal/synclog"
 )
 
 var (
@@ -69,12 +66,13 @@ var msRelRe = regexp.MustCompile(`^(\d+)\s*([mhdw])$`)
 var msDayMonthRe = regexp.MustCompile(`^(\d{1,2})\.(\d{1,2})$`)
 
 // parseMilestoneDate esnek tarih çözümü (yerel saat dilimi, dil ayarından bağımsız):
-//   şimdi / now                            → şu an
-//   bugün / dün / today / yesterday        → o günün 00:00'ı
-//   30m / 5h / 3d / 2w                     → o kadar süre öncesi
-//   14:30                                  → bugün o saat
-//   20.07 / 20.07.2026 [14:30[:05]]        → gün.ay[.yıl]
-//   2026-07-20 [14:30[:05]]                → ISO
+//
+//	şimdi / now                            → şu an
+//	bugün / dün / today / yesterday        → o günün 00:00'ı
+//	30m / 5h / 3d / 2w                     → o kadar süre öncesi
+//	14:30                                  → bugün o saat
+//	20.07 / 20.07.2026 [14:30[:05]]        → gün.ay[.yıl]
+//	2026-07-20 [14:30[:05]]                → ISO
 func parseMilestoneDate(s string) (time.Time, error) {
 	s = strings.ToLower(strings.TrimSpace(s))
 	now := time.Now()
@@ -244,34 +242,10 @@ func runMilestoneSync(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
-		localPath := srv.EffectiveLocalPath(cfg.Project)
-		localDir := filepath.Join(dir, localPath)
-		matcher, ierr := ignore.Load(localDir, cfg.Sync.IgnoreFiles)
-		if ierr != nil {
-			fmt.Printf("  ! %v\n", ierr)
-			continue
-		}
-		files, serr := scanner.Scan(localDir, matcher)
-		if serr != nil {
-			fmt.Printf("  ! %v\n", serr)
-			continue
-		}
-		current := make(map[string]string, len(files))
-		byKey := make(map[string]scanner.File, len(files))
-		for _, f := range files {
-			current[f.RelPath] = f.Hash
-			byKey[f.RelPath] = f
-		}
-
-		var buf strings.Builder
-		buf.WriteString(fmt.Sprintf("══ %s (%s) ══\n", srv.Name, srv.Host))
 		since := ms.Date
-		result := syncToServerResult(&buf, dir, cfg, srv, current, byKey, nil, nil, &since)
-		fmt.Print(buf.String())
-		if !msFlagDry && (result.uploaded > 0 || result.failed > 0) {
-			if p, lerr := synclog.Save(dir, srv.Name, buf.String()); lerr == nil {
-				fmt.Printf(lang.L.SyncLogSavedFmt, p)
-			}
+		result := syncServer(os.Stdout, dir, cfg, srv, nil, nil, &since, syncOpts{dryRun: msFlagDry})
+		if result.logPath != "" {
+			fmt.Printf(lang.L.SyncLogSavedFmt, result.logPath)
 		}
 	}
 	return nil

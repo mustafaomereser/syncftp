@@ -15,8 +15,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"syncftp/internal/config"
-	ftpclient "syncftp/internal/ftp"
 	"syncftp/internal/frozen"
+	ftpclient "syncftp/internal/ftp"
 	"syncftp/internal/ignore"
 	"syncftp/internal/lang"
 	"syncftp/internal/scanner"

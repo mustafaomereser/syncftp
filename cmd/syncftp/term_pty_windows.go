@@ -132,7 +132,14 @@ func (p *winPTY) Close() error {
 		_ = p.in.Close()
 		done := make(chan struct{})
 		go func() { windows.ClosePseudoConsole(p.hpc); close(done) }()
-		go func() { buf := make([]byte, 4096); for { if _, err := p.out.Read(buf); err != nil { return } } }()
+		go func() {
+			buf := make([]byte, 4096)
+			for {
+				if _, err := p.out.Read(buf); err != nil {
+					return
+				}
+			}
+		}()
 		<-done
 		_ = p.out.Close()
 		if p.proc != 0 {

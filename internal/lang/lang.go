@@ -457,7 +457,7 @@ type StringSet struct {
 	// ── Status — frozen ───────────────────────────────────────────────────────
 	StatusProtectedHeader string
 	StatusBlockedHeader   string
-	StatusFrozenHeader string // "  ❄ Frozen (sync'te atlanır)"
+	StatusFrozenHeader    string // "  ❄ Frozen (sync'te atlanır)"
 
 	// ── Calibrate — canlı listeleme sayacı ────────────────────────────────────
 	ResyncListProgressFmt string // "\r  Listeleniyor: %d dosya"

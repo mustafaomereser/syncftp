@@ -49,5 +49,4 @@ func bringWindowToFront(string) bool { return false }
 
 func closeAppWindows(string) {}
 
-
 func hideCmdWindow(*exec.Cmd) {}

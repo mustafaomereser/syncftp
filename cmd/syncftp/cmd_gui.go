@@ -161,13 +161,13 @@ func runGUIForeground() error {
 		return err
 	}
 	sv := &guiServer{
-		token:   hex.EncodeToString(tokBuf),
-		port:    ln.Addr().(*net.TCPAddr).Port,
-		started: time.Now(),
-		jobs:    newJobManager(),
-		watches: newWatchManager(),
-		quit:    make(chan struct{}),
-		hasTray: trayAvailable() && !guiFlagNoWindow,
+		token:    hex.EncodeToString(tokBuf),
+		port:     ln.Addr().(*net.TCPAddr).Port,
+		started:  time.Now(),
+		jobs:     newJobManager(),
+		watches:  newWatchManager(),
+		quit:     make(chan struct{}),
+		hasTray:  trayAvailable() && !guiFlagNoWindow,
 		startDir: guiStartDir(),
 	}
 	projects.SetBase(sv.startDir)

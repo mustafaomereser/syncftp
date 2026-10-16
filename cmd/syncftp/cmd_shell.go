@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -15,13 +16,9 @@ import (
 	"github.com/chzyer/readline"
 
 	"syncftp/internal/config"
-	"syncftp/internal/failed"
-	ftpclient "syncftp/internal/ftp"
 	"syncftp/internal/frozen"
-	"syncftp/internal/ignore"
+	ftpclient "syncftp/internal/ftp"
 	"syncftp/internal/lang"
-	"syncftp/internal/milestone"
-	"syncftp/internal/scanner"
 	"syncftp/internal/state"
 )
 
@@ -843,7 +840,7 @@ func (sh *shellState) cmdStatus() {
 	if fm, ok := final.(statusTUI); ok && fm.syncServer != "" {
 		for _, srv := range sh.cfg.EnabledServers() {
 			if srv.Name == fm.syncServer {
-				fmt.Printf("\n── %s ──\n", srv.Name)
+				fmt.Println()
 				sh.shellSyncServer(srv, false, false, nil)
 				break
 			}
@@ -898,7 +895,7 @@ func (sh *shellState) cmdSync(args []string) {
 	}
 
 	for _, srv := range servers {
-		fmt.Printf("\n── %s ──\n", srv.Name)
+		fmt.Println()
 		sh.shellSyncServer(srv, full, dryRun, nil)
 	}
 }
@@ -995,292 +992,61 @@ func (sh *shellState) cmdCalibrate(args []string) {
 
 // shellSyncServer sync akışının shell sürümü.
 // since != nil → milestone modu: state diff yerine mtime >= since olan dosyalar yüklenir.
+// shellSyncServer — CLI/panel ile AYNI sync (syncServer → syncToServerOpts): ilk sync'te calibrate,
+// filtre zinciri, hook'lar, minify, webhook, log. Shell'e özgü tek fark canlı ilerleme ekranı:
+// yükleme başlarken RunSyncTUI açılır, dosya sonuçları kanaldan akar; çekirdeğin metin çıktısı TUI
+// bozulmasın diye tamponlanır, TUI öncesi ve sonrası yazdırılır.
 func (sh *shellState) shellSyncServer(srv config.Server, full, dryRun bool, since *time.Time) {
-	cfg := sh.cfg
 	dir := sh.configDir
-
-	localPath := srv.EffectiveLocalPath(cfg.Project)
-	localDir := filepath.Join(dir, localPath)
-
-	// Failsafe: artık diskte olmayan tam dosya yollarını include/exclude/protect listelerinden sil
-	{
-		dirty := false
-		if newL, ch := cleanPatternList(sh.cfg.Sync.Include, localDir); ch {
-			sh.cfg.Sync.Include = newL
-			dirty = true
-		}
-		if newL, ch := cleanPatternList(sh.cfg.Sync.Exclude, localDir); ch {
-			sh.cfg.Sync.Exclude = newL
-			dirty = true
-		}
-		if newL, ch := cleanPatternList(sh.cfg.Sync.Protect, localDir); ch {
-			sh.cfg.Sync.Protect = newL
-			dirty = true
-		}
-		for i := range sh.cfg.Servers {
-			if sh.cfg.Servers[i].Name == srv.Name {
-				if newL, ch := cleanPatternList(sh.cfg.Servers[i].Include, localDir); ch {
-					sh.cfg.Servers[i].Include = newL
-					dirty = true
-				}
-				if newL, ch := cleanPatternList(sh.cfg.Servers[i].Exclude, localDir); ch {
-					sh.cfg.Servers[i].Exclude = newL
-					dirty = true
-				}
-				if newL, ch := cleanPatternList(sh.cfg.Servers[i].Protect, localDir); ch {
-					sh.cfg.Servers[i].Protect = newL
-					dirty = true
-				}
-				break
-			}
-		}
-		if dirty {
-			if saveErr := config.Save(dir, &sh.cfg); saveErr != nil {
-				fmt.Printf(lang.L.SyncConfigSaveErr, saveErr)
-			}
-			cfg = sh.cfg
-		}
+	buf := &lockedBuffer{}
+	startCh := make(chan int, 1)
+	resCh := make(chan ftpclient.UploadResult, 16)
+	doneCh := make(chan serverSyncResult, 1)
+	opts := syncOpts{
+		full: full, dryRun: dryRun,
+		onUploadStart: func(n int) { startCh <- n },
+		onResult:      func(r ftpclient.UploadResult) { resCh <- r },
 	}
-
-	matcher, err := ignore.Load(localDir, cfg.Sync.IgnoreFiles)
-	if err != nil {
-		fmt.Printf(lang.L.ShellErrFmt, err)
-		return
-	}
-	fmt.Print(lang.L.ShellScanning)
-	files, err := scanner.Scan(localDir, matcher)
-	if err != nil {
-		fmt.Printf(lang.L.ShellConnectErr, err)
-		return
-	}
-	fmt.Printf(lang.L.ShellScannedFmt, len(files))
-
-	current := make(map[string]string, len(files))
-	byRel := make(map[string]scanner.File, len(files))
-	for _, f := range files {
-		current[f.RelPath] = f.Hash
-		byRel[f.RelPath] = f
-	}
-
-	// Include önceliği: sunucu > global (CLI yok shell'de)
-	effectiveInclude := cfg.Sync.Include
-	if len(srv.Include) > 0 {
-		effectiveInclude = srv.Include
-	}
-	effectiveInclude = normalizePatterns(effectiveInclude, localPath)
-
-	effectiveExclude := append(append([]string{}, cfg.Sync.Exclude...), srv.Exclude...)
-	effectiveExclude = normalizePatterns(effectiveExclude, localPath)
-
-	effectiveProtect := append(append([]string{}, cfg.Sync.Protect...), srv.Protect...)
-	effectiveProtect = normalizePatterns(effectiveProtect, localPath)
-
-	st, err := state.Load(dir, srv.Name)
-	if err != nil {
-		fmt.Printf(lang.L.ShellStateReadErr, err)
-		return
-	}
-
-	var toUpload []string
-	if since != nil {
-		fmt.Printf(lang.L.MilestoneSinceFmt, since.Format("2006-01-02 15:04:05"))
-		for rel := range current {
-			f := byRel[rel]
-			if info, statErr := os.Stat(f.AbsPath); statErr == nil && !info.ModTime().Before(*since) {
-				toUpload = append(toUpload, rel)
-			}
-		}
-	} else if !st.FirstSyncDone || full {
-		toUpload = mapKeys(current)
-	} else {
-		diff := state.Diff(st, current)
-		toUpload = append(diff.New, diff.Changed...)
-	}
-
-	if len(effectiveInclude) > 0 {
-		toUpload = filterByInclude(toUpload, effectiveInclude)
-	}
-	toUpload = filterByExclude(toUpload, effectiveExclude)
-
-	// Milestone filtresi: sunucuda milestone varsa yalnızca o tarihten sonra
-	// değişen (mtime) dosyalar sync edilir (since modu zaten mtime bazlı seçim yaptı)
-	if since == nil {
-		if ms, _ := milestone.Load(dir, srv.Name); ms != nil {
-			var dropped int
-			toUpload, dropped = milestoneFilterMtime(toUpload, localDir, ms.Date)
-			fmt.Printf(lang.L.MilestoneFilterFmt, ms.Date.Format("2006-01-02 15:04"), dropped)
-		}
-	}
-
-	// Frozen filtresi
-	if fl, _ := frozen.Load(dir, srv.Name); fl != nil {
-		var unfrozen []string
-		frozenCount := 0
-		for _, rel := range toUpload {
-			if frozen.IsFrozen(fl, rel) {
-				frozenCount++
-			} else {
-				unfrozen = append(unfrozen, rel)
-			}
-		}
-		if frozenCount > 0 {
-			fmt.Printf("  ❄ %d frozen (atlandı)\n", frozenCount)
-		}
-		toUpload = unfrozen
-	}
-
-	// Block filter
-	{
-		effectiveBlockExts := append(append([]string{}, cfg.Sync.BlockExtensions...), srv.BlockExtensions...)
-		if len(effectiveBlockExts) > 0 {
-			var blocked int
-			toUpload, blocked = filterByBlock(toUpload, effectiveBlockExts)
-			if blocked > 0 {
-				fmt.Printf(lang.L.SyncBlockedFmt, blocked)
-			}
-		}
-	}
-
-	// Protect filtresi
-	var filtered []string
-	for _, rel := range toUpload {
-		if ftpclient.IsProtected(rel, effectiveProtect) {
-			continue
-		}
-		filtered = append(filtered, rel)
-	}
-	toUpload = filtered
-
-	sort.Strings(toUpload)
-
-	if dryRun {
-		RunSyncTUI(dir, srv.Name, len(toUpload), true, toUpload, nil)
-		return
-	}
-
-	if len(toUpload) == 0 {
-		RunSyncTUI(dir, srv.Name, 0, false, nil, nil)
-		return
-	}
-
-	// Pre-sync hook'ları (global + sunucu); hata → sync iptal
-	preHooks := append(append([]string{}, cfg.Sync.PreSync...), srv.PreSync...)
-	if len(preHooks) > 0 {
-		if hookErr := runHooks(os.Stdout, dir, preHooks, hookEnv(srv.Name, 0, 0)); hookErr != nil {
-			fmt.Printf(lang.L.SyncHookAbortFmt, hookErr)
-			return
-		}
-	}
-	if hookErr := runRemoteHooks(os.Stdout, srv, srv.RemotePreSync, 0, 0); hookErr != nil {
-		fmt.Printf(lang.L.SyncHookAbortFmt, hookErr)
-		return
-	}
-
-	tasks := make([]ftpclient.UploadTask, 0, len(toUpload))
-	for _, rel := range toUpload {
-		f := byRel[rel]
-		tasks = append(tasks, ftpclient.UploadTask{LocalPath: f.AbsPath, RelPath: rel, Hash: current[rel]})
-	}
-
-	// Minify / Obfuscate
-	if srv.Minify || srv.Obfuscate {
-		if tmpDir, tdErr := os.MkdirTemp("", "syncftp-minify-*"); tdErr == nil {
-			var minCount, obfCount int
-			var tmpFiles []string
-			tasks, tmpFiles, minCount, obfCount = ProcessMinify(tasks, srv.Minify, srv.Obfuscate, tmpDir)
-			defer func() {
-				for _, p := range tmpFiles {
-					os.Remove(p)
-				}
-				os.Remove(tmpDir)
-			}()
-			if minCount > 0 {
-				fmt.Printf(lang.L.SyncMinifiedFmt, minCount)
-			}
-			if obfCount > 0 {
-				fmt.Printf(lang.L.SyncObfuscatedFmt, obfCount)
-			}
-		}
-	}
-
-	// Upload çekirdeği ayrı goroutine'de; sonuçlar TUI'ya kanal ile akar.
-	// Çekirdeğin mesajları (yedek özeti, limit uyarısı) TUI bozulmasın diye buffer'a yazılır.
-	var sessLog strings.Builder
-	ch := make(chan ftpclient.UploadResult, 16)
-	type sessDone struct {
-		out uploadOutcome
-		err error
-	}
-	doneCh := make(chan sessDone, 1)
 	go func() {
-		out, err := runUploadSession(&sessLog, dir, &cfg, srv, tasks, st, func(r ftpclient.UploadResult) { ch <- r })
-		close(ch)
-		doneCh <- sessDone{out, err}
+		r := syncServer(buf, dir, &sh.cfg, srv, nil, nil, since, opts)
+		close(resCh)
+		doneCh <- r
 	}()
-	tuiResults, _ := RunSyncTUI(dir, srv.Name, len(tasks), false, nil, ch)
-	for range ch { // TUI erken kapandıysa kalan sonuçları boşalt (çekirdek bloklanmasın)
-	}
-	sd := <-doneCh
-	fmt.Print(sessLog.String())
-	if sd.err != nil {
-		fmt.Printf(lang.L.ShellConnPoolErr, sd.err)
-		return
-	}
 
-	successFiles := sd.out.successFiles
-	var failedPaths []string
-	for _, r := range sd.out.results {
-		if r.Err != nil {
-			failedPaths = append(failedPaths, r.RelPath)
+	var res serverSyncResult
+	select {
+	case n := <-startCh:
+		fmt.Print(buf.take())
+		_, _ = RunSyncTUI(dir, srv.Name, n, false, nil, resCh)
+		for range resCh { // TUI erken kapandıysa kalan sonuçları boşalt (çekirdek bloklanmasın)
 		}
+		res = <-doneCh
+	case res = <-doneCh:
 	}
-	_ = tuiResults
+	fmt.Print(buf.take())
+	if res.logPath != "" {
+		fmt.Printf(lang.L.SyncLogSavedFmt, res.logPath)
+	}
+}
 
-	if len(failedPaths) > 0 {
-		failed.Save(dir, srv.Name, failedPaths)
-	} else {
-		failed.Clear(dir, srv.Name)
-	}
+// lockedBuffer eş zamanlı yazılabilen, parça parça boşaltılabilen metin tamponu.
+type lockedBuffer struct {
+	mu sync.Mutex
+	b  strings.Builder
+}
 
-	for rel := range st.Files {
-		if _, exists := current[rel]; !exists {
-			delete(st.Files, rel)
-		}
-	}
-	// Milestone modu ilk sync sayılmaz — auto-calibrate hakkını tüketme
-	if since == nil {
-		st.FirstSyncDone = true
-	}
-	state.Save(dir, st)
+func (l *lockedBuffer) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.b.Write(p)
+}
 
-	if sd.out.releaseDir != "" {
-		fmt.Printf(lang.L.ShellReleaseFmt, sd.out.releaseDir)
-	}
-
-	// Webhook
-	webhookURL := srv.Webhook
-	if webhookURL == "" {
-		webhookURL = cfg.Sync.Webhook
-	}
-	if webhookURL != "" {
-		var uploadedFiles []string
-		for rel := range successFiles {
-			uploadedFiles = append(uploadedFiles, rel)
-		}
-		sendWebhook(os.Stdout, webhookURL, srv.Name, len(successFiles), len(failedPaths), uploadedFiles)
-	}
-
-	if hookErr := runRemoteHooks(os.Stdout, srv, srv.RemotePostSync, len(successFiles), len(failedPaths)); hookErr != nil {
-		fmt.Printf(lang.L.SyncHookErrFmt, hookErr)
-	}
-
-	// Post-sync hook'ları (global + sunucu); hata sync sonucunu etkilemez
-	postHooks := append(append([]string{}, cfg.Sync.PostSync...), srv.PostSync...)
-	if len(postHooks) > 0 {
-		if hookErr := runHooks(os.Stdout, dir, postHooks, hookEnv(srv.Name, len(successFiles), len(failedPaths))); hookErr != nil {
-			fmt.Printf(lang.L.SyncHookErrFmt, hookErr)
-		}
-	}
+func (l *lockedBuffer) take() string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	out := l.b.String()
+	l.b.Reset()
+	return out
 }
 
 // ── yardımcılar ───────────────────────────────────────────────────────────────
@@ -1395,15 +1161,15 @@ func (e statusSrvEntry) totalChanges() int {
 }
 
 type statusTUI struct {
-	project    string
-	entries    []statusSrvEntry
-	cursor     int
-	expanded   int // -1 = liste modu, >=0 = detay modu
-	scroll     int
-	searching  bool
-	searchText string
-	width      int
-	height     int
+	project     string
+	entries     []statusSrvEntry
+	cursor      int
+	expanded    int // -1 = liste modu, >=0 = detay modu
+	scroll      int
+	searching   bool
+	searchText  string
+	width       int
+	height      int
 	syncPending bool   // 's' sonrası onay bekleniyor
 	syncServer  string // boş değilse TUI çıkışında bu sunucu sync edilecek
 }

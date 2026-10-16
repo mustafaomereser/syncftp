@@ -311,4 +311,3 @@ func closeAllTerms() {
 		delete(terms, id)
 	}
 }
-

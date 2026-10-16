@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"io"
+	"os"
 	"path/filepath"
 
 	"syncftp/internal/config"

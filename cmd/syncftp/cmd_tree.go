@@ -16,8 +16,9 @@ var treeGrey = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 
 // cmdTree — FTP dizinini ağaç görünümünde listeler.
 // Kullanım: tree [path] [--max N]
-//   --max N : klasör başına max N öğe göster (0 = sınırsız)
-//   path    : başlangıç dizini (varsayılan: mevcut dizin)
+//
+//	--max N : klasör başına max N öğe göster (0 = sınırsız)
+//	path    : başlangıç dizini (varsayılan: mevcut dizin)
 func (sh *shellState) cmdTree(args []string) {
 	if !sh.ensureConnected() {
 		return

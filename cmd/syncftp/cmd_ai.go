@@ -239,7 +239,6 @@ func aiProjectDoc(p projects.Project) string {
 	return b.String()
 }
 
-
 const aiConfigDoc = "# .syncftp/syncftp.json schema\n\n" +
 	"```jsonc\n" +
 	`{

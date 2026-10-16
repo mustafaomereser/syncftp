@@ -13,8 +13,8 @@ import (
 	goftp "github.com/jlaffaye/ftp"
 
 	"syncftp/internal/config"
-	ftpclient "syncftp/internal/ftp"
 	"syncftp/internal/frozen"
+	ftpclient "syncftp/internal/ftp"
 	"syncftp/internal/lang"
 )
 
@@ -36,11 +36,11 @@ var (
 
 type BrowserResult struct {
 	CWD       string
-	Selected  string              // tek dosya (Enter)
-	Marked    []string            // çoklu seçim (Space + Enter)
-	Action    string              // "delete", "move", ""
+	Selected  string   // tek dosya (Enter)
+	Marked    []string // çoklu seçim (Space + Enter)
+	Action    string   // "delete", "move", ""
 	Quit      bool
-	NewClient *ftpclient.Client   // r ile reconnect yapıldıysa yeni bağlantı; nil = reconnect yok
+	NewClient *ftpclient.Client // r ile reconnect yapıldıysa yeni bağlantı; nil = reconnect yok
 }
 
 // ── sıralanmış giriş ──────────────────────────────────────────────────────────
@@ -68,9 +68,10 @@ type previewLoadedMsg struct {
 	content string
 	err     error // gerçek hata, görünür hata mesajı için
 }
+
 // Arama streaming mesajları
 type searchEntryMsg struct {
-	gen   int          // hangi arama turuna ait
+	gen   int // hangi arama turuna ait
 	entry sortedEntry
 }
 type searchDoneMsg struct {
@@ -104,8 +105,8 @@ type browserModel struct {
 	frozenFiles map[string]bool // relPath → freeze durumu
 
 	cursor     int
-	lastDir    int  // 1=aşağı (default), -1=yukarı; Space cursor hareketini belirler
-	escPending bool // root'ta ilk ESC: çıkış onayı bekleniyor
+	lastDir    int    // 1=aşağı (default), -1=yukarı; Space cursor hareketini belirler
+	escPending bool   // root'ta ilk ESC: çıkış onayı bekleniyor
 	statusMsg  string // kısa geçici mesaj (freeze sonrası vb.)
 	loading    bool
 	err        error
@@ -152,12 +153,12 @@ func newBrowserModel(client *ftpclient.Client, startPath, root, configDir string
 		}
 	}
 	return browserModel{
-		client:      client,
-		server:      server,
-		configDir:   configDir,
-		root:        root,
-		cwd:         startPath,
-		loading:     true,
+		client:        client,
+		server:        server,
+		configDir:     configDir,
+		root:          root,
+		cwd:           startPath,
+		loading:       true,
 		childCounts:   make(map[string]int),
 		marked:        make(map[string]bool),
 		frozenFiles:   frozenFiles,
@@ -872,7 +873,6 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	return m, nil
 }
-
 
 func (m browserModel) markedList() []string {
 	var out []string

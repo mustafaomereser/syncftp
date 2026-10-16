@@ -313,10 +313,5 @@ func watchResolveRoots(filePath string, roots []*watchRoot) []*watchRoot {
 // Modlar sabit (syncOpts{}): CLI flag'lerinden etkilenmez.
 func watchDoSync(out io.Writer, configDir string, cfg *config.Config, srv config.Server) serverSyncResult {
 	fmt.Fprintf(out, lang.L.WatchChangeFmt, srv.Name)
-	current, byKey, err := scanForServer(configDir, cfg, srv)
-	if err != nil {
-		fmt.Fprintf(out, lang.L.WatchErrFmt, err)
-		return serverSyncResult{name: srv.Name, err: err}
-	}
-	return syncToServerOpts(out, configDir, cfg, srv, current, byKey, nil, nil, nil, syncOpts{})
+	return syncServer(out, configDir, cfg, srv, nil, nil, nil, syncOpts{})
 }

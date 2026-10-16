@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"syncftp/internal/config"
-	ftpclient "syncftp/internal/ftp"
 	"syncftp/internal/frozen"
+	ftpclient "syncftp/internal/ftp"
 	"syncftp/internal/milestone"
 	"syncftp/internal/state"
 )

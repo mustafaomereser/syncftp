@@ -516,7 +516,7 @@ Other:
 	// Status — frozen
 	StatusProtectedHeader: "  🔒 Protected (not uploaded)",
 	StatusBlockedHeader:   "  ✗ Blocked extension (not uploaded)",
-	StatusFrozenHeader: "  ❄ Frozen (skipped during sync)",
+	StatusFrozenHeader:    "  ❄ Frozen (skipped during sync)",
 
 	// Calibrate — live listing counter
 	ResyncListProgressFmt: "\r  Listing: %d files",

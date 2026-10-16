@@ -15,8 +15,8 @@ import (
 
 	"syncftp/internal/config"
 	"syncftp/internal/failed"
-	ftpclient "syncftp/internal/ftp"
 	"syncftp/internal/frozen"
+	ftpclient "syncftp/internal/ftp"
 	"syncftp/internal/lang"
 	"syncftp/internal/milestone"
 	"syncftp/internal/projects"
@@ -822,15 +822,6 @@ func guiRunSync(j *job, dir string, srv config.Server, req guiJobReq) (any, erro
 	if fresh, ok := findServer(cfg, srv.Name); ok {
 		srv = fresh
 	}
-	var buf strings.Builder
-	out := io.MultiWriter(j, &buf)
-	fmt.Fprintf(out, "══ %s (%s://%s) ══\n", srv.Name, srv.ProtocolName(), srv.Host)
-	current, byKey, err := scanForServer(dir, cfg, srv)
-	if err != nil {
-		return nil, err
-	}
-	fmt.Fprintf(out, lang.L.GuiScannedFmt, srv.EffectiveLocalPath(cfg.Project), len(current))
-
 	var since *time.Time
 	if req.Kind == "milestone-sync" {
 		ms, _ := milestone.Load(dir, srv.Name)
@@ -839,12 +830,10 @@ func guiRunSync(j *job, dir string, srv config.Server, req guiJobReq) (any, erro
 		}
 		since = &ms.Date
 	}
-	r := syncToServerOpts(out, dir, cfg, srv, current, byKey, req.Include, req.Exclude, since,
+	r := syncServer(j, dir, cfg, srv, req.Include, req.Exclude, since,
 		syncOpts{full: req.Full, dryRun: req.DryRun, retryFailed: req.RetryFailed})
-	if !req.DryRun && (r.uploaded > 0 || r.failed > 0) {
-		if p, err := synclog.Save(dir, srv.Name, buf.String()); err == nil {
-			fmt.Fprintf(j, lang.L.SyncLogSavedFmt, p)
-		}
+	if r.logPath != "" {
+		fmt.Fprintf(j, lang.L.SyncLogSavedFmt, r.logPath)
 	}
 	res := map[string]any{
 		"uploaded": r.uploaded, "failed": r.failed, "protected": r.protected, "blocked": r.blocked,

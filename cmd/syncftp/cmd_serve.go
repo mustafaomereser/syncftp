@@ -20,11 +20,8 @@ import (
 	"syncftp/internal/config"
 	"syncftp/internal/failed"
 	ftpclient "syncftp/internal/ftp"
-	"syncftp/internal/ignore"
 	"syncftp/internal/release"
-	"syncftp/internal/scanner"
 	"syncftp/internal/state"
-	"syncftp/internal/synclog"
 )
 
 var servePort int
@@ -327,12 +324,7 @@ func handleSync(w http.ResponseWriter, r *http.Request, configDir string) {
 // protect, hook, minify, webhook, milestone, yedek/rollback dahil CLI ile birebir aynı.
 func apiSyncServer(configDir string, cfg *config.Config, srv config.Server, req syncRequest) (syncData, error) {
 	res := syncData{Server: srv.Name, DryRun: req.DryRun}
-	current, byKey, err := scanForServer(configDir, cfg, srv)
-	if err != nil {
-		return res, err
-	}
-	var buf strings.Builder
-	r := syncToServerOpts(&buf, configDir, cfg, srv, current, byKey, req.Include, req.Exclude, nil,
+	r := syncServer(io.Discard, configDir, cfg, srv, req.Include, req.Exclude, nil,
 		syncOpts{full: req.Full, dryRun: req.DryRun, retryFailed: req.RetryFailed})
 	if r.err != nil {
 		return res, r.err
@@ -342,9 +334,6 @@ func apiSyncServer(configDir string, cfg *config.Config, srv config.Server, req 
 	}
 	for _, p := range r.failedFiles {
 		res.Failed = append(res.Failed, syncFileResult{Path: p})
-	}
-	if !req.DryRun && (r.uploaded > 0 || r.failed > 0) {
-		_, _ = synclog.Save(configDir, srv.Name, buf.String())
 	}
 	return res, nil
 }
@@ -671,21 +660,7 @@ func handleSyncStream(w http.ResponseWriter, r *http.Request, configDir string) 
 	}
 
 	for _, srv := range servers {
-		localDir := filepath.Join(configDir, srv.EffectiveLocalPath(cfg.Project))
-		matcher, _ := ignore.Load(localDir, cfg.Sync.IgnoreFiles)
-		files, err := scanner.Scan(localDir, matcher)
-		if err != nil {
-			fmt.Fprintf(sw, "[%s] scan hatası: %v", srv.Name, err)
-			continue
-		}
-		current := make(map[string]string, len(files))
-		byKey := make(map[string]scanner.File, len(files))
-		for _, f := range files {
-			current[f.RelPath] = f.Hash
-			byKey[f.RelPath] = f
-		}
-
-		syncToServerOpts(sw, configDir, cfg, srv, current, byKey, nil, nil, nil, syncOpts{full: full, dryRun: dryRun})
+		syncServer(sw, configDir, cfg, srv, nil, nil, nil, syncOpts{full: full, dryRun: dryRun})
 	}
 
 	fmt.Fprintf(sw, "[sync tamamlandı]")
@@ -830,19 +805,7 @@ func handleGitHubTrigger(w http.ResponseWriter, r *http.Request, configDir strin
 			servers = []config.Server{srv}
 		}
 		for _, srv := range servers {
-			localDir := filepath.Join(configDir, srv.EffectiveLocalPath(cfg.Project))
-			matcher, _ := ignore.Load(localDir, cfg.Sync.IgnoreFiles)
-			files, err := scanner.Scan(localDir, matcher)
-			if err != nil {
-				continue
-			}
-			current := make(map[string]string, len(files))
-			byKey := make(map[string]scanner.File, len(files))
-			for _, f := range files {
-				current[f.RelPath] = f.Hash
-				byKey[f.RelPath] = f
-			}
-			syncToServer(configDir, cfg, srv, current, byKey, nil, nil)
+			syncServer(os.Stdout, configDir, cfg, srv, nil, nil, nil, syncOpts{})
 		}
 	}()
 }

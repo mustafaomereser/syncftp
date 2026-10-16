@@ -148,7 +148,8 @@ func TestPendingForFilters(t *testing.T) {
 	srv := config.Server{Name: "s"}
 	current := map[string]string{"a.php": "1", "docs/x.md": "1", "b.zip": "1", "c.php": "2", ".env": "1"}
 	st := &state.State{Files: map[string]string{"c.php": "1", "gone.php": "1"}}
-	pi := pendingChanges(dir, cfg, srv, current, st, nil, nil); n, c, d := pi.newL, pi.changed, pi.deleted
+	pi := pendingChanges(dir, cfg, srv, current, st, nil, nil)
+	n, c, d := pi.newL, pi.changed, pi.deleted
 	if strings.Join(n, ",") != "a.php" || strings.Join(c, ",") != "c.php" || strings.Join(d, ",") != "gone.php" {
 		t.Fatalf("new=%v changed=%v deleted=%v", n, c, d)
 	}

@@ -131,7 +131,6 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-
 func printFileList(header string, items []string) {
 	if len(items) == 0 {
 		return
