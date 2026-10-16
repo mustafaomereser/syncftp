@@ -1,48 +1,102 @@
 package ftp
 
 import (
+	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	goftp "github.com/jlaffaye/ftp"
+	"github.com/pkg/sftp"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/time/rate"
 
 	"syncftp/internal/config"
 )
 
-// Client wraps an active FTP connection for a single server.
+// Client wraps an active FTP or SFTP connection for a single server.
 // mu serialize eder — aynı bağlantıya eş zamanlı erişim
 // "short response" hatalarına yol açar.
+// Protokol: conn != nil → FTP, sftp != nil → SFTP. Tüm metotlar iki yolu da destekler;
+// çağıranlar protokolden habersizdir (List her iki durumda goftp.Entry döner).
 type Client struct {
-	conn   *goftp.ServerConn
-	server config.Server
-	mu     sync.Mutex
+	conn    *goftp.ServerConn
+	sftp    *sftp.Client
+	sshConn *ssh.Client // SFTP'nin taşıyıcı SSH bağlantısı
+	tunnel  *ssh.Client // SSH tüneli (jump host); yoksa nil
+	server  config.Server
+	limiter *rate.Limiter // upload hız sınırı (nil = sınırsız); pool genelinde paylaşılır
+	mu      sync.Mutex
 }
 
-// Connect dials and authenticates an FTP connection.
+// Connect dials and authenticates an FTP/SFTP connection.
+// Sunucunun bant genişliği sınırı bu bağlantıya özel limiter ile uygulanır;
+// pool genelinde paylaşılan limiter için ConnectLimited kullanılır.
 func Connect(srv config.Server) (*Client, error) {
+	return ConnectLimited(srv, nil)
+}
+
+// ConnectLimited Connect ile aynıdır; lim != nil ise upload'lar bu limiter ile kısılır.
+func ConnectLimited(srv config.Server, lim *rate.Limiter) (*Client, error) {
+	tunnel, err := dialTunnel(srv)
+	if err != nil {
+		return nil, err
+	}
+	var c *Client
+	if srv.IsSFTP() {
+		c, err = connectSFTP(srv, tunnel)
+	} else {
+		c, err = connectFTP(srv, tunnel)
+	}
+	if err != nil {
+		if tunnel != nil {
+			tunnel.Close()
+		}
+		return nil, err
+	}
+	c.tunnel = tunnel
+	c.limiter = lim
+	return c, nil
+}
+
+func connectFTP(srv config.Server, tunnel *ssh.Client) (*Client, error) {
 	addr := fmt.Sprintf("%s:%d", srv.Host, srv.Port)
 
 	opts := []goftp.DialOption{
 		goftp.DialWithTimeout(30 * time.Second),
 		goftp.DialWithDisabledEPSV(srv.DisableEPSV || srv.NATWorkaround),
 	}
-
-	if srv.NATWorkaround {
-		serverHost := srv.Host
-		opts = append(opts, goftp.DialWithDialFunc(func(network, address string) (net.Conn, error) {
-			_, port, splitErr := net.SplitHostPort(address)
-			if splitErr != nil {
-				return net.Dial(network, address)
-			}
-			return net.DialTimeout(network, net.JoinHostPort(serverHost, port), 15*time.Second)
+	if srv.IsFTPS() {
+		opts = append(opts, goftp.DialWithExplicitTLS(&tls.Config{
+			ServerName:         srv.Host,
+			InsecureSkipVerify: srv.TLSSkipVerify, //nolint:gosec // kullanıcı tercihi (paylaşımlı hosting sertifikaları)
+			MinVersion:         tls.VersionTLS12,
 		}))
 	}
+
+	// Tüm bağlantılar (kontrol + pasif veri) buradan açılır: NAT düzeltmesi, SSH tüneli
+	// ve idle deadline (takılan veri bağlantısı sync'i sonsuza kadar kilitlemesin) tek yerde.
+	serverHost := srv.Host
+	nat := srv.NATWorkaround
+	opts = append(opts, goftp.DialWithDialFunc(func(network, address string) (net.Conn, error) {
+		target := address
+		if nat {
+			if _, port, splitErr := net.SplitHostPort(address); splitErr == nil {
+				target = net.JoinHostPort(serverHost, port)
+			}
+		}
+		if tunnel != nil {
+			return withDeadline(tunnel.Dial(network, target))
+		}
+		return withDeadline(net.DialTimeout(network, target, 30*time.Second))
+	}))
 
 	conn, err := goftp.Dial(addr, opts...)
 	if err != nil {
@@ -55,14 +109,58 @@ func Connect(srv config.Server) (*Client, error) {
 	return &Client{conn: conn, server: srv}, nil
 }
 
-// Close gracefully disconnects from the FTP server.
+func connectSFTP(srv config.Server, tunnel *ssh.Client) (*Client, error) {
+	addr := net.JoinHostPort(srv.Host, fmt.Sprint(srv.Port))
+	auth, err := sshAuthMethods(srv.Password, srv.KeyFile)
+	if err != nil {
+		return nil, err
+	}
+	sshConn, err := dialSSH(addr, srv.User, auth, tunnel)
+	if err != nil {
+		return nil, fmt.Errorf("bağlantı kurulamadı (sftp://%s@%s): %w", srv.User, addr, err)
+	}
+	sc, err := sftp.NewClient(sshConn)
+	if err != nil {
+		sshConn.Close()
+		return nil, fmt.Errorf("SFTP alt sistemi açılamadı (%s): %w", addr, err)
+	}
+	return &Client{sftp: sc, sshConn: sshConn, server: srv}, nil
+}
+
+// Ping bağlantının canlı olduğunu yoldan bağımsız doğrular (FTP NOOP / SFTP Getwd).
+func (c *Client) Ping() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.sftp != nil {
+		_, err := c.sftp.Getwd()
+		return err
+	}
+	return c.conn.NoOp()
+}
+
+// Close gracefully disconnects from the server.
 func (c *Client) Close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	_ = c.conn.Quit()
+	if c.conn != nil {
+		_ = c.conn.Quit()
+	}
+	if c.sftp != nil {
+		_ = c.sftp.Close()
+	}
+	if c.sshConn != nil {
+		_ = c.sshConn.Close()
+	}
+	if c.tunnel != nil {
+		_ = c.tunnel.Close()
+	}
 }
 
 // Upload sends a local file to the remote server.
+// Varsayılan atomik: önce aynı dizinde ".syncftp-<ad>.tmp" adıyla yüklenir, sonra
+// rename ile yerine konur → bağlantı yarıda koparsa canlıda yarım dosya kalmaz.
+// Rename başarısız olursa (üzerine rename'e izin vermeyen sunucu) doğrudan yazmaya düşer.
+// server.DirectUpload = true → doğrudan hedefe yazılır.
 func (c *Client) Upload(localPath, relPath string) error {
 	remoteFull := path.Join(c.server.RemotePath, relPath)
 	remoteDir := path.Dir(remoteFull)
@@ -74,17 +172,53 @@ func (c *Client) Upload(localPath, relPath string) error {
 		return fmt.Errorf("dizin oluşturulamadı (%s): %w", remoteDir, err)
 	}
 
-	// Bazı PHP hosting sunucuları TYPE I'ı dosya bazında override edebiliyor.
-	// Her upload öncesi binary modu açıkça set et.
-	if err := c.conn.Type(goftp.TransferTypeBinary); err != nil {
-		return fmt.Errorf("binary mod ayarlanamadı: %w", err)
+	if c.server.DirectUpload {
+		return c.storLocked(localPath, relPath, remoteFull)
 	}
 
+	tmp := path.Join(remoteDir, ".syncftp-"+path.Base(remoteFull)+".tmp")
+	if err := c.storLocked(localPath, relPath, tmp); err != nil {
+		c.removeQuietLocked(tmp)
+		return err
+	}
+	if err := c.renameOverLocked(tmp, remoteFull); err != nil {
+		// Atomik yer değiştirme olmadı → güvenli yol: doğrudan yaz, tmp'yi temizle
+		c.removeQuietLocked(tmp)
+		return c.storLocked(localPath, relPath, remoteFull)
+	}
+	return nil
+}
+
+// storLocked dosyayı remoteFull'e yazar (mu alınmış olmalı).
+func (c *Client) storLocked(localPath, relPath, remoteFull string) error {
 	f, err := os.Open(localPath)
 	if err != nil {
 		return fmt.Errorf("dosya açılamadı: %w", err)
 	}
 	defer f.Close()
+
+	// SFTP binary-safe → CRLF normalizasyonu yapılmaz, dosya bayt bayt gider
+	// (calibrate tam boyut eşleşmesiyle yakalar).
+	if c.sftp != nil {
+		dst, err := c.sftp.OpenFile(remoteFull, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+		if err != nil {
+			return fmt.Errorf("yükleme başarısız (%s): %w", remoteFull, err)
+		}
+		if _, err := io.Copy(dst, newLimitedReader(f, c.limiter)); err != nil {
+			dst.Close()
+			return fmt.Errorf("yükleme başarısız (%s): %w", remoteFull, err)
+		}
+		if err := dst.Close(); err != nil {
+			return fmt.Errorf("yükleme başarısız (%s): %w", remoteFull, err)
+		}
+		return nil
+	}
+
+	// Bazı PHP hosting sunucuları TYPE I'ı dosya bazında override edebiliyor.
+	// Her upload öncesi binary modu açıkça set et.
+	if err := c.conn.Type(goftp.TransferTypeBinary); err != nil {
+		return fmt.Errorf("binary mod ayarlanamadı: %w", err)
+	}
 
 	// Metin dosyaları: \r\n → \n normalize et (PHP hosting ASCII mod sorunu).
 	// Binary dosyalar (resim, PDF, ZIP vb.): normalizer ATLANIR — bozulmayı önler.
@@ -95,10 +229,91 @@ func (c *Client) Upload(localPath, relPath string) error {
 	} else {
 		uploadReader = newCRLFNormalizer(f)
 	}
-	if err := c.conn.Stor(remoteFull, uploadReader); err != nil {
+	if err := c.conn.Stor(remoteFull, newLimitedReader(uploadReader, c.limiter)); err != nil {
 		return fmt.Errorf("yükleme başarısız (%s): %w", remoteFull, err)
 	}
 	return nil
+}
+
+// renameOverLocked from'u to'nun üzerine taşır (to varsa değiştirilir).
+func (c *Client) renameOverLocked(from, to string) error {
+	if c.sftp != nil {
+		// Standart SFTP rename hedef varken başarısız olur; OpenSSH uzantısı atomik üzerine yazar
+		if _, ok := c.sftp.HasExtension("posix-rename@openssh.com"); ok {
+			return c.sftp.PosixRename(from, to)
+		}
+		return c.sftp.Rename(from, to)
+	}
+	return c.conn.Rename(from, to)
+}
+
+func (c *Client) removeQuietLocked(p string) {
+	if c.sftp != nil {
+		_ = c.sftp.Remove(p)
+	} else {
+		_ = c.conn.Delete(p)
+	}
+}
+
+// isNotFound uzak dosya yok hatası mı (FTP 550 / SFTP no such file).
+func IsNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return true
+	}
+	s := err.Error()
+	return strings.Contains(s, "550") || strings.Contains(s, "No such file") || strings.Contains(s, "No such directory") ||
+		strings.Contains(s, "not found") || strings.Contains(s, "doesn't exist") ||
+		strings.Contains(s, "does not exist")
+}
+
+// BackupTo uzak dosyanın (RemotePath'e göreceli relPath) mevcut halini dest'e indirir.
+// existed=false → dosya sunucuda yoktu (rollback'te silinecek "yeni" dosya).
+// Okunamayan ama var olan dosya hata döner — "yeni" sayılırsa rollback onu silerdi.
+func (c *Client) BackupTo(relPath, dest string) (existed bool, err error) {
+	remoteFull := path.Join(c.server.RemotePath, relPath)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	var sizeErr error
+	if c.sftp != nil {
+		if _, sizeErr = c.sftp.Stat(remoteFull); IsNotFound(sizeErr) {
+			return false, nil
+		}
+	} else {
+		// SIZE bazı sunucularda (vsftpd) ASCII modda 550 döner → önce binary
+		_ = c.conn.Type(goftp.TransferTypeBinary)
+		if _, sizeErr = c.conn.FileSize(remoteFull); sizeErr != nil && IsNotFound(sizeErr) {
+			return false, nil
+		}
+	}
+
+	resp, err := c.retrLocked(remoteFull)
+	if err != nil {
+		// SIZE desteklenmiyor + RETR 550 → büyük ihtimalle dosya yok
+		if sizeErr != nil && IsNotFound(err) {
+			return false, nil
+		}
+		return true, fmt.Errorf("yedek alınamadı (%s): %w", remoteFull, err)
+	}
+	defer resp.Close()
+
+	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+		return true, err
+	}
+	f, err := os.Create(dest)
+	if err != nil {
+		return true, err
+	}
+	if _, err := io.Copy(f, resp); err != nil {
+		f.Close()
+		os.Remove(dest)
+		return true, fmt.Errorf("yedek indirilemedi (%s): %w", remoteFull, err)
+	}
+	return true, f.Close()
 }
 
 // binaryExts — uzantısından kesin binary olduğu bilinen dosya türleri.
@@ -143,9 +358,9 @@ func isBinaryContent(f *os.File) bool {
 
 // crlfNormalizer \r\n → \n dönüşümü yapan io.Reader wrapper'ı.
 type crlfNormalizer struct {
-	r      io.Reader
-	buf    []byte
-	out    []byte
+	r   io.Reader
+	buf []byte
+	out []byte
 }
 
 func newCRLFNormalizer(r io.Reader) *crlfNormalizer {
@@ -189,7 +404,11 @@ func (c *Client) mkdirAllLocked(remotePath string) error {
 			continue
 		}
 		current = path.Join(current, part)
-		_ = c.conn.MakeDir(current)
+		if c.sftp != nil {
+			_ = c.sftp.Mkdir(current)
+		} else {
+			_ = c.conn.MakeDir(current)
+		}
 	}
 	return nil
 }
@@ -200,12 +419,13 @@ func (c *Client) List(remotePath string) ([]*goftp.Entry, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	entries, err := c.conn.List(remotePath)
+	entries, err := c.listLocked(remotePath)
 	if err != nil {
 		// Bazı sunucular boş veya mevcut olmayan dizin için 550 döndürür.
 		// Bu durumda boş liste döndür, fatal hata değil.
 		if strings.Contains(err.Error(), "550") ||
 			strings.Contains(err.Error(), "No such file") ||
+			strings.Contains(err.Error(), "No such directory") ||
 			strings.Contains(err.Error(), "doesn't exist") ||
 			strings.Contains(err.Error(), "not found") {
 			return nil, nil
@@ -215,13 +435,48 @@ func (c *Client) List(remotePath string) ([]*goftp.Entry, error) {
 	return entries, nil
 }
 
+// listLocked — mu alınmış durumda çağrılmalı. SFTP'de os.FileInfo → goftp.Entry çevrilir.
+func (c *Client) listLocked(remotePath string) ([]*goftp.Entry, error) {
+	if c.sftp == nil {
+		return c.conn.List(remotePath)
+	}
+	infos, err := c.sftp.ReadDir(remotePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("550 not found: %w", err)
+		}
+		return nil, err
+	}
+	out := make([]*goftp.Entry, 0, len(infos))
+	for _, fi := range infos {
+		e := &goftp.Entry{Name: fi.Name(), Size: uint64(fi.Size()), Time: fi.ModTime(), Type: goftp.EntryTypeFile}
+		switch {
+		case fi.Mode()&os.ModeSymlink != 0:
+			e.Type = goftp.EntryTypeLink
+		case fi.IsDir():
+			e.Type = goftp.EntryTypeFolder
+			e.Size = 0
+		}
+		out = append(out, e)
+	}
+	return out, nil
+}
+
+// retrLocked — mu alınmış durumda çağrılmalı; dosya okuyucu döner.
+func (c *Client) retrLocked(remotePath string) (io.ReadCloser, error) {
+	if c.sftp != nil {
+		return c.sftp.Open(remotePath)
+	}
+	return c.conn.Retr(remotePath)
+}
+
 // Download saves a remote file to localDest.
 // Mutex okuma boyunca tutulur — Retr sonrası bırakmak data stream'i bozar.
 func (c *Client) Download(remotePath, localDest string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	resp, err := c.conn.Retr(remotePath)
+	resp, err := c.retrLocked(remotePath)
 	if err != nil {
 		return fmt.Errorf("dosya alınamadı (%s): %w", remotePath, err)
 	}
@@ -244,7 +499,13 @@ func (c *Client) Download(remotePath, localDest string) error {
 func (c *Client) DeleteFile(remotePath string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if err := c.conn.Delete(remotePath); err != nil {
+	var err error
+	if c.sftp != nil {
+		err = c.sftp.Remove(remotePath)
+	} else {
+		err = c.conn.Delete(remotePath)
+	}
+	if err != nil {
 		return fmt.Errorf("silme başarısız (%s): %w", remotePath, err)
 	}
 	return nil
@@ -254,6 +515,18 @@ func (c *Client) DeleteFile(remotePath string) error {
 func (c *Client) DeleteDir(remotePath string, recursive bool) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.sftp != nil {
+		var err error
+		if recursive {
+			err = c.sftp.RemoveAll(remotePath)
+		} else {
+			err = c.sftp.RemoveDirectory(remotePath)
+		}
+		if err != nil {
+			return fmt.Errorf("dizin silme başarısız (%s): %w", remotePath, err)
+		}
+		return nil
+	}
 	if recursive {
 		if err := c.conn.RemoveDirRecur(remotePath); err != nil {
 			return fmt.Errorf("dizin silme başarısız (%s): %w", remotePath, err)
@@ -272,7 +545,7 @@ func (c *Client) Preview(remotePath string, maxBytes int64) ([]byte, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	resp, err := c.conn.Retr(remotePath)
+	resp, err := c.retrLocked(remotePath)
 	if err != nil {
 		return nil, fmt.Errorf("dosya alınamadı (%s): %w", remotePath, err)
 	}
@@ -303,11 +576,18 @@ func (c *Client) ListRecursiveProgress(remotePath string, progress func(count in
 // ListRecursiveProgressPath ListRecursiveProgress ile aynıdır; callback'e toplam
 // sayıya ek olarak son bulunan dosyanın göreceli yolu da geçer (canlı dosya akışı).
 func (c *Client) ListRecursiveProgressPath(remotePath string, progress func(count int, latest string)) (map[string]uint64, error) {
+	return c.ListRecursiveFiltered(remotePath, nil, progress)
+}
+
+// ListRecursiveFiltered ListRecursiveProgressPath ile aynıdır; skipDir != nil ise
+// göreceli yolu için true dönen dizinlere HİÇ girilmez (ignore/exclude edilmiş vendor,
+// node_modules gibi dev ağaçlar için binlerce LIST komutu atılmaz).
+func (c *Client) ListRecursiveFiltered(remotePath string, skipDir func(rel string) bool, progress func(count int, latest string)) (map[string]uint64, error) {
 	result := make(map[string]uint64)
 	var walk func(dir, rel string)
 	walk = func(dir, rel string) {
 		c.mu.Lock()
-		entries, err := c.conn.List(dir)
+		entries, err := c.listLocked(dir)
 		c.mu.Unlock()
 		if err != nil {
 			return
@@ -321,6 +601,9 @@ func (c *Client) ListRecursiveProgressPath(remotePath string, progress func(coun
 				entryRel = rel + "/" + e.Name
 			}
 			if e.Type == goftp.EntryTypeFolder {
+				if skipDir != nil && skipDir(entryRel) {
+					continue
+				}
 				walk(path.Join(dir, e.Name), entryRel)
 			} else {
 				result[entryRel] = e.Size
@@ -338,7 +621,13 @@ func (c *Client) ListRecursiveProgressPath(remotePath string, progress func(coun
 func (c *Client) Rename(oldPath, newPath string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if err := c.conn.Rename(oldPath, newPath); err != nil {
+	var err error
+	if c.sftp != nil {
+		err = c.sftp.Rename(oldPath, newPath)
+	} else {
+		err = c.conn.Rename(oldPath, newPath)
+	}
+	if err != nil {
 		return fmt.Errorf("taşıma başarısız (%s → %s): %w", oldPath, newPath, err)
 	}
 	return nil

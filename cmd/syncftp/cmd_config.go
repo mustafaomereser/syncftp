@@ -40,11 +40,18 @@ func runConfigExport(dir string) error {
 		return err
 	}
 	// Şifreleri maskele
+	mask := func(s *string) {
+		if *s != "" {
+			*s = "***"
+		}
+	}
 	for i := range cfg.Connections {
-		cfg.Connections[i].Password = "***"
+		mask(&cfg.Connections[i].Password)
+		mask(&cfg.Connections[i].TunnelPassword)
 	}
 	for i := range cfg.Servers {
-		cfg.Servers[i].Password = "***"
+		mask(&cfg.Servers[i].Password)
+		mask(&cfg.Servers[i].TunnelPassword)
 	}
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
@@ -85,6 +92,10 @@ func srvFieldLabel(i int) string {
 		lang.L.CfgFldInclude, lang.L.CfgFldExclude, lang.L.CfgFldProtect,
 		lang.L.CfgFldWebhook, lang.L.CfgFldMinify, lang.L.CfgFldObfuscate,
 		lang.L.CfgFldBlockExts,
+		lang.L.CfgFldProtocol, lang.L.CfgFldKeyFile, lang.L.CfgFldTLSSkip,
+		lang.L.CfgFldTunnelHost, lang.L.CfgFldTunnelPort, lang.L.CfgFldTunnelUser,
+		lang.L.CfgFldTunnelPass, lang.L.CfgFldTunnelKey,
+		lang.L.CfgFldBandwidth, lang.L.CfgFldNoBackup, lang.L.CfgFldDirectUpload,
 	}
 	if i >= 0 && i < len(labels) {
 		return labels[i]
@@ -97,6 +108,8 @@ func globalFieldLabel(i int) string {
 		lang.L.CfgGFldDefaultPath, lang.L.CfgGFldProtect,
 		lang.L.CfgGFldInclude, lang.L.CfgGFldExclude, lang.L.CfgGFldIgnore,
 		lang.L.CfgGFldWebhook, lang.L.CfgGFldBlockExts,
+		lang.L.CfgGFldBandwidth, lang.L.CfgGFldNoBackup, lang.L.CfgGFldBackupKeep,
+		lang.L.CfgGFldDirectUpload, lang.L.CfgGFldKeyring,
 	}
 	if i >= 0 && i < len(labels) {
 		return labels[i]
@@ -109,11 +122,49 @@ func connFieldLabel(i int) string {
 		lang.L.CfgFldName, lang.L.CfgFldHost, lang.L.CfgFldPort,
 		lang.L.CfgFldUser, lang.L.CfgFldPassword,
 		lang.L.CfgFldPassive, lang.L.CfgFldDisableEPSV, lang.L.CfgFldNAT,
+		lang.L.CfgFldProtocol, lang.L.CfgFldKeyFile, lang.L.CfgFldTLSSkip,
+		lang.L.CfgFldTunnelHost, lang.L.CfgFldTunnelPort, lang.L.CfgFldTunnelUser,
+		lang.L.CfgFldTunnelPass, lang.L.CfgFldTunnelKey,
 	}
 	if i >= 0 && i < len(labels) {
 		return labels[i]
 	}
 	return ""
+}
+
+// nextProtocol ftp → ftps → sftp → ftp döngüsü; port protokolün varsayılanındaysa onu da çevirir.
+func nextProtocol(cur string, port int) (string, int) {
+	idx := 0
+	for i, p := range config.Protocols {
+		if strings.EqualFold(cur, p) {
+			idx = i
+		}
+	}
+	next := config.Protocols[(idx+1)%len(config.Protocols)]
+	switch {
+	case next == "sftp" && (port == 21 || port == 0):
+		port = 22
+	case next != "sftp" && (port == 22 || port == 0):
+		port = 21
+	}
+	if next == "ftp" {
+		return "", port // varsayılan — JSON'a yazılmaz
+	}
+	return next, port
+}
+
+func protoDisplay(p string) string {
+	if p == "" {
+		return "ftp"
+	}
+	return strings.ToLower(p)
+}
+
+func emptyOr(v string) string {
+	if v == "" {
+		return lang.L.CfgValueEmpty
+	}
+	return v
 }
 
 func parseList(s string) []string {
@@ -404,8 +455,10 @@ type srvField struct {
 // When srv.Connection != "", these fields are read-only in the editor.
 //
 //	2=Host 3=Port 4=User 5=Password 9=Passive 10=DisableEPSV 11=NATWorkaround
+//	21=Protocol 22=KeyFile 23=TLSSkipVerify 24..28=SSH tüneli
 func isCredentialField(idx int) bool {
-	return idx == 2 || idx == 3 || idx == 4 || idx == 5 || idx == 9 || idx == 10 || idx == 11
+	return idx == 2 || idx == 3 || idx == 4 || idx == 5 || idx == 9 || idx == 10 || idx == 11 ||
+		(idx >= 21 && idx <= 28)
 }
 
 var serverFields = []srvField{
@@ -430,6 +483,17 @@ var serverFields = []srvField{
 	{"Minify CSS/JS", "bool", ""},             // idx 18
 	{"Obfuscate JS", "bool", ""},              // idx 19
 	{"Block extensions", "list", "block_ext"}, // idx 20
+	{"Protocol", "proto", ""},                 // idx 21 — ftp / ftps / sftp
+	{"Key file", "text", ""},                  // idx 22 — SFTP özel anahtar
+	{"TLS skip verify", "bool", ""},           // idx 23 — FTPS
+	{"Tunnel host", "text", ""},               // idx 24 — SSH tüneli (jump host)
+	{"Tunnel port", "int", ""},                // idx 25
+	{"Tunnel user", "text", ""},               // idx 26
+	{"Tunnel password", "pass", ""},           // idx 27
+	{"Tunnel key file", "text", ""},           // idx 28
+	{"Bandwidth KB/s", "int", ""},             // idx 29 — 0 = global
+	{"No backup", "bool", ""},                 // idx 30 — rollback yedeği alma
+	{"Direct upload", "bool", ""},             // idx 31 — atomik upload kapalı
 }
 
 type serverEditModel struct {
@@ -506,6 +570,34 @@ func (m *serverEditModel) getDisplayValue(i int) string {
 		return boolIcon(m.srv.Obfuscate)
 	case 20:
 		return listDisplay(m.srv.BlockExtensions)
+	case 21:
+		return protoDisplay(m.srv.Protocol)
+	case 22:
+		return emptyOr(m.srv.KeyFile)
+	case 23:
+		return boolIcon(m.srv.TLSSkipVerify)
+	case 24:
+		return emptyOr(m.srv.TunnelHost)
+	case 25:
+		return strconv.Itoa(m.srv.TunnelPort)
+	case 26:
+		return emptyOr(m.srv.TunnelUser)
+	case 27:
+		if m.srv.TunnelPassword != "" {
+			return "****"
+		}
+		return lang.L.CfgValueEmpty
+	case 28:
+		return emptyOr(m.srv.TunnelKeyFile)
+	case 29:
+		if m.srv.BandwidthLimit <= 0 {
+			return lang.L.CfgBandwidthGlobal
+		}
+		return strconv.Itoa(m.srv.BandwidthLimit)
+	case 30:
+		return boolIcon(m.srv.NoBackup)
+	case 31:
+		return boolIcon(m.srv.DirectUpload)
 	}
 	return ""
 }
@@ -540,6 +632,20 @@ func (m *serverEditModel) getEditableValue(i int) string {
 		return m.srv.Webhook
 	case 20:
 		return strings.Join(m.srv.BlockExtensions, ", ")
+	case 22:
+		return m.srv.KeyFile
+	case 24:
+		return m.srv.TunnelHost
+	case 25:
+		return strconv.Itoa(m.srv.TunnelPort)
+	case 26:
+		return m.srv.TunnelUser
+	case 27:
+		return m.srv.TunnelPassword
+	case 28:
+		return m.srv.TunnelKeyFile
+	case 29:
+		return strconv.Itoa(m.srv.BandwidthLimit)
 	}
 	return ""
 }
@@ -580,6 +686,24 @@ func (m *serverEditModel) applyValue(i int, val string) {
 		m.srv.Webhook = val
 	case 20:
 		m.srv.BlockExtensions = parseList(val)
+	case 22:
+		m.srv.KeyFile = val
+	case 24:
+		m.srv.TunnelHost = val
+	case 25:
+		if n, e := strconv.Atoi(val); e == nil {
+			m.srv.TunnelPort = n
+		}
+	case 26:
+		m.srv.TunnelUser = val
+	case 27:
+		m.srv.TunnelPassword = val
+	case 28:
+		m.srv.TunnelKeyFile = val
+	case 29:
+		if n, e := strconv.Atoi(val); e == nil && n >= 0 {
+			m.srv.BandwidthLimit = n
+		}
 	}
 }
 
@@ -597,6 +721,14 @@ func (m *serverEditModel) toggleBool(i int) {
 		m.srv.Minify = !m.srv.Minify
 	case 19:
 		m.srv.Obfuscate = !m.srv.Obfuscate
+	case 21:
+		m.srv.Protocol, m.srv.Port = nextProtocol(m.srv.Protocol, m.srv.Port)
+	case 23:
+		m.srv.TLSSkipVerify = !m.srv.TLSSkipVerify
+	case 30:
+		m.srv.NoBackup = !m.srv.NoBackup
+	case 31:
+		m.srv.DirectUpload = !m.srv.DirectUpload
 	}
 }
 
@@ -674,14 +806,14 @@ func (m serverEditModel) handleNavKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "conn":
 			m.action = "pick-connection"
 			return m, tea.Quit
-		case "bool":
+		case "bool", "proto":
 			m.toggleBool(m.cursor)
 		default:
 			m.editBuf = m.getEditableValue(m.cursor)
 			m.editing = true
 		}
 	case " ":
-		if !locked && f.kind == "bool" {
+		if !locked && (f.kind == "bool" || f.kind == "proto") {
 			m.toggleBool(m.cursor)
 		}
 	case "b", "B":
@@ -809,6 +941,10 @@ func runServerEdit(srv *config.Server, connections []config.Connection, projectD
 						srv.Passive = c.Passive
 						srv.DisableEPSV = c.DisableEPSV
 						srv.NATWorkaround = c.NATWorkaround
+						srv.Protocol = c.Protocol
+						srv.KeyFile = c.KeyFile
+						srv.TLSSkipVerify = c.TLSSkipVerify
+						srv.SSHTunnel = c.SSHTunnel
 						break
 					}
 				}
@@ -881,6 +1017,11 @@ var globalFields = []globalField{
 	{"Ignore files", "list", "ignore"},
 	{"Webhook URL (global)", "text", ""},
 	{"Block extensions (global)", "list", "block_ext"},
+	{"Bandwidth KB/s", "int", ""}, // idx 7
+	{"No backup", "bool", ""},     // idx 8
+	{"Backup keep", "int", ""},    // idx 9
+	{"Direct upload", "bool", ""}, // idx 10
+	{"Keyring", "bool", ""},       // idx 11 — şifreler OS anahtarlığında
 }
 
 type globalEditModel struct {
@@ -928,8 +1069,32 @@ func (m *globalEditModel) getDisplayValue(i int) string {
 		return lang.L.CfgValueEmpty
 	case 6:
 		return listDisplay(m.sync.BlockExtensions)
+	case 7:
+		if m.sync.BandwidthLimit <= 0 {
+			return lang.L.CfgBandwidthUnlimited
+		}
+		return strconv.Itoa(m.sync.BandwidthLimit)
+	case 8:
+		return boolIcon(m.sync.NoBackup)
+	case 9:
+		return strconv.Itoa(m.sync.EffectiveBackupKeep())
+	case 10:
+		return boolIcon(m.sync.DirectUpload)
+	case 11:
+		return boolIcon(m.project.Keyring)
 	}
 	return ""
+}
+
+func (m *globalEditModel) toggleBool(i int) {
+	switch i {
+	case 8:
+		m.sync.NoBackup = !m.sync.NoBackup
+	case 10:
+		m.sync.DirectUpload = !m.sync.DirectUpload
+	case 11:
+		m.project.Keyring = !m.project.Keyring
+	}
 }
 
 func (m *globalEditModel) getEditableValue(i int) string {
@@ -948,6 +1113,10 @@ func (m *globalEditModel) getEditableValue(i int) string {
 		return m.sync.Webhook
 	case 6:
 		return strings.Join(m.sync.BlockExtensions, ", ")
+	case 7:
+		return strconv.Itoa(m.sync.BandwidthLimit)
+	case 9:
+		return strconv.Itoa(m.sync.EffectiveBackupKeep())
 	}
 	return ""
 }
@@ -968,6 +1137,14 @@ func (m *globalEditModel) applyValue(i int, val string) {
 		m.sync.Webhook = val
 	case 6:
 		m.sync.BlockExtensions = parseList(val)
+	case 7:
+		if n, e := strconv.Atoi(val); e == nil && n >= 0 {
+			m.sync.BandwidthLimit = n
+		}
+	case 9:
+		if n, e := strconv.Atoi(val); e == nil && n > 0 {
+			m.sync.BackupKeep = n
+		}
 	}
 }
 
@@ -1018,8 +1195,16 @@ func (m globalEditModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 		case "enter":
+			if globalFields[m.cursor].kind == "bool" {
+				m.toggleBool(m.cursor)
+				break
+			}
 			m.editBuf = m.getEditableValue(m.cursor)
 			m.editing = true
+		case " ":
+			if globalFields[m.cursor].kind == "bool" {
+				m.toggleBool(m.cursor)
+			}
 		case "b", "B":
 			f := globalFields[m.cursor]
 			if f.kind == "localdir" && m.projectDir != "" {
@@ -1819,6 +2004,14 @@ var connFields = []connField{
 	{"Passive mode", "bool"},
 	{"EPSV devre dışı", "bool"},
 	{"NAT workaround", "bool"},
+	{"Protocol", "proto"},       // idx 8
+	{"Key file", "text"},        // idx 9
+	{"TLS skip verify", "bool"}, // idx 10
+	{"Tunnel host", "text"},     // idx 11
+	{"Tunnel port", "int"},      // idx 12
+	{"Tunnel user", "text"},     // idx 13
+	{"Tunnel password", "pass"}, // idx 14
+	{"Tunnel key file", "text"}, // idx 15
 }
 
 type connEditModel struct {
@@ -1857,6 +2050,25 @@ func (m *connEditModel) getDisplayValue(i int) string {
 		return boolIcon(m.conn.DisableEPSV)
 	case 7:
 		return boolIcon(m.conn.NATWorkaround)
+	case 8:
+		return protoDisplay(m.conn.Protocol)
+	case 9:
+		return emptyOr(m.conn.KeyFile)
+	case 10:
+		return boolIcon(m.conn.TLSSkipVerify)
+	case 11:
+		return emptyOr(m.conn.TunnelHost)
+	case 12:
+		return strconv.Itoa(m.conn.TunnelPort)
+	case 13:
+		return emptyOr(m.conn.TunnelUser)
+	case 14:
+		if m.conn.TunnelPassword != "" {
+			return "****"
+		}
+		return lang.L.CfgValueEmpty
+	case 15:
+		return emptyOr(m.conn.TunnelKeyFile)
 	}
 	return ""
 }
@@ -1873,6 +2085,18 @@ func (m *connEditModel) getEditableValue(i int) string {
 		return m.conn.User
 	case 4:
 		return m.conn.Password
+	case 9:
+		return m.conn.KeyFile
+	case 11:
+		return m.conn.TunnelHost
+	case 12:
+		return strconv.Itoa(m.conn.TunnelPort)
+	case 13:
+		return m.conn.TunnelUser
+	case 14:
+		return m.conn.TunnelPassword
+	case 15:
+		return m.conn.TunnelKeyFile
 	}
 	return ""
 }
@@ -1891,6 +2115,20 @@ func (m *connEditModel) applyValue(i int, val string) {
 		m.conn.User = val
 	case 4:
 		m.conn.Password = val
+	case 9:
+		m.conn.KeyFile = val
+	case 11:
+		m.conn.TunnelHost = val
+	case 12:
+		if n, e := strconv.Atoi(val); e == nil {
+			m.conn.TunnelPort = n
+		}
+	case 13:
+		m.conn.TunnelUser = val
+	case 14:
+		m.conn.TunnelPassword = val
+	case 15:
+		m.conn.TunnelKeyFile = val
 	}
 }
 
@@ -1902,6 +2140,10 @@ func (m *connEditModel) toggleBool(i int) {
 		m.conn.DisableEPSV = !m.conn.DisableEPSV
 	case 7:
 		m.conn.NATWorkaround = !m.conn.NATWorkaround
+	case 8:
+		m.conn.Protocol, m.conn.Port = nextProtocol(m.conn.Protocol, m.conn.Port)
+	case 10:
+		m.conn.TLSSkipVerify = !m.conn.TLSSkipVerify
 	}
 }
 
@@ -1953,14 +2195,14 @@ func (m connEditModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "enter":
 			f := connFields[m.cursor]
-			if f.kind == "bool" {
+			if f.kind == "bool" || f.kind == "proto" {
 				m.toggleBool(m.cursor)
 			} else {
 				m.editBuf = m.getEditableValue(m.cursor)
 				m.editing = true
 			}
 		case " ":
-			if connFields[m.cursor].kind == "bool" {
+			if k := connFields[m.cursor].kind; k == "bool" || k == "proto" {
 				m.toggleBool(m.cursor)
 			}
 		}

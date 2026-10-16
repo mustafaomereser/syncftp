@@ -112,8 +112,8 @@ var Tr = StringSet{
 	ShellCancelShort:      "İptal.",
 	ShellDeletedShort:     "✓ Silindi: %s\n",
 	ShellPickServerTitle:  "Sunucu Seç",
-	ShellSyncServers:          "Sync Edilecek Sunucular",
-	ShellCalibrateServers:     "Kalibre Edilecek Sunucular",
+	ShellSyncServers:      "Sync Edilecek Sunucular",
+	ShellCalibrateServers: "Kalibre Edilecek Sunucular",
 	ShellSyncPickSub:      "Space ile işaretle, Enter ile onayla",
 	ShellSyncCancelled:    "İptal.",
 	ShellFileActionTitle:  "Dosya İşlemi",
@@ -162,6 +162,11 @@ Senkronizasyon:
                             tarih: bugün, dün, 3d, 5h, 14:30, 20.07[.2026],
                             2026-07-20 [15:04] (boş = şimdi)
   freeze [--server ad]    Freeze listesi — yüklenmesin istenen dosyaları işaretle
+  rollback [id] [--list]  Bir sync'i geri al: eski dosyalar geri yüklenir, yeni eklenenler silinir
+                            id verilmezse release seçici açılır (bağlı sunucu / seçici)
+  verify [--fix]          Sunucuda elle değiştirilen/silinen dosyaları bul (drift);
+                            --fix sonraki sync'te yeniden yüklenmelerini sağlar
+  detect-limit [--max N]  Sunucunun eş zamanlı bağlantı limitini ölçer, max_connections'a yazar
 
 Sunucu yönetimi:
   servers                 Sunucu listesi
@@ -196,6 +201,7 @@ Diğer:
                             POST /api/reload       (config doğrula)
                             POST /api/trigger/github?server=&branch=&secret=
                             GET/DELETE /api/remote/ls|cat|get|rm
+  gui                     Masaüstü yönetim panelini aç (ayrı pencere)
   lang [en|tr]            Dili göster veya değiştir (ilk çalışmada OS dilinden otomatik algılanır)
   clear / cls             Ekranı temizle
   help / ?                Bu yardım
@@ -237,13 +243,13 @@ Diğer:
 	SyncUploadErrFmt:   "    ✗ %s: %v\n",
 
 	// resync
-	ResyncScanning:     "  Sunucuya bağlanılıyor...",
-	ResyncConnected:    " bağlandı\n",
-	ResyncListing:      "Uzak dosyalar listeleniyor...",
-	ResyncLocalFmt:     "  Yerel:  %d dosya tarandı\n",
-	ResyncConnErr:      "  ! Sunucuya bağlanılamadı (%v) — resync atlandı\n",
-	ResyncListErr:      "  ! Uzak dizin okunamadı (%v) — resync atlandı\n",
-	ResyncFoundFmt:     "  Uzak:   %d dosya bulundu\n",
+	ResyncScanning:       "  Sunucuya bağlanılıyor...",
+	ResyncConnected:      " bağlandı\n",
+	ResyncListing:        "Uzak dosyalar listeleniyor...",
+	ResyncLocalFmt:       "  Yerel:  %d dosya tarandı\n",
+	ResyncConnErr:        "  ! Sunucuya bağlanılamadı (%v) — resync atlandı\n",
+	ResyncListErr:        "  ! Uzak dizin okunamadı (%v) — resync atlandı\n",
+	ResyncFoundFmt:       "  Uzak:   %d dosya bulundu\n",
 	ResyncComparingFmt:   "  Karşılaştırılıyor: %d / %d\n",
 	ResyncMatchedFmt:     "  Eşleşti: %d (boyut OK)  |  Farklı/eksik: %d\n",
 	ResyncDoneFmt:        "  [%s] kalibre tamamlandı\n",
@@ -437,11 +443,11 @@ Diğer:
 	CfgFldMaxRetry:    "Max retry",
 	CfgFldInclude:     "Include",
 	CfgFldExclude:     "Exclude",
-	CfgFldProtect:    "Protect",
-	CfgFldWebhook:    "Webhook URL",
-	CfgFldMinify:     "CSS/JS küçült",
-	CfgFldObfuscate:  "JS gizle (obfuscate)",
-	CfgFldBlockExts: "Engellenen uzantılar",
+	CfgFldProtect:     "Protect",
+	CfgFldWebhook:     "Webhook URL",
+	CfgFldMinify:      "CSS/JS küçült",
+	CfgFldObfuscate:   "JS gizle (obfuscate)",
+	CfgFldBlockExts:   "Engellenen uzantılar",
 
 	// Config TUI — global settings
 	CfgGlobalEditTitle:    "⚙  Global Ayarlar",
@@ -458,7 +464,7 @@ Diğer:
 	CfgGFldExclude:     "Exclude (global)",
 	CfgGFldIgnore:      "Ignore files",
 	CfgGFldWebhook:     "Webhook URL (global)",
-	CfgGFldBlockExts: "Engellenen uzantılar (global)",
+	CfgGFldBlockExts:   "Engellenen uzantılar (global)",
 
 	CfgValueEmpty: "(boş)",
 
@@ -531,4 +537,108 @@ Diğer:
 	DiffSizeHeaderFmt: "  Boyut farklı (%d):\n",
 	DiffSizeLineFmt:   "    ~ %s  (%s: %s · %s: %s)\n",
 	DiffSameFmt:       "  ✓ %d dosya aynı\n",
+
+	// Upload çekirdeği (yedek / limit)
+	SyncBandwidthFmt:     "  Hız sınırı: %d KB/s\n",
+	SyncPoolLimitedFmt:   "  ! %d/%d bağlantı açılabildi (sunucu/host bağlantı limiti)\n",
+	SyncBackupErrFmt:     "  ! Yedek alınamadı (%s): %v — bu dosya geri alınamaz\n",
+	SyncBackupSummaryFmt: "  ↺ Yedek: %d dosyanın eski hali saklandı, %d yeni dosya — geri almak için: syncftp rollback --server %s\n",
+
+	// Watch
+	WatchStopped: "\nWatch durduruldu.\n",
+
+	// Rollback
+	RollbackNoReleasesFmt:      "  %s için geri alınabilir release yok.\n",
+	RollbackPickTitleFmt:       "Rollback — %s",
+	RollbackPickSubtitle:       "Seçilen release VE ondan sonraki tüm release'ler geri alınır",
+	RollbackConfirmFmt:         "%[2]s üzerinde %[1]d release geri alınsın mı?",
+	RollbackReleaseDescFmt:     "%s · %d dosya · %d değişen · %d yeni",
+	RollbackTagRolledBack:      "[geri alındı]",
+	RollbackTagNoBackup:        "[yedek yok]",
+	RollbackAlreadyFmt:         "%s zaten geri alınmış",
+	RollbackNoBackupFmt:        "%s release'inin yedeği yok (yedek kapalı ya da silinmiş) — bu noktanın gerisine dönülemez",
+	RollbackNotFoundFmt:        "release bulunamadı: %s",
+	RollbackReleaseFmt:         "\n  ↺ %s  (%s)\n",
+	RollbackRestoredFmt:        "    ↺ geri yüklendi  %s\n",
+	RollbackDeletedFmt:         "    ✗ silindi        %s\n",
+	RollbackFileErrFmt:         "    ! %s: %v\n",
+	RollbackSkippedNoBackupFmt: "    ! %d dosyanın yedeği yoktu, olduğu gibi bırakıldı\n",
+	RollbackDoneFmt:            "\n  Rollback tamam: %d geri yüklendi, %d silindi, %d hata\n",
+
+	// detect-limit / verify / secure / project
+	DetectStartFmt:      "  [%s] bağlantı limiti ölçülüyor (%s://%s)...\n",
+	DetectProgressFmt:   "\r    %d bağlantı açık...",
+	DetectErrFmt:        "    ! bağlanılamadı: %v\n",
+	DetectResultFmt:     "    ✓ sunucu aynı anda %d bağlantı kabul ediyor\n",
+	DetectHitMaxFmt:     "    ✓ %d bağlantı limitsiz açıldı (daha fazlasını denemek için --max'ı artırın)\n",
+	DetectApplyFmt:      "    → %s: max_connections %d → %d\n",
+	DetectSaved:         "  ✓ Config'e kaydedildi.\n",
+	VerifyStartFmt:      "  [%s] sunucu doğrulanıyor (%s://%s)...\n",
+	VerifyErrFmt:        "  [%s] ! %v\n",
+	VerifyMissingFmt:    "    Sunucuda eksik (%d):\n",
+	VerifyModifiedFmt:   "    Sunucuda değişmiş (%d):\n",
+	VerifyMoreFmt:       "      … +%d tane daha\n",
+	VerifyCleanFmt:      "    ✓ Sapma yok — %d dosya eşleşiyor\n",
+	VerifySummaryFmt:    "    %d tamam · %d eksik · %d değişmiş\n",
+	VerifyPendingFmt:    "    (%d yerel değişiklik henüz sync edilmemiş — sapma değil)\n",
+	VerifyFixedFmt:      "    ✓ %d dosya state'ten düşürüldü — sonraki sync yeniden yükler\n",
+	VerifyFixHint:       "    İpucu: --fix ile bu dosyalar sonraki sync'te yeniden yüklenir\n",
+	SecureOnFmt:         "  ✓ Anahtarlık modu açık — %d şifre işletim sistemi anahtarlığına taşındı\n",
+	SecureOff:           "  ✓ Anahtarlık modu kapalı — şifreler tekrar syncftp.json'da\n",
+	SecureUnresolvedFmt: "bazı şifreler anahtarlıktan okunamadı: %s",
+	ProjectNotFoundFmt:  "proje bulunamadı: %s (bkz: syncftp project list)",
+	ProjectListEmpty:    "  Kayıtlı proje yok. Proje dizininde `syncftp project add` çalıştırın.\n",
+	ProjectAddedFmt:     "  ✓ %s → %s\n",
+	ProjectRemovedFmt:   "  ✓ %s kayıttan çıkarıldı\n",
+	ProjectRenamedFmt:   "  ✓ %s → %s\n",
+
+	// Config TUI — protokol / tünel / yedek alanları
+	CfgFldProtocol:        "Protokol (ftp/ftps/sftp)",
+	CfgFldKeyFile:         "SSH anahtar dosyası",
+	CfgFldTLSSkip:         "FTPS: sertifika atla",
+	CfgFldTunnelHost:      "SSH tünel host",
+	CfgFldTunnelPort:      "SSH tünel port",
+	CfgFldTunnelUser:      "SSH tünel kullanıcı",
+	CfgFldTunnelPass:      "SSH tünel şifre",
+	CfgFldTunnelKey:       "SSH tünel anahtar",
+	CfgFldBandwidth:       "Hız sınırı (KB/s)",
+	CfgFldNoBackup:        "Yedeği kapat (rollback)",
+	CfgFldDirectUpload:    "Doğrudan yükle (tmp+rename yok)",
+	CfgGFldBandwidth:      "Hız sınırı (KB/s, sunucu başı)",
+	CfgGFldNoBackup:       "Yedeği kapat (rollback)",
+	CfgGFldBackupKeep:     "Tutulacak yedek (release)",
+	CfgGFldDirectUpload:   "Doğrudan yükle (tmp+rename yok)",
+	CfgGFldKeyring:        "Şifreler OS anahtarlığında",
+	CfgBandwidthGlobal:    "(global)",
+	CfgBandwidthUnlimited: "sınırsız",
+
+	// Shell / GUI
+	ShellReconnectErrFmt: "  ! Yeniden bağlanılamadı: %v\n",
+	ShellReconnectedFmt:  "  ✓ %s yeniden bağlandı\n",
+	GuiLaunched:          "  ✓ Yönetim paneli ayrı pencerede açıldı\n",
+	GuiStartFmt:          "syncFTP paneli → %s\n",
+	GuiNoBrowser:         "Edge/Chrome bulunamadı — varsayılan tarayıcıda açılıyor\n",
+
+	// GUI backend
+	GuiBusyFmt:           "%s üzerinde zaten çalışan bir iş var (%s)",
+	GuiPathRequired:      "klasör yolu gerekli",
+	GuiDirNotFoundFmt:    "klasör bulunamadı: %s",
+	GuiValConnName:       "her bağlantı profilinin bir adı olmalı",
+	GuiValDupFmt:         "ad iki kez kullanılmış: %s",
+	GuiValServerName:     "her sunucunun bir adı olmalı",
+	GuiValConnMissingFmt: "%s: %q bağlantı profili yok",
+	GuiValHostFmt:        "%s: host gerekli (ya da bağlantı profili seçin)",
+	GuiValRemoteFmt:      "%s: uzak dizin gerekli",
+	GuiJobSync:           "Sync",
+	GuiJobDryRun:         "Dry-run",
+	GuiJobMilestoneSync:  "Milestone sync",
+	GuiJobCalibrate:      "Calibrate",
+	GuiJobVerify:         "Doğrula",
+	GuiJobRollback:       "Rollback",
+	GuiJobDetect:         "Bağlantı limiti ölç",
+	GuiJobWatch:          "Watch",
+	GuiScannedFmt:        "  Tarandı: %s → %d dosya\n\n",
+	GuiNoMilestoneFmt:    "%s için milestone yok",
+	GuiJobNotCancelable:  "bu iş iptal edilemez",
+	GuiWatchRunning:      "bu projede watch zaten çalışıyor",
 }

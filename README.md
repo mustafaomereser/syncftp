@@ -2,7 +2,25 @@
 
 ![syncFTP](cover.png)
 
-A Go CLI tool that detects changed files via SHA256 hashing and distributes them to one or more FTP servers.
+A Go tool that detects changed files via SHA256 hashing and distributes them to one or more FTP / FTPS / SFTP servers — from the terminal or from a desktop panel.
+
+**New in 2.0**
+
+- **Desktop panel (GUI)** — double-click `syncftp.exe` (or run `syncftp gui`) to manage every project from one window: sync, dry-run, live logs, rollback, watch, server/connection editors, remote file browser with syntax highlighting and local ↔ server diff
+- **SFTP & FTPS** — `"protocol": "sftp"` (password or SSH key) or `"ftps"` (explicit TLS); host keys are verified (trust-on-first-use, mismatch is refused)
+- **SSH tunnel** — reach servers behind a bastion/jump host (`tunnel_host`, …) for both FTP and SFTP
+- **Rollback** — every sync backs up the previous server version of the files it replaces; `syncftp rollback` restores them and removes newly added files
+- **Atomic uploads** — files are uploaded under a temporary name and renamed into place, so a dropped connection never leaves a half-written file live
+- **Resume** — state is checkpointed every 20 files; an interrupted sync continues where it stopped
+- **Bandwidth limit** — `bandwidth_limit` (KB/s) per server or globally, shared across the connection pool
+- **Connection limit detection** — `syncftp detect-limit` measures how many simultaneous connections the server accepts and saves it; pools to the same account share one limit (no more `421 Too many connections`)
+- **Drift detection** — `syncftp verify` finds files that were changed or deleted on the server by hand
+- **OS keyring** — `syncftp secure` moves passwords into Windows Credential Manager / macOS Keychain / Secret Service
+- **Multi-project** — every project is registered machine-wide; target any of them from anywhere with `-P <name>`
+- **Much faster change detection** — unchanged files are not re-hashed (size + mtime cache), hashing runs in parallel, and ignored directories (`vendor/`, `node_modules/`) are never walked locally *or* on the server
+- **Watch fixes** — no more hangs (network and webhook timeouts), ignored folders are not watched, editor temp files are ignored
+
+**Core features**
 
 - **No git required** — change detection is hash-based, works in any directory
 - **Multi-server** — deploy to production and staging in a single command, in parallel
@@ -34,7 +52,7 @@ The UI auto-detects your OS language (Turkish or English). Switch manually with 
 
 ## Installation
 
-Requires **Go 1.21+** → https://go.dev/dl/
+Requires **Go 1.26+** → https://go.dev/dl/
 
 ```bash
 git clone <repo>
@@ -182,6 +200,17 @@ Created by `syncftp init` inside the `.syncftp/` directory. Stored with permissi
 | `sync.pre_sync` | `[]` | Shell commands run **before** upload; any failure aborts that server's sync |
 | `sync.post_sync` | `[]` | Shell commands run **after** upload; failures are reported but don't affect the sync |
 | `server.pre_sync` / `server.post_sync` | `[]` | Per-server hooks, run after the global ones |
+| `server.protocol` / `connections[].protocol` | `"ftp"` | `"ftp"`, `"ftps"` (explicit TLS) or `"sftp"`; default port follows (21 / 22) |
+| `server.key_file` | `""` | SFTP private key (`~/.ssh/id_ed25519`); if encrypted, `password` is used as passphrase |
+| `server.tls_skip_verify` | `false` | FTPS: skip certificate verification (shared hosting certificates often don't match the host name) |
+| `server.tunnel_host` / `tunnel_port` / `tunnel_user` / `tunnel_password` / `tunnel_key_file` | — | SSH jump host; empty `tunnel_host` = no tunnel. `tunnel_user` defaults to the server user |
+| `server.bandwidth_limit` / `sync.bandwidth_limit` | `0` | Upload limit in KB/s for the whole server (shared by all its connections); server value wins, `0` = unlimited |
+| `server.no_backup` / `sync.no_backup` | `false` | Don't back up replaced files before upload — disables rollback |
+| `sync.backup_keep` | `10` | How many recent releases keep their backup files (rollback depth) |
+| `server.direct_upload` / `sync.direct_upload` | `false` | Disable atomic upload (temp name + rename) for servers that don't support rename-over |
+| `project.keyring` | `false` | Passwords live in the OS keyring; `syncftp.json` only keeps a `"keyring:"` marker (see `syncftp secure`) |
+
+> Connection-profile fields (`protocol`, `key_file`, `tls_skip_verify`, `tunnel_*`) are inherited by every server that uses the profile, just like host/user/password.
 
 ---
 
@@ -292,6 +321,100 @@ uploads/
 ```
 
 The `.syncftp/` metadata directory is always excluded from scanning regardless of ignore rules.
+
+---
+
+## Desktop Panel (GUI)
+
+```bash
+syncftp gui            # opens the panel in its own window, terminal is released immediately
+```
+
+Double-clicking `syncftp.exe` in Explorer opens the panel too (the console window is hidden). Running `syncftp` from a terminal keeps the interactive shell as before.
+
+The panel is a local web app embedded in the binary, served on `127.0.0.1` with a per-session token and shown in an Edge/Chrome app window (no address bar). Only one instance runs; launching again brings the existing window to front. The process exits when the last panel window closes — unless a sync job or a watch is still running, in which case it keeps working in the background and the panel picks up where it left off when reopened.
+
+What you can do from the panel:
+
+- **Projects** — every registered project in one list; add an existing folder or create a config for a new one
+- **Overview** — pending changes per server (`+new ~changed −deleted`, click for the list and a diff), sync / dry-run / full sync / retry failed, calibrate, verify (+fix), detect connection limit, milestone, freeze list, watch on/off
+- **Live jobs** — every operation runs as a background job with a live log; jobs on the same server never overlap
+- **Servers & connections** — full editors with connection test, SSH tunnel, protocol, filters, hooks; passwords are never sent to the page (a placeholder keeps the stored value)
+- **Files** — remote file browser (cached connection), preview with syntax highlighting, download, delete, **compare with local** (line diff)
+- **History** — every release with its backup state; roll back to before any release in one click; sync logs
+- **Settings** — global sync settings, keyring toggle, project registry
+
+Flags: `--foreground` runs the panel in the current process; `--no-window` (with `--foreground`) only prints the login URL — useful over SSH port forwarding.
+
+---
+
+## Protocols & SSH Tunnel
+
+```json
+{ "name": "prod", "protocol": "sftp", "host": "example.com", "user": "deploy",
+  "key_file": "~/.ssh/id_ed25519", "remote_path": "/var/www/site" }
+```
+
+```json
+{ "name": "legacy", "protocol": "ftps", "host": "ftp.host.com", "user": "u", "password": "p",
+  "tls_skip_verify": true, "remote_path": "/public_html" }
+```
+
+```json
+{ "name": "internal", "protocol": "sftp", "host": "10.0.0.12", "user": "app", "password": "…",
+  "tunnel_host": "bastion.example.com", "tunnel_user": "jump", "tunnel_key_file": "~/.ssh/id_ed25519",
+  "remote_path": "/srv/app" }
+```
+
+- **SFTP** uploads are byte-exact (no CRLF normalization — calibrate matches exact sizes).
+- **Host keys** are checked against `~/.ssh/known_hosts` and syncFTP's own `known_hosts` (`%APPDATA%\syncftp\known_hosts`). Unknown hosts are trusted on first use and recorded; a changed key is refused.
+- **Tunnel**: for FTP both the control and the passive data connections go through the jump host; for SFTP the SSH session itself does.
+- Every network read/write has an idle timeout (90 s) and SSH connections send keepalives, so a stalled connection fails instead of hanging the sync or watch.
+
+---
+
+## Backup, Rollback & Atomic Uploads
+
+Each sync creates a release under `.syncftp/releases/<server>/<id>/`. Right before a file is uploaded, its current server version is downloaded into `files/` of that release; files that didn't exist on the server are recorded as *new*.
+
+```bash
+syncftp rollback --list -s production      # release history
+syncftp rollback -s production             # pick a release interactively
+syncftp rollback 20261016-063017 -s production --yes
+```
+
+Rolling back a release also rolls back every newer one (newest first): replaced files get their previous version back, new files are deleted from the server, and the sync state returns to the old hashes so the next `sync` detects your local changes again. Only the last `sync.backup_keep` releases keep their backup files.
+
+Uploads are **atomic** by default: the file is written as `.syncftp-<name>.tmp` in the same folder and renamed over the target. If the server refuses the rename, syncFTP falls back to a direct write. Set `direct_upload: true` to skip the temp file entirely.
+
+State is saved every 20 uploaded files, so an interrupted sync (connection loss, Ctrl+C, power cut) resumes with only the remaining files.
+
+---
+
+## Security: OS Keyring
+
+```bash
+syncftp secure          # move all passwords (servers, profiles, tunnels) to the OS keyring
+syncftp secure --off    # write them back into syncftp.json
+```
+
+Entries are stored per account (`sftp://user@host:port`), not per server name, so renaming a server or sharing an account across projects keeps working. `syncftp config --export` masks tunnel passwords as well.
+
+---
+
+## Multiple Projects
+
+Every directory with a `.syncftp/syncftp.json` is registered automatically in `%APPDATA%\syncftp\projects.json` when you use it (and by `init`). The GUI lists them; the CLI can target any of them from anywhere:
+
+```bash
+syncftp project list
+syncftp project add D:\sites\blog --name blog
+syncftp project rename blog blog-prod
+syncftp project rm blog-prod           # only removes it from the list
+
+syncftp -P shop sync --all
+syncftp --project D:\sites\blog status
+```
 
 ---
 
@@ -407,6 +530,30 @@ Log: .syncftp/logs/production/20260612-143012.txt
 Every sync that uploads (or fails to upload) at least one file also writes a plain-text log to `.syncftp/logs/<server>/<timestamp>.txt`. In the interactive sync TUI, press `s` after the sync finishes to save its log.
 
 ---
+
+### `syncftp detect-limit`
+
+```bash
+syncftp detect-limit -s production [--max 32] [--no-save]
+```
+
+Opens connections one by one (login + NOOP) until the server refuses or `--max` is reached, waits a moment and re-checks which ones survived (some servers accept extra connections and silently drop them). The result is written to `max_connections` of **every** server that uses the same account. Other open connections (a shell session, FileZilla) lower the measured value.
+
+### `syncftp verify`
+
+```bash
+syncftp verify -s production [--fix]
+```
+
+Compares the server against the sync state: for every file that should be up to date, the remote size is checked against the local file (CRLF-tolerant). Files missing on the server or with a different size are reported as drift. `--fix` drops them from the state so the next `sync` uploads them again.
+
+### `syncftp rollback`
+
+See [Backup, Rollback & Atomic Uploads](#backup-rollback--atomic-uploads).
+
+### `syncftp secure` / `syncftp project` / `syncftp gui`
+
+See [Security](#security-os-keyring), [Multiple Projects](#multiple-projects) and [Desktop Panel](#desktop-panel-gui).
 
 ### `syncftp diff`
 

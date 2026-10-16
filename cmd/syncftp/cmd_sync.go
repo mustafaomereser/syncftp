@@ -23,7 +23,6 @@ import (
 	"syncftp/internal/ignore"
 	"syncftp/internal/lang"
 	"syncftp/internal/milestone"
-	"syncftp/internal/release"
 	"syncftp/internal/scanner"
 	"syncftp/internal/state"
 	"syncftp/internal/synclog"
@@ -193,9 +192,28 @@ func syncToServer(configDir string, cfg *config.Config, srv config.Server, curre
 	return r.err
 }
 
+// syncOpts — tek bir sync çağrısının modları. Paket seviyesindeki CLI flag'lerinden
+// bağımsızdır: GUI/serve/watch eş zamanlı farklı modlarla sync çalıştırabilir.
+type syncOpts struct {
+	full        bool
+	dryRun      bool
+	retryFailed bool
+}
+
+// cliSyncOpts CLI flag'lerinden syncOpts üretir.
+func cliSyncOpts() syncOpts {
+	return syncOpts{full: flagFull, dryRun: flagDryRun, retryFailed: flagRetryFailed}
+}
+
 // syncToServerResult çıktıyı w'ye yazar, sayım bilgilerini döner (parallel sync için).
 // since != nil → milestone modu: state diff yerine mtime >= since olan dosyalar yüklenir.
+// Modlar CLI flag'lerinden okunur; flag'siz çağrılar için syncToServerOpts.
 func syncToServerResult(w io.Writer, configDir string, cfg *config.Config, srv config.Server, current map[string]string, byKey map[string]scanner.File, cliInclude, cliExclude []string, since *time.Time) serverSyncResult {
+	return syncToServerOpts(w, configDir, cfg, srv, current, byKey, cliInclude, cliExclude, since, cliSyncOpts())
+}
+
+// syncToServerOpts sync çekirdeği — modlar opts'tan gelir.
+func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv config.Server, current map[string]string, byKey map[string]scanner.File, cliInclude, cliExclude []string, since *time.Time, opts syncOpts) serverSyncResult {
 	result := serverSyncResult{name: srv.Name}
 	startTime := time.Now()
 
@@ -282,7 +300,7 @@ func syncToServerResult(w io.Writer, configDir string, cfg *config.Config, srv c
 			toUpload = filterByInclude(toUpload, effectiveInclude)
 		}
 		toUpload = filterByExclude(toUpload, effectiveExclude)
-	} else if flagRetryFailed {
+	} else if opts.retryFailed {
 		fl, err := failed.Load(configDir, srv.Name)
 		if err != nil {
 			result.err = fmt.Errorf("failed listesi okunamadı: %w", err)
@@ -301,15 +319,15 @@ func syncToServerResult(w io.Writer, configDir string, cfg *config.Config, srv c
 			}
 		}
 	} else {
-		isFirst := !st.FirstSyncDone || flagFull
+		isFirst := !st.FirstSyncDone || opts.full
 
 		if isFirst {
-			if flagFull && st.FirstSyncDone {
+			if opts.full && st.FirstSyncDone {
 				fmt.Fprintln(w, lang.L.SyncFullFlag)
 				toUpload = mapKeys(current)
 			} else {
 				fmt.Fprint(w, lang.L.ResyncAutoMsg)
-				runCalibrate(configDir, srv, cfg)
+				runCalibrateOpts(configDir, srv, cfg, calibrateOpts{out: w})
 				if reloaded, err := state.Load(configDir, srv.Name); err == nil {
 					st = reloaded
 				}
@@ -338,7 +356,7 @@ func syncToServerResult(w io.Writer, configDir string, cfg *config.Config, srv c
 
 	// Milestone filtresi: sunucuda milestone varsa yalnızca o tarihten sonra
 	// değişen (mtime) dosyalar sync edilir (since modu zaten mtime bazlı seçim yaptı)
-	if since == nil && !flagRetryFailed {
+	if since == nil && !opts.retryFailed {
 		if ms, _ := milestone.Load(configDir, srv.Name); ms != nil {
 			ld := filepath.Join(configDir, srv.EffectiveLocalPath(cfg.Project))
 			var dropped int
@@ -402,7 +420,7 @@ func syncToServerResult(w io.Writer, configDir string, cfg *config.Config, srv c
 	}
 	fmt.Fprintln(w, "")
 
-	if flagDryRun {
+	if opts.dryRun {
 		for _, rel := range toUpload {
 			f := byKey[rel]
 			if ftpclient.IsProtected(rel, effectiveProtect) || ftpclient.IsProtected(f.RelPath, effectiveProtect) {
@@ -455,57 +473,41 @@ func syncToServerResult(w io.Writer, configDir string, cfg *config.Config, srv c
 		}
 	}
 
-	pool, poolErr := ftpclient.NewPool(srv)
-	if poolErr != nil {
-		result.err = poolErr
-		return result
-	}
-	defer pool.Close()
-
-	uploadResults := pool.Upload(tasks)
-
 	for _, rel := range toUpload {
 		if ftpclient.IsProtected(rel, effectiveProtect) {
 			fmt.Fprintf(w, lang.L.SyncProtectedLabel, rel)
 		}
 	}
 
-	successFiles := make(map[string]string)
+	outcome, sessErr := runUploadSession(w, configDir, cfg, srv, tasks, st, func(r ftpclient.UploadResult) {
+		printUploadResult(w, r)
+	})
+	if sessErr != nil {
+		result.err = sessErr
+		return result
+	}
+
 	uploaded, failedCount := 0, 0
-	for _, r := range uploadResults {
+	var failedPaths []string
+	for _, r := range outcome.results {
 		if r.Err != nil {
-			if r.Attempts > 1 {
-				fmt.Fprintf(w, lang.L.SyncAttemptsFmt, r.RelPath, r.Attempts, r.Err)
-			} else {
-				fmt.Fprintf(w, lang.L.SyncUploadErrFmt, r.RelPath, r.Err)
-			}
 			failedCount++
 			result.failedFiles = append(result.failedFiles, r.RelPath)
+			failedPaths = append(failedPaths, r.RelPath)
 		} else {
-			if r.Attempts > 1 {
-				fmt.Fprintf(w, lang.L.SyncAttemptOkFmt, r.RelPath, r.Attempts)
-			} else {
-				fmt.Fprintf(w, lang.L.SyncUploadOkFmt, r.RelPath)
-			}
-			successFiles[r.RelPath] = r.Hash
 			uploaded++
-			result.bytes += r.Size
 			result.uploadedFiles = append(result.uploadedFiles, r.RelPath)
 		}
 	}
+	result.bytes = outcome.bytes
 	result.uploaded = uploaded
 	result.failed = failedCount
 	result.duration = time.Since(startTime)
+	result.releaseID = outcome.releaseID
 
 	fmt.Fprintf(w, lang.L.SyncDoneFullFmt, uploaded, skipped, failedCount)
 	fmt.Fprintf(w, lang.L.SyncReportFmt+"\n", humanBytes(result.bytes), result.duration.Round(time.Second))
 
-	var failedPaths []string
-	for _, r := range uploadResults {
-		if r.Err != nil {
-			failedPaths = append(failedPaths, r.RelPath)
-		}
-	}
 	if len(failedPaths) > 0 {
 		if err := failed.Save(configDir, srv.Name, failedPaths); err != nil {
 			fmt.Fprintf(w, lang.L.SyncFailedSaveErr, err)
@@ -516,9 +518,6 @@ func syncToServerResult(w io.Writer, configDir string, cfg *config.Config, srv c
 		failed.Clear(configDir, srv.Name)
 	}
 
-	for rel, hash := range successFiles {
-		st.Files[rel] = hash
-	}
 	for rel := range st.Files {
 		if _, exists := current[rel]; !exists {
 			delete(st.Files, rel)
@@ -533,12 +532,8 @@ func syncToServerResult(w io.Writer, configDir string, cfg *config.Config, srv c
 		fmt.Fprintf(w, lang.L.SyncStateErr, err)
 	}
 
-	if len(successFiles) > 0 {
-		if relDir, err := release.Create(configDir, srv.Name, successFiles); err != nil {
-			fmt.Fprintf(w, lang.L.SyncReleaseErr, err)
-		} else {
-			fmt.Fprintf(w, lang.L.SyncReleaseFmt, relDir)
-		}
+	if outcome.releaseDir != "" {
+		fmt.Fprintf(w, lang.L.SyncReleaseFmt, outcome.releaseDir)
 	}
 
 	// Webhook
@@ -547,7 +542,7 @@ func syncToServerResult(w io.Writer, configDir string, cfg *config.Config, srv c
 		webhookURL = cfg.Sync.Webhook
 	}
 	if webhookURL != "" {
-		sendWebhook(webhookURL, srv.Name, uploaded, failedCount, result.uploadedFiles)
+		sendWebhook(w, webhookURL, srv.Name, uploaded, failedCount, result.uploadedFiles)
 	}
 
 	// Post-sync hook'ları (global + sunucu); hata sync sonucunu etkilemez
@@ -634,8 +629,11 @@ func mapKeys(m map[string]string) []string {
 
 // ── Webhook ───────────────────────────────────────────────────────────────────
 
-// sendWebhook senkron HTTP POST atar. Hata terminal'e yazılır, sync kesilmez.
-func sendWebhook(webhookURL, serverName string, uploaded, failed int, files []string) {
+// webhookClient — timeout'lu: cevap vermeyen webhook sunucusu sync'i (ve watch'ı) kilitlemesin.
+var webhookClient = &http.Client{Timeout: 15 * time.Second}
+
+// sendWebhook senkron HTTP POST atar. Hata w'ye yazılır, sync kesilmez.
+func sendWebhook(w io.Writer, webhookURL, serverName string, uploaded, failed int, files []string) {
 	if webhookURL == "" {
 		return
 	}
@@ -643,13 +641,13 @@ func sendWebhook(webhookURL, serverName string, uploaded, failed int, files []st
 		`{"server":%q,"uploaded":%d,"failed":%d,"files":%s}`,
 		serverName, uploaded, failed, jsonStringArray(files),
 	)
-	resp, err := http.Post(webhookURL, "application/json", bytes.NewBufferString(payload))
+	resp, err := webhookClient.Post(webhookURL, "application/json", bytes.NewBufferString(payload))
 	if err != nil {
-		fmt.Printf(lang.L.SyncWebhookErrFmt, err)
+		fmt.Fprintf(w, lang.L.SyncWebhookErrFmt, err)
 		return
 	}
 	resp.Body.Close()
-	fmt.Printf(lang.L.SyncWebhookSentFmt, webhookURL, resp.StatusCode)
+	fmt.Fprintf(w, lang.L.SyncWebhookSentFmt, webhookURL, resp.StatusCode)
 }
 
 func jsonStringArray(ss []string) string {
@@ -707,6 +705,7 @@ type serverSyncResult struct {
 	bytes         int64
 	duration      time.Duration
 	err           error
+	releaseID     string
 	uploadedFiles []string
 	failedFiles   []string
 }

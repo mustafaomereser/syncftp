@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -26,6 +25,7 @@ import (
 	"syncftp/internal/release"
 	"syncftp/internal/scanner"
 	"syncftp/internal/state"
+	"syncftp/internal/synclog"
 )
 
 var servePort int
@@ -204,22 +204,6 @@ func handleStatus(w http.ResponseWriter, r *http.Request, configDir string) {
 		return
 	}
 
-	projectDir := filepath.Join(configDir, cfg.Project.LocalPath)
-	matcher, err := ignore.Load(projectDir, cfg.Sync.IgnoreFiles)
-	if err != nil {
-		jsonErr(w, 500, err)
-		return
-	}
-	files, err := scanner.Scan(projectDir, matcher)
-	if err != nil {
-		jsonErr(w, 500, err)
-		return
-	}
-	current := make(map[string]string, len(files))
-	for _, f := range files {
-		current[f.RelPath] = f.Hash
-	}
-
 	filterName := r.URL.Query().Get("server")
 	servers := cfg.EnabledServers()
 	if filterName != "" {
@@ -242,6 +226,11 @@ func handleStatus(w http.ResponseWriter, r *http.Request, configDir string) {
 		if err != nil {
 			continue
 		}
+		current, _, err := scanForServer(configDir, cfg, srv)
+		if err != nil {
+			continue
+		}
+		projectDir := filepath.Join(configDir, srv.EffectiveLocalPath(cfg.Project))
 		diff := state.Diff(st, current)
 		msDate := ""
 		if ms, _ := milestone.Load(configDir, srv.Name); ms != nil {
@@ -306,24 +295,6 @@ func handleSync(w http.ResponseWriter, r *http.Request, configDir string) {
 		return
 	}
 
-	projectDir := filepath.Join(configDir, cfg.Project.LocalPath)
-	matcher, err := ignore.Load(projectDir, cfg.Sync.IgnoreFiles)
-	if err != nil {
-		jsonErr(w, 500, err)
-		return
-	}
-	files, err := scanner.Scan(projectDir, matcher)
-	if err != nil {
-		jsonErr(w, 500, err)
-		return
-	}
-	current := make(map[string]string, len(files))
-	byRel := make(map[string]scanner.File, len(files))
-	for _, f := range files {
-		current[f.RelPath] = f.Hash
-		byRel[f.RelPath] = f
-	}
-
 	servers := cfg.EnabledServers()
 	if req.Server != "" {
 		srv, err := getServer(cfg, req.Server)
@@ -336,7 +307,7 @@ func handleSync(w http.ResponseWriter, r *http.Request, configDir string) {
 
 	var results []syncData
 	for _, srv := range servers {
-		res, err := apiSyncServer(configDir, cfg, srv, current, byRel, req)
+		res, err := apiSyncServer(configDir, cfg, srv, req)
 		if err != nil {
 			jsonErr(w, 500, fmt.Errorf("%s: %w", srv.Name, err))
 			return
@@ -351,138 +322,29 @@ func handleSync(w http.ResponseWriter, r *http.Request, configDir string) {
 	}
 }
 
-func apiSyncServer(configDir string, cfg *config.Config, srv config.Server, current map[string]string, byRel map[string]scanner.File, req syncRequest) (syncData, error) {
+// apiSyncServer ana sync akışını (syncToServerResult) çalıştırır: frozen, block,
+// protect, hook, minify, webhook, milestone, yedek/rollback dahil CLI ile birebir aynı.
+func apiSyncServer(configDir string, cfg *config.Config, srv config.Server, req syncRequest) (syncData, error) {
 	res := syncData{Server: srv.Name, DryRun: req.DryRun}
-
-	st, err := state.Load(configDir, srv.Name)
+	current, byKey, err := scanForServer(configDir, cfg, srv)
 	if err != nil {
 		return res, err
 	}
-
-	effectiveInclude := cfg.Sync.Include
-	if len(srv.Include) > 0 {
-		effectiveInclude = srv.Include
+	var buf strings.Builder
+	r := syncToServerOpts(&buf, configDir, cfg, srv, current, byKey, req.Include, req.Exclude, nil,
+		syncOpts{full: req.Full, dryRun: req.DryRun, retryFailed: req.RetryFailed})
+	if r.err != nil {
+		return res, r.err
 	}
-	if len(req.Include) > 0 {
-		effectiveInclude = req.Include
+	for _, p := range r.uploadedFiles {
+		res.Uploaded = append(res.Uploaded, syncFileResult{Path: p})
 	}
-	effectiveExclude := append(append([]string{}, cfg.Sync.Exclude...), srv.Exclude...)
-	effectiveExclude = append(effectiveExclude, req.Exclude...)
-
-	var toUpload []string
-
-	if req.RetryFailed {
-		fl, err := failed.Load(configDir, srv.Name)
-		if err != nil {
-			return res, err
-		}
-		if fl != nil {
-			for _, rel := range fl.Files {
-				if _, exists := current[rel]; exists {
-					toUpload = append(toUpload, rel)
-				}
-			}
-		}
-	} else {
-		isFirst := !st.FirstSyncDone || req.Full
-		if isFirst {
-			if cfg.FirstSync.Full || req.Full {
-				toUpload = mapKeys(current)
-			} else {
-				toUpload = filterByInclude(mapKeys(current), effectiveInclude)
-			}
-		} else {
-			diff := state.Diff(st, current)
-			res.Deleted = nullSlice(diff.Deleted)
-			toUpload = append(diff.New, diff.Changed...)
-			if len(effectiveInclude) > 0 {
-				toUpload = filterByInclude(toUpload, effectiveInclude)
-			}
-		}
-		toUpload = filterByExclude(toUpload, effectiveExclude)
-
-		// Milestone filtresi: sunucuda milestone varsa yalnızca o tarihten sonra
-		// değişen (mtime) dosyalar sync edilir
-		if ms, _ := milestone.Load(configDir, srv.Name); ms != nil {
-			var kept []string
-			for _, rel := range toUpload {
-				if info, statErr := os.Stat(byRel[rel].AbsPath); statErr == nil && !info.ModTime().Before(ms.Date) {
-					kept = append(kept, rel)
-				}
-			}
-			toUpload = kept
-		}
+	for _, p := range r.failedFiles {
+		res.Failed = append(res.Failed, syncFileResult{Path: p})
 	}
-
-	sort.Strings(toUpload)
-
-	// Korunanları ayır
-	var tasks []ftpclient.UploadTask
-	for _, rel := range toUpload {
-		if ftpclient.IsProtected(rel, cfg.Sync.Protect) {
-			res.Skipped = append(res.Skipped, rel)
-			continue
-		}
-		f := byRel[rel]
-		tasks = append(tasks, ftpclient.UploadTask{LocalPath: f.AbsPath, RelPath: rel, Hash: current[rel]})
+	if !req.DryRun && (r.uploaded > 0 || r.failed > 0) {
+		_, _ = synclog.Save(configDir, srv.Name, buf.String())
 	}
-
-	if req.DryRun {
-		for _, t := range tasks {
-			res.Uploaded = append(res.Uploaded, syncFileResult{Path: t.RelPath})
-		}
-		return res, nil
-	}
-
-	if len(tasks) == 0 {
-		return res, nil
-	}
-
-	pool, err := ftpclient.NewPool(srv)
-	if err != nil {
-		return res, err
-	}
-	defer pool.Close()
-
-	uploadResults := pool.Upload(tasks)
-	successFiles := make(map[string]string)
-
-	for _, r := range uploadResults {
-		if r.Err != nil {
-			res.Failed = append(res.Failed, syncFileResult{Path: r.RelPath, Attempts: r.Attempts, Error: r.Err.Error()})
-		} else {
-			res.Uploaded = append(res.Uploaded, syncFileResult{Path: r.RelPath, Attempts: r.Attempts})
-			successFiles[r.RelPath] = r.Hash
-		}
-	}
-
-	// Failed listesini güncelle
-	var failedPaths []string
-	for _, f := range res.Failed {
-		failedPaths = append(failedPaths, f.Path)
-	}
-	if len(failedPaths) > 0 {
-		_ = failed.Save(configDir, srv.Name, failedPaths)
-	} else {
-		failed.Clear(configDir, srv.Name)
-	}
-
-	// State güncelle
-	for rel, hash := range successFiles {
-		st.Files[rel] = hash
-	}
-	for rel := range st.Files {
-		if _, exists := current[rel]; !exists {
-			delete(st.Files, rel)
-		}
-	}
-	st.FirstSyncDone = true
-	_ = state.Save(configDir, st)
-
-	if len(successFiles) > 0 {
-		_, _ = release.Create(configDir, srv.Name, successFiles)
-	}
-
 	return res, nil
 }
 
@@ -863,12 +725,7 @@ func handleSyncStream(w http.ResponseWriter, r *http.Request, configDir string) 
 			byKey[f.RelPath] = f
 		}
 
-		// --full flag'ini geçici olarak uygula
-		origFull := flagFull
-		flagFull = full
-		_ = dryRun // dry-run SSE modunda henüz desteklenmiyor — gelecekte eklenebilir
-		syncToServerResult(sw, configDir, cfg, srv, current, byKey, nil, nil, nil)
-		flagFull = origFull
+		syncToServerOpts(sw, configDir, cfg, srv, current, byKey, nil, nil, nil, syncOpts{full: full, dryRun: dryRun})
 	}
 
 	fmt.Fprintf(sw, "[sync tamamlandı]")
@@ -1045,4 +902,3 @@ func nullSlice(s []string) []string {
 	}
 	return s
 }
-

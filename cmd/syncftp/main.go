@@ -10,12 +10,19 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "syncftp",
-	Short: "Yerel dosyaları birden fazla FTP sunucusuna senkronize eder",
-	Long: `syncFTP — Değişen dosyaları SHA256 ile tespit eder ve seçili FTP sunucularına dağıtır.
+	Use:     "syncftp",
+	Version: appVersion,
+	Short:   "Yerel dosyaları birden fazla FTP/FTPS/SFTP sunucusuna senkronize eder",
+	Long: `syncFTP — Değişen dosyaları SHA256 ile tespit eder ve seçili sunuculara dağıtır.
+
+FTP, FTPS (TLS) ve SFTP desteklenir; isteğe bağlı SSH tüneli, bant genişliği sınırı,
+atomik upload ve her sync'te otomatik yedek (rollback) vardır.
 
 Sunucu tarafındaki config dosyaları (protect listesi) korunur, üzerine yazılmaz.
-İlk sync'te tüm dosyalar gönderilir; sonrasında yalnızca değişenler.`,
+İlk sync'te mevcut dosyalar calibrate ile eşleştirilir; sonrasında yalnızca değişenler gider.
+
+Argümansız çalıştırınca interaktif shell açılır; exe'ye çift tıklamak veya
+'syncftp gui' masaüstü yönetim panelini açar.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runShell()
 	},
@@ -24,6 +31,17 @@ Sunucu tarafındaki config dosyaları (protect listesi) korunur, üzerine yazıl
 func main() {
 	dir, _ := os.Getwd()
 	lang.Init(dir)
+
+	// Explorer'dan çift tık: süreç konsolunun tek sahibi → konsolu gizle, GUI'yi aç.
+	// Terminalden argümansız çalıştırma shell'de kalır.
+	if len(os.Args) == 1 && ownsConsole() {
+		hideConsole()
+		if err := runGUIForeground(); err != nil {
+			os.Exit(1)
+		}
+		return
+	}
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

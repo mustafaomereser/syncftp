@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"syncftp/internal/lang"
+	"syncftp/internal/projects"
 )
 
 func init() {
@@ -106,6 +107,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	writeIgnoreTemplate(syncftpDir)
 	addToIgnoreFile(dir)
+	_, _ = projects.Add(dir, projectName) // GUI proje listesi + --project için
 
 	fmt.Println()
 	fmt.Printf(lang.L.InitReadyFmt, projectName)

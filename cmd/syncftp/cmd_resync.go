@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path"
@@ -148,16 +149,23 @@ func runCalibrate(dir string, srv config.Server, cfg *config.Config) {
 }
 
 type calibrateOpts struct {
-	interactive bool // listeleme fazında inline TUI: → taranan dosyaları canlı gösterir
-	saveLog     bool // özet + taranan dosya listesi synclog'a kaydedilir
+	interactive bool      // listeleme fazında inline TUI: → taranan dosyaları canlı gösterir
+	saveLog     bool      // özet + taranan dosya listesi synclog'a kaydedilir
+	out         io.Writer // nil → stdout (canlı sayaçlarla); dolu → buffer/GUI akışı (sayaçsız)
 }
 
 func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts calibrateOpts) {
+	o := opts.out
+	if o == nil {
+		o = os.Stdout
+	}
+	// Canlı \r sayaçları yalnızca terminale; buffer/GUI akışında satırları kirletmesin
+	live := opts.out == nil
 	// p hem terminale yazar hem (saveLog açıksa) log tamponuna toplar;
 	// \r'li canlı sayaç satırları p'den geçmez, log'a girmez.
 	var logBuf strings.Builder
 	p := func(format string, a ...any) {
-		fmt.Printf(format, a...)
+		fmt.Fprintf(o, format, a...)
 		if opts.saveLog {
 			fmt.Fprintf(&logBuf, format, a...)
 		}
@@ -210,13 +218,15 @@ func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts ca
 			}
 			return nil
 		}
-		if matcher.Match(rel) {
-			if d.IsDir() {
+		if d.IsDir() {
+			if matcher.MatchDir(rel) {
 				ignoredDirs = append(ignoredDirs, rel+"/")
 				return filepath.SkipDir
 			}
-			ignoredFiles++
 			return nil
+		}
+		if matcher.Match(rel) {
+			ignoredFiles++
 		}
 		return nil
 	})
@@ -235,38 +245,44 @@ func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts ca
 	if excluded > 0 {
 		p(lang.L.ResyncFilteredFmt, excluded)
 	}
-	fmt.Print(lang.L.ResyncScanning)
+	fmt.Fprint(o, lang.L.ResyncScanning)
 
 	client, err := ftpclient.Connect(srv)
 	if err != nil {
-		fmt.Printf(lang.L.ResyncConnErr, err)
+		fmt.Fprintf(o, lang.L.ResyncConnErr, err)
 		return
 	}
 	defer client.Close()
-	fmt.Print(lang.L.ResyncConnected)
+	fmt.Fprint(o, lang.L.ResyncConnected)
 
-	fmt.Printf("  %s\n", lang.L.ResyncListing)
+	fmt.Fprintf(o, "  %s\n", lang.L.ResyncListing)
+	// Uzak taramada ignore/exclude edilen ve include dışında kalan dizinlere hiç girilmez
+	skip := remoteSkipFunc(matcher, normalizePatterns(effectiveInclude, localPath), normalizePatterns(effectiveExclude, localPath))
 	var remoteFiles map[string]uint64
 	var err2 error
 	if opts.interactive {
 		var aborted bool
-		remoteFiles, aborted, err2 = runListingTUI(client, srv.RemotePath)
+		remoteFiles, aborted, err2 = runListingTUI(client, srv.RemotePath, skip)
 		if aborted {
-			fmt.Print(lang.L.ResyncListCancelled)
+			fmt.Fprint(o, lang.L.ResyncListCancelled)
 			return
 		}
 	} else {
 		lastList := time.Now()
-		remoteFiles, err2 = client.ListRecursiveProgress(srv.RemotePath, func(n int) {
+		remoteFiles, err2 = client.ListRecursiveFiltered(srv.RemotePath, skip, func(n int, _ string) {
 			if time.Since(lastList) >= 80*time.Millisecond {
-				fmt.Printf(lang.L.ResyncListProgressFmt, n)
+				if live {
+					fmt.Fprintf(o, lang.L.ResyncListProgressFmt, n)
+				}
 				lastList = time.Now()
 			}
 		})
-		fmt.Print("\r                                        \r")
+		if live {
+			fmt.Fprint(o, "\r                                        \r")
+		}
 	}
 	if err2 != nil {
-		fmt.Printf(lang.L.ResyncListErr, err2)
+		fmt.Fprintf(o, lang.L.ResyncListErr, err2)
 		return
 	}
 	p(lang.L.ResyncFoundFmt, len(remoteFiles))
@@ -282,7 +298,9 @@ func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts ca
 	for key, hash := range current {
 		done++
 		if done == total || time.Since(lastPrint) >= 80*time.Millisecond {
-			fmt.Printf(lang.L.ResyncComparingFmt, done, total)
+			if live {
+				fmt.Fprintf(o, lang.L.ResyncComparingFmt, done, total)
+			}
 			lastPrint = time.Now()
 		}
 
@@ -338,7 +356,7 @@ func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts ca
 			fmt.Fprintf(&logBuf, "  %s (%s)\n", k, humanBytes(int64(remoteFiles[k])))
 		}
 		if lp, lerr := synclog.Save(dir, srv.Name, logBuf.String()); lerr == nil {
-			fmt.Printf(lang.L.SyncLogSavedFmt, lp)
+			fmt.Fprintf(o, lang.L.SyncLogSavedFmt, lp)
 		}
 	}
 }
@@ -423,10 +441,10 @@ func (m calListModel) View() string {
 
 // runListingTUI listeleme fazını inline (alt-screen'siz) TUI ile çalıştırır:
 // canlı sayaç, → ile taranan dosyaların akışı. ctrl+c/q → aborted (calibrate iptal).
-func runListingTUI(client *ftpclient.Client, remotePath string) (map[string]uint64, bool, error) {
+func runListingTUI(client *ftpclient.Client, remotePath string, skip func(rel string) bool) (map[string]uint64, bool, error) {
 	ch := make(chan tea.Msg, 1024)
 	go func() {
-		files, err := client.ListRecursiveProgressPath(remotePath, func(n int, latest string) {
+		files, err := client.ListRecursiveFiltered(remotePath, skip, func(n int, latest string) {
 			select {
 			case ch <- calListEntryMsg{count: n, path: latest}:
 			default: // TUI yetişemezse ara mesaj düşebilir — done asla düşmez
@@ -458,4 +476,34 @@ func runListingTUI(client *ftpclient.Client, remotePath string) (map[string]uint
 		return nil, true, nil
 	}
 	return fm.files, false, fm.err
+}
+
+// remoteSkipFunc uzak taramada girilmeyecek dizinleri belirler (yerel taramayla aynı kurallar):
+//   - ignore dosyalarında eşleşen dizinler (vendor/, node_modules/ …)
+//   - exclude listesindeki dizinler
+//   - include listesi varsa, hiçbir include'u kapsamayan / onun altında olmayan dizinler
+//
+// Sync zaten bu dizinlerdeki dosyaları yüklemez → onları listelemek sadece LIST trafiği.
+func remoteSkipFunc(matcher *ignore.Matcher, include, exclude []string) func(rel string) bool {
+	return func(rel string) bool {
+		if matcher != nil && matcher.MatchDir(rel) {
+			return true
+		}
+		for _, exc := range exclude {
+			exc = strings.TrimSuffix(filepath.ToSlash(exc), "/")
+			if exc != "" && (rel == exc || strings.HasPrefix(rel, exc+"/")) {
+				return true
+			}
+		}
+		if len(include) == 0 {
+			return false
+		}
+		for _, inc := range include {
+			inc = strings.TrimSuffix(filepath.ToSlash(inc), "/")
+			if inc == "" || inc == rel || strings.HasPrefix(inc, rel+"/") || strings.HasPrefix(rel, inc+"/") {
+				return false
+			}
+		}
+		return true
+	}
 }

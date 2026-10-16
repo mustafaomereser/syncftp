@@ -112,8 +112,8 @@ var En = StringSet{
 	ShellCancelShort:      "Cancelled.",
 	ShellDeletedShort:     "✓ Deleted: %s\n",
 	ShellPickServerTitle:  "Select Server",
-	ShellSyncServers:          "Servers to Sync",
-	ShellCalibrateServers:     "Servers to Calibrate",
+	ShellSyncServers:      "Servers to Sync",
+	ShellCalibrateServers: "Servers to Calibrate",
 	ShellSyncPickSub:      "Space to mark, Enter to confirm",
 	ShellSyncCancelled:    "Cancelled.",
 	ShellFileActionTitle:  "File Action",
@@ -162,6 +162,11 @@ Sync:
                             date: today, yesterday, 3d, 5h, 14:30, 20.07[.2026],
                             2026-07-20 [15:04] (omit = now)
   freeze [--server name]  Manage freeze list — mark files to never upload
+  rollback [id] [--list]  Undo a sync: previous files are restored, newly added ones removed
+                            without id a release picker opens (connected server / picker)
+  verify [--fix]          Find files changed/deleted on the server by hand (drift);
+                            --fix makes the next sync re-upload them
+  detect-limit [--max N]  Measure the server's simultaneous connection limit, save to max_connections
 
 Server management:
   servers                 Server list
@@ -196,6 +201,7 @@ Other:
                             POST /api/reload       (validate config)
                             POST /api/trigger/github?server=&branch=&secret=
                             GET/DELETE /api/remote/ls|cat|get|rm
+  gui                     Open the desktop management panel (separate window)
   lang [en|tr]            Show or change display language (auto-detected from OS on first run)
   clear / cls             Clear screen
   help / ?                This help
@@ -237,13 +243,13 @@ Other:
 	SyncUploadErrFmt:   "    ✗ %s: %v\n",
 
 	// resync
-	ResyncScanning:     "  Connecting to server...",
-	ResyncConnected:    " connected\n",
-	ResyncListing:      "Listing remote files...",
-	ResyncLocalFmt:     "  Local:  %d files scanned\n",
-	ResyncConnErr:      "  ! Could not connect to server (%v) — resync skipped\n",
-	ResyncListErr:      "  ! Could not read remote dir (%v) — resync skipped\n",
-	ResyncFoundFmt:     "  Remote: %d files found\n",
+	ResyncScanning:       "  Connecting to server...",
+	ResyncConnected:      " connected\n",
+	ResyncListing:        "Listing remote files...",
+	ResyncLocalFmt:       "  Local:  %d files scanned\n",
+	ResyncConnErr:        "  ! Could not connect to server (%v) — resync skipped\n",
+	ResyncListErr:        "  ! Could not read remote dir (%v) — resync skipped\n",
+	ResyncFoundFmt:       "  Remote: %d files found\n",
 	ResyncComparingFmt:   "  Comparing: %d / %d\n",
 	ResyncMatchedFmt:     "  Matched: %d (size OK)  |  Different/missing: %d\n",
 	ResyncDoneFmt:        "  [%s] calibrate done\n",
@@ -437,11 +443,11 @@ Other:
 	CfgFldMaxRetry:    "Max retry",
 	CfgFldInclude:     "Include",
 	CfgFldExclude:     "Exclude",
-	CfgFldProtect:    "Protect",
-	CfgFldWebhook:    "Webhook URL",
-	CfgFldMinify:     "Minify CSS/JS",
-	CfgFldObfuscate:  "Obfuscate JS",
-	CfgFldBlockExts: "Block extensions",
+	CfgFldProtect:     "Protect",
+	CfgFldWebhook:     "Webhook URL",
+	CfgFldMinify:      "Minify CSS/JS",
+	CfgFldObfuscate:   "Obfuscate JS",
+	CfgFldBlockExts:   "Block extensions",
 
 	// Config TUI — global settings
 	CfgGlobalEditTitle:    "⚙  Global Settings",
@@ -458,7 +464,7 @@ Other:
 	CfgGFldExclude:     "Exclude (global)",
 	CfgGFldIgnore:      "Ignore files",
 	CfgGFldWebhook:     "Webhook URL (global)",
-	CfgGFldBlockExts: "Block extensions (global)",
+	CfgGFldBlockExts:   "Block extensions (global)",
 
 	CfgValueEmpty: "(empty)",
 
@@ -531,4 +537,108 @@ Other:
 	DiffSizeHeaderFmt: "  Size differs (%d):\n",
 	DiffSizeLineFmt:   "    ~ %s  (%s: %s · %s: %s)\n",
 	DiffSameFmt:       "  ✓ %d files identical\n",
+
+	// Upload çekirdeği (yedek / limit)
+	SyncBandwidthFmt:     "  Speed limit: %d KB/s\n",
+	SyncPoolLimitedFmt:   "  ! Only %d of %d connections opened (server/host connection limit)\n",
+	SyncBackupErrFmt:     "  ! Backup failed (%s): %v — this file cannot be rolled back\n",
+	SyncBackupSummaryFmt: "  ↺ Backup: %d previous version(s) saved, %d new file(s) — undo with: syncftp rollback --server %s\n",
+
+	// Watch
+	WatchStopped: "\nWatch stopped.\n",
+
+	// Rollback
+	RollbackNoReleasesFmt:      "  No rollback-able release for %s.\n",
+	RollbackPickTitleFmt:       "Rollback — %s",
+	RollbackPickSubtitle:       "Selected release AND every newer one will be undone",
+	RollbackConfirmFmt:         "Undo %d release(s) on %s?",
+	RollbackReleaseDescFmt:     "%s · %d files · %d replaced · %d new",
+	RollbackTagRolledBack:      "[rolled back]",
+	RollbackTagNoBackup:        "[no backup]",
+	RollbackAlreadyFmt:         "release %s was already rolled back",
+	RollbackNoBackupFmt:        "release %s has no backup (backup disabled or purged) — cannot roll back past it",
+	RollbackNotFoundFmt:        "release not found: %s",
+	RollbackReleaseFmt:         "\n  ↺ %s  (%s)\n",
+	RollbackRestoredFmt:        "    ↺ restored  %s\n",
+	RollbackDeletedFmt:         "    ✗ removed   %s\n",
+	RollbackFileErrFmt:         "    ! %s: %v\n",
+	RollbackSkippedNoBackupFmt: "    ! %d file(s) had no backup and were left as is\n",
+	RollbackDoneFmt:            "\n  Rollback done: %d restored, %d removed, %d failed\n",
+
+	// detect-limit / verify / secure / project
+	DetectStartFmt:      "  [%s] measuring connection limit (%s://%s)...\n",
+	DetectProgressFmt:   "\r    %d connection(s) open...",
+	DetectErrFmt:        "    ! could not connect: %v\n",
+	DetectResultFmt:     "    ✓ server accepts %d simultaneous connection(s)\n",
+	DetectHitMaxFmt:     "    ✓ %d connections opened without hitting a limit (raise --max to probe further)\n",
+	DetectApplyFmt:      "    → %s: max_connections %d → %d\n",
+	DetectSaved:         "  ✓ Saved to config.\n",
+	VerifyStartFmt:      "  [%s] verifying against server (%s://%s)...\n",
+	VerifyErrFmt:        "  [%s] ! %v\n",
+	VerifyMissingFmt:    "    Missing on server (%d):\n",
+	VerifyModifiedFmt:   "    Changed on server (%d):\n",
+	VerifyMoreFmt:       "      … +%d more\n",
+	VerifyCleanFmt:      "    ✓ No drift — %d file(s) match\n",
+	VerifySummaryFmt:    "    %d ok · %d missing · %d changed\n",
+	VerifyPendingFmt:    "    (%d local change(s) not yet synced — not drift)\n",
+	VerifyFixedFmt:      "    ✓ %d file(s) dropped from state — next sync re-uploads them\n",
+	VerifyFixHint:       "    Tip: --fix makes the next sync re-upload these files\n",
+	SecureOnFmt:         "  ✓ Keyring mode on — %d password(s) moved to the OS keyring\n",
+	SecureOff:           "  ✓ Keyring mode off — passwords are stored in syncftp.json again\n",
+	SecureUnresolvedFmt: "some passwords could not be read from the keyring: %s",
+	ProjectNotFoundFmt:  "project not found: %s (see: syncftp project list)",
+	ProjectListEmpty:    "  No registered projects. Run `syncftp project add` inside a project.\n",
+	ProjectAddedFmt:     "  ✓ %s → %s\n",
+	ProjectRemovedFmt:   "  ✓ %s removed from registry\n",
+	ProjectRenamedFmt:   "  ✓ %s → %s\n",
+
+	// Config TUI — protokol / tünel / yedek alanları
+	CfgFldProtocol:        "Protocol (ftp/ftps/sftp)",
+	CfgFldKeyFile:         "SSH key file",
+	CfgFldTLSSkip:         "FTPS: skip cert check",
+	CfgFldTunnelHost:      "SSH tunnel host",
+	CfgFldTunnelPort:      "SSH tunnel port",
+	CfgFldTunnelUser:      "SSH tunnel user",
+	CfgFldTunnelPass:      "SSH tunnel password",
+	CfgFldTunnelKey:       "SSH tunnel key file",
+	CfgFldBandwidth:       "Speed limit (KB/s)",
+	CfgFldNoBackup:        "Disable backup (rollback)",
+	CfgFldDirectUpload:    "Direct upload (no tmp+rename)",
+	CfgGFldBandwidth:      "Speed limit (KB/s, per server)",
+	CfgGFldNoBackup:       "Disable backup (rollback)",
+	CfgGFldBackupKeep:     "Backups to keep (releases)",
+	CfgGFldDirectUpload:   "Direct upload (no tmp+rename)",
+	CfgGFldKeyring:        "Passwords in OS keyring",
+	CfgBandwidthGlobal:    "(global)",
+	CfgBandwidthUnlimited: "unlimited",
+
+	// Shell / GUI
+	ShellReconnectErrFmt: "  ! Could not reconnect: %v\n",
+	ShellReconnectedFmt:  "  ✓ %s reconnected\n",
+	GuiLaunched:          "  ✓ Management panel opened in a separate window\n",
+	GuiStartFmt:          "syncFTP panel → %s\n",
+	GuiNoBrowser:         "Edge/Chrome not found — opening in the default browser\n",
+
+	// GUI backend
+	GuiBusyFmt:           "%s already has a running job (%s)",
+	GuiPathRequired:      "folder path is required",
+	GuiDirNotFoundFmt:    "folder not found: %s",
+	GuiValConnName:       "every connection profile needs a name",
+	GuiValDupFmt:         "name used twice: %s",
+	GuiValServerName:     "every server needs a name",
+	GuiValConnMissingFmt: "%s: connection profile %q does not exist",
+	GuiValHostFmt:        "%s: host is required (or pick a connection profile)",
+	GuiValRemoteFmt:      "%s: remote path is required",
+	GuiJobSync:           "Sync",
+	GuiJobDryRun:         "Dry-run",
+	GuiJobMilestoneSync:  "Milestone sync",
+	GuiJobCalibrate:      "Calibrate",
+	GuiJobVerify:         "Verify",
+	GuiJobRollback:       "Rollback",
+	GuiJobDetect:         "Detect connection limit",
+	GuiJobWatch:          "Watch",
+	GuiScannedFmt:        "  Scanned: %s → %d files\n\n",
+	GuiNoMilestoneFmt:    "%s has no milestone",
+	GuiJobNotCancelable:  "this job cannot be cancelled",
+	GuiWatchRunning:      "watch is already running for this project",
 }

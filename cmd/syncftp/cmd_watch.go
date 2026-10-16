@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -16,7 +17,6 @@ import (
 	"syncftp/internal/config"
 	"syncftp/internal/ignore"
 	"syncftp/internal/lang"
-	"syncftp/internal/scanner"
 )
 
 const watchDebounce = 800 * time.Millisecond
@@ -91,112 +91,189 @@ func runWatch(dir string, all bool, srvFilter string) error {
 		servers = filtered
 	}
 
+	// SIGINT/SIGTERM yakalanınca watch durur, shell'e döner (terminal kapanmaz)
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
+	stop := make(chan struct{})
+	go func() {
+		<-sigCh
+		close(stop)
+	}()
+	err = watchLoop(dir, cfg, servers, os.Stdout, stop, nil)
+	fmt.Print(lang.L.WatchStopped)
+	return err
+}
+
+// watchLoop izleme çekirdeği — CLI/shell watch ve GUI'nin arka plan watch'ları ortak kullanır.
+// stop kapanınca döner. onSync != nil ise her sync sonrası sonucu ile çağrılır (GUI durum).
+func watchLoop(dir string, cfg *config.Config, servers []config.Server, out io.Writer, stop <-chan struct{}, onSync func(serverSyncResult)) error {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
 	}
 	defer watcher.Close()
 
-	// dizin → o dizini izleyen sunucular (aynı local_path birden fazla sunucuda olabilir)
-	dirToServers := make(map[string][]string)
-	serverMap := make(map[string]config.Server)
+	// Her izlenen dizin bir kez eklenir; o dizini izleyen tüm sunucular aynı
+	// ignore matcher'ını kullanır (ignore dosyaları local dizinden okunur).
+	var roots []*watchRoot
+	rootByDir := make(map[string]*watchRoot)
+	workers := make(map[string]*watchWorker)
+	var syncMu sync.Mutex // sync'ler serialize — çıktı karışmasın
+
+	defer func() {
+		for _, wk := range workers {
+			close(wk.trigger)
+		}
+	}()
 
 	for _, srv := range servers {
 		localDir := filepath.Clean(filepath.Join(dir, srv.EffectiveLocalPath(cfg.Project)))
-		alreadyWatched := len(dirToServers[localDir]) > 0
-		dirToServers[localDir] = append(dirToServers[localDir], srv.Name)
-		serverMap[srv.Name] = srv
-		if !alreadyWatched {
-			if err := watchAddRecursive(watcher, localDir); err != nil {
-				fmt.Printf(lang.L.WatchErrFmt, err)
+		wr, ok := rootByDir[localDir]
+		if !ok {
+			matcher, _ := ignore.Load(localDir, cfg.Sync.IgnoreFiles)
+			wr = &watchRoot{dir: localDir, matcher: matcher}
+			if err := watchAddRecursive(watcher, localDir, matcher); err != nil {
+				fmt.Fprintf(out, lang.L.WatchErrFmt, err)
 				continue
 			}
+			rootByDir[localDir] = wr
+			roots = append(roots, wr)
 		}
-		fmt.Printf(lang.L.WatchStartFmt, srv.Name, localDir)
+		wr.servers = append(wr.servers, srv.Name)
+		if _, exists := workers[srv.Name]; !exists {
+			wk := &watchWorker{trigger: make(chan struct{}, 1)}
+			workers[srv.Name] = wk
+			go wk.run(func() {
+				syncMu.Lock()
+				defer syncMu.Unlock()
+				r := watchDoSync(out, dir, cfg, srv)
+				if onSync != nil {
+					onSync(r)
+				}
+			})
+		}
+		fmt.Fprintf(out, lang.L.WatchStartFmt, srv.Name, localDir)
 	}
-	fmt.Print(lang.L.WatchReady)
-
-	// SIGINT/SIGTERM yakalanınca watch durur, shell'e döner (terminal kapanmaz)
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
-	defer signal.Stop(sigCh)
-
-	var (
-		timersMu sync.Mutex
-		timers   = make(map[string]*time.Timer)
-		syncMu   sync.Mutex
-	)
+	fmt.Fprint(out, lang.L.WatchReady)
 
 	for {
 		select {
-		case <-sigCh:
-			fmt.Println("\nWatch durduruldu.")
+		case <-stop:
 			return nil
 
 		case event, ok := <-watcher.Events:
 			if !ok {
 				return nil
 			}
-			if watchIsSyncftpPath(event.Name) {
+			if watchIsSyncftpPath(event.Name) || watchIsEditorTemp(event.Name) {
 				continue
 			}
-
-			srvNames := watchResolveServers(event.Name, dirToServers)
-			if len(srvNames) == 0 {
-				continue
-			}
-
-			// Yeni klasör oluşturulduysa watcher'a ekle
-			if event.Has(fsnotify.Create) {
-				if fi, statErr := os.Stat(event.Name); statErr == nil && fi.IsDir() {
-					_ = watchAddRecursive(watcher, event.Name)
-				}
-			}
-
-			// Debounce: dizini izleyen HER sunucu için timer'ı sıfırla ya da yenisini oluştur
-			timersMu.Lock()
-			for _, srvName := range srvNames {
-				if t, exists := timers[srvName]; exists {
-					t.Reset(watchDebounce)
+			for _, wr := range watchResolveRoots(event.Name, roots) {
+				rel, relErr := filepath.Rel(wr.dir, event.Name)
+				if relErr != nil {
 					continue
 				}
-				sn := srvName
-				srv := serverMap[sn]
-				timers[sn] = time.AfterFunc(watchDebounce, func() {
-					syncMu.Lock()
-					defer syncMu.Unlock()
-					timersMu.Lock()
-					delete(timers, sn)
-					timersMu.Unlock()
-					watchDoSync(dir, cfg, srv)
-				})
+				rel = filepath.ToSlash(rel)
+
+				// Yeni klasör: ignore edilmiyorsa arka planda ekle (büyük ağaç ana döngüyü bloklamasın)
+				if event.Has(fsnotify.Create) {
+					if fi, statErr := os.Stat(event.Name); statErr == nil && fi.IsDir() {
+						if wr.matcher.MatchDir(rel) {
+							continue
+						}
+						go func(p string, m *ignore.Matcher) { _ = watchAddRecursive(watcher, p, m) }(event.Name, wr.matcher)
+					}
+				}
+				// Ignore edilen dosya/dizin (vendor, node_modules, storage/logs...) sync tetiklemez
+				if wr.matcher.Match(rel) || watchUnderIgnoredDir(rel, wr.matcher) {
+					continue
+				}
+				for _, name := range wr.servers {
+					workers[name].notify()
+				}
 			}
-			timersMu.Unlock()
 
 		case watchErr, ok := <-watcher.Errors:
 			if !ok {
 				return nil
 			}
-			fmt.Printf(lang.L.WatchErrFmt, watchErr)
+			fmt.Fprintf(out, lang.L.WatchErrFmt, watchErr)
 		}
 	}
 }
 
-// watchAddRecursive — dizini ve tüm alt dizinlerini watcher'a ekler.
-func watchAddRecursive(w *fsnotify.Watcher, root string) error {
-	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return nil
+// watchRoot — izlenen bir yerel dizin ve onu izleyen sunucular.
+type watchRoot struct {
+	dir     string
+	matcher *ignore.Matcher
+	servers []string
+}
+
+// watchWorker — sunucu başına tek goroutine. trigger 1 kapasiteli: sync sürerken
+// gelen olaylar tek bir bekleyen tetikte birleşir → sync bitince bir tur daha
+// çalışır, hiçbir değişiklik kaçmaz ve aynı sync iki kez kuyruğa girmez.
+type watchWorker struct {
+	trigger chan struct{}
+}
+
+func (w *watchWorker) notify() {
+	select {
+	case w.trigger <- struct{}{}:
+	default: // zaten bekleyen tetik var
+	}
+}
+
+func (w *watchWorker) run(doSync func()) {
+	for range w.trigger {
+		// Debounce: son olaydan sonra watchDebounce kadar sessizlik bekle
+		t := time.NewTimer(watchDebounce)
+	quiet:
+		for {
+			select {
+			case <-w.trigger:
+				if !t.Stop() {
+					<-t.C
+				}
+				t.Reset(watchDebounce)
+			case <-t.C:
+				break quiet
+			}
 		}
-		if !d.IsDir() {
+		doSync()
+	}
+}
+
+// watchAddRecursive — dizini ve ignore edilmeyen tüm alt dizinlerini watcher'a ekler.
+func watchAddRecursive(w *fsnotify.Watcher, root string, matcher *ignore.Matcher) error {
+	base := root
+	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil || !d.IsDir() {
 			return nil
 		}
 		if watchIsSyncftpPath(path) {
 			return filepath.SkipDir
 		}
+		if matcher != nil && path != base {
+			if rel, relErr := filepath.Rel(base, path); relErr == nil && matcher.MatchDir(filepath.ToSlash(rel)) {
+				return filepath.SkipDir
+			}
+		}
 		_ = w.Add(path)
 		return nil
 	})
+}
+
+// watchUnderIgnoredDir — rel'in üst dizinlerinden biri ignore ediliyor mu
+// (alt klasörü sonradan eklenen ignore'lu dizinler için).
+func watchUnderIgnoredDir(rel string, m *ignore.Matcher) bool {
+	parts := strings.Split(rel, "/")
+	for i := 1; i < len(parts); i++ {
+		if m.MatchDir(strings.Join(parts[:i], "/")) {
+			return true
+		}
+	}
+	return false
 }
 
 // watchIsSyncftpPath — .syncftp ve .git dizinlerini/dosyalarını elendirir (segment bazlı).
@@ -210,36 +287,36 @@ func watchIsSyncftpPath(p string) bool {
 	return false
 }
 
-// watchResolveServers — dosya yolunu izleyen TÜM sunucuları döner.
-// Aynı dizini paylaşan ve iç içe dizinleri izleyen sunucuların hepsi eşleşir.
+// watchIsEditorTemp — editörlerin geçici dosyaları (vim swap, ~ yedekleri, JetBrains ___jb_)
+// sync tetiklemesin.
+func watchIsEditorTemp(p string) bool {
+	b := filepath.Base(p)
+	return strings.HasSuffix(b, "~") || strings.HasSuffix(b, ".swp") || strings.HasSuffix(b, ".swx") ||
+		b == "4913" || strings.Contains(b, "___jb_") || strings.HasPrefix(b, ".#")
+}
+
+// watchResolveRoots — dosya yolunu kapsayan TÜM izlenen dizinleri döner
+// (iç içe dizinleri izleyen sunucuların hepsi tetiklenir).
 // Prefix eşleşmesi ayraç sınırında yapılır ("frontend" ≠ "frontend2").
-func watchResolveServers(filePath string, dirToServers map[string][]string) []string {
+func watchResolveRoots(filePath string, roots []*watchRoot) []*watchRoot {
 	clean := filepath.Clean(filePath)
-	var out []string
-	for d, names := range dirToServers {
-		if clean == d || strings.HasPrefix(clean, d+string(filepath.Separator)) {
-			out = append(out, names...)
+	var out []*watchRoot
+	for _, r := range roots {
+		if clean == r.dir || strings.HasPrefix(clean, r.dir+string(filepath.Separator)) {
+			out = append(out, r)
 		}
 	}
 	return out
 }
 
 // watchDoSync — debounce süresi dolunca çağrılır; scan + sync.
-func watchDoSync(configDir string, cfg *config.Config, srv config.Server) {
-	fmt.Printf(lang.L.WatchChangeFmt, srv.Name)
-
-	localDir := filepath.Join(configDir, srv.EffectiveLocalPath(cfg.Project))
-	matcher, _ := ignore.Load(localDir, cfg.Sync.IgnoreFiles)
-	files, err := scanner.Scan(localDir, matcher)
+// Modlar sabit (syncOpts{}): CLI flag'lerinden etkilenmez.
+func watchDoSync(out io.Writer, configDir string, cfg *config.Config, srv config.Server) serverSyncResult {
+	fmt.Fprintf(out, lang.L.WatchChangeFmt, srv.Name)
+	current, byKey, err := scanForServer(configDir, cfg, srv)
 	if err != nil {
-		fmt.Printf(lang.L.WatchErrFmt, err)
-		return
+		fmt.Fprintf(out, lang.L.WatchErrFmt, err)
+		return serverSyncResult{name: srv.Name, err: err}
 	}
-	current := make(map[string]string, len(files))
-	byKey := make(map[string]scanner.File, len(files))
-	for _, f := range files {
-		current[f.RelPath] = f.Hash
-		byKey[f.RelPath] = f
-	}
-	syncToServer(configDir, cfg, srv, current, byKey, nil, nil)
+	return syncToServerOpts(out, configDir, cfg, srv, current, byKey, nil, nil, nil, syncOpts{})
 }

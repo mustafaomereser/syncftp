@@ -69,3 +69,13 @@ func (m *Matcher) Match(relPath string) bool {
 	}
 	return m.gi.MatchesPath(relPath)
 }
+
+// MatchDir dizin için Match. Gitignore'daki "vendor/" gibi slash'lı pattern'ler
+// "vendor" yolunu eşlemez, yalnızca "vendor/"'u eşler → dizinler her iki biçimle denenir.
+// Aksi halde tarayıcı ignore edilmiş dizine girip içindeki her dosyayı tek tek elerdi.
+func (m *Matcher) MatchDir(relPath string) bool {
+	if m.gi == nil {
+		return false
+	}
+	return m.gi.MatchesPath(relPath) || m.gi.MatchesPath(relPath+"/")
+}

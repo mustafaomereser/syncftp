@@ -21,7 +21,6 @@ import (
 	"syncftp/internal/ignore"
 	"syncftp/internal/lang"
 	"syncftp/internal/milestone"
-	"syncftp/internal/release"
 	"syncftp/internal/scanner"
 	"syncftp/internal/state"
 )
@@ -83,13 +82,13 @@ func runShell() error {
 			sh.pendingReconnect = false
 			newClient, err := ftpclient.Connect(*sh.srv)
 			if err != nil {
-				fmt.Printf("  ! Yeniden bağlanılamadı: %v\n", err)
+				fmt.Printf(lang.L.ShellReconnectErrFmt, err)
 			} else {
 				if sh.client != nil {
 					sh.client.Close()
 				}
 				sh.client = newClient
-				fmt.Printf("  ✓ %s yeniden bağlandı\n", sh.srv.Name)
+				fmt.Printf(lang.L.ShellReconnectedFmt, sh.srv.Name)
 			}
 		}
 
@@ -191,6 +190,22 @@ func runShell() error {
 
 		case "milestone":
 			sh.cmdMilestone(args)
+
+		case "rollback":
+			sh.cmdRollback(args)
+
+		case "verify":
+			sh.cmdVerify(args)
+
+		case "detect-limit":
+			sh.cmdDetectLimit(args)
+
+		case "gui":
+			if err := launchGUIDetached(); err != nil {
+				fmt.Printf(lang.L.ShellErrFmt, err)
+			} else {
+				fmt.Print(lang.L.GuiLaunched)
+			}
 
 		default:
 			fmt.Printf(lang.L.ShellUnknownCmd, cmd)
@@ -1219,13 +1234,6 @@ func (sh *shellState) shellSyncServer(srv config.Server, full, dryRun bool, sinc
 		}
 	}
 
-	pool, err := ftpclient.NewPool(srv)
-	if err != nil {
-		fmt.Printf(lang.L.ShellConnPoolErr, err)
-		return
-	}
-	defer pool.Close()
-
 	tasks := make([]ftpclient.UploadTask, 0, len(toUpload))
 	for _, rel := range toUpload {
 		f := byRel[rel]
@@ -1253,18 +1261,38 @@ func (sh *shellState) shellSyncServer(srv config.Server, full, dryRun bool, sinc
 		}
 	}
 
-	ch := pool.UploadCh(tasks)
+	// Upload çekirdeği ayrı goroutine'de; sonuçlar TUI'ya kanal ile akar.
+	// Çekirdeğin mesajları (yedek özeti, limit uyarısı) TUI bozulmasın diye buffer'a yazılır.
+	var sessLog strings.Builder
+	ch := make(chan ftpclient.UploadResult, 16)
+	type sessDone struct {
+		out uploadOutcome
+		err error
+	}
+	doneCh := make(chan sessDone, 1)
+	go func() {
+		out, err := runUploadSession(&sessLog, dir, &cfg, srv, tasks, st, func(r ftpclient.UploadResult) { ch <- r })
+		close(ch)
+		doneCh <- sessDone{out, err}
+	}()
 	tuiResults, _ := RunSyncTUI(dir, srv.Name, len(tasks), false, nil, ch)
+	for range ch { // TUI erken kapandıysa kalan sonuçları boşalt (çekirdek bloklanmasın)
+	}
+	sd := <-doneCh
+	fmt.Print(sessLog.String())
+	if sd.err != nil {
+		fmt.Printf(lang.L.ShellConnPoolErr, sd.err)
+		return
+	}
 
-	successFiles := make(map[string]string)
+	successFiles := sd.out.successFiles
 	var failedPaths []string
-	for _, r := range tuiResults {
+	for _, r := range sd.out.results {
 		if r.Err != nil {
 			failedPaths = append(failedPaths, r.RelPath)
-		} else {
-			successFiles[r.RelPath] = r.Hash
 		}
 	}
+	_ = tuiResults
 
 	if len(failedPaths) > 0 {
 		failed.Save(dir, srv.Name, failedPaths)
@@ -1272,9 +1300,6 @@ func (sh *shellState) shellSyncServer(srv config.Server, full, dryRun bool, sinc
 		failed.Clear(dir, srv.Name)
 	}
 
-	for rel, hash := range successFiles {
-		st.Files[rel] = hash
-	}
 	for rel := range st.Files {
 		if _, exists := current[rel]; !exists {
 			delete(st.Files, rel)
@@ -1286,10 +1311,8 @@ func (sh *shellState) shellSyncServer(srv config.Server, full, dryRun bool, sinc
 	}
 	state.Save(dir, st)
 
-	if len(successFiles) > 0 {
-		if relDir, err := release.Create(dir, srv.Name, successFiles); err == nil {
-			fmt.Printf(lang.L.ShellReleaseFmt, relDir)
-		}
+	if sd.out.releaseDir != "" {
+		fmt.Printf(lang.L.ShellReleaseFmt, sd.out.releaseDir)
 	}
 
 	// Webhook
@@ -1302,7 +1325,7 @@ func (sh *shellState) shellSyncServer(srv config.Server, full, dryRun bool, sinc
 		for rel := range successFiles {
 			uploadedFiles = append(uploadedFiles, rel)
 		}
-		sendWebhook(webhookURL, srv.Name, len(successFiles), len(failedPaths), uploadedFiles)
+		sendWebhook(os.Stdout, webhookURL, srv.Name, len(successFiles), len(failedPaths), uploadedFiles)
 	}
 
 	// Post-sync hook'ları (global + sunucu); hata sync sonucunu etkilemez
