@@ -288,10 +288,7 @@ func (sv *guiServer) apiRemoteRename(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 400, errors.New("root"))
 		return
 	}
-	err := withRemote(pname, srv, func(c *ftpclient.Client) error {
-		_ = c.MakeDirAll(path.Dir(to))
-		return c.Rename(from, to)
-	})
+	err := withRemote(pname, srv, func(c *ftpclient.Client) error { return remoteMove(c, from, to) })
 	if err != nil {
 		guiErr(w, 502, err)
 		return
@@ -299,7 +296,6 @@ func (sv *guiServer) apiRemoteRename(w http.ResponseWriter, r *http.Request) {
 	guiJSON(w, true)
 }
 
-// apiRemoteSearch alt ağaçta adı q içeren dosya/klasörleri arar (en fazla 500 sonuç, 60 sn).
 // ── CI/CD ─────────────────────────────────────────────────────────────────────
 
 func (sv *guiServer) apiHooks(w http.ResponseWriter, r *http.Request) {

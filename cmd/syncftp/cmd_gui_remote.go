@@ -2,13 +2,9 @@ package main
 
 import (
 	"errors"
-	"fmt"
-	"io"
 	"net/http"
-	"os"
 	"path"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -137,33 +133,17 @@ func (sv *guiServer) apiRemoteLs(w http.ResponseWriter, r *http.Request) {
 	var entries []*goftp.Entry
 	err := withRemote(pname, srv, func(c *ftpclient.Client) error {
 		var e error
-		entries, e = c.List(full)
+		entries, e = remoteEntries(c, full)
 		return e
 	})
 	if err != nil {
 		guiErr(w, 502, err)
 		return
 	}
-	out := []guiEntry{}
+	out := make([]guiEntry, 0, len(entries))
 	for _, e := range entries {
-		if e.Name == "." || e.Name == ".." {
-			continue
-		}
-		t := "file"
-		switch e.Type {
-		case goftp.EntryTypeFolder:
-			t = "dir"
-		case goftp.EntryTypeLink:
-			t = "link"
-		}
-		out = append(out, guiEntry{Name: e.Name, Type: t, Size: e.Size, Time: e.Time})
+		out = append(out, guiEntry{Name: e.Name, Type: entryKind(e), Size: e.Size, Time: e.Time})
 	}
-	sort.Slice(out, func(i, j int) bool {
-		if (out[i].Type == "dir") != (out[j].Type == "dir") {
-			return out[i].Type == "dir"
-		}
-		return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name)
-	})
 	guiJSON(w, map[string]any{"path": full, "root": srv.RemotePath, "entries": out})
 }
 
@@ -173,29 +153,17 @@ func (sv *guiServer) apiRemoteCat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	full := guiRemotePath(srv, r.URL.Query().Get("path"))
-	const max = 256 * 1024
-	var data []byte
+	var pv textPreview
 	err := withRemote(pname, srv, func(c *ftpclient.Client) error {
 		var e error
-		data, e = c.Preview(full, max)
+		pv, e = remotePreview(c, full, 256*1024)
 		return e
 	})
 	if err != nil {
 		guiErr(w, 502, err)
 		return
 	}
-	binary := false
-	for _, b := range data[:min(len(data), 8000)] {
-		if b == 0 {
-			binary = true
-			break
-		}
-	}
-	content := ""
-	if !binary {
-		content = strings.ReplaceAll(string(data), "\r\n", "\n")
-	}
-	guiJSON(w, map[string]any{"path": full, "content": content, "binary": binary, "truncated": len(data) >= max, "size": len(data)})
+	guiJSON(w, map[string]any{"path": full, "content": pv.Content, "binary": pv.Binary, "truncated": pv.Truncated, "size": pv.Size})
 }
 
 func (sv *guiServer) apiRemoteGet(w http.ResponseWriter, r *http.Request) {
@@ -204,28 +172,9 @@ func (sv *guiServer) apiRemoteGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	full := guiRemotePath(srv, r.URL.Query().Get("path"))
-	tmp, err := os.CreateTemp("", "syncftp-gui-*")
-	if err != nil {
-		guiErr(w, 500, err)
-		return
-	}
-	tmp.Close()
-	defer os.Remove(tmp.Name())
-	if err := withRemote(pname, srv, func(c *ftpclient.Client) error { return c.Download(full, tmp.Name()) }); err != nil {
+	if err := withRemote(pname, srv, func(c *ftpclient.Client) error { return serveRemoteDownload(w, r, c, full) }); err != nil {
 		guiErr(w, 502, err)
-		return
 	}
-	f, err := os.Open(tmp.Name())
-	if err != nil {
-		guiErr(w, 500, err)
-		return
-	}
-	defer f.Close()
-	st, _ := f.Stat()
-	name := path.Base(full)
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, strings.ReplaceAll(name, `"`, "")))
-	w.Header().Set("Content-Type", "application/octet-stream")
-	http.ServeContent(w, r, name, st.ModTime(), f)
 }
 
 func (sv *guiServer) apiRemoteRm(w http.ResponseWriter, r *http.Request) {
@@ -239,12 +188,10 @@ func (sv *guiServer) apiRemoteRm(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 400, errors.New("root"))
 		return
 	}
-	isDir := r.URL.Query().Get("dir") == "true"
+	// Panel silmeden önce onay alır; klasör içeriğiyle silinir (türü sunucudan bulunur)
 	err := withRemote(pname, srv, func(c *ftpclient.Client) error {
-		if isDir {
-			return c.DeleteDir(full, true)
-		}
-		return c.DeleteFile(full)
+		_, e := remoteDelete(c, full, true)
+		return e
 	})
 	if err != nil {
 		guiErr(w, 502, err)
@@ -273,24 +220,10 @@ func (sv *guiServer) apiLocalCat(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 400, errors.New("path"))
 		return
 	}
-	f, err := os.Open(full)
-	if err != nil {
+	pv, ok := localPreview(full, 256*1024)
+	if !ok {
 		guiJSON(w, map[string]any{"exists": false})
 		return
 	}
-	defer f.Close()
-	const max = 256 * 1024
-	data, _ := io.ReadAll(io.LimitReader(f, max))
-	binary := false
-	for _, b := range data[:min(len(data), 8000)] {
-		if b == 0 {
-			binary = true
-			break
-		}
-	}
-	content := ""
-	if !binary {
-		content = strings.ReplaceAll(string(data), "\r\n", "\n")
-	}
-	guiJSON(w, map[string]any{"exists": true, "content": content, "binary": binary, "truncated": len(data) >= max, "size": len(data)})
+	guiJSON(w, map[string]any{"exists": true, "content": pv.Content, "binary": pv.Binary, "truncated": pv.Truncated, "size": pv.Size})
 }

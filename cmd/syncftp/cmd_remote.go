@@ -64,16 +64,13 @@ var remoteLsCmd = &cobra.Command{
 }
 
 func listDir(client *ftpclient.Client, remotePath, indent string, recursive bool) error {
-	entries, err := client.List(remotePath)
+	entries, err := remoteEntries(client, remotePath)
 	if err != nil {
 		return err
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	for _, e := range entries {
-		if e.Name == "." || e.Name == ".." {
-			continue
-		}
 		switch e.Type {
 		case goftp.EntryTypeFolder:
 			fmt.Fprintf(w, "%s  d  %s/\t\t%s\n", indent, e.Name, e.Time.Format("2006-01-02 15:04"))
@@ -87,7 +84,7 @@ func listDir(client *ftpclient.Client, remotePath, indent string, recursive bool
 
 	if recursive {
 		for _, e := range entries {
-			if e.Type == goftp.EntryTypeFolder && e.Name != "." && e.Name != ".." {
+			if e.Type == goftp.EntryTypeFolder {
 				subPath := path.Join(remotePath, e.Name)
 				fmt.Printf("\n%s  %s/\n", indent, e.Name)
 				if err := listDir(client, subPath, indent+"  ", true); err != nil {
@@ -115,7 +112,7 @@ var remoteGetCmd = &cobra.Command{
 		var remotePath string
 		if len(args) >= 1 {
 			resolved := resolveRemotePath(srv, args[0])
-			if entries, lsErr := client.List(resolved); lsErr == nil && entries != nil {
+			if remoteIsDir(client, resolved) {
 				var pickErr error
 				remotePath, pickErr = pickRemoteFile(client, resolved)
 				if pickErr != nil {
@@ -170,18 +167,10 @@ var remoteRmCmd = &cobra.Command{
 		}
 		defer client.Close()
 
+		// Yol verildiyse o silinir (klasörse --recursive ile içeriğiyle); verilmediyse seçici açılır
 		var remotePath string
 		if len(args) == 1 {
-			resolved := resolveRemotePath(srv, args[0])
-			if entries, lsErr := client.List(resolved); lsErr == nil && entries != nil {
-				var pickErr error
-				remotePath, pickErr = pickRemoteFile(client, resolved)
-				if pickErr != nil {
-					return pickErr
-				}
-			} else {
-				remotePath = resolved
-			}
+			remotePath = resolveRemotePath(srv, args[0])
 		} else {
 			var pickErr error
 			remotePath, pickErr = pickRemoteFile(client, srv.RemotePath)
@@ -191,8 +180,7 @@ var remoteRmCmd = &cobra.Command{
 		}
 
 		// Hedefin dosya mı dizin mi olduğunu anla
-		entries, err := client.List(remotePath)
-		isDir := err == nil && entries != nil // List başarılıysa dizindir
+		isDir := remoteIsDir(client, remotePath)
 
 		label := lang.L.RemoteFileLabel
 		if isDir {
@@ -215,14 +203,8 @@ var remoteRmCmd = &cobra.Command{
 			}
 		}
 
-		if isDir {
-			if err := client.DeleteDir(remotePath, remoteRmRecursive); err != nil {
-				return err
-			}
-		} else {
-			if err := client.DeleteFile(remotePath); err != nil {
-				return err
-			}
+		if _, err := remoteDelete(client, remotePath, remoteRmRecursive); err != nil {
+			return err
 		}
 
 		fmt.Printf(lang.L.RemoteDeletedFmt, remotePath)
@@ -249,7 +231,7 @@ var remoteCatCmd = &cobra.Command{
 		if len(args) == 1 {
 			resolved := resolveRemotePath(srv, args[0])
 			// Dizin verilmişse interaktif seçici aç
-			if entries, lsErr := client.List(resolved); lsErr == nil && entries != nil {
+			if remoteIsDir(client, resolved) {
 				remotePath, err = pickRemoteFile(client, resolved)
 				if err != nil {
 					return err
@@ -267,18 +249,11 @@ var remoteCatCmd = &cobra.Command{
 
 		fmt.Printf("── %s ──\n", remotePath)
 
-		data, err := client.Preview(remotePath, maxBytes)
+		pv, err := remotePreview(client, remotePath, int(maxBytes))
 		if err != nil {
 			return err
 		}
-
-		fmt.Print(string(data))
-		if !strings.HasSuffix(string(data), "\n") {
-			fmt.Println()
-		}
-		if int64(len(data)) == maxBytes {
-			fmt.Printf(lang.L.RemoteCatTruncFmt, remoteCatMaxKB, args[0])
-		}
+		printPreview(os.Stdout, pv, fmt.Sprintf(lang.L.RemoteCatTruncFmt, remoteCatMaxKB, remotePath))
 		return nil
 	},
 }

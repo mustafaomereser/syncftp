@@ -503,8 +503,7 @@ func (sh *shellState) browserDelete(files []string) {
 	deleted, failed := 0, 0
 	for _, f := range files {
 		// Klasör mü dosya mı?
-		entries, listErr := sh.client.List(f)
-		isDir := listErr == nil && entries != nil
+		isDir := remoteIsDir(sh.client, f)
 		if isDir {
 			// Anlık feedback — klasör için işlem başladığını göster
 			fmt.Printf("  ⟳ %s/", f)
@@ -566,7 +565,7 @@ func (sh *shellState) browserMove(files []string) {
 	for _, f := range files {
 		filename := path.Base(f)
 		newPath := path.Join(destDir, filename)
-		if err := sh.client.Rename(f, newPath); err != nil {
+		if err := remoteMove(sh.client, f, newPath); err != nil {
 			fmt.Printf("  ✗ %s  (%v)\n", filename, err)
 			failedCount++
 		} else {
@@ -592,8 +591,7 @@ func (sh *shellState) cmdCd(args []string) {
 		return
 	}
 	resolved := sh.resolvePath(target)
-	entries, err := sh.client.List(resolved)
-	if err != nil || entries == nil {
+	if !remoteIsDir(sh.client, resolved) {
 		fmt.Printf(lang.L.ShellDirNotFound, resolved)
 		return
 	}
@@ -620,7 +618,7 @@ func (sh *shellState) cmdCat(args []string) {
 	if len(remaining) > 0 {
 		resolved := sh.resolvePath(remaining[0])
 		// Dizinse browser aç
-		if entries, err := sh.client.List(resolved); err == nil && entries != nil {
+		if remoteIsDir(sh.client, resolved) {
 			result, err := RunBrowser(sh.client, resolved, sh.srv.RemotePath, sh.configDir, sh.srv)
 			if err != nil || result.Quit || result.Selected == "" {
 				return
@@ -644,19 +642,13 @@ func (sh *shellState) cmdCat(args []string) {
 
 func (sh *shellState) catFile(filePath string, maxKB int) {
 	maxBytes := int64(maxKB) * 1024
-	data, err := sh.client.Preview(filePath, maxBytes)
+	pv, err := remotePreview(sh.client, filePath, int(maxBytes))
 	if err != nil {
 		fmt.Printf(lang.L.ShellErrFmt, err)
 		return
 	}
 	fmt.Printf("\n── %s ──\n", filePath)
-	fmt.Print(string(data))
-	if !strings.HasSuffix(string(data), "\n") {
-		fmt.Println()
-	}
-	if int64(len(data)) == maxBytes {
-		fmt.Printf(lang.L.ShellFileTruncFmt, maxKB, filePath)
-	}
+	printPreview(os.Stdout, pv, fmt.Sprintf(lang.L.ShellFileTruncFmt, maxKB, filePath))
 }
 
 func (sh *shellState) cmdGet(args []string) {
@@ -676,7 +668,7 @@ func (sh *shellState) cmdGet(args []string) {
 		localDest = filepath.Base(remotePath)
 	} else {
 		resolved := sh.resolvePath(args[0])
-		if entries, err := sh.client.List(resolved); err == nil && entries != nil {
+		if remoteIsDir(sh.client, resolved) {
 			result, err := RunBrowser(sh.client, resolved, sh.srv.RemotePath, sh.configDir, sh.srv)
 			if err != nil || result.Quit || result.Selected == "" {
 				return
@@ -740,21 +732,11 @@ func (sh *shellState) cmdRm(args []string) {
 		sh.remoteCwd = result.CWD
 		remotePath = result.Selected
 	} else {
-		resolved := sh.resolvePath(remaining[0])
-		if entries, err := sh.client.List(resolved); err == nil && entries != nil {
-			result, err := RunBrowser(sh.client, resolved, sh.srv.RemotePath, sh.configDir, sh.srv)
-			if err != nil || result.Quit || result.Selected == "" {
-				return
-			}
-			sh.remoteCwd = result.CWD
-			remotePath = result.Selected
-		} else {
-			remotePath = resolved
-		}
+		// Yol verildiyse o silinir (klasörse -r ile içeriğiyle)
+		remotePath = sh.resolvePath(remaining[0])
 	}
 
-	entries, err := sh.client.List(remotePath)
-	isDir := err == nil && entries != nil
+	isDir := remoteIsDir(sh.client, remotePath)
 
 	label := lang.L.RemoteFileLabel
 	if isDir {

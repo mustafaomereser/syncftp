@@ -438,22 +438,13 @@ func handleRemoteLs(w http.ResponseWriter, r *http.Request, configDir string) {
 }
 
 func collectEntries(client *ftpclient.Client, remotePath string, recursive bool) ([]lsEntry, error) {
-	raw, err := client.List(remotePath)
+	raw, err := remoteEntries(client, remotePath)
 	if err != nil {
 		return nil, err
 	}
 	var out []lsEntry
 	for _, e := range raw {
-		if e.Name == "." || e.Name == ".." {
-			continue
-		}
-		typ := "file"
-		if e.Type == goftp.EntryTypeFolder {
-			typ = "dir"
-		} else if e.Type == goftp.EntryTypeLink {
-			typ = "link"
-		}
-		out = append(out, lsEntry{Name: e.Name, Type: typ, Size: e.Size, Date: e.Time.Format("2006-01-02 15:04:05")})
+		out = append(out, lsEntry{Name: e.Name, Type: entryKind(e), Size: e.Size, Date: e.Time.Format("2006-01-02 15:04:05")})
 
 		if recursive && e.Type == goftp.EntryTypeFolder {
 			sub, err := collectEntries(client, remotePath+"/"+e.Name, true)
@@ -507,17 +498,16 @@ func handleRemoteCat(w http.ResponseWriter, r *http.Request, configDir string) {
 	defer client.Close()
 
 	remotePath := resolveRemotePath(srv, p)
-	data, err := client.Preview(remotePath, int64(maxKB)*1024)
+	pv, err := remotePreview(client, remotePath, maxKB*1024)
 	if err != nil {
 		jsonErr(w, 502, err)
 		return
 	}
-
-	truncated := len(data) == maxKB*1024
 	jsonOK(w, map[string]any{
 		"path":      remotePath,
-		"content":   string(data),
-		"truncated": truncated,
+		"content":   pv.Content,
+		"binary":    pv.Binary,
+		"truncated": pv.Truncated,
 		"max_kb":    maxKB,
 	})
 }
@@ -575,30 +565,9 @@ func handleRemoteGet(w http.ResponseWriter, r *http.Request, configDir string) {
 		return
 	}
 
-	// Raw dosya indirme — temp dosyaya yaz, sonra stream et
-	tmp, err := os.CreateTemp("", "syncftp-*")
-	if err != nil {
-		jsonErr(w, 500, err)
-		return
-	}
-	defer os.Remove(tmp.Name())
-	defer tmp.Close()
-
-	if err := client.Download(remotePath, tmp.Name()); err != nil {
+	if err := serveRemoteDownload(w, r, client, remotePath); err != nil {
 		jsonErr(w, 502, err)
-		return
 	}
-
-	info, err := tmp.Stat()
-	if err != nil {
-		jsonErr(w, 500, err)
-		return
-	}
-	tmp.Seek(0, 0)
-	filename := filepath.Base(p)
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
-	w.Header().Set("Content-Type", "application/octet-stream")
-	http.ServeContent(w, r, filename, info.ModTime(), tmp)
 }
 
 // ── DELETE /api/remote/rm ─────────────────────────────────────────────────────
@@ -636,20 +605,10 @@ func handleRemoteRm(w http.ResponseWriter, r *http.Request, configDir string) {
 
 	remotePath := resolveRemotePath(srv, p)
 
-	// Dizin mi dosya mı?
-	entries, listErr := client.List(remotePath)
-	isDir := listErr == nil && entries != nil
-
-	if isDir {
-		if err := client.DeleteDir(remotePath, recursive); err != nil {
-			jsonErr(w, 502, err)
-			return
-		}
-	} else {
-		if err := client.DeleteFile(remotePath); err != nil {
-			jsonErr(w, 502, err)
-			return
-		}
+	isDir, err := remoteDelete(client, remotePath, recursive)
+	if err != nil {
+		jsonErr(w, 502, err)
+		return
 	}
 
 	jsonOK(w, map[string]any{"deleted": remotePath, "was_dir": isDir})
