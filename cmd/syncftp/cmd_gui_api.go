@@ -1086,25 +1086,27 @@ func (sv *guiServer) apiMilestoneSet(w http.ResponseWriter, r *http.Request) {
 		}
 		date = d
 	}
-	for _, n := range req.Servers {
-		if _, ok := findServer(cfg, n); !ok {
-			continue
-		}
-		if err := milestone.Save(p.Path, n, date); err != nil {
-			guiErr(w, 500, err)
-			return
-		}
+	if err := milestoneApply(io.Discard, p.Path, cfg, req.Servers, &date); err != nil {
+		guiErr(w, 400, err)
+		return
 	}
 	guiJSON(w, date.Format("2006-01-02 15:04:05"))
 }
 
 func (sv *guiServer) apiMilestoneClear(w http.ResponseWriter, r *http.Request) {
-	p, _, err := sv.project(r)
+	p, cfg, err := sv.project(r)
 	if err != nil {
 		guiErr(w, 404, err)
 		return
 	}
-	_ = milestone.Clear(p.Path, r.URL.Query().Get("server"))
+	var names []string
+	if n := r.URL.Query().Get("server"); n != "" {
+		names = []string{n}
+	}
+	if err := milestoneApply(io.Discard, p.Path, cfg, names, nil); err != nil {
+		guiErr(w, 400, err)
+		return
+	}
 	guiJSON(w, true)
 }
 

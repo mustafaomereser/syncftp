@@ -306,7 +306,7 @@ func connectRemote() (config.Server, *ftpclient.Client, error) {
 			}
 		}
 		if srv.Name == "" {
-			return config.Server{}, nil, fmt.Errorf("sunucu bulunamadı: %q (mevcut: %v)", remoteServer, serverNames(servers))
+			return config.Server{}, nil, fmt.Errorf(lang.L.ServerNotFoundFmt+" (%v)", remoteServer, serverNames(servers))
 		}
 	} else if len(servers) == 1 {
 		srv = servers[0]

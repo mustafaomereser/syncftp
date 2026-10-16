@@ -72,7 +72,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 			}
 		}
 		if len(found) == 0 {
-			return fmt.Errorf("sunucu bulunamadı: %q", statusFlagServer)
+			return fmt.Errorf(lang.L.ServerNotFoundFmt, statusFlagServer)
 		}
 		servers = found
 	}

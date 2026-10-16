@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -134,7 +136,7 @@ func milestoneServers(cfg *config.Config) ([]config.Server, error) {
 				return []config.Server{s}, nil
 			}
 		}
-		return nil, fmt.Errorf("sunucu bulunamadı: %q (mevcut: %v)", msFlagServer, serverNames(servers))
+		return nil, fmt.Errorf(lang.L.ServerNotFoundFmt+" (%v)", msFlagServer, serverNames(servers))
 	}
 	if msFlagAll || len(servers) <= 1 {
 		return servers, nil
@@ -167,13 +169,7 @@ func runMilestoneSet(cmd *cobra.Command, args []string) error {
 		fmt.Println(lang.L.SyncCancelled)
 		return nil
 	}
-	for _, srv := range servers {
-		if err := milestone.Save(dir, srv.Name, date); err != nil {
-			return err
-		}
-		fmt.Printf(lang.L.MilestoneSetFmt, srv.Name, date.Format("2006-01-02 15:04:05"))
-	}
-	return nil
+	return milestoneApply(os.Stdout, dir, cfg, serverNames(servers), &date)
 }
 
 func runMilestoneShow(cmd *cobra.Command, args []string) error {
@@ -205,13 +201,7 @@ func runMilestoneClear(cmd *cobra.Command, args []string) error {
 		fmt.Println(lang.L.SyncCancelled)
 		return nil
 	}
-	for _, srv := range servers {
-		if err := milestone.Clear(dir, srv.Name); err != nil {
-			return err
-		}
-		fmt.Printf(lang.L.MilestoneClearedFmt, srv.Name)
-	}
-	return nil
+	return milestoneApply(os.Stdout, dir, cfg, serverNames(servers), nil)
 }
 
 func runMilestoneSync(cmd *cobra.Command, args []string) error {
@@ -341,4 +331,31 @@ func (sh *shellState) cmdMilestone(args []string) {
 	default:
 		fmt.Print(lang.L.MilestoneUsage)
 	}
+}
+
+// milestoneApply sunuculara milestone koyar (date != nil) ya da kaldırır (date == nil) — CLI, shell
+// ve panel ortak. Bilinmeyen sunucu adı hatadır (panel eskiden sessizce atlıyordu).
+func milestoneApply(w io.Writer, dir string, cfg *config.Config, names []string, date *time.Time) error {
+	if len(names) == 0 {
+		return errors.New(lang.L.NoServerSelected)
+	}
+	for _, n := range names {
+		if _, ok := findServer(cfg, n); !ok {
+			return fmt.Errorf(lang.L.ServerNotFoundFmt, n)
+		}
+	}
+	for _, n := range names {
+		if date != nil {
+			if err := milestone.Save(dir, n, *date); err != nil {
+				return err
+			}
+			fmt.Fprintf(w, lang.L.MilestoneSetFmt, n, date.Format("2006-01-02 15:04:05"))
+		} else {
+			if err := milestone.Clear(dir, n); err != nil {
+				return err
+			}
+			fmt.Fprintf(w, lang.L.MilestoneClearedFmt, n)
+		}
+	}
+	return nil
 }

@@ -67,7 +67,7 @@ func runDiff(cmd *cobra.Command, args []string) error {
 	if len(args) >= 1 {
 		srvA = findServer(args[0])
 		if srvA == nil {
-			return fmt.Errorf("sunucu bulunamadı: %q", args[0])
+			return fmt.Errorf(lang.L.ServerNotFoundFmt, args[0])
 		}
 	} else {
 		if srvA, err = pickServer(lang.L.DiffPickA, ""); err != nil || srvA == nil {
@@ -77,7 +77,7 @@ func runDiff(cmd *cobra.Command, args []string) error {
 	if len(args) >= 2 {
 		srvB = findServer(args[1])
 		if srvB == nil {
-			return fmt.Errorf("sunucu bulunamadı: %q", args[1])
+			return fmt.Errorf(lang.L.ServerNotFoundFmt, args[1])
 		}
 	} else {
 		if srvB, err = pickServer(lang.L.DiffPickB, srvA.Name); err != nil || srvB == nil {

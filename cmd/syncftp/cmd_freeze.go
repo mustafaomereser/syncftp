@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"syncftp/internal/config"
+	"syncftp/internal/lang"
 	"syncftp/internal/frozen"
 )
 
@@ -78,7 +79,7 @@ func resolveFreezeServer(cfg *config.Config, name string) (*config.Server, error
 				return &s2, nil
 			}
 		}
-		return nil, fmt.Errorf("server not found: %q", name)
+		return nil, fmt.Errorf(lang.L.ServerNotFoundFmt, name)
 	}
 	if len(servers) == 1 {
 		s := servers[0]

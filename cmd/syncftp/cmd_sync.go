@@ -70,7 +70,7 @@ func runSync(cmd *cobra.Command, args []string) error {
 			}
 		}
 		if len(found) == 0 {
-			return fmt.Errorf("sunucu bulunamadı: %q (mevcut: %v)", flagServer, serverNames(servers))
+			return fmt.Errorf(lang.L.ServerNotFoundFmt+" (%v)", flagServer, serverNames(servers))
 		}
 		servers = found
 	} else if !flagAll && len(servers) > 1 {

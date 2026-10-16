@@ -124,7 +124,7 @@ func resolveOneServer(cfg *config.Config, name string) (config.Server, bool, err
 				return s, true, nil
 			}
 		}
-		return config.Server{}, false, fmt.Errorf("sunucu bulunamadı: %q (mevcut: %v)", name, serverNames(cfg.Servers))
+		return config.Server{}, false, fmt.Errorf(lang.L.ServerNotFoundFmt+" (%v)", name, serverNames(cfg.Servers))
 	}
 	enabled := cfg.EnabledServers()
 	switch len(enabled) {

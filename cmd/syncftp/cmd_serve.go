@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"syncftp/internal/config"
+	"syncftp/internal/lang"
 	"syncftp/internal/failed"
 	ftpclient "syncftp/internal/ftp"
 	"syncftp/internal/release"
@@ -141,7 +142,7 @@ func getServer(cfg *config.Config, name string) (config.Server, error) {
 			return s, nil
 		}
 	}
-	return config.Server{}, fmt.Errorf("sunucu bulunamadı: %q", name)
+	return config.Server{}, fmt.Errorf(lang.L.ServerNotFoundFmt, name)
 }
 
 // ── GET /api/servers ──────────────────────────────────────────────────────────
@@ -214,7 +215,7 @@ func handleStatus(w http.ResponseWriter, r *http.Request, configDir string) {
 			}
 		}
 		if len(found) == 0 {
-			jsonErr(w, 404, fmt.Errorf("sunucu bulunamadı: %q", filterName))
+			jsonErr(w, 404, fmt.Errorf(lang.L.ServerNotFoundFmt, filterName))
 			return
 		}
 		servers = found
@@ -653,7 +654,7 @@ func handleSyncStream(w http.ResponseWriter, r *http.Request, configDir string) 
 	if srvName != "" {
 		srv, err := getServer(cfg, srvName)
 		if err != nil {
-			fmt.Fprintf(sw, "sunucu bulunamadı: %v", err)
+			fmt.Fprintf(sw, "%v", err)
 			return
 		}
 		servers = []config.Server{srv}

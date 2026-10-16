@@ -627,6 +627,8 @@ Other:
 	GuiPathRequired:      "folder path is required",
 	GuiDirNotFoundFmt:    "folder not found: %s",
 	LocalDirMissingFmt:   "local folder not found: %s (%s) — fix the server's local path",
+	ServerNotFoundFmt:    "server not found: %q",
+	NoServerSelected:     "no server selected",
 	GuiIgnoreNoFile:      "ignore_files has no syncFTP-specific file (only .gitignore is read) — add .syncftp/syncftp.ignore to the list first",
 	GuiOutsideBaseFmt:    "%s is outside the folder the panel was opened in (%s) — run syncftp from that folder to manage it",
 	GuiValConnName:       "every connection profile needs a name",

@@ -266,7 +266,7 @@ func resolvePushServer(localDir string) (config.Server, error) {
 				return s, nil
 			}
 		}
-		return config.Server{}, fmt.Errorf("sunucu bulunamadı: %q", pushServer)
+		return config.Server{}, fmt.Errorf(lang.L.ServerNotFoundFmt, pushServer)
 	}
 
 	srv := config.Server{Passive: pushPassive, Enabled: true}
