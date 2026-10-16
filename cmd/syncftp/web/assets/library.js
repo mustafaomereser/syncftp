@@ -166,6 +166,8 @@ function bindDefaultsSection(root, lib, rerender) {
   $('#def-save', root).onclick = async () => {
     const d = readForm($('#def-form', root), {});
     d.sync = { ...(lib.defaults.sync || {}), ...d.sync };
+    // Boş liste = varsayılan (.gitignore + .syncftp/syncftp.ignore); [] kaydedilirse yeni projelerde ignore tamamen kapanırdı
+    if (!d.sync.ignore_files || !d.sync.ignore_files.length) d.sync.ignore_files = null;
     try { await api('PUT', '/api/library', { defaults: d }); toast(t('defSaved')); rerender(); } catch (e) { fail(e); }
   };
   $('#def-reset', root).onclick = async () => {
