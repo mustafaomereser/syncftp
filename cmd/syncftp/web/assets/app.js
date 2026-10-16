@@ -730,6 +730,12 @@ async function tabOverview(proj) {
       el.className = n ? 'warn-t' : '';
       el.innerHTML = busy && !n ? icon('refresh', 'spin') : String(n);
     };
+    // Dosyalar sekmesi için ön yükleme: varsayılan sunucunun kök listesi (ve sunucu bağlantısı) hazır
+    // olsun, sekmeye ilk girişte FTP bağlantı + LIST beklenmesin
+    const fsrv = (servers.find((x) => x.enabled) || servers[0] || {}).name;
+    if (fsrv && !S.lsCache.has(`${P}|${fsrv}|`)) {
+      GET(`/api/p/${enc(P)}/remote/ls?server=${enc(fsrv)}&path=`).then((d) => S.lsCache.set(`${P}|${fsrv}|`, d)).catch(() => {});
+    }
     enabled.forEach((s) => {
       GET(`/api/p/${enc(P)}/scan?server=${enc(s.name)}`).catch((e) => ({ scan_error: e.message })).then((info) => {
         if (seq !== S.renderSeq) return;
