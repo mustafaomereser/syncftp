@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -27,28 +28,28 @@ type File struct {
 // Scan walks dir, applies ignore rules, and returns all non-ignored files with SHA256 hashes.
 // The .syncftp and .git directories are always excluded.
 //
-// Performans:
-//   - Ignore edilen dizinlere hiç girilmez (MatchDir — "vendor/" pattern'i "vendor" dizinini de eşler).
-//   - Hash cache: boyut + mtime değişmemiş dosya yeniden okunmaz (<UserCacheDir>/syncftp/hashcache/).
-//   - Cache'te olmayan dosyalar CPU sayısı kadar paralel hash'lenir.
-func Scan(dir string, matcher *ignore.Matcher) ([]File, error) {
+// List sync'in göreceği dosyaları HASH'LEMEDEN döner (dir'e göreceli). sub verilirse yalnızca o alt
+// klasör gezilir; limit > 0 ise o kadar dosyada durur. Scan ve panelin "klasördeki dosyalar" ucu
+// (freeze seçicisi) aynı kuralları kullanır: .syncftp/.git ve ignore'lu dizinlere girilmez.
+func List(dir, sub string, matcher *ignore.Matcher, limit int) ([]File, error) {
 	var files []File
-
-	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+	start := dir
+	if sub != "" {
+		start = filepath.Join(dir, filepath.FromSlash(sub))
+	}
+	errLimit := errors.New("limit")
+	err := filepath.WalkDir(start, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-
 		rel, err := filepath.Rel(dir, path)
 		if err != nil {
 			return err
 		}
 		rel = filepath.ToSlash(rel)
-
 		if rel == "." {
 			return nil
 		}
-
 		// Always skip internal/VCS directories
 		if rel == ".syncftp" || strings.HasPrefix(rel, ".syncftp/") ||
 			rel == ".git" || strings.HasPrefix(rel, ".git/") {
@@ -57,7 +58,6 @@ func Scan(dir string, matcher *ignore.Matcher) ([]File, error) {
 			}
 			return nil
 		}
-
 		if d.IsDir() {
 			if matcher.MatchDir(rel) {
 				return filepath.SkipDir
@@ -67,19 +67,28 @@ func Scan(dir string, matcher *ignore.Matcher) ([]File, error) {
 		if matcher.Match(rel) {
 			return nil
 		}
-
 		info, err := d.Info()
 		if err != nil {
 			return err
 		}
-		files = append(files, File{
-			RelPath: rel,
-			AbsPath: path,
-			Size:    info.Size(),
-			ModTime: info.ModTime(),
-		})
+		files = append(files, File{RelPath: rel, AbsPath: path, Size: info.Size(), ModTime: info.ModTime()})
+		if limit > 0 && len(files) >= limit {
+			return errLimit
+		}
 		return nil
 	})
+	if err != nil && err != errLimit {
+		return nil, err
+	}
+	return files, nil
+}
+
+// Performans:
+//   - Ignore edilen dizinlere hiç girilmez (MatchDir — "vendor/" pattern'i "vendor" dizinini de eşler).
+//   - Hash cache: boyut + mtime değişmemiş dosya yeniden okunmaz (<UserCacheDir>/syncftp/hashcache/).
+//   - Cache'te olmayan dosyalar CPU sayısı kadar paralel hash'lenir.
+func Scan(dir string, matcher *ignore.Matcher) ([]File, error) {
+	files, err := List(dir, "", matcher, 0)
 	if err != nil {
 		return nil, err
 	}

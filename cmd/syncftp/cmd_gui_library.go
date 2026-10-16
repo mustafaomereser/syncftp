@@ -78,22 +78,7 @@ func (sv *guiServer) apiLibraryGet(w http.ResponseWriter, r *http.Request) {
 
 // restoreLibSecrets "__keep__" şifreleri mevcut kütüphaneden (ad, yoksa sıra) geri koyar.
 func restoreLibSecrets(in []config.Connection, old []config.Connection) {
-	byName := map[string]config.Connection{}
-	for _, c := range old {
-		byName[strings.ToLower(c.Name)] = c
-	}
-	for i := range in {
-		o, ok := byName[strings.ToLower(in[i].Name)]
-		if !ok && i < len(old) {
-			o, ok = old[i], true
-		}
-		if in[i].Password == keepSecret {
-			in[i].Password = map[bool]string{true: o.Password}[ok]
-		}
-		if in[i].TunnelPassword == keepSecret {
-			in[i].TunnelPassword = map[bool]string{true: o.TunnelPassword}[ok]
-		}
-	}
+	restoreKept(in, old, connSecrets)
 }
 
 func (sv *guiServer) apiLibraryPut(w http.ResponseWriter, r *http.Request) {

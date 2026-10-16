@@ -530,38 +530,43 @@ func (sv *guiServer) apiConfigGet(w http.ResponseWriter, r *http.Request) {
 // restoreSecrets "__keep__" olarak dönen şifreleri mevcut config'ten geri koyar.
 // Yeniden adlandırma için ad bulunamazsa aynı sıradaki kayıt denenir.
 func restoreSecrets(in, old *config.Config) {
-	oldSrv := map[string]config.Server{}
-	for _, s := range old.Servers {
-		oldSrv[s.Name] = s
+	restoreKept(in.Servers, old.Servers, func(s *config.Server) (string, []*string) {
+		return s.Name, []*string{&s.Password, &s.TunnelPassword}
+	})
+	restoreKept(in.Connections, old.Connections, connSecrets)
+}
+
+func connSecrets(c *config.Connection) (string, []*string) {
+	return c.Name, []*string{&c.Password, &c.TunnelPassword}
+}
+
+// restoreKept "__keep__" işaretli sırları eski kayıttan geri koyar: önce ada göre (büyük/küçük harf
+// duyarsız), bulunamazsa (yeniden adlandırma) aynı sıradaki kayıttan; o da yoksa boşaltır.
+// Proje config'i ve bağlantı kütüphanesi ortak.
+func restoreKept[T any](in, old []T, fields func(*T) (string, []*string)) {
+	byName := map[string]int{}
+	for i := range old {
+		n, _ := fields(&old[i])
+		byName[strings.ToLower(n)] = i
 	}
-	oldConn := map[string]config.Connection{}
-	for _, c := range old.Connections {
-		oldConn[c.Name] = c
-	}
-	for i := range in.Servers {
-		s := &in.Servers[i]
-		o, ok := oldSrv[s.Name]
-		if !ok && i < len(old.Servers) {
-			o, ok = old.Servers[i], true
+	for i := range in {
+		n, dst := fields(&in[i])
+		oi, ok := byName[strings.ToLower(n)]
+		if !ok && i < len(old) {
+			oi, ok = i, true
 		}
-		if s.Password == keepSecret {
-			s.Password = map[bool]string{true: o.Password}[ok]
+		var src []*string
+		if ok {
+			_, src = fields(&old[oi])
 		}
-		if s.TunnelPassword == keepSecret {
-			s.TunnelPassword = map[bool]string{true: o.TunnelPassword}[ok]
-		}
-	}
-	for i := range in.Connections {
-		c := &in.Connections[i]
-		o, ok := oldConn[c.Name]
-		if !ok && i < len(old.Connections) {
-			o, ok = old.Connections[i], true
-		}
-		if c.Password == keepSecret {
-			c.Password = map[bool]string{true: o.Password}[ok]
-		}
-		if c.TunnelPassword == keepSecret {
-			c.TunnelPassword = map[bool]string{true: o.TunnelPassword}[ok]
+		for k, d := range dst {
+			if *d != keepSecret {
+				continue
+			}
+			*d = ""
+			if src != nil {
+				*d = *src[k]
+			}
 		}
 	}
 }

@@ -20,6 +20,7 @@ import (
 	"syncftp/internal/ignore"
 	"syncftp/internal/lang"
 	"syncftp/internal/projects"
+	"syncftp/internal/scanner"
 )
 
 // GUI 2.1 uçları: panel içi dosya seçici, proje yerel ağacı, uzak dosya işlemleri
@@ -543,28 +544,11 @@ func (sv *guiServer) apiLocalFiles(w http.ResponseWriter, r *http.Request) {
 	root := filepath.Join(p.Path, srv.EffectiveLocalPath(cfg.Project))
 	rel := strings.Trim(path.Clean("/"+r.URL.Query().Get("path")), "/")
 	matcher, _ := ignore.Load(root, cfg.Sync.IgnoreFiles)
-	out := []string{}
-	start := filepath.Join(root, filepath.FromSlash(rel))
-	_ = filepath.WalkDir(start, func(fp string, d os.DirEntry, err error) error {
-		if err != nil || len(out) >= 20000 {
-			return filepath.SkipDir
-		}
-		rp, _ := filepath.Rel(root, fp)
-		rp = filepath.ToSlash(rp)
-		if rp == "." {
-			return nil
-		}
-		if d.IsDir() {
-			if d.Name() == ".syncftp" || d.Name() == ".git" || matcher.MatchDir(rp) {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if !matcher.Match(rp) {
-			out = append(out, rp)
-		}
-		return nil
-	})
+	files, _ := scanner.List(root, rel, matcher, 20000) // sync taramasıyla aynı kurallar (hash'siz)
+	out := make([]string, len(files))
+	for i, f := range files {
+		out[i] = f.RelPath
+	}
 	guiJSON(w, out)
 }
 
