@@ -212,6 +212,9 @@ func runGUIForeground() error {
 	} else {
 		<-sv.quit
 	}
+	// Panel penceresi (Edge/Chrome --app) süreçten bağımsız yaşar → tepsi "Çıkış" / panel "Kapat"
+	// sonrası açık kalmasın. Sayfa da presence'tan "bye" alınca kendini kapatmayı dener.
+	closeAppWindows(guiWindowTitle())
 	sv.watches.stopAll()
 	closeAllTerms()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

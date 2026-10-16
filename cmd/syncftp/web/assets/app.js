@@ -1812,7 +1812,7 @@ async function boot() {
 
   // Varlık bağlantısı: pencere açık olduğu sürece süreç yaşar (küçültülünce de kopmaz)
   const presence = new EventSource('/api/presence');
-  presence.addEventListener('bye', () => presence.close());
+  presence.addEventListener('bye', () => { presence.close(); window.close(); });
   presence.addEventListener('navigate', (e) => { if (e.data && e.data.startsWith('#/')) location.hash = e.data; });
 
   // Yedek heartbeat + bağlantı kopma uyarısı

@@ -27,6 +27,7 @@ var (
 	procSetForegroundWindow     = user32.NewProc("SetForegroundWindow")
 	procIsIconic                = user32.NewProc("IsIconic")
 	procAllowSetForegroundWindow = user32.NewProc("AllowSetForegroundWindow")
+	procPostMessageW            = user32.NewProc("PostMessageW")
 )
 
 // ownsConsole süreç kendi konsolunun tek sahibi mi → Explorer'dan çift tıkla açılmış demektir.
@@ -111,6 +112,26 @@ func openAppWindow(url, profileDir string) error {
 
 func openDefaultBrowser(url string) error {
 	return exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+}
+
+// closeAppWindows başlığı suffix ile biten tüm görünür pencerelere WM_CLOSE gönderir.
+func closeAppWindows(suffix string) {
+	var found []uintptr
+	cb := syscall.NewCallback(func(hwnd, _ uintptr) uintptr {
+		if v, _, _ := procIsWindowVisible.Call(hwnd); v == 0 {
+			return 1
+		}
+		buf := make([]uint16, 512)
+		n, _, _ := procGetWindowTextW.Call(hwnd, uintptr(unsafe.Pointer(&buf[0])), 512)
+		if n > 0 && strings.HasSuffix(windows.UTF16ToString(buf[:n]), suffix) {
+			found = append(found, hwnd)
+		}
+		return 1
+	})
+	procEnumWindows.Call(cb, 0)
+	for _, h := range found {
+		procPostMessageW.Call(h, 0x0010, 0, 0) // WM_CLOSE
+	}
 }
 
 // bringWindowToFront başlığı suffix ile biten görünür pencere varsa öne getirir.
