@@ -440,18 +440,9 @@ func (dm *deployManager) deployOnce(out io.Writer, p projects.Project, trig conf
 	if err != nil {
 		return nil, err
 	}
-	var servers []config.Server
-	if len(trig.Servers) == 0 {
-		servers = cfg.EnabledServers()
-	} else {
-		for _, n := range trig.Servers {
-			if s, ok := findServer(cfg, n); ok {
-				servers = append(servers, s)
-			}
-		}
-	}
-	if len(servers) == 0 {
-		return nil, errors.New(lang.L.ShellNoServers)
+	servers, err := selectServers(cfg, trig.Servers)
+	if err != nil {
+		return nil, err
 	}
 	type srvRes struct {
 		Server   string `json:"server"`

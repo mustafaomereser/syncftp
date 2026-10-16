@@ -101,6 +101,26 @@ func (sv *guiServer) project(r *http.Request) (projects.Project, *config.Config,
 	return p, cfg, err
 }
 
+// selectServers ad listesi boşsa aktif sunucuların hepsi, değilse adı verilenler (bilinmeyen ad hata;
+// hiç sunucu kalmazsa hata) — panel işleri, panel watch'ı ve CI/CD tetikleyicileri ortak.
+func selectServers(cfg *config.Config, names []string) ([]config.Server, error) {
+	if len(names) == 0 {
+		if s := cfg.EnabledServers(); len(s) > 0 {
+			return s, nil
+		}
+		return nil, errors.New(lang.L.ShellNoServers)
+	}
+	out := make([]config.Server, 0, len(names))
+	for _, n := range names {
+		s, ok := findServer(cfg, n)
+		if !ok {
+			return nil, fmt.Errorf(lang.L.ServerNotFoundFmt, n)
+		}
+		out = append(out, s)
+	}
+	return out, nil
+}
+
 func findServer(cfg *config.Config, name string) (config.Server, bool) {
 	for _, s := range cfg.Servers {
 		if s.Name == name {
@@ -659,21 +679,9 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 400, err)
 		return
 	}
-	var servers []config.Server
-	if len(req.Servers) == 0 {
-		servers = cfg.EnabledServers()
-	} else {
-		for _, n := range req.Servers {
-			s, ok := findServer(cfg, n)
-			if !ok {
-				guiErr(w, 404, fmt.Errorf("server: %s", n))
-				return
-			}
-			servers = append(servers, s)
-		}
-	}
-	if len(servers) == 0 {
-		guiErr(w, 400, errors.New(lang.L.ShellNoServers))
+	servers, err := selectServers(cfg, req.Servers)
+	if err != nil {
+		guiErr(w, 400, err)
 		return
 	}
 
@@ -1247,18 +1255,9 @@ func (sv *guiServer) startWatch(project string, serverNames []string) (*guiWatch
 	if sv.watches.get(p.Name) != nil {
 		return nil, errors.New(lang.L.GuiWatchRunning)
 	}
-	var servers []config.Server
-	if len(serverNames) == 0 {
-		servers = cfg.EnabledServers()
-	} else {
-		for _, n := range serverNames {
-			if s, ok := findServer(cfg, n); ok {
-				servers = append(servers, s)
-			}
-		}
-	}
-	if len(servers) == 0 {
-		return nil, errors.New(lang.L.ShellNoServers)
+	servers, err := selectServers(cfg, serverNames)
+	if err != nil {
+		return nil, err
 	}
 	names := make([]string, len(servers))
 	for i, s := range servers {
