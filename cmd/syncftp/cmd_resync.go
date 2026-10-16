@@ -5,7 +5,6 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -19,6 +18,7 @@ import (
 	ftpclient "syncftp/internal/ftp"
 	"syncftp/internal/ignore"
 	"syncftp/internal/lang"
+	"syncftp/internal/pattern"
 	"syncftp/internal/scanner"
 	"syncftp/internal/state"
 	"syncftp/internal/synclog"
@@ -112,33 +112,7 @@ func countCRLF(path string) uint64 {
 
 // passesFilter sync ile aynı include/exclude mantığını uygular.
 func passesFilter(relPath string, include, exclude []string) bool {
-	if len(include) > 0 {
-		matched := false
-		for _, inc := range include {
-			inc = strings.TrimSuffix(filepath.ToSlash(inc), "/")
-			if relPath == inc || strings.HasPrefix(relPath, inc+"/") {
-				matched = true
-				break
-			}
-			if ok, _ := path.Match(inc, relPath); ok {
-				matched = true
-				break
-			}
-		}
-		if !matched {
-			return false
-		}
-	}
-	for _, exc := range exclude {
-		exc = strings.TrimSuffix(filepath.ToSlash(exc), "/")
-		if relPath == exc || strings.HasPrefix(relPath, exc+"/") {
-			return false
-		}
-		if ok, _ := path.Match(exc, relPath); ok {
-			return false
-		}
-	}
-	return true
+	return (len(include) == 0 || pattern.Any(relPath, include)) && !pattern.Any(relPath, exclude)
 }
 
 // runCalibrate yerel dosyaları FTP boyutlarıyla karşılaştırıp eşleşenleri state'e yazar.
@@ -180,12 +154,9 @@ func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts ca
 		return
 	}
 
-	// Sync ile aynı include/exclude filtreleri (server > global, exclude additive)
-	effectiveInclude := cfg.Sync.Include
-	if len(srv.Include) > 0 {
-		effectiveInclude = srv.Include
-	}
-	effectiveExclude := append(append([]string{}, cfg.Sync.Exclude...), srv.Exclude...)
+	// Sync ile aynı include/exclude filtreleri (cmd_plan.go — normalize edilmiş)
+	flt := effectiveFilters(cfg, srv, nil, nil)
+	effectiveInclude, effectiveExclude := flt.include, flt.exclude
 
 	current := make(map[string]string)
 	byKey := make(map[string]scanner.File)
@@ -257,7 +228,7 @@ func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts ca
 
 	fmt.Fprintf(o, "  %s\n", lang.L.ResyncListing)
 	// Uzak taramada ignore/exclude edilen ve include dışında kalan dizinlere hiç girilmez
-	skip := remoteSkipFunc(matcher, normalizePatterns(effectiveInclude, localPath), normalizePatterns(effectiveExclude, localPath))
+	skip := remoteSkipFunc(matcher, effectiveInclude, effectiveExclude)
 	var remoteFiles map[string]uint64
 	var err2 error
 	if opts.interactive {
@@ -489,18 +460,14 @@ func remoteSkipFunc(matcher *ignore.Matcher, include, exclude []string) func(rel
 		if matcher != nil && matcher.MatchDir(rel) {
 			return true
 		}
-		for _, exc := range exclude {
-			exc = strings.TrimSuffix(filepath.ToSlash(exc), "/")
-			if exc != "" && (rel == exc || strings.HasPrefix(rel, exc+"/")) {
-				return true
-			}
+		if pattern.Any(rel, exclude) {
+			return true
 		}
 		if len(include) == 0 {
 			return false
 		}
 		for _, inc := range include {
-			inc = strings.TrimSuffix(filepath.ToSlash(inc), "/")
-			if inc == "" || inc == rel || strings.HasPrefix(inc, rel+"/") || strings.HasPrefix(rel, inc+"/") {
+			if pattern.MayContain(rel, inc) {
 				return false
 			}
 		}

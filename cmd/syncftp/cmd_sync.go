@@ -21,6 +21,7 @@ import (
 	"syncftp/internal/failed"
 	ftpclient "syncftp/internal/ftp"
 	"syncftp/internal/lang"
+	"syncftp/internal/pattern"
 	"syncftp/internal/scanner"
 	"syncftp/internal/state"
 	"syncftp/internal/synclog"
@@ -480,43 +481,28 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 	return result
 }
 
-// filterByInclude returns only paths that match any of the include patterns.
-// A pattern matches if it's an exact path or a directory prefix.
-// If include is empty, all paths are returned unchanged.
+// filterByInclude include kalıplarından birine uyan yollar (internal/pattern; boş liste = hepsi).
 func filterByInclude(paths, include []string) []string {
 	if len(include) == 0 {
 		return paths
 	}
 	var out []string
 	for _, p := range paths {
-		for _, inc := range include {
-			inc = filepath.ToSlash(inc)
-			if p == inc || strings.HasPrefix(p, inc+"/") {
-				out = append(out, p)
-				break
-			}
+		if pattern.Any(p, include) {
+			out = append(out, p)
 		}
 	}
 	return out
 }
 
-// filterByExclude removes paths that match any of the exclude patterns.
-// A pattern matches if it's an exact path or a directory prefix.
+// filterByExclude exclude kalıplarına uyan yolları çıkarır (internal/pattern).
 func filterByExclude(paths, exclude []string) []string {
 	if len(exclude) == 0 {
 		return paths
 	}
 	var out []string
 	for _, p := range paths {
-		excluded := false
-		for _, exc := range exclude {
-			exc = filepath.ToSlash(exc)
-			if p == exc || strings.HasPrefix(p, exc+"/") {
-				excluded = true
-				break
-			}
-		}
-		if !excluded {
+		if !pattern.Any(p, exclude) {
 			out = append(out, p)
 		}
 	}
@@ -848,9 +834,7 @@ func serverNames(servers []config.Server) []string {
 }
 
 // isExactPath returns true if p looks like an exact file path (no wildcards, no trailing slash).
-func isExactPath(p string) bool {
-	return !strings.ContainsAny(p, "*?{") && !strings.HasSuffix(p, "/")
-}
+func isExactPath(p string) bool { return pattern.Exact(p) }
 
 // cleanPatternList removes exact file paths from list that no longer exist on disk.
 // Directory patterns (trailing /) and glob patterns (* ? {) are preserved unchanged.

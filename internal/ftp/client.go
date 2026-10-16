@@ -19,6 +19,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"syncftp/internal/config"
+	"syncftp/internal/pattern"
 )
 
 // Client wraps an active FTP or SFTP connection for a single server.
@@ -685,15 +686,5 @@ func (c *Client) Rename(oldPath, newPath string) error {
 
 // IsProtected returns true if relPath matches any protect pattern.
 func IsProtected(relPath string, protect []string) bool {
-	for _, pattern := range protect {
-		pattern = strings.TrimPrefix(pattern, "/")
-		if strings.HasSuffix(pattern, "/") {
-			if strings.HasPrefix(relPath, pattern) {
-				return true
-			}
-		} else if relPath == pattern {
-			return true
-		}
-	}
-	return false
+	return pattern.Any(relPath, protect) // include/exclude ile aynı kurallar (internal/pattern)
 }
