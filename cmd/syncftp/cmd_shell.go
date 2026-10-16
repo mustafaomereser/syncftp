@@ -301,7 +301,7 @@ func (sh *shellState) cmdFreeze(args []string) {
 		fmt.Println("Not connected. Use 'server <name>' first.")
 		return
 	}
-	items, err := buildFreezeItems(sh.configDir, &sh.cfg)
+	items, err := buildFreezeItems(sh.configDir, &sh.cfg, *sh.srv)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return

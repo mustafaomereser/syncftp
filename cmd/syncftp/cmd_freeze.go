@@ -3,15 +3,12 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 
 	"github.com/spf13/cobra"
 
 	"syncftp/internal/config"
 	"syncftp/internal/frozen"
-	"syncftp/internal/ignore"
-	"syncftp/internal/scanner"
 )
 
 var flagFreezeServer string
@@ -39,7 +36,7 @@ func runFreeze(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	items, err := buildFreezeItems(dir, cfg)
+	items, err := buildFreezeItems(dir, cfg, *srv)
 	if err != nil {
 		return err
 	}
@@ -90,21 +87,18 @@ func resolveFreezeServer(cfg *config.Config, name string) (*config.Server, error
 	return pickServerTUI(servers)
 }
 
-func buildFreezeItems(configDir string, cfg *config.Config) ([]PickerItem, error) {
-	projectDir := filepath.Join(configDir, cfg.Project.LocalPath)
-	matcher, err := ignore.Load(projectDir, cfg.Sync.IgnoreFiles)
+// buildFreezeItems sunucunun KENDİ yerel dizinindeki dosyalar (sync'in taradığıyla aynı — scanForServer).
+// Eskiden project.local_path'in ham değeri taranıyordu (Load bunu hep boşaltır → hep proje kökü).
+func buildFreezeItems(configDir string, cfg *config.Config, srv config.Server) ([]PickerItem, error) {
+	current, _, err := scanForServer(configDir, cfg, srv)
 	if err != nil {
 		return nil, err
 	}
-	files, err := scanner.Scan(projectDir, matcher)
-	if err != nil {
-		return nil, err
-	}
-	sort.Slice(files, func(i, j int) bool { return files[i].RelPath < files[j].RelPath })
-
-	items := make([]PickerItem, len(files))
-	for i, f := range files {
-		items[i] = PickerItem{Label: f.RelPath, Value: f.RelPath}
+	rels := mapKeys(current)
+	sort.Strings(rels)
+	items := make([]PickerItem, len(rels))
+	for i, r := range rels {
+		items[i] = PickerItem{Label: r, Value: r}
 	}
 	return items, nil
 }
