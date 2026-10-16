@@ -387,3 +387,37 @@ func storeSecrets(password *string, t *SSHTunnel, protocol, user, host string, p
 		}
 	}
 }
+
+// Redacted config'in sırları mask'tan geçirilmiş kopyasını döner (canlı struct değişmez):
+// sunucu/bağlantı şifreleri ve tünel şifreleri; deploySecrets ise CI/CD webhook secret'ları da.
+// CLI `config --export`, panel dışa aktarma/düzenleme ve AI dokümanı bunu kullanır.
+func (c *Config) Redacted(mask func(string) string, deploySecrets bool) Config {
+	out := *c
+	out.Servers = append([]Server(nil), c.Servers...)
+	out.Connections = append([]Connection(nil), c.Connections...)
+	out.Deploy = append([]Deploy(nil), c.Deploy...)
+	for i := range out.Servers {
+		out.Servers[i].Password = mask(out.Servers[i].Password)
+		out.Servers[i].TunnelPassword = mask(out.Servers[i].TunnelPassword)
+	}
+	for i := range out.Connections {
+		out.Connections[i].Password = mask(out.Connections[i].Password)
+		out.Connections[i].TunnelPassword = mask(out.Connections[i].TunnelPassword)
+	}
+	if deploySecrets {
+		for i := range out.Deploy {
+			out.Deploy[i].Secret = mask(out.Deploy[i].Secret)
+		}
+	}
+	return out
+}
+
+// MaskStars boş olmayan sırrı "***" yapar; MaskEmpty siler.
+func MaskStars(s string) string {
+	if s == "" {
+		return ""
+	}
+	return "***"
+}
+
+func MaskEmpty(string) string { return "" }

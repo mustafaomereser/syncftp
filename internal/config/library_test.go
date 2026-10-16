@@ -60,3 +60,22 @@ func TestLibraryRoundtripAndDefaults(t *testing.T) {
 		t.Fatal("duplicate names must be rejected")
 	}
 }
+
+func TestRedactedMasksAllSecrets(t *testing.T) {
+	c := &Config{
+		Servers:     []Server{{Name: "s", Password: "p"}},
+		Connections: []Connection{{Name: "c", Password: "p2"}},
+		Deploy:      []Deploy{{Name: "d", Secret: "hook"}},
+	}
+	c.Servers[0].TunnelPassword = "tp"
+	r := c.Redacted(MaskStars, true)
+	if r.Servers[0].Password != "***" || r.Servers[0].TunnelPassword != "***" || r.Connections[0].Password != "***" || r.Deploy[0].Secret != "***" {
+		t.Fatalf("not masked: %+v", r)
+	}
+	if c.Servers[0].Password != "p" || c.Deploy[0].Secret != "hook" {
+		t.Fatal("original changed")
+	}
+	if k := c.Redacted(MaskEmpty, false); k.Deploy[0].Secret != "hook" || k.Servers[0].Password != "" {
+		t.Fatalf("deploySecrets=false: %+v", k)
+	}
+}

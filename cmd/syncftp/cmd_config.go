@@ -39,20 +39,9 @@ func runConfigExport(dir string) error {
 	if err != nil {
 		return err
 	}
-	// Şifreleri maskele
-	mask := func(s *string) {
-		if *s != "" {
-			*s = "***"
-		}
-	}
-	for i := range cfg.Connections {
-		mask(&cfg.Connections[i].Password)
-		mask(&cfg.Connections[i].TunnelPassword)
-	}
-	for i := range cfg.Servers {
-		mask(&cfg.Servers[i].Password)
-		mask(&cfg.Servers[i].TunnelPassword)
-	}
+	// Sırlar maskelenir — CI/CD webhook secret'ları dahil (eskiden açık yazılıyordu)
+	red := cfg.Redacted(config.MaskStars, true)
+	cfg = &red
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	return enc.Encode(cfg)

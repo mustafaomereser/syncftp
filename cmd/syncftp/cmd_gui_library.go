@@ -218,30 +218,13 @@ func (sv *guiServer) apiLibraryDefaultsFrom(w http.ResponseWriter, r *http.Reque
 // ── proje config dışa / içe aktarma ───────────────────────────────────────────
 
 // sanitizedConfig şifreleri boşaltılmış kopya (paylaşılabilir dışa aktarma).
-func sanitizedConfig(cfg *config.Config) config.Config {
-	out := *cfg
-	out.Servers = append([]config.Server(nil), cfg.Servers...)
-	out.Connections = append([]config.Connection(nil), cfg.Connections...)
-	out.Deploy = append([]config.Deploy(nil), cfg.Deploy...)
-	for i := range out.Servers {
-		out.Servers[i].Password, out.Servers[i].TunnelPassword = "", ""
-	}
-	for i := range out.Connections {
-		out.Connections[i].Password, out.Connections[i].TunnelPassword = "", ""
-	}
-	for i := range out.Deploy {
-		out.Deploy[i].Secret = ""
-	}
-	return out
-}
-
 func (sv *guiServer) apiConfigExport(w http.ResponseWriter, r *http.Request) {
 	p, cfg, err := sv.project(r)
 	if err != nil {
 		guiErr(w, 404, err)
 		return
 	}
-	out := sanitizedConfig(cfg)
+	out := cfg.Redacted(config.MaskEmpty, true)
 	data, _ := json.MarshalIndent(out, "", "  ")
 	name := strings.NewReplacer(" ", "-", "/", "-", "\\", "-").Replace(p.Name) + ".syncftp.json"
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")

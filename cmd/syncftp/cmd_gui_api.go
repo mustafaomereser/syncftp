@@ -479,10 +479,13 @@ func (sv *guiServer) apiStatus(w http.ResponseWriter, r *http.Request) {
 
 // ── config ────────────────────────────────────────────────────────────────────
 
-func maskSecret(s *string) {
-	if *s != "" {
-		*s = keepSecret
+func maskSecret(s *string) { *s = keepMask(*s) }
+
+func keepMask(s string) string {
+	if s == "" {
+		return ""
 	}
+	return keepSecret
 }
 
 func (sv *guiServer) apiConfigGet(w http.ResponseWriter, r *http.Request) {
@@ -491,17 +494,9 @@ func (sv *guiServer) apiConfigGet(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 404, err)
 		return
 	}
-	out := *cfg
-	out.Servers = append([]config.Server(nil), cfg.Servers...)
-	out.Connections = append([]config.Connection(nil), cfg.Connections...)
-	for i := range out.Servers {
-		maskSecret(&out.Servers[i].Password)
-		maskSecret(&out.Servers[i].TunnelPassword)
-	}
-	for i := range out.Connections {
-		maskSecret(&out.Connections[i].Password)
-		maskSecret(&out.Connections[i].TunnelPassword)
-	}
+	// Şifreler "__keep__" işaretiyle gider (PUT'ta restoreSecrets geri koyar); deploy secret'ı
+	// CI/CD sekmesinde gösterilip kopyalandığı için açık kalır
+	out := cfg.Redacted(keepMask, false)
 	if out.Servers == nil {
 		out.Servers = []config.Server{}
 	}

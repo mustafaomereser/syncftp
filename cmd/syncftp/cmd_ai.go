@@ -218,19 +218,7 @@ func aiProjectDoc(p projects.Project) string {
 		fmt.Fprintf(&b, "Config could not be loaded: %v\n", err)
 		return b.String()
 	}
-	redact := *cfg
-	redact.Servers = append([]config.Server(nil), cfg.Servers...)
-	redact.Connections = append([]config.Connection(nil), cfg.Connections...)
-	redact.Deploy = append([]config.Deploy(nil), cfg.Deploy...)
-	for i := range redact.Servers {
-		redact.Servers[i].Password, redact.Servers[i].TunnelPassword = maskStr(redact.Servers[i].Password), maskStr(redact.Servers[i].TunnelPassword)
-	}
-	for i := range redact.Connections {
-		redact.Connections[i].Password, redact.Connections[i].TunnelPassword = maskStr(redact.Connections[i].Password), maskStr(redact.Connections[i].TunnelPassword)
-	}
-	for i := range redact.Deploy {
-		redact.Deploy[i].Secret = maskStr(redact.Deploy[i].Secret)
-	}
+	redact := cfg.Redacted(config.MaskStars, true)
 	data, _ := json.MarshalIndent(redact, "", "  ")
 	fmt.Fprintf(&b, "## Effective config (connection profiles resolved, secrets as ***)\n\n```json\n%s\n```\n\n## Servers\n\n", data)
 	b.WriteString("| server | protocol | host | remote | local | enabled | first sync | last sync | tracked files | releases |\n|---|---|---|---|---|---|---|---|---|---|\n")
@@ -251,12 +239,6 @@ func aiProjectDoc(p projects.Project) string {
 	return b.String()
 }
 
-func maskStr(s string) string {
-	if s == "" {
-		return ""
-	}
-	return "***"
-}
 
 const aiConfigDoc = "# .syncftp/syncftp.json schema\n\n" +
 	"```jsonc\n" +
