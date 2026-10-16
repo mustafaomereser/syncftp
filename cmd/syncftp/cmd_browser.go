@@ -6,7 +6,6 @@ import (
 	"path"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -315,159 +314,19 @@ func runSearchWorker(
 	resCh chan<- searchEntryMsg,
 ) {
 	defer close(resCh)
-
-	q := strings.ToLower(query)
-
-	maxConns := 2
-	if server != nil && server.MaxConnections > 1 {
-		maxConns = server.MaxConnections
+	if server == nil {
+		return
 	}
-	if maxConns > 8 {
-		maxConns = 8
-	}
-
-	// Ek bağlantılar aç
-	extra := make([]*ftpclient.Client, 0, maxConns-1)
-	if server != nil {
-		for i := 1; i < maxConns; i++ {
-			c, err := ftpclient.Connect(*server)
-			if err != nil {
-				break
-			}
-			extra = append(extra, c)
-		}
-	}
-	defer func() {
-		for _, c := range extra {
-			c.Close()
-		}
-	}()
-
-	clients := make([]*ftpclient.Client, 1+len(extra))
-	clients[0] = primaryClient
-	copy(clients[1:], extra)
-
-	dirCh := make(chan string, 2048)
-	dirCh <- startDir
-
-	var listErrMu sync.Mutex
-	var listErrSample string
-
-	doneCh := make(chan struct{})
-	var closeOnce sync.Once
-	closeDone := func() { closeOnce.Do(func() { close(doneCh) }) }
-
-	var pendingMu sync.Mutex
-	pendingCount := 1
-	decrement := func() {
-		pendingMu.Lock()
-		pendingCount--
-		if pendingCount == 0 {
-			closeDone()
-		}
-		pendingMu.Unlock()
-	}
-
-	go func() {
-		select {
-		case <-ctx.Done():
-			closeDone()
-		case <-doneCh:
-		}
-	}()
-
-	send := func(e sortedEntry) {
-		select {
-		case resCh <- searchEntryMsg{gen: gen, entry: e}:
-		case <-doneCh:
-		}
-	}
-
-	var syncWalk func(c *ftpclient.Client, d string)
-	syncWalk = func(c *ftpclient.Client, d string) {
-		select {
-		case <-doneCh:
-			return
-		default:
-		}
-		sub, err := c.List(d)
-		if err != nil {
-			listErrMu.Lock()
-			if listErrSample == "" {
-				listErrSample = fmt.Sprintf("%v", err)
-			}
-			listErrMu.Unlock()
-			return
-		}
-		for _, se := range sub {
-			if se == nil || se.Name == "." || se.Name == ".." {
-				continue
-			}
-			if strings.Contains(strings.ToLower(se.Name), q) {
-				send(sortedEntry{entry: se, dir: d})
-			}
-			if se.Type == goftp.EntryTypeFolder {
-				syncWalk(c, path.Join(d, se.Name))
-			}
-		}
-	}
-
-	worker := func(c *ftpclient.Client) {
-		for {
+	// Ortak motor (cmd_gui_search.go): panelin "Alt klasörlerde ara"sıyla aynı kod
+	_, _, _ = searchRemoteTree(ctx, *server, primaryClient, startDir, query,
+		func(dir string, e *goftp.Entry) bool {
 			select {
-			case dir, ok := <-dirCh:
-				if !ok {
-					return
-				}
-				entries, err := c.List(dir)
-				if err != nil {
-					listErrMu.Lock()
-					if listErrSample == "" {
-						listErrSample = fmt.Sprintf("%v", err)
-					}
-					listErrMu.Unlock()
-					decrement()
-					continue
-				}
-				for _, e := range entries {
-					if e == nil || e.Name == "." || e.Name == ".." {
-						continue
-					}
-					if strings.Contains(strings.ToLower(e.Name), q) {
-						send(sortedEntry{entry: e, dir: dir})
-					}
-					if e.Type == goftp.EntryTypeFolder {
-						pendingMu.Lock()
-						pendingCount++
-						pendingMu.Unlock()
-						select {
-						case dirCh <- path.Join(dir, e.Name):
-						case <-doneCh:
-							decrement()
-						default:
-							syncWalk(c, path.Join(dir, e.Name))
-							decrement()
-						}
-					}
-				}
-				decrement()
-			case <-doneCh:
-				return
+			case resCh <- searchEntryMsg{gen: gen, entry: sortedEntry{entry: e, dir: dir}}:
+				return true
+			case <-ctx.Done():
+				return false
 			}
-		}
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(len(clients))
-	for _, c := range clients {
-		go func(cl *ftpclient.Client) {
-			defer wg.Done()
-			worker(cl)
-		}(c)
-	}
-	wg.Wait()
-
-	_ = listErrSample // bilgi mesajı done'a taşındı — searchDoneMsg ayrı gelir
+		}, nil)
 }
 
 func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

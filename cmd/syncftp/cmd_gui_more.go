@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	goftp "github.com/jlaffaye/ftp"
 	"github.com/spf13/cobra"
 
 	"syncftp/internal/config"
@@ -301,64 +300,6 @@ func (sv *guiServer) apiRemoteRename(w http.ResponseWriter, r *http.Request) {
 }
 
 // apiRemoteSearch alt ağaçta adı q içeren dosya/klasörleri arar (en fazla 500 sonuç, 60 sn).
-func (sv *guiServer) apiRemoteSearch(w http.ResponseWriter, r *http.Request) {
-	pname, srv, ok := sv.remoteServer(w, r)
-	if !ok {
-		return
-	}
-	q := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q")))
-	if q == "" {
-		guiJSON(w, []string{})
-		return
-	}
-	base := guiRemotePath(srv, r.URL.Query().Get("path"))
-	type hit struct {
-		Path string `json:"path"` // RemotePath'e göreceli
-		Dir  bool   `json:"dir"`
-		Size uint64 `json:"size"`
-	}
-	var hits []hit
-	deadline := time.Now().Add(60 * time.Second)
-	err := withRemote(pname, srv, func(c *ftpclient.Client) error {
-		var walk func(dir string) error
-		walk = func(dir string) error {
-			if len(hits) >= 500 || time.Now().After(deadline) {
-				return nil
-			}
-			entries, err := c.List(dir)
-			if err != nil {
-				return err
-			}
-			for _, e := range entries {
-				if e.Name == "." || e.Name == ".." {
-					continue
-				}
-				full := path.Join(dir, e.Name)
-				rel := strings.TrimPrefix(strings.TrimPrefix(full, srv.RemotePath), "/")
-				isDir := e.Type == goftp.EntryTypeFolder
-				if strings.Contains(strings.ToLower(e.Name), q) {
-					hits = append(hits, hit{Path: rel, Dir: isDir, Size: e.Size})
-				}
-				if isDir {
-					if err := walk(full); err != nil && !ftpclient.IsNotFound(err) {
-						return err
-					}
-				}
-			}
-			return nil
-		}
-		return walk(base)
-	})
-	if err != nil && len(hits) == 0 {
-		guiErr(w, 502, err)
-		return
-	}
-	if hits == nil {
-		hits = []hit{}
-	}
-	guiJSON(w, map[string]any{"hits": hits, "truncated": len(hits) >= 500 || time.Now().After(deadline)})
-}
-
 // ── CI/CD ─────────────────────────────────────────────────────────────────────
 
 func (sv *guiServer) apiHooks(w http.ResponseWriter, r *http.Request) {

@@ -111,7 +111,7 @@ const T = {
     compareServers: 'Sunucuları karşılaştır', compareServersHint: 'İki sunucunun uzak içeriğini karşılaştırır (sadece birinde olan / boyutu farklı)', compareA: 'Sunucu A', compareB: 'Sunucu B', compareGo: 'Karşılaştır',
     upload: 'Yükle', newFolder: 'Yeni klasör', folderName: 'Klasör adı', rename: 'Yeniden adlandır / taşı', newPath: 'Yeni yol (uzak dizine göreceli)',
     moveTo: 'Taşı', moveTarget: 'Hedef klasör (uzak dizine göreceli)', selectedN: '{0} seçili', clearSel: 'Seçimi temizle',
-    freezeToggle: 'Freeze / unfreeze', frozenBadge: 'frozen', searchAll: 'Alt klasörlerde ara', searchTitle: '"{0}" araması', searchNone: 'Sonuç yok', searching: 'Aranıyor…',
+    freezeToggle: 'Freeze / unfreeze', frozenBadge: 'frozen', searchAll: 'Alt klasörlerde ara', searchTitle: '"{0}" araması', searchNone: 'Sonuç yok', searching: 'Aranıyor…', searchingN: '{0} sonuç · {1} klasör tarandı…', searchDoneN: '{0} sonuç · {1} klasör · {2} sn', searchTruncated: 'Çok fazla sonuç (ilk 2000) ya da 5 dakika sınırı doldu — aramayı daraltın.',
     uploaded: '{0} dosya yüklendi', created: 'Oluşturuldu', moved: 'Taşındı', frozenAdded: '{0} dosya freeze listesine eklendi', frozenRemoved: '{0} dosya freeze listesinden çıkarıldı',
     deleteManyConfirm: '{0} öğe sunucudan KALICI olarak silinsin mi? (klasörler içerikleriyle)', runCmd: 'Sunucuda komut çalıştır', runCmdHint: 'SSH ile uzak dizinde komut çalıştırır', diffLocalMissing: 'Yerelde yok', diffTooBig: 'Dosya karşılaştırma için çok büyük — tam görünüm gösteriliyor',
     diffHint: 'Sunucu → yerel: <span class="bad-t">−</span> sunucudan gidecek, <span class="ok-t">+</span> sync ile gelecek', foldN: '⋯ {0} aynı satır', clickToDiff: 'Farkı görmek için dosyaya tıklayın',
@@ -220,7 +220,7 @@ const T = {
     compareServers: 'Compare servers', compareServersHint: 'Compare the remote contents of two servers (only on one side / size differs)', compareA: 'Server A', compareB: 'Server B', compareGo: 'Compare',
     upload: 'Upload', newFolder: 'New folder', folderName: 'Folder name', rename: 'Rename / move', newPath: 'New path (relative to remote root)',
     moveTo: 'Move', moveTarget: 'Target folder (relative to remote root)', selectedN: '{0} selected', clearSel: 'Clear selection',
-    freezeToggle: 'Freeze / unfreeze', frozenBadge: 'frozen', searchAll: 'Search subfolders', searchTitle: 'Search "{0}"', searchNone: 'No results', searching: 'Searching…',
+    freezeToggle: 'Freeze / unfreeze', frozenBadge: 'frozen', searchAll: 'Search subfolders', searchTitle: 'Search "{0}"', searchNone: 'No results', searching: 'Searching…', searchingN: '{0} results · {1} folders scanned…', searchDoneN: '{0} results · {1} folders · {2}s', searchTruncated: 'Too many results (first 2000) or the 5-minute limit was hit — narrow the search.',
     uploaded: '{0} file(s) uploaded', created: 'Created', moved: 'Moved', frozenAdded: '{0} file(s) added to the freeze list', frozenRemoved: '{0} file(s) removed from the freeze list',
     deleteManyConfirm: 'PERMANENTLY delete {0} item(s) from the server? (folders with their contents)', runCmd: 'Run command on server', runCmdHint: 'Runs a command over SSH in the remote folder', diffLocalMissing: 'Missing locally', diffTooBig: 'File too large to diff — showing full view',
     diffHint: 'Server → local: <span class="bad-t">−</span> leaves the server, <span class="ok-t">+</span> arrives with sync', foldN: '⋯ {0} unchanged lines', clickToDiff: 'Click a file to see the diff',
@@ -1470,17 +1470,57 @@ async function tabFiles(proj, srvName, relPath) {
       } }],
     });
   }
-  async function searchAll(term) {
-    const m = modal({ title: `${icon('search')}${t('searchTitle', esc(term))}`, size: 'orta', body: `<div class="yukleniyor">${icon('refresh', 'spin')} ${t('searching')}</div>`, actions: [{ label: t('close'), cls: 'birincil' }] });
-    let r;
-    try { r = await GET(`/api/p/${enc(P)}/remote/search?${q}&path=${enc(rel)}&q=${enc(term)}`); } catch (e) { $('.modal-ic', m.root).innerHTML = `<p class="bad-t">${esc(e.message)}</p>`; return; }
-    $('.modal-ic', m.root).innerHTML = r.hits.length ? `<div class="liste-kutu">${r.hits.map((h) => `<div class="tikla" data-hit="${esc(h.path)}" data-dir="${h.dir ? 1 : 0}">${icon(h.dir ? 'folder' : 'file', h.dir ? 'acc-t' : 'faint')} ${esc(h.path)}${h.dir ? '' : ` <span class="faint">${bytes(h.size)}</span>`}</div>`).join('')}</div>${r.truncated ? '<p class="ipucu">…</p>' : ''}` : `<p class="faint">${t('searchNone')}</p>`;
-    $$('[data-hit]', m.root).forEach((d) => (d.onclick = () => {
+  // Alt klasörlerde ara — CLI'daki gibi sonuçlar bulundukça akar (SSE); kapatınca arama durur
+  function searchAll(term) {
+    let es = null, n = 0, dirs = 0, done = false;
+    const t0 = Date.now();
+    const m = modal({
+      title: `${icon('search')}${t('searchTitle', esc(term))}`, size: 'orta',
+      body: `<div class="ara-durum" id="sr-st"><span>${icon('refresh', 'spin')}</span><span id="sr-txt">${t('searching')}</span></div>
+        <div class="liste-kutu" id="sr-list" hidden></div><p class="faint" id="sr-none" hidden>${t('searchNone')}</p><p class="ipucu" id="sr-warn" hidden></p>`,
+      actions: [{ label: t('close'), cls: 'birincil' }],
+      onClose: () => { if (es) es.close(); },
+    });
+    const list = $('#sr-list', m.root), txt = $('#sr-txt', m.root);
+    const status = () => {
+      const sec = ((Date.now() - t0) / 1000).toFixed(1);
+      txt.textContent = done ? t('searchDoneN', n, dirs, sec) : t('searchingN', n, dirs);
+    };
+    // Gelen sonuçlar kare başına toplu eklenir (binlerce sonuçta DOM tek tek şişmesin)
+    let buf = [], raf = 0;
+    const flushHits = () => {
+      raf = 0;
+      if (!buf.length) return;
+      list.hidden = false;
+      list.insertAdjacentHTML('beforeend', buf.map((h) => `<div class="tikla" data-hit="${esc(h.path)}" data-dir="${h.dir ? 1 : 0}">${icon(h.dir ? 'folder' : 'file', h.dir ? 'acc-t' : 'faint')} ${esc(h.path)}${h.dir ? '' : ` <span class="faint">${bytes(h.size)}</span>`}</div>`).join(''));
+      buf = [];
+      status();
+    };
+    list.onclick = (e) => {
+      const d = e.target.closest('[data-hit]');
+      if (!d) return;
       m.close();
       const p = d.dataset.hit;
       if (d.dataset.dir === '1') go(hashFor(p));
       else { const parent = p.split('/').slice(0, -1).join('/'); go(parent ? hashFor(parent) : pHash(P, 'files', srv)); previewFile(P, srv, p); }
-    }));
+    };
+    es = new EventSource(`/api/p/${enc(P)}/remote/search?${q}&path=${enc(rel)}&q=${enc(term)}`);
+    es.addEventListener('hit', (e) => { n++; buf.push(JSON.parse(e.data)); if (!raf) raf = requestAnimationFrame(flushHits); });
+    es.addEventListener('progress', (e) => { dirs = JSON.parse(e.data).dirs; if (!raf) status(); });
+    es.addEventListener('done', (e) => {
+      const d = JSON.parse(e.data);
+      es.close(); es = null; done = true;
+      if (d.dirs) dirs = d.dirs;
+      flushHits();
+      $('#sr-st span', m.root).innerHTML = d.error ? icon('alert', 'bad-t') : icon('check', 'ok-t');
+      if (d.error) { txt.textContent = d.error; txt.className = 'bad-t'; return; }
+      status();
+      if (!n) $('#sr-none', m.root).hidden = false;
+      const w = $('#sr-warn', m.root);
+      if (d.truncated) { w.hidden = false; w.textContent = t('searchTruncated'); }
+      else if (d.warn) { w.hidden = false; w.textContent = d.warn; }
+    });
+    es.onerror = () => { if (es && !done) { es.close(); es = null; done = true; flushHits(); status(); } };
   }
 
   bind((root) => {
