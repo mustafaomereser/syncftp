@@ -624,22 +624,11 @@ func (sv *guiServer) apiTestConn(w http.ResponseWriter, r *http.Request) {
 	}
 	tmp := config.Config{Servers: []config.Server{req.Server}, Connections: req.Connections}
 	restoreSecrets(&tmp, old)
-	srv := tmp.Servers[0]
-	if srv.Connection != "" {
-		for _, c := range tmp.Connections {
-			if c.Name == srv.Connection {
-				srv.Host, srv.Port, srv.User, srv.Password = c.Host, c.Port, c.User, c.Password
-				srv.Passive, srv.DisableEPSV, srv.NATWorkaround = c.Passive, c.DisableEPSV, c.NATWorkaround
-				srv.Protocol, srv.KeyFile, srv.TLSSkipVerify, srv.SSHTunnel = c.Protocol, c.KeyFile, c.TLSSkipVerify, c.SSHTunnel
-			}
-		}
-	}
-	if srv.Port == 0 {
-		srv.Port = map[bool]int{true: 22, false: 21}[srv.IsSFTP()]
-	}
-	if srv.HasTunnel() && srv.TunnelPort == 0 {
-		srv.TunnelPort = 22
-	}
+	testConnection(w, tmp.Servers[0].Resolve(tmp.Connections))
+}
+
+// testConnection bağlanır, uzak dizini listeler, süreyi döner — sunucu formu ve kütüphane ortak.
+func testConnection(w http.ResponseWriter, srv config.Server) {
 	start := time.Now()
 	c, err := ftpclient.Connect(srv)
 	if err != nil {

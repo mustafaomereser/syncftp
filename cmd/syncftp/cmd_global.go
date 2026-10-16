@@ -151,7 +151,7 @@ var globalConnAddCmd = &cobra.Command{Use: "add <ad>", Short: "Bağlantı ekle /
 		c := config.Connection{Name: args[0], Protocol: strings.ToLower(gcProtocol), Host: gcHost, Port: gcPort,
 			User: gcUser, Password: gcPass, KeyFile: gcKey, Passive: !gcActive}
 		if c.Port == 0 {
-			c.Port = map[bool]int{true: 22, false: 21}[c.Protocol == "sftp"]
+			c.Port = config.DefaultPort(c.Protocol)
 		}
 		replaced := upsertLibConn(lib, c)
 		if err := lib.ValidateConnections(); err != nil {
@@ -254,9 +254,7 @@ func importConnections(lib *config.Library, cfg *config.Config) int {
 		if s.Connection != "" {
 			continue
 		}
-		add(config.Connection{Name: cfg.Project.Name + "-" + s.Name, Host: s.Host, Port: s.Port, User: s.User,
-			Password: s.Password, Passive: s.Passive, DisableEPSV: s.DisableEPSV, NATWorkaround: s.NATWorkaround,
-			Protocol: s.Protocol, KeyFile: s.KeyFile, TLSSkipVerify: s.TLSSkipVerify, SSHTunnel: s.SSHTunnel})
+		add(config.ConnectionFromServer(cfg.Project.Name+"-"+s.Name, s))
 	}
 	return added
 }

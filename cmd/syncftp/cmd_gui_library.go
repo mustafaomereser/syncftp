@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"syncftp/internal/config"
-	ftpclient "syncftp/internal/ftp"
 	"syncftp/internal/lang"
 	"syncftp/internal/projects"
 )
@@ -116,7 +115,7 @@ func (sv *guiServer) apiLibraryPut(w http.ResponseWriter, r *http.Request) {
 		restoreLibSecrets(conns, lib.Connections)
 		for i := range conns {
 			if conns[i].Port == 0 {
-				conns[i].Port = map[bool]int{true: 22, false: 21}[strings.EqualFold(conns[i].Protocol, "sftp")]
+				conns[i].Port = config.DefaultPort(conns[i].Protocol)
 			}
 		}
 		lib.Connections = conns
@@ -157,22 +156,8 @@ func (sv *guiServer) apiLibraryTest(w http.ResponseWriter, r *http.Request) {
 	restoreLibSecrets(one, lib.Connections)
 	srv := config.Server{RemotePath: orDefault(req.Remote, "/")}
 	srv.ApplyConnection(one[0])
-	if srv.HasTunnel() && srv.TunnelPort == 0 {
-		srv.TunnelPort = 22
-	}
-	start := time.Now()
-	c, err := ftpclient.Connect(srv)
-	if err != nil {
-		guiErr(w, 400, err)
-		return
-	}
-	defer c.Close()
-	entries, lerr := c.List(srv.RemotePath)
-	res := map[string]any{"ms": time.Since(start).Milliseconds(), "entries": len(entries)}
-	if lerr != nil {
-		res["list_error"] = lerr.Error()
-	}
-	guiJSON(w, res)
+	srv.Normalize()
+	testConnection(w, srv)
 }
 
 func (sv *guiServer) apiLibraryImport(w http.ResponseWriter, r *http.Request) {
@@ -391,9 +376,7 @@ func (sv *guiServer) apiConnToLibrary(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else if s, ok := findServer(cfg, req.Server); ok {
-		c = config.Connection{Name: s.Name, Host: s.Host, Port: s.Port, User: s.User, Password: s.Password,
-			Passive: s.Passive, DisableEPSV: s.DisableEPSV, NATWorkaround: s.NATWorkaround, Protocol: s.Protocol,
-			KeyFile: s.KeyFile, TLSSkipVerify: s.TLSSkipVerify, SSHTunnel: s.SSHTunnel}
+		c = config.ConnectionFromServer(s.Name, s)
 		found = true
 	}
 	if !found {

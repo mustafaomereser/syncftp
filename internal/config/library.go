@@ -189,3 +189,39 @@ func (s Sync) Clone() Sync {
 	s.PreSync, s.PostSync = cp(s.PreSync), cp(s.PostSync)
 	return s
 }
+
+// DefaultPort protokolün varsayılan portu (sftp → 22, diğerleri → 21).
+func DefaultPort(protocol string) int { return defaultPort(protocol) }
+
+// Normalize boş portları varsayılanla doldurur (sunucu ve SSH tüneli).
+func (s *Server) Normalize() {
+	if s.Port == 0 {
+		s.Port = defaultPort(s.Protocol)
+	}
+	if s.TunnelHost != "" && s.TunnelPort == 0 {
+		s.TunnelPort = 22
+	}
+}
+
+// Resolve sunucuyu bağlantı profiliyle birlikte bağlanmaya hazır hale getirir: connection adı
+// varsa (büyük/küçük harf duyarlı, config.Load ile aynı) kimlik bilgileri profilden gelir, portlar
+// normalize edilir. config.Load ve paneldeki "Bağlantıyı test et" bunu kullanır.
+func (s Server) Resolve(conns []Connection) Server {
+	if s.Connection != "" {
+		for _, c := range conns {
+			if c.Name == s.Connection {
+				s.ApplyConnection(c)
+				break
+			}
+		}
+	}
+	s.Normalize()
+	return s
+}
+
+// ConnectionFromServer sunucunun kimlik bilgilerinden bağlantı profili (ApplyConnection'ın tersi).
+func ConnectionFromServer(name string, s Server) Connection {
+	return Connection{Name: name, Host: s.Host, Port: s.Port, User: s.User, Password: s.Password,
+		Passive: s.Passive, DisableEPSV: s.DisableEPSV, NATWorkaround: s.NATWorkaround, Protocol: s.Protocol,
+		KeyFile: s.KeyFile, TLSSkipVerify: s.TLSSkipVerify, SSHTunnel: s.SSHTunnel}
+}

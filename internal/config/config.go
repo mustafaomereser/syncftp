@@ -212,7 +212,6 @@ func Load(dir string) (*Config, error) {
 	}
 
 	// Bağlantı profili port defaults
-	connMap := make(map[string]*Connection, len(cfg.Connections))
 	for i := range cfg.Connections {
 		if cfg.Connections[i].Port == 0 {
 			cfg.Connections[i].Port = defaultPort(cfg.Connections[i].Protocol)
@@ -222,7 +221,6 @@ func Load(dir string) (*Config, error) {
 		}
 		resolveSecrets(&cfg.Connections[i].Password, &cfg.Connections[i].SSHTunnel,
 			cfg.Connections[i].Protocol, cfg.Connections[i].User, cfg.Connections[i].Host, cfg.Connections[i].Port, &cfg)
-		connMap[cfg.Connections[i].Name] = &cfg.Connections[i]
 	}
 	for i := range cfg.Servers {
 		if cfg.Servers[i].Connection == "" {
@@ -240,27 +238,7 @@ func Load(dir string) (*Config, error) {
 
 	// Bağlantı referanslarını çöz: connection set edilmişse credential'lar oradan gelir
 	for i := range cfg.Servers {
-		if cfg.Servers[i].Connection != "" {
-			if conn, ok := connMap[cfg.Servers[i].Connection]; ok {
-				cfg.Servers[i].Host = conn.Host
-				cfg.Servers[i].Port = conn.Port
-				cfg.Servers[i].User = conn.User
-				cfg.Servers[i].Password = conn.Password
-				cfg.Servers[i].Passive = conn.Passive
-				cfg.Servers[i].DisableEPSV = conn.DisableEPSV
-				cfg.Servers[i].NATWorkaround = conn.NATWorkaround
-				cfg.Servers[i].Protocol = conn.Protocol
-				cfg.Servers[i].KeyFile = conn.KeyFile
-				cfg.Servers[i].TLSSkipVerify = conn.TLSSkipVerify
-				cfg.Servers[i].SSHTunnel = conn.SSHTunnel
-			}
-		}
-		if cfg.Servers[i].Port == 0 {
-			cfg.Servers[i].Port = defaultPort(cfg.Servers[i].Protocol)
-		}
-		if cfg.Servers[i].TunnelHost != "" && cfg.Servers[i].TunnelPort == 0 {
-			cfg.Servers[i].TunnelPort = 22
-		}
+		cfg.Servers[i] = cfg.Servers[i].Resolve(cfg.Connections)
 	}
 
 	// Eski project.local_path → default_path göçü
