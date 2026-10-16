@@ -162,6 +162,7 @@ Sync:
                             date: today, yesterday, 3d, 5h, 14:30, 20.07[.2026],
                             2026-07-20 [15:04] (omit = now)
   freeze [--server name]  Manage freeze list — mark files to never upload
+  logs [file | last]      List / show sync logs (of the connected server, if any)
   rollback [id] [--list]  Undo a sync: previous files are restored, newly added ones removed
                             without id a release picker opens (connected server / picker)
   verify [--fix]          Find files changed/deleted on the server by hand (drift);
@@ -627,6 +628,8 @@ Other:
 	GuiPathRequired:      "folder path is required",
 	GuiDirNotFoundFmt:    "folder not found: %s",
 	LocalDirMissingFmt:   "local folder not found: %s (%s) — fix the server's local path",
+	LogsNone:             "  No logs yet (every sync / rollback with changes is saved under .syncftp/logs/)",
+	LogsHint:             "\n  Show one: syncftp logs <file>  ·  newest: syncftp logs last",
 	ServerNotFoundFmt:    "server not found: %q",
 	NoServerSelected:     "no server selected",
 	GuiIgnoreNoFile:      "ignore_files has no syncFTP-specific file (only .gitignore is read) — add .syncftp/syncftp.ignore to the list first",

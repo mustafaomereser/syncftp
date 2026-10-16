@@ -162,6 +162,7 @@ Senkronizasyon:
                             tarih: bugün, dün, 3d, 5h, 14:30, 20.07[.2026],
                             2026-07-20 [15:04] (boş = şimdi)
   freeze [--server ad]    Freeze listesi — yüklenmesin istenen dosyaları işaretle
+  logs [dosya | son]      Sync loglarını listele / göster (bağlıysan o sunucunun)
   rollback [id] [--list]  Bir sync'i geri al: eski dosyalar geri yüklenir, yeni eklenenler silinir
                             id verilmezse release seçici açılır (bağlı sunucu / seçici)
   verify [--fix]          Sunucuda elle değiştirilen/silinen dosyaları bul (drift);
@@ -627,6 +628,8 @@ Diğer:
 	GuiPathRequired:      "klasör yolu gerekli",
 	GuiDirNotFoundFmt:    "klasör bulunamadı: %s",
 	LocalDirMissingFmt:   "yerel klasör yok: %s (%s) — sunucunun yerel dizinini düzeltin",
+	LogsNone:             "  Henüz log yok (her değişiklikli sync / rollback .syncftp/logs/ altına kaydedilir)",
+	LogsHint:             "\n  Göstermek için: syncftp logs <dosya>  ·  en yenisi: syncftp logs son",
 	ServerNotFoundFmt:    "sunucu bulunamadı: %q",
 	NoServerSelected:     "sunucu seçilmedi",
 	GuiIgnoreNoFile:      "ignore_files listesinde syncFTP'ye özel bir dosya yok (yalnızca .gitignore okunuyor) — önce listeye .syncftp/syncftp.ignore ekleyin",

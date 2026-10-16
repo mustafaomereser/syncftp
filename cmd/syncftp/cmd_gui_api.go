@@ -22,6 +22,7 @@ import (
 	"syncftp/internal/projects"
 	"syncftp/internal/release"
 	"syncftp/internal/state"
+	"syncftp/internal/synclog"
 )
 
 // appVersion — GUI ve `syncftp --version`.
@@ -1006,33 +1007,13 @@ func (sv *guiServer) apiLogs(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 404, err)
 		return
 	}
-	filter := r.URL.Query().Get("server")
-	type logInfo struct {
-		Server string    `json:"server"`
-		File   string    `json:"file"`
-		Size   int64     `json:"size"`
-		Time   time.Time `json:"time"`
-	}
-	out := []logInfo{}
+	var names []string
 	for _, srv := range cfg.Servers {
-		if filter != "" && srv.Name != filter {
-			continue
-		}
-		dir := filepath.Join(p.Path, ".syncftp", "logs", srv.Name)
-		entries, _ := os.ReadDir(dir)
-		for _, e := range entries {
-			if e.IsDir() {
-				continue
-			}
-			if info, err := e.Info(); err == nil {
-				out = append(out, logInfo{Server: srv.Name, File: e.Name(), Size: info.Size(), Time: info.ModTime()})
-			}
+		if f := r.URL.Query().Get("server"); f == "" || srv.Name == f {
+			names = append(names, srv.Name)
 		}
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Time.After(out[j].Time) })
-	if len(out) > 300 {
-		out = out[:300]
-	}
+	out := synclog.List(p.Path, names, 300)
 	guiJSON(w, out)
 }
 
@@ -1042,16 +1023,12 @@ func (sv *guiServer) apiLogFile(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 404, errors.New("project"))
 		return
 	}
-	path := filepath.Join(p.Path, ".syncftp", "logs", filepath.Base(r.PathValue("srv")), filepath.Base(r.PathValue("file")))
-	data, err := os.ReadFile(path)
+	text, err := synclog.Read(p.Path, r.PathValue("srv"), r.PathValue("file"), 4<<20)
 	if err != nil {
 		guiErr(w, 404, err)
 		return
 	}
-	if len(data) > 4<<20 {
-		data = data[len(data)-4<<20:]
-	}
-	guiJSON(w, string(data))
+	guiJSON(w, text)
 }
 
 // ── milestone / freeze / failed ───────────────────────────────────────────────

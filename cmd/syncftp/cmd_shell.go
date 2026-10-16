@@ -188,6 +188,15 @@ func runShell() error {
 		case "milestone":
 			sh.cmdMilestone(args)
 
+		case "logs":
+			srv := ""
+			if sh.srv != nil {
+				srv = sh.srv.Name
+			}
+			if err := showLogs(os.Stdout, sh.configDir, &sh.cfg, srv, firstPositional(args), 20); err != nil {
+				fmt.Printf(lang.L.ShellErrFmt, err)
+			}
+
 		case "rollback":
 			sh.cmdRollback(args)
 
