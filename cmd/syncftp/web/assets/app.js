@@ -10,7 +10,7 @@ const T = {
   tr: {
     brandSub: 'Dağıtım paneli', navAll: 'Tüm projeler', navJobs: 'İşler', navProjects: 'Projeler',
     addProject: 'Proje ekle', navNoProjects: 'Bu klasörde proje yok', watching: 'Watch', language: 'Dil', quit: 'Kapat',
-    loading: 'Yükleniyor…', stFrozen: 'Freeze', stProtected: 'Korunan', stBlocked: 'Engelli', stUploadSize: 'yüklenecek: {0}', treeView: 'Ağaç', treeHint: 'Bu klasörün altını ağaç olarak göster (shell tree)', treeAsk: 'Klasör başına en fazla kaç öğe gösterilsin?', treeAll: 'Tümü', ignoreNoFile: 'ignore_files listesinde syncFTP dosyası yok — yalnızca .gitignore okunuyor', viewCode: 'Kod', viewRendered: 'Önizleme', viewRenderedLocal: 'Önizleme (yerel)', viewRenderedRemote: 'Önizleme (sunucu)', scanningLocal: 'Taranıyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
+    loading: 'Yükleniyor…', moreRows: '{0} öğe daha göster', stFrozen: 'Freeze', stProtected: 'Korunan', stBlocked: 'Engelli', stUploadSize: 'yüklenecek: {0}', treeView: 'Ağaç', treeHint: 'Bu klasörün altını ağaç olarak göster (shell tree)', treeAsk: 'Klasör başına en fazla kaç öğe gösterilsin?', treeAll: 'Tümü', ignoreNoFile: 'ignore_files listesinde syncFTP dosyası yok — yalnızca .gitignore okunuyor', viewCode: 'Kod', viewRendered: 'Önizleme', viewRenderedLocal: 'Önizleme (yerel)', viewRenderedRemote: 'Önizleme (sunucu)', scanningLocal: 'Taranıyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
     edit: 'Düzenle', back: 'Geri', yes: 'Evet', confirm: 'Onayla', browse: 'Gözat', add: 'Ekle', open: 'Aç',
     saved: 'Kaydedildi', copied: 'Kopyalandı', never: 'hiç', none: 'yok', all: 'Tümü', manual: '(manuel giriş)',
     projectsTitle: 'Projeler', projectsSub: `{0} klasöründeki syncFTP projeleri (CLI gibi: panel açıldığı klasörü esas alır)`,
@@ -119,7 +119,7 @@ const T = {
   en: {
     brandSub: 'Deploy panel', navAll: 'All projects', navJobs: 'Jobs', navProjects: 'Projects',
     addProject: 'Add project', navNoProjects: 'No project in this folder', watching: 'Watch', language: 'Language', quit: 'Quit',
-    loading: 'Loading…', stFrozen: 'Frozen', stProtected: 'Protected', stBlocked: 'Blocked', stUploadSize: 'to upload: {0}', treeView: 'Tree', treeHint: 'Show everything below this folder as a tree (shell tree)', treeAsk: 'Show at most how many entries per folder?', treeAll: 'All', ignoreNoFile: 'ignore_files has no syncFTP file — only .gitignore is read', viewCode: 'Code', viewRendered: 'Preview', viewRenderedLocal: 'Preview (local)', viewRenderedRemote: 'Preview (server)', scanningLocal: 'Scanning…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
+    loading: 'Loading…', moreRows: 'Show {0} more', stFrozen: 'Frozen', stProtected: 'Protected', stBlocked: 'Blocked', stUploadSize: 'to upload: {0}', treeView: 'Tree', treeHint: 'Show everything below this folder as a tree (shell tree)', treeAsk: 'Show at most how many entries per folder?', treeAll: 'All', ignoreNoFile: 'ignore_files has no syncFTP file — only .gitignore is read', viewCode: 'Code', viewRendered: 'Preview', viewRenderedLocal: 'Preview (local)', viewRenderedRemote: 'Preview (server)', scanningLocal: 'Scanning…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
     edit: 'Edit', back: 'Back', yes: 'Yes', confirm: 'Confirm', browse: 'Browse', add: 'Add', open: 'Open',
     saved: 'Saved', copied: 'Copied', never: 'never', none: 'none', all: 'All', manual: '(manual entry)',
     projectsTitle: 'Projects', projectsSub: `syncFTP projects in {0} (like the CLI: the panel works on the folder it was opened in)`,
@@ -1544,10 +1544,7 @@ async function tabFiles(proj, srvName, relPath) {
     $('#f-srv', root).onchange = (e) => go(pHash(P, 'files', e.target.value));
     $$('[data-crumb]', root).forEach((b) => (b.onclick = () => go(b.dataset.crumb === '' ? pHash(P, 'files', srv) : hashFor(b.dataset.crumb))));
     const filter = $('#f-filter', root);
-    filter.oninput = () => {
-      const v = filter.value.toLowerCase();
-      $$('[data-entry]', root).forEach((tr) => (tr.hidden = v && !tr.dataset.entry.toLowerCase().includes(v)));
-    };
+    filter.oninput = () => applyFilter(filter.value);
     filter.onkeydown = (e) => { if (e.key === 'Enter' && filter.value.trim()) searchAll(filter.value.trim()); };
     $('#f-search', root).onclick = () => { if (filter.value.trim()) searchAll(filter.value.trim()); else filter.focus(); };
     const up = $('#f-upload-input', root);
@@ -1588,44 +1585,95 @@ async function tabFiles(proj, srvName, relPath) {
         toast(t('created')); render(true);
       } }],
     });
-    // seçim
+    // Satırlar parça parça çizilir (5000 girdili klasör tek seferde ~5 MB HTML + 1 sn yerleşim
+    // demekti); filtre / tümünü seç TÜM liste üzerinde çalışır, olaylar tbody'de delegasyonla.
     const bar = $('#f-selbar', root);
-    const items = () => [...sel].map((p) => ({ path: p, type: (entries.find((e) => full(e.name) === p) || {}).type }));
+    const body = $('#f-body', root);
+    const more = $('#f-more', root);
+    const typeOf = new Map(entries.map((e) => [full(e.name), e.type]));
+    let view = entries, shown = 0;
+    const PAGE = 300;
+    const renderMore = () => {
+      if (!body) return;
+      const next = view.slice(shown, shown + PAGE);
+      body.insertAdjacentHTML('beforeend', next.map((e) => rowHTML(e, sel.has(full(e.name)))).join(''));
+      shown += next.length;
+      more.hidden = shown >= view.length;
+      if (!more.hidden) more.textContent = t('moreRows', view.length - shown);
+    };
+    const applyFilter = (v) => {
+      v = v.toLowerCase();
+      view = v ? entries.filter((e) => e.name.toLowerCase().includes(v)) : entries;
+      if (body) { body.innerHTML = ''; shown = 0; renderMore(); }
+      refreshBar();
+    };
+    if (more) {
+      more.onclick = renderMore;
+      new IntersectionObserver((ents) => { if (ents.some((x) => x.isIntersecting) && document.body.contains(more)) renderMore(); }, { rootMargin: '600px' }).observe(more);
+    }
+    const items = () => [...sel].map((p) => ({ path: p, type: typeOf.get(p) }));
+    const allBox = $('#f-all', root); // bağlantı hatası / boş klasörde tablo yok
     const refreshBar = () => {
       bar.hidden = !sel.size;
       $('[data-selcount]', bar).textContent = t('selectedN', sel.size);
-      if (allBox) { const vis = $$('[data-entry]:not([hidden])', root).length; allBox.checked = !!sel.size && sel.size >= vis; allBox.indeterminate = !!sel.size && sel.size < vis; }
+      if (allBox) {
+        const inView = view.filter((e) => sel.has(full(e.name))).length;
+        allBox.checked = !!view.length && inView === view.length;
+        allBox.indeterminate = inView > 0 && inView < view.length;
+      }
     };
-    // Bağlantı hatası / boş klasörde tablo (ve "tümü" kutusu) çizilmez
-    const allBox = $('#f-all', root);
     if (allBox) allBox.onchange = () => {
-      // Değeri önce al: her satırın change'i refreshBar'ı tetikleyip allBox.checked'i ara değere çekiyor
       const on = allBox.checked;
-      $$('[data-entry]:not([hidden]) input[type=checkbox]', root).forEach((c) => { c.checked = on; if (on) sel.add(full(c.closest('[data-entry]').dataset.entry)); else sel.delete(full(c.closest('[data-entry]').dataset.entry)); });
+      view.forEach((e) => (on ? sel.add(full(e.name)) : sel.delete(full(e.name))));
+      $$('[data-entry] input[type=checkbox]', body).forEach((c) => (c.checked = on));
       refreshBar();
     };
     $('[data-sel="clear"]', bar).onclick = () => { sel.clear(); $$('[data-entry] input[type=checkbox]', root).forEach((c) => (c.checked = false)); refreshBar(); };
     $('[data-sel="del"]', bar).onclick = () => removeItems(items());
     $('[data-sel="move"]', bar).onclick = () => moveItems(items());
     $('[data-sel="freeze"]', bar).onclick = () => toggleFreeze(items());
-    $$('[data-entry]', root).forEach((tr) => {
-      const name = tr.dataset.entry, typ = tr.dataset.type, p = full(name), it = { path: p, type: typ };
-      $('input[type=checkbox]', tr).onchange = (e) => { if (e.target.checked) sel.add(p); else sel.delete(p); refreshBar(); };
-      tr.onclick = (e) => {
-        if (e.target.closest('button,input,label')) return;
+    if (body) {
+      body.onchange = (e) => {
+        const tr = e.target.closest('[data-entry]');
+        if (!tr || e.target.type !== 'checkbox') return;
+        const p = full(tr.dataset.entry);
+        if (e.target.checked) sel.add(p); else sel.delete(p);
+        refreshBar();
+      };
+      body.onclick = (e) => {
+        const tr = e.target.closest('[data-entry]');
+        if (!tr) return;
+        const p = full(tr.dataset.entry), typ = tr.dataset.type, it = { path: p, type: typ };
+        const btn = e.target.closest('button');
+        if (btn) {
+          const act = btn.dataset.act;
+          if (act === 'pv') previewFile(P, srv, p);
+          else if (act === 'cmp') compareModal(P, srv, p);
+          else if (act === 'dl') location.href = `/api/p/${enc(P)}/remote/get?${q}&path=${enc(p)}`;
+          else if (act === 'ren') renameItem(it);
+          else if (act === 'fz') toggleFreeze([it]);
+          else if (act === 'rm') removeItems([it]);
+          return;
+        }
+        if (e.target.closest('input,label')) return;
         if (typ === 'dir') go(hashFor(p)); else previewFile(P, srv, p);
       };
-      const on = (k, fn) => { const b = $(`[data-${k}]`, tr); if (b) b.onclick = fn; };
-      on('pv', () => previewFile(P, srv, p));
-      on('cmp', () => compareModal(P, srv, p));
-      on('dl', () => { location.href = `/api/p/${enc(P)}/remote/get?${q}&path=${enc(p)}`; });
-      on('ren', () => renameItem(it));
-      on('fz', () => toggleFreeze([it]));
-      on('rm', () => removeItems([it]));
-    });
+      renderMore();
+    }
   });
 
   const frozenUnder = (p) => { const pre = p + '/'; for (const f of frozenSet) if (f.startsWith(pre)) return true; return false; };
+  function rowHTML(e, checked) {
+    const p = full(e.name);
+    const fz = e.type === 'dir' ? frozenUnder(p) : frozenSet.has(p);
+    return `<tr data-entry="${esc(e.name)}" data-type="${e.type}" class="tikla"><td class="sec-hucre"><label><input type="checkbox" ${checked ? 'checked' : ''}></label></td>
+      <td><div class="ad-hucre">${icon(e.type === 'dir' ? 'folder' : 'file', e.type === 'dir' ? 'acc-t' : 'faint')}<span>${esc(e.name)}</span>${fz ? `<span class="pill" style="height:18px;font-size:11px">${icon('snow')}${t('frozenBadge')}</span>` : ''}</div></td>
+      <td class="sag mono faint">${e.type === 'dir' ? '' : bytes(e.size)}</td><td class="mono faint">${e.time && !e.time.startsWith('0001') ? fmtDate(e.time) : ''}</td>
+      <td class="sag" style="white-space:nowrap">${e.type === 'dir' ? '' : `<button class="ikon-btn" data-act="pv" title="${t('preview')}">${icon('eye')}</button><button class="ikon-btn" data-act="cmp" title="${t('compare')}">${icon('layers')}</button><button class="ikon-btn" data-act="dl" title="${t('download')}">${icon('download')}</button>`}
+        <button class="ikon-btn ${fz ? 'acc-t' : ''}" data-act="fz" title="${t('freezeToggle')}">${icon('snow')}</button>
+        <button class="ikon-btn" data-act="ren" title="${t('rename')}">${icon('edit')}</button>
+        <button class="ikon-btn tehlike" data-act="rm" title="${t('delete')}">${icon('trash')}</button></td></tr>`;
+  }
   return `<div class="arac-cubuk">
       <select id="f-srv">${cfg.servers.map((s) => `<option value="${esc(s.name)}" ${s.name === srv ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>
       <div class="ara">${icon('search')}<input type="text" id="f-filter" placeholder="${t('filter')}"></div>
@@ -1640,18 +1688,8 @@ async function tabFiles(proj, srvName, relPath) {
       <button class="btn kucuk tehlike" data-sel="del">${icon('trash')}${t('delete')}</button>
       <button class="btn kucuk hayalet" data-sel="clear">${t('clearSel')}</button></div>
     ${data.error ? `<div class="kart"><div class="not bad">${icon('alert')}${esc(data.error)}</div></div>` : !entries.length ? `<div class="bos" style="padding:30px">${t('emptyDir')}</div>` :
-    `<div class="tablo-kap"><table class="tablo"><thead><tr><th class="sec-hucre"><label><input type="checkbox" id="f-all"></label></th><th>${t('colName')}</th><th class="sag">${t('colSize')}</th><th>${t('colDate')}</th><th></th></tr></thead><tbody>
-      ${entries.map((e) => {
-        const p = full(e.name);
-        const fz = e.type === 'dir' ? frozenUnder(p) : frozenSet.has(p);
-        return `<tr data-entry="${esc(e.name)}" data-type="${e.type}" class="tikla"><td class="sec-hucre"><label><input type="checkbox"></label></td>
-        <td><div class="ad-hucre">${icon(e.type === 'dir' ? 'folder' : 'file', e.type === 'dir' ? 'acc-t' : 'faint')}<span>${esc(e.name)}</span>${fz ? `<span class="pill" style="height:18px;font-size:11px">${icon('snow')}${t('frozenBadge')}</span>` : ''}</div></td>
-        <td class="sag mono faint">${e.type === 'dir' ? '' : bytes(e.size)}</td><td class="mono faint">${e.time && !e.time.startsWith('0001') ? fmtDate(e.time) : ''}</td>
-        <td class="sag" style="white-space:nowrap">${e.type === 'dir' ? '' : `<button class="ikon-btn" data-pv title="${t('preview')}">${icon('eye')}</button><button class="ikon-btn" data-cmp title="${t('compare')}">${icon('layers')}</button><button class="ikon-btn" data-dl title="${t('download')}">${icon('download')}</button>`}
-          <button class="ikon-btn ${fz ? 'acc-t' : ''}" data-fz title="${t('freezeToggle')}">${icon('snow')}</button>
-          <button class="ikon-btn" data-ren title="${t('rename')}">${icon('edit')}</button>
-          <button class="ikon-btn tehlike" data-rm title="${t('delete')}">${icon('trash')}</button></td></tr>`;
-      }).join('')}</tbody></table></div>`}`;
+    `<div class="tablo-kap"><table class="tablo"><thead><tr><th class="sec-hucre"><label><input type="checkbox" id="f-all"></label></th><th>${t('colName')}</th><th class="sag">${t('colSize')}</th><th>${t('colDate')}</th><th></th></tr></thead><tbody id="f-body">
+      </tbody></table></div><button class="btn hayalet tam-gen" id="f-more" hidden></button>`}`;
 }
 
 // Satır numaralı, renklendirilmiş kod görünümü

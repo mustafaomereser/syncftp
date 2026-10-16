@@ -466,3 +466,6 @@ body.terminal-modu #sayfa { height: 100%; }
 
 /* HTML önizleme — izole iframe; arka plan beyaz (sayfanın kendi stili yoksa okunur kalsın) */
 .html-onizle { width: 100%; height: 62vh; border: 1px solid var(--line); border-radius: 10px; background: #fff; display: block; }
+
+/* Dosyalar: kalan satırları göster */
+.tam-gen { width: 100%; margin-top: 8px; justify-content: center; }
