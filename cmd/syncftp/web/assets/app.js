@@ -897,10 +897,11 @@ const localStorageSet = (k, v) => { try { localStorage.setItem(k, v); } catch { 
 async function failedModal(P, s) {
   const lm = await loadModal(`${icon('alert')}${t('failedTitle', esc(s.name))}`, 'orta', () => GET(`/api/p/${enc(P)}/failed?server=${enc(s.name)}`));
   if (!lm) return;
-  const files = lm.d || [];
+  const files = (lm.d && lm.d.files) || [];
+  const when = lm.d && lm.d.created_at && !String(lm.d.created_at).startsWith('0001') ? ` <span class="faint">(${fmtDate(lm.d.created_at)})</span>` : '';
   modal({
     title: `${icon('alert')}${t('failedTitle', esc(s.name))}`, size: 'orta',
-    body: `<p>${t('failedBody')}</p><div class="liste-kutu">${files.map((f) => `<div class="bad-t">✗ ${esc(f)}</div>`).join('') || `<div class="faint">${t('emptyList')}</div>`}</div>`,
+    body: `<p>${t('failedBody')}${when}</p><div class="liste-kutu">${files.map((f) => `<div class="bad-t">✗ ${esc(f)}</div>`).join('') || `<div class="faint">${t('emptyList')}</div>`}</div>`,
     actions: [{ label: t('close'), cls: 'hayalet' }, { label: icon('refresh') + t('retryFailed'), cls: 'mavi', run: () => startJobs(P, { kind: 'sync', servers: [s.name], retry_failed: true }, t('retryFailed')) }],
   });
 }

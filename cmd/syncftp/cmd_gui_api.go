@@ -1209,11 +1209,12 @@ func (sv *guiServer) apiFailed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fl, _ := failed.Load(p.Path, r.URL.Query().Get("server"))
-	if fl == nil {
-		guiJSON(w, []string{})
+	if fl == nil || fl.Files == nil {
+		guiJSON(w, map[string]any{"files": []string{}})
 		return
 	}
-	guiJSON(w, fl.Files)
+	// CLI (sync --retry-failed) ile aynı bilgi: liste + oluştuğu sync'in zamanı
+	guiJSON(w, map[string]any{"files": fl.Files, "created_at": fl.CreatedAt})
 }
 
 // ── watch ─────────────────────────────────────────────────────────────────────
