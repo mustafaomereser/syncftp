@@ -52,25 +52,11 @@ type sortedEntry struct {
 }
 
 func sortEntries(entries []*goftp.Entry) []sortedEntry {
-	var dirs, files []sortedEntry
-	for _, e := range entries {
-		if e.Name == "." || e.Name == ".." {
-			continue
-		}
-		se := sortedEntry{entry: e}
-		if e.Type == goftp.EntryTypeFolder {
-			dirs = append(dirs, se)
-		} else {
-			files = append(files, se)
-		}
+	out := make([]sortedEntry, len(entries))
+	for i, e := range entries {
+		out[i] = sortedEntry{entry: e}
 	}
-	sort.Slice(dirs, func(i, j int) bool {
-		return strings.ToLower(dirs[i].entry.Name) < strings.ToLower(dirs[j].entry.Name)
-	})
-	sort.Slice(files, func(i, j int) bool {
-		return strings.ToLower(files[i].entry.Name) < strings.ToLower(files[j].entry.Name)
-	})
-	return append(dirs, files...)
+	return out
 }
 
 // ── mesajlar ──────────────────────────────────────────────────────────────────
@@ -187,7 +173,7 @@ func (m browserModel) fetchEntries() tea.Cmd {
 	cwd := m.cwd
 	client := m.client
 	return func() tea.Msg {
-		entries, err := client.List(cwd)
+		entries, err := remoteEntries(client, cwd) // ortak sıralı liste (remote_ops.go)
 		if err != nil {
 			return browseErrMsg{err}
 		}

@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"path"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -66,7 +65,7 @@ func (sh *shellState) cmdTree(args []string) {
 }
 
 func (sh *shellState) printFTPTree(remotePath, prefix string, maxPerDir int) {
-	entries, err := sh.client.List(remotePath)
+	entries, err := remoteEntries(sh.client, remotePath) // ortak sıralı liste (remote_ops.go)
 	if err != nil {
 		fmt.Printf("%s  %s\n", prefix, fmt.Sprintf(lang.L.TreeErrFmt, err))
 		return
@@ -74,25 +73,6 @@ func (sh *shellState) printFTPTree(remotePath, prefix string, maxPerDir int) {
 	if len(entries) == 0 {
 		return
 	}
-
-	// . ve .. gibi sahte dizin girdilerini filtrele
-	filtered := entries[:0]
-	for _, e := range entries {
-		if e.Name != "." && e.Name != ".." {
-			filtered = append(filtered, e)
-		}
-	}
-	entries = filtered
-
-	// Önce klasörler, sonra dosyalar; her grup içinde ada göre sırala
-	sort.Slice(entries, func(i, j int) bool {
-		iDir := entries[i].Type == goftp.EntryTypeFolder
-		jDir := entries[j].Type == goftp.EntryTypeFolder
-		if iDir != jDir {
-			return iDir
-		}
-		return entries[i].Name < entries[j].Name
-	})
 
 	// Limit kontrolü: fazlasını kes, kalanı not olarak ekle
 	remaining := 0
