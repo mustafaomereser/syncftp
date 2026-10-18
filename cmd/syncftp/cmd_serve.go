@@ -767,7 +767,7 @@ func handleReleases(w http.ResponseWriter, r *http.Request, configDir string) {
 		CreatedAt string `json:"created_at"`
 		FileCount int    `json:"file_count"`
 	}
-	// release.List: panel ve rollback ile aynı okuma (önbellekli, en yeniden eskiye)
+	// release.Summaries: panelle aynı özet index (en yeniden eskiye)
 	entries := []releaseEntry{}
 	cfg, _ := loadCfg(configDir)
 	if cfg != nil {
@@ -775,7 +775,7 @@ func handleReleases(w http.ResponseWriter, r *http.Request, configDir string) {
 			if srvFilter != "" && srv.Name != srvFilter {
 				continue
 			}
-			list, _ := release.List(configDir, srv.Name)
+			list, _ := release.Summaries(configDir, srv.Name)
 			for i := 0; i < len(list) && i < limit; i++ {
 				entries = append(entries, releaseEntry{Server: srv.Name, ID: list[i].ID,
 					CreatedAt: list[i].CreatedAt.Format("2006-01-02 15:04:05"), FileCount: list[i].FileCount})

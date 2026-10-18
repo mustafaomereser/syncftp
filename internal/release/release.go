@@ -117,6 +117,8 @@ func Write(configDir, serverName, id string, m *Manifest) (string, error) {
 	if err := os.WriteFile(filepath.Join(dir, "manifest.json"), data, 0644); err != nil {
 		return "", err
 	}
+	sum := m.Summary()
+	updateIndex(configDir, serverName, id, &sum)
 	return dir, nil
 }
 
@@ -223,22 +225,27 @@ func List(configDir, serverName string) ([]*Manifest, error) {
 // Discard yarım kalan (hiç başarılı dosyası olmayan) release dizinini siler.
 func Discard(configDir, serverName, id string) {
 	_ = os.RemoveAll(Dir(configDir, serverName, id))
+	updateIndex(configDir, serverName, id, nil)
 }
 
 // Prune en yeni keep release dışındakilerin yedek dosyalarını siler (manifest kalır,
 // geçmiş görünür ama rollback edilemez). Silinen release sayısını döner.
 func Prune(configDir, serverName string, keep int) int {
-	list, err := List(configDir, serverName)
+	list, err := Summaries(configDir, serverName) // özetten seç; yalnızca budanacaklar okunur
 	if err != nil {
 		return 0
 	}
 	n, withBackup := 0, 0
-	for _, m := range list {
-		if !m.HasBackup() {
+	for _, sum := range list {
+		if !sum.HasBackup {
 			continue
 		}
 		withBackup++
 		if withBackup <= keep {
+			continue
+		}
+		m, err := Load(configDir, serverName, sum.ID)
+		if err != nil {
 			continue
 		}
 		_ = os.RemoveAll(FilesDir(configDir, serverName, m.ID))

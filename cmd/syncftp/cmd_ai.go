@@ -225,7 +225,7 @@ func aiProjectDoc(p projects.Project) string {
 			}
 			tracked, first = len(st.Files), st.FirstSyncDone
 		}
-		rels, _ := release.List(p.Path, s.Name)
+		rels, _ := release.Summaries(p.Path, s.Name)
 		fmt.Fprintf(&b, "| %s | %s | %s:%d | %s | %s | %v | %v | %s | %d | %d |\n",
 			s.Name, s.ProtocolName(), s.Host, s.Port, s.RemotePath, s.EffectiveLocalPath(cfg.Project), s.Enabled, first, last, tracked, len(rels))
 	}

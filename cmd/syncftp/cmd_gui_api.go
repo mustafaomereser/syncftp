@@ -386,7 +386,7 @@ func (sv *guiServer) serverInfo(p projects.Project, cfg *config.Config, srv conf
 	if f, _ := failed.Load(p.Path, srv.Name); f != nil {
 		gi.Failed = len(f.Files)
 	}
-	if list, _ := release.List(p.Path, srv.Name); len(list) > 0 {
+	if list, _ := release.Summaries(p.Path, srv.Name); len(list) > 0 { // özet index — manifestler açılmaz
 		gi.Releases = len(list)
 		gi.LastRelease = list[0].CreatedAt.Format("2006-01-02 15:04")
 		for _, m := range list {
@@ -1034,10 +1034,10 @@ func (sv *guiServer) apiReleases(w http.ResponseWriter, r *http.Request) {
 		if filter != "" && srv.Name != filter {
 			continue
 		}
-		list, _ := release.List(p.Path, srv.Name)
+		list, _ := release.Summaries(p.Path, srv.Name)
 		for _, m := range list {
 			out = append(out, relInfo{Server: srv.Name, ID: m.ID, CreatedAt: m.CreatedAt, Files: m.FileCount,
-				Backed: len(m.Backed), New: len(m.New), NoBackup: len(m.NoBackup), HasBackup: m.HasBackup(), RolledBack: m.RolledBack})
+				Backed: m.Backed, New: m.New, NoBackup: m.NoBackup, HasBackup: m.HasBackup, RolledBack: m.RolledBack})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
