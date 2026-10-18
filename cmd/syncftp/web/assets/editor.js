@@ -161,8 +161,9 @@ async function editFile(P, srv, rel) {
       const res = await api('PUT', `/api/p/${enc(P)}/remote/edit`, { server: srv, path: rel, content, base_hash: doc.hash, local, force });
       orig = content;
       doc.hash = res.hash;
-      if (local) doc.local_exists = true;
-      doc.local_same = local;
+      // Yerel durum sunucunun kayıttan sonraki gerçek karşılaştırmasından (tahmin yok)
+      doc.local_exists = !!res.local_exists;
+      doc.local_same = !!res.local_same;
       $('[data-local]', m.root).innerHTML = localPill();
       toast(`${t('edSaved')}: ${rel}`);
       paint();
@@ -210,8 +211,14 @@ async function editFile(P, srv, rel) {
         title: `${icon('alert')}${t('edConflictTitle')}`, size: 'genis', body,
         actions: [
           { label: t('cancel'), cls: 'hayalet', run: () => res() },
-          ...(cur.editable ? [{ label: icon('refresh') + t('edReload'), cls: '', run: () => {
-            doc = { ...doc, hash: cur.hash, size: cur.size }; orig = cur.content; ta.value = cur.content; paint(); pos(); res('reload');
+          ...(cur.editable ? [{ label: icon('refresh') + t('edReload'), cls: '', run: async () => {
+            // Yerel karşılaştırması dahil tazesi sunucudan
+            try {
+              doc = await GET(`/api/p/${enc(P)}/remote/edit?${q}`);
+              orig = doc.content; ta.value = doc.content;
+              $('[data-local]', m.root).innerHTML = localPill();
+              paint(); pos();
+            } finally { res('reload'); }
           } }] : []),
           { label: icon('check') + t('edOverwrite'), cls: 'tehlike', run: () => res('overwrite') },
         ],

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
 	"syncftp/internal/lang"
 	"syncftp/internal/synclog"
@@ -120,6 +121,14 @@ func (sv *guiServer) apiRemoteEditSave(w http.ResponseWriter, r *http.Request) {
 	case j.Error != "":
 		guiErr(w, 502, errors.New(j.Error))
 	default:
-		guiJSON(w, map[string]any{"release": releaseID, "hash": contentHash([]byte(req.Content)), "job_id": j.ID})
+		// Yerel karşılaştırma kayıttan SONRA dosyadan yapılır (yalnızca sunucuya kaydedip değişikliği
+		// geri alınca da doğru "aynı" görünsün)
+		res := map[string]any{"release": releaseID, "hash": contentHash([]byte(req.Content)), "job_id": j.ID}
+		if lf, err := editLocalPath(p.Path, cfg, srv, rel); err == nil {
+			local, lerr := os.ReadFile(lf)
+			res["local_exists"] = lerr == nil
+			res["local_same"] = lerr == nil && strings.ReplaceAll(string(local), "\r\n", "\n") == strings.ReplaceAll(req.Content, "\r\n", "\n")
+		}
+		guiJSON(w, res)
 	}
 }
