@@ -1936,7 +1936,9 @@ async function previewFile(P, srv, p) {
     body: d.binary ? `<div class="bos">${t('binaryFile')}</div>`
       : viewTabs([['code', t('viewCode'), codeView(d.content, p)], ...(isHTMLFile(p) ? [['html', t('viewRendered'), htmlFrame(d.content)]] : [])]),
     actions: [{ left: `${bytes(d.size)} ${d.truncated ? t('truncated') : ''}` },
-      ...(d.binary ? [] : [{ label: icon('layers') + t('compare'), cls: '', key: 'r', run: () => { compareModal(P, srv, p); } }, { label: icon('code') + t('edEdit'), cls: '', key: 's', run: () => { editFile(P, srv, p); } }]),
+      ...(d.binary ? [] : [{ label: icon('layers') + t('compare'), cls: '', key: 'r', run: () => { compareModal(P, srv, p); return false; } },
+        // Önizleme altta açık kalır (false) → Esc üstteki pencereyi kapatıp buraya döner; kaydedildiyse tazelenir
+        { label: icon('code') + t('edEdit'), cls: '', key: 's', run: () => { editFile(P, srv, p, { onClose: (saved) => { if (saved && pm.root.isConnected) { pm.close(); previewFile(P, srv, p); } } }); return false; } }]),
       { label: icon('download') + t('download'), cls: '', key: 'd', run: () => { location.href = `/api/p/${enc(P)}/remote/get?server=${enc(srv)}&path=${enc(p)}`; } },
       { label: t('close'), cls: 'birincil' }],
   });

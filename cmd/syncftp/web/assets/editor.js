@@ -48,7 +48,8 @@ Object.assign(T.en, {
 
 const ED_HL_MAX = 150000; // bundan büyükte her tuşta renklendirme yavaşlar → düz metin
 
-async function editFile(P, srv, rel) {
+// opts.onClose(saved): düzenleyici kapanınca (saved = en az bir kayıt yapıldı) — önizleme kendini tazeler
+async function editFile(P, srv, rel, opts = {}) {
   const title = (dirty) => `${icon('code')}<span class="mono" style="font-size:13px">${esc(rel)}</span>${dirty ? `<span class="ed-nokta" title="${t('edModified')}"></span>` : ''}`;
   const q = `server=${enc(srv)}&path=${enc(rel)}`;
   const lm = await loadModal(title(false), 'genis', () => GET(`/api/p/${enc(P)}/remote/edit?${q}`));
@@ -60,7 +61,7 @@ async function editFile(P, srv, rel) {
     return;
   }
 
-  let orig = doc.content;
+  let orig = doc.content, savedAny = false;
   const localPill = () => doc.local_exists
     ? (doc.local_same ? `<span class="pill ok"><span class="nokta"></span>${t('edLocalSame')}</span>` : `<span class="pill warn"><span class="nokta"></span>${t('edLocalDiff')}</span>`)
     : `<span class="pill">${t('edLocalMissing')}</span>`;
@@ -73,6 +74,7 @@ async function editFile(P, srv, rel) {
       { label: t('close'), cls: 'hayalet', run: async () => (dirty() ? confirmDiscard() : true) },
       { label: icon('check') + t('edSave'), cls: 'birincil', run: () => { save(); return false; } }],
     guard: async () => (dirty() ? confirmDiscard() : true),
+    onClose: () => opts.onClose && opts.onClose(savedAny),
   });
   const ta = $('textarea', m.root), hl = $('.ed-hl', m.root), gut = $('.ed-no pre', m.root);
   // Hatırlanan kaydetme hedefi ("bir daha sorma"): '' = sor, 'both' | 'remote'
@@ -176,7 +178,7 @@ async function editFile(P, srv, rel) {
     let again = false;
     try {
       const res = await api('PUT', `/api/p/${enc(P)}/remote/edit`, { server: srv, path: rel, content, base_hash: doc.hash, local, force });
-      orig = content;
+      orig = content; savedAny = true;
       doc.hash = res.hash;
       // Yerel durum sunucunun kayıttan sonraki gerçek karşılaştırmasından (tahmin yok)
       doc.local_exists = !!res.local_exists;
