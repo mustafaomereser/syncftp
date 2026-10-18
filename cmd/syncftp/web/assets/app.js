@@ -777,7 +777,7 @@ async function pageProject(r) {
   const head = `<div class="baslik-satir"><div><h1>${esc(proj.name)}</h1>
       <div class="yol">${icon('folder')}<span>${esc(proj.path)}</span><button class="ikon-btn" style="width:24px;height:24px" data-copy="${esc(proj.path)}" title="${t('copyPath')}">${icon('copy')}</button></div></div>
       <div class="aksiyonlar"><span id="proj-aks" class="aksiyonlar"></span>
-        <a class="ikon-btn" href="#/help/${({ overview: 'sync', servers: 'start', server: 'start', connections: 'ssh', connection: 'ssh', files: 'filters', history: 'rollback', cicd: 'cicd', settings: 'filters' })[r.tab] || 'start'}" title="${t('navHelp')}">${icon('help')}</a></div></div>
+        <a class="ikon-btn" href="#/help/${({ overview: 'sync', servers: 'start', server: 'start', connections: 'conns', connection: 'conns', files: 'files', history: 'rollback', cicd: 'cicd', settings: 'project' })[r.tab] || 'start'}" title="${t('navHelp')}">${icon('help')}</a></div></div>
     <div class="tabs">${tabs.map(([k, ic, l]) => `<a href="${pHash(proj.name, k)}" class="${activeTab === k ? 'aktif' : ''}">${icon(ic)}${l}</a>`).join('')}</div>`;
   let body;
   switch (r.tab) {

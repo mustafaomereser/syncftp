@@ -21,10 +21,10 @@ local project ──▶ change detection (SHA256 + cache) ──▶ filters ─�
 - **First sync without re-uploading** — *calibrate* matches what is already on the server by size
 
 **Safety**
-- **Rollback** — every sync backs up the server version of the files it replaces; undo any release
+- **Rollback** — every sync backs up the server version of the files it replaces; undo any release, and see a per-file diff of what each release changed
 - **Atomic uploads** — temp file + rename, so a dropped connection never leaves a half file live
 - **Resume** — interrupted syncs continue where they stopped
-- **Protect / freeze / ignore** — never overwrite `.env`, skip files per server, never even scan `vendor/`
+- **Protect / freeze / ignore** — never overwrite `.env`, skip files or whole folders per server, never even scan `vendor/`
 - **Drift detection** — `verify` finds files changed or deleted on the server by hand
 
 **Automation**
@@ -34,7 +34,7 @@ local project ──▶ change detection (SHA256 + cache) ──▶ filters ─�
 - **Webhooks out** — Slack / Discord / any URL after each sync
 
 **Interfaces**
-- **Desktop panel** with **system tray**, live job logs, remote file browser with diff, help page and an **AI assistant** (Claude Code / OpenCode)
+- **Desktop panel** with **system tray**, live job logs (stoppable), remote file browser with diff and an **in-place editor** for server files, help page and an **AI assistant** (Claude Code / OpenCode)
 - **Interactive shell** with an arrow-key file browser, TUIs for status / sync / config
 - **CLI** for scripts, plus a **local HTTP API** (`syncftp serve`)
 
@@ -124,14 +124,18 @@ The panel is a local web app served on `127.0.0.1` with a per-session token, sho
 | Tab | What you can do |
 |---|---|
 | **Overview** | pending changes per server (`+new ~changed −deleted`; click for the list and a coloured local ↔ server diff), sync / dry-run / full sync / retry failed, calibrate, verify (+fix), measure connection limit, compare two servers, milestone, freeze list, watch on/off, run a command on the server (SFTP) |
-| **Servers** | add / edit / duplicate / enable / delete servers; protocol, SSH key, tunnel, paths, performance, filters, hooks, remote SSH commands; *Test connection* without saving |
-| **Connections** | shared credential profiles |
-| **Files** | remote browser: preview with syntax highlighting (HTML files also rendered in a sandboxed frame), compare with local, download, upload, new folder, rename / move, multi-select, freeze toggle, recursive search with live results, tree view |
-| **History** | releases with backup state, roll back to before any release, sync logs |
+| **Servers** | add / edit / duplicate / enable / delete servers; protocol, SSH key, tunnel, paths, performance, filters, hooks, remote SSH commands; *Test connection* without saving. A server that uses a connection profile shows a short summary of the profile (with *Edit profile*) instead of its credential fields; a server with hand-entered details can be turned into a profile with *Make it a profile* |
+| **Connections** | shared credential profiles; *From a server* moves a server's details into a profile (an existing profile for the same account is reused), *From library* / *Save to library* — entries already in the library show an *In library* badge, and saving over a same-named library entry for another account asks first |
+| **Files** | remote browser: preview with syntax highlighting (HTML files also rendered in a sandboxed frame), compare with local, **edit**, download, upload, new folder, rename / move (with a remote folder picker), multi-select, freeze toggle (files or whole folders), recursive search with live results, tree view. Badges show files that sync will never upload: *frozen*, *ignore*, *exclude*, *not included* (the filters apply to the local side; the server copy is left alone) |
+| **History** | releases with backup state; open a release to see its files and a **diff** of each file (previous server version → uploaded version), roll back to before any release, sync logs |
 | **CI/CD** | deploy triggers, webhook listener, trycloudflare tunnel, recent deliveries |
-| **Settings** | global sync settings, ignore rules editor with templates (per local folder), OS keyring, config import / export, local HTTP API |
+| **Settings** | global sync settings, ignore rules editor with templates (per local folder), OS keyring, config import / export, local HTTP API, and a **Danger zone** to remove the project from syncFTP |
 
-The sidebar also has app-wide **Settings** (start with Windows, webhook port, connection library, new-project defaults, known SSH hosts, hash cache) and a **Terminal** that runs the syncFTP shell inside the panel.
+The sidebar also has app-wide **Settings** (start with Windows, editor save target, webhook port, connection library, new-project defaults, known SSH hosts, hash cache, and **data locations** — every file and folder syncFTP writes, with copy / open buttons) and a **Terminal** that runs the syncFTP shell inside the panel.
+
+**Editing server files** — *Edit* in a file's preview (or the code icon on its row) loads the whole file (up to 4 MB; binary and non-UTF-8 files are view-only) into an editor with syntax highlighting, Tab / Shift+Tab indenting and `Ctrl+S`. Saving goes through the normal upload core, so the old server version is backed up and the save can be undone from *History*. Choose per save — or remember the choice — between **server + local** (the local file is written too, keeping its CRLF line endings, and the state is updated) and **server only** (the state is left alone, so the next sync does not overwrite your edit unless the local file changes). If someone changed the file on the server since you opened it, you are asked to overwrite or reload. In the preview window `S` edits, `R` compares with the local file and `D` downloads; `Esc` in the editor or compare view returns to the preview.
+
+**Jobs** — every job's log window has a **Stop** button while the job can be cancelled (calibrate, watch); stopping a calibrate cuts the connection immediately, even while the server is not answering, and leaves the state untouched. Forms (server, connection, project settings) ask before you leave them with unsaved changes.
 
 Folder and file pickers run **inside the panel** (no native dialogs); include / exclude / protect / freeze lists can be ticked in a file tree. Every operation runs as a background job with a live log in the bottom-right corner. A **Help** page (sidebar, and the `?` button on every tab) contains task guides and a CLI reference generated from the program itself.
 
@@ -288,11 +292,13 @@ Files deleted locally are **reported, never deleted** from the server. Every syn
 | **Include** | global or per server | only these paths | config / panel tree picker / `--include` |
 | **Exclude** | global + server + CLI | skip these paths | config / panel tree picker / `--exclude` |
 | **Protect** | global + server | never overwrite on the server | config / panel tree picker |
-| **Freeze** | per server | skip even when changed | `syncftp freeze`, `f` in the shell browser, ❄ in the panel |
+| **Freeze** | per server | skip even when changed; a frozen folder is one `folder/` entry that covers everything inside it, including files added later | `syncftp freeze`, `f` in the shell browser, ❄ in the panel |
 | **Blocked extensions** | global + server | never upload these extensions | config |
 | **Milestone** | per server | only files modified after a date | `syncftp milestone` |
 
-Include priority: CLI `--include` → server `include` → global `sync.include`. Exclude and protect lists are combined. Exact file paths that no longer exist locally are removed from include / exclude / protect automatically (globs and folders are kept).
+Include priority: CLI `--include` → server `include` → global `sync.include`. Exclude and protect lists are combined.
+
+Exact file paths that no longer exist locally are removed from **include / exclude** automatically before a sync (globs and folders are kept). For safety the cleanup never touches **protect** lists, never empties an include list (an empty include would mean "everything"), removes a global entry only when the path is missing for every server, and skips dry-runs.
 
 ### Pattern rules
 
@@ -320,7 +326,16 @@ syncftp rollback -s production                   # pick a release
 syncftp rollback 20261016-063017 -s production -y
 ```
 
-Rolling back a release also rolls back every newer one (newest first): replaced files get their previous version back, new files are deleted, and the state returns to the old hashes so the next `sync` detects your local changes again. Only the last `sync.backup_keep` releases keep backup files.
+Rolling back a release also rolls back every newer one (newest first): replaced files get their previous version back (byte for byte), new files are deleted, and the state returns to the old hashes so the next `sync` detects your local changes again. If a release can only be partly rolled back, older releases are left untouched. Only the last `sync.backup_keep` releases keep backup files.
+
+Each release also keeps a copy of the **uploaded** version of every file up to 2 MB (`after/`), so you can see exactly what a deploy changed:
+
+```bash
+syncftp rollback 20261016-063017 -s production --diff               # every file of the release
+syncftp rollback 20261016-063017 -s production --diff=css/app.css   # one file
+```
+
+The panel shows the same diff under *History → release → file*. For releases made before this existed, the local file is used when it still has the uploaded hash. Release lists and counters are read from a small per-server index (`releases/<server>/index.json`), so projects with thousands of releases open instantly.
 
 Uploads are **atomic** (`.syncftp-<name>.tmp` → rename); if the server refuses rename-over, syncFTP falls back to a direct write. `direct_upload: true` skips the temp file. Interrupted syncs **resume**: state is saved every 20 uploaded files.
 
@@ -394,6 +409,8 @@ syncftp hook list                           # triggers in all projects
 - **OS keyring** — `syncftp secure` (or *Settings → Security*) moves all passwords (servers, profiles, tunnels) into Windows Credential Manager / macOS Keychain / Linux Secret Service. Entries are per account (`protocol://user@host:port`), so renaming a server keeps working. `syncftp secure --off` writes them back.
 - **Host key verification** for SFTP / SSH tunnels (trust on first use, mismatch refused).
 - **Panel** — listens on `127.0.0.1` only, requires a per-session token, checks the `Host` header, and never sends stored passwords to the page.
+- **Local HTTP API** (`serve`) — `Host` / `Origin` checks, local-only CORS, optional token, remote paths confined to `remote_path`.
+- **State files** — config, state, freeze, failed and milestone files are written atomically (temp file + rename), and syncs, edits and calibrations of the same server never run at the same time, even across watch, panel jobs, CI/CD and the HTTP API.
 - **Exports** — `syncftp config --export` prints the config with every password masked.
 - `.syncftp/` is ignored by git and never uploaded.
 
@@ -408,10 +425,13 @@ syncftp project list
 syncftp project add D:\sites\blog --name blog
 syncftp project rename blog blog-prod
 syncftp project rm blog-prod            # removes it from the list only
+syncftp project delete blog-prod        # remove the project from syncFTP (see below)
 
 syncftp -P shop sync --all
 syncftp --project D:\sites\blog status
 ```
+
+**Removing a project** — `syncftp project delete [NAME|PATH] [-y]` or *Project settings → Danger zone* in the panel moves the project's `.syncftp/` folder (config, state, release backups, logs) to the **trash** (Recycle Bin on Windows, `~/.Trash` on macOS, `gio trash` on Linux); if no trash is available it is renamed to `.syncftp.removed-<time>`. Restore it to bring the project back. Project files and servers are not touched, and keyring passwords are kept because the library and other projects may share them. It is refused while a job is running or another process watches the project; the panel stops the project's watches, terminal and HTTP API first.
 
 ---
 
@@ -428,7 +448,7 @@ Run `syncftp <command> --help` for every flag. The panel's **Help** page shows t
 | `sync` | upload changes |
 | `calibrate` | match existing server files, initialise state |
 | `verify` | find drift on the server |
-| `rollback` | undo releases |
+| `rollback` | undo releases, `--diff` to see what a release changed |
 | `milestone` | time-based filter / sync |
 | `freeze` | per-server freeze list |
 | `watch` | upload on save |
@@ -437,9 +457,9 @@ Run `syncftp <command> --help` for every flag. The panel's **Help** page shows t
 | `remote ls / cat / get / rm / exec` | work on the server |
 | `logs [FILE\|last]` | list / show sync, rollback and calibrate logs |
 | `push` | one-off sync of any folder without a config |
-| `config` | server / profile editor (TUI), `--export` |
+| `config` | server / profile editor (TUI), `--export`, `extract-conn` |
 | `hook serve / list` | CI/CD webhook listener |
-| `project list / add / rm / rename` | project registry |
+| `project list / add / rm / rename / delete` | project registry, remove a project from syncFTP |
 | `secure` | OS keyring on / off |
 | `lang` | language |
 | `serve` | local HTTP API |
@@ -481,13 +501,17 @@ syncftp sync --include css --exclude vendor
   ↑ 1.2 MB · 4s
 ```
 
+Errors such as a refused connection are printed in the server's output, and `sync` exits with code 1 when any server fails, so scripts and CI runners can detect it.
+
 ### `calibrate`
 
 ```bash
 syncftp calibrate [--server NAME | --all]
 ```
 
-Compares local files with the server's file sizes (CRLF-aware) and records matching files as up to date — nothing is uploaded. Runs automatically on the first `status`/`sync`; run it by hand after deploying with another tool or losing the state. In the terminal, press `→` while listing to stream scanned paths, `←` to hide, `ctrl+c` to cancel. A log with every remote file is saved.
+Compares local files with the server's file sizes (CRLF-aware) and records matching files as up to date — nothing is uploaded. Runs automatically on the first `status`/`sync`; run it by hand after deploying with another tool or losing the state. If the automatic calibrate fails (for example the server is unreachable), that server's sync is aborted instead of uploading every file. Frozen folders are not listed on the server, which keeps calibrate fast next to huge folders such as `node_modules/` or `uploads/`.
+
+In the terminal, press `→` while listing to stream scanned paths, `←` to hide, `ctrl+c` to cancel. In the panel the job log shows each phase live (local scan, connecting, files listed with the latest path, comparing) and **Stop** cancels it. A log with every remote file is saved.
 
 ### `verify`
 
@@ -501,6 +525,7 @@ Checks that every file the state considers up to date exists on the server with 
 
 ```bash
 syncftp rollback [RELEASE-ID] [-s NAME] [--list] [-y]
+syncftp rollback RELEASE-ID [-s NAME] --diff[=PATH]     # show what the release changed, no rollback
 ```
 
 See [Backup, rollback & atomic uploads](#backup-rollback--atomic-uploads).
@@ -522,7 +547,9 @@ While a milestone exists, `status`/`sync`/watch/API only consider files modified
 syncftp freeze [--server NAME]
 ```
 
-Full-screen list of local files: type to filter, `Space` toggles, `a` toggles all, `Enter` saves. Also available with `f` in the shell file browser (folders toggle everything inside) and as ❄ in the panel.
+Full-screen list of local files: type to filter, `Space` toggles, `a` toggles all, `Enter` saves. Frozen folders are listed first as `folder/` entries and the files inside them are hidden. Also available with `f` in the shell file browser and as ❄ in the panel.
+
+Freezing a folder stores a single `folder/` entry — nothing is listed on the server, so it is instant even for folders with tens of thousands of files — and everything inside it, including files added later, is frozen. A file inside a frozen folder cannot be unfrozen on its own (unfreeze the folder). Older lists with one entry per file keep working; unfreezing and re-freezing the folder collapses them into one entry.
 
 ### `watch`
 
@@ -568,9 +595,12 @@ Flags: `--host`, `--port` (21), `--user`, `--pass`, `--remote` (`/`), `--passive
 ### `config`
 
 ```bash
-syncftp config            # TUI
-syncftp config --export   # JSON with passwords masked
+syncftp config                          # TUI
+syncftp config --export                 # JSON with passwords masked
+syncftp config extract-conn production [--name shared-host]   # move a server's credentials into a connection profile
 ```
+
+`extract-conn` creates a connection profile from a server's hand-entered details and links the server to it; if a profile for the same account already exists, the server is linked to that one instead.
 
 The TUI has a server list (`Enter` edit, `Space` enable/disable, `d` delete, `n` new), **Global settings**, **Connection profiles** and a field editor for every server option. Fields that come from a connection profile are shown read-only. `b` opens pickers: profile, local folder, or a local file browser for include / exclude / protect (`Space` mark, `n` custom path such as a glob, `s` save).
 
@@ -606,7 +636,7 @@ syncftp hook list
 ### `project` · `secure` · `lang`
 
 ```bash
-syncftp project list | add [PATH] [--name N] | rm NAME | rename NAME NEW
+syncftp project list | add [PATH] [--name N] | rm NAME | rename NAME NEW | delete [NAME|PATH] [-y]
 syncftp secure [--off]
 syncftp lang [en|tr]          # preference saved to .syncftp/lang; SYNCFTP_LANG overrides per session
 ```
@@ -614,8 +644,10 @@ syncftp lang [en|tr]          # preference saved to .syncftp/lang; SYNCFTP_LANG 
 ### `serve` — local HTTP API
 
 ```bash
-syncftp serve [--port 8080]       # 127.0.0.1 only, CORS enabled
+syncftp serve [--port 8080] [--token SECRET]   # 127.0.0.1 only
 ```
+
+The API only answers requests whose `Host` is `localhost` / `127.0.0.1` / `[::1]`, refuses cross-site browser requests and allows CORS only from local origins — server-side callers (PHP, curl) are unaffected. With `--token` (or `SYNCFTP_SERVE_TOKEN`) every request must send it as `X-Token`, `Authorization: Bearer` or `?token=`. Remote paths are kept inside the server's `remote_path`. The panel's per-project *HTTP API* uses the same handler.
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -626,7 +658,7 @@ syncftp serve [--port 8080]       # 127.0.0.1 only, CORS enabled
 | `GET` | `/api/failed[?server=]` | failed files |
 | `GET` | `/api/releases[?server=&limit=10]` | release history |
 | `POST` | `/api/reload` | validate the config |
-| `POST` | `/api/trigger/github?server=&branch=&secret=` | legacy GitHub push trigger |
+| `POST` | `/api/trigger/github?server=&branch=` | legacy GitHub push trigger — requires `SYNCFTP_GITHUB_SECRET` (signature check; a secret in the URL is not accepted) |
 | `GET` | `/api/remote/ls · cat · get` | remote files (`path`, `recursive`, `max_kb`, `json`) |
 | `DELETE` | `/api/remote/rm?server=&path=[&recursive=true]` | delete on the server |
 
@@ -646,12 +678,15 @@ es.onmessage = (e) => console.log(e.data);
 ├── syncftp.json             # config
 ├── syncftp.ignore           # extra ignore rules (gitignore syntax)
 ├── state/<server>.json      # file hashes of the last successful sync
-├── releases/<server>/<id>/  # manifest.json + files/ (backups for rollback)
+├── releases/<server>/index.json   # release summaries (lists and counters)
+├── releases/<server>/<id>/  # manifest.json + files/ (backups for rollback) + after/ (uploaded versions, for diffs)
 ├── logs/<server>/*.txt      # sync / rollback / calibrate logs
 ├── failed/<server>.json     # files that failed last time
-├── frozen/<server>.json     # freeze list
+├── frozen/<server>.json     # freeze list ("folder/" entries freeze whole folders)
 ├── milestones/<server>.json # milestone
+├── locks/watch-<server>.lock # stops two watches from running on the same server
 ├── ai/                      # docs generated for the AI assistant
+├── shell_history            # interactive shell history
 └── lang                     # language preference
 ```
 
@@ -659,12 +694,15 @@ es.onmessage = (e) => console.log(e.data);
 
 | File | Content |
 |---|---|
-| `projects.json` | project registry |
+| `library.json` | connection library and new-project defaults |
+| `projects.json` | CLI project registry |
 | `known_hosts` | SSH host keys trusted by syncFTP |
-| `gui.json`, `gui-state.json`, `gui-lang` | running panel instance, restored watches / tunnel settings, panel language |
+| `gui-<hash>.json` | running panel instance for one folder (port, token, PID) |
+| `gui-state.json` | restored watches, webhook port / tunnel settings, editor save target |
+| `gui-lang` | panel / CLI language |
 | `bin/cloudflared(.exe)` | cloudflared downloaded by the panel |
 
-The hash cache lives in `%LOCALAPPDATA%\syncftp\hashcache\` (`~/.cache/syncftp/` elsewhere).
+The cache lives in `%LOCALAPPDATA%\syncftp\` (`~/.cache/syncftp/` elsewhere): `hashcache/` (safe to delete) and `panel-profile/` (the panel window's browser profile). Downloads, uploads and edits use short-lived `syncftp-*` files in the system temp folder. *Settings → System → Data locations* in the panel lists all of these paths with copy / open buttons. With keyring mode on, passwords are stored in the OS credential store instead of these files.
 
 ---
 
@@ -687,7 +725,8 @@ The SFTP / SSH tunnel tests start an in-memory SSH server, so no external servic
 | `internal/scanner` | directory walk, SHA256 with cache, parallel hashing |
 | `internal/ignore` | `.gitignore` + `syncftp.ignore` matcher |
 | `internal/state` · `failed` · `frozen` · `milestone` | per-server state files |
-| `internal/release` | release manifests, backups, pruning |
+| `internal/release` | release manifests, summary index, backups, uploaded copies, pruning |
+| `internal/fsutil` | atomic file writes |
 | `internal/synclog` | plain-text logs |
 | `internal/projects` | project registry |
 | `internal/secret` | OS keyring |
