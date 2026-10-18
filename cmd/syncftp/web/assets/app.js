@@ -28,7 +28,7 @@ const T = {
     verifyAll: 'Tümünü doğrula', verifyHint: 'Sunucuda elle değiştirilen/silinen dosyaları bul',
     detectAll: 'Bağlantı limitlerini ölç', detectHint: 'Sunucunun kabul ettiği en fazla bağlantıyı bulup max_connections\'a yazar',
     watchStart: 'Watch başlat', watchStop: 'Watch durdur', watchOn: 'Açık', watchOff: 'Kapalı',
-    watchSince: '{0} beri · {1} sync', watchStarted: 'Watch başladı', watchStopped: 'Watch durduruldu',
+    watchSince: '{0} beri · {1} sync', watchStarted: 'Watch başladı', watchStopped: 'Watch durduruldu', noWatches: 'Çalışan watch yok',
     noServers: 'Bu projede sunucu yok', noServersSub: 'İlk sunucuyu ekleyin — FTP, FTPS veya SFTP; isterseniz SSH tüneli üzerinden.',
     addServer: 'Sunucu ekle', disabled: 'pasif', busy: 'çalışıyor', tunnel: 'tünel',
     sync: 'Sync', dryRun: 'Dry-run', dryRunHint: 'Neyin yükleneceğini göster, yükleme yapma',
@@ -137,7 +137,7 @@ const T = {
     verifyAll: 'Verify all', verifyHint: 'Find files changed/deleted on the server by hand',
     detectAll: 'Measure connection limits', detectHint: 'Find the most connections the server accepts and save to max_connections',
     watchStart: 'Start watch', watchStop: 'Stop watch', watchOn: 'On', watchOff: 'Off',
-    watchSince: 'since {0} · {1} syncs', watchStarted: 'Watch started', watchStopped: 'Watch stopped',
+    watchSince: 'since {0} · {1} syncs', watchStarted: 'Watch started', watchStopped: 'Watch stopped', noWatches: 'No watch is running',
     noServers: 'No servers in this project', noServersSub: 'Add the first server — FTP, FTPS or SFTP, optionally through an SSH tunnel.',
     addServer: 'Add server', disabled: 'disabled', busy: 'running', tunnel: 'tunnel',
     sync: 'Sync', dryRun: 'Dry-run', dryRunHint: 'Show what would be uploaded, upload nothing',
@@ -396,7 +396,7 @@ const S = { meta: null, projects: [], jobs: new Map(), renderSeq: 0, modals: new
 // ── iş (job) yönetimi ───────────────────────────────────────────────────────
 function trackJob(id, opts = {}) {
   if (S.jobs.has(id)) return S.jobs.get(id);
-  const j = { id, title: opts.title || id, server: opts.server || '', project: opts.project || '', status: 'running', last: '', lines: [], es: null, shownUntil: 0 };
+  const j = { id, kind: opts.kind || '', title: opts.title || id, server: opts.server || '', project: opts.project || '', status: 'running', last: '', lines: [], es: null, shownUntil: 0 };
   S.jobs.set(id, j);
   const es = new EventSource(`/api/jobs/${enc(id)}/stream`);
   j.es = es;
@@ -410,7 +410,7 @@ function trackJob(id, opts = {}) {
     es.close();
     try {
       const snap = JSON.parse(e.data);
-      Object.assign(j, { status: snap.status, error: snap.error, result: snap.result, title: snap.title, server: snap.server, project: snap.project, ended: snap.ended, started: snap.started });
+      Object.assign(j, { kind: snap.kind || j.kind, status: snap.status, error: snap.error, result: snap.result, title: snap.title, server: snap.server, project: snap.project, ended: snap.ended, started: snap.started });
     } catch { j.status = 'done'; }
     j.shownUntil = Date.now() + 9000;
     if (j.onDone) j.onDone(j);
@@ -435,10 +435,13 @@ async function startJobs(project, req, label) {
   setTimeout(refreshJobsMeta, 300);
   return res.jobs || [];
 }
+// Watch süresiz çalışan bir iş: sağ alttaki kutuda durmaz (her sync satırında git-gel yapıyordu),
+// sol alttaki "Watch" satırında sayılır, konsolu oradan açılır.
+const isWatchJob = (j) => j.kind === 'watch' || j.title === 'Watch';
 function renderDock() {
   const el = $('#isler');
   const now = Date.now();
-  const visible = [...S.jobs.values()].filter((j) => j.status === 'running' || j.shownUntil > now).slice(-5);
+  const visible = [...S.jobs.values()].filter((j) => !isWatchJob(j) && (j.status === 'running' || j.shownUntil > now)).slice(-5);
   el.innerHTML = visible.map((j) => {
     const st = j.status === 'running' ? 'busy' : j.status === 'error' ? 'bad' : 'ok';
     const txt = j.status === 'running' ? t('stRunning') : j.status === 'error' ? t('stError') : t('stDone');
@@ -448,8 +451,26 @@ function renderDock() {
       ${j.status === 'running' ? '<div class="bar"><i></i></div>' : ''}</div>`;
   }).join('');
   $$('[data-job]', el).forEach((d) => (d.onclick = () => showJobLog(d.dataset.job)));
-  const running = [...S.jobs.values()].filter((j) => j.status === 'running' && j.title !== 'Watch').length;
+  const running = [...S.jobs.values()].filter((j) => j.status === 'running' && !isWatchJob(j)).length;
   $('#nav-jobs').textContent = running ? running : '';
+  renderWatchRow();
+}
+function runningWatches() { return [...S.jobs.values()].filter((j) => isWatchJob(j) && j.status === 'running'); }
+function renderWatchRow() {
+  const row = $('#sb-watch-row');
+  if (!row) return;
+  const ws = runningWatches();
+  const n = Math.max(ws.length, S.projects.filter((p) => p.watching).length);
+  $('#sb-watch').innerHTML = n ? `<span class="busy" style="display:inline-flex"><span class="nokta"></span></span>${n}` : '0';
+  row.classList.toggle('aktif', n > 0);
+  row.title = ws.map((j) => `${j.project}: ${j.last || '…'}`).join('\n');
+}
+async function openWatches(anchor) {
+  await refreshJobsMeta();
+  const ws = runningWatches();
+  if (!ws.length) return toast(t('noWatches'));
+  if (ws.length === 1) return showJobLog(ws[0].id);
+  openMenu(anchor, ws.map((j) => ({ icon: 'eye', label: j.project || j.title, hint: j.last || '…', run: () => showJobLog(j.id) })));
 }
 setInterval(renderDock, 3000);
 
@@ -472,7 +493,7 @@ async function showJobLog(id) {
   // yeni takip başlıyorsa backlog onLine üzerinden akar → arada satır kaybolmaz.
   let j = S.jobs.get(id);
   const fresh = !j;
-  if (fresh) j = trackJob(id, { title: snap.title, server: snap.server, project: snap.project, quiet: true });
+  if (fresh) j = trackJob(id, { kind: snap.kind, title: snap.title, server: snap.server, project: snap.project, quiet: true });
   const header = () => {
     const st = j.status === 'running' ? 'busy' : j.status === 'error' ? 'bad' : 'ok';
     const txt = j.status === 'running' ? t('stRunning') : j.status === 'error' ? t('stError') : t('stDone');
@@ -508,7 +529,7 @@ function onJobFinished(j) {
 async function refreshJobsMeta() {
   try {
     const list = await GET('/api/jobs');
-    for (const x of list) if (x.status === 'running' && !S.jobs.has(x.id)) trackJob(x.id, { title: x.title, server: x.server, project: x.project, quiet: true });
+    for (const x of list) if (x.status === 'running' && !S.jobs.has(x.id)) trackJob(x.id, { kind: x.kind, title: x.title, server: x.server, project: x.project, quiet: true });
   } catch { /* yoksay */ }
 }
 
@@ -577,7 +598,7 @@ async function loadProjects() {
         <button class="btn kucuk" id="nav-bos-ekle">${icon('plus')}<span data-t="addProject">${t('addProject')}</span></button></div>`;
   const nb = $('#nav-bos-ekle');
   if (nb) nb.onclick = addProjectFlow;
-  $('#sb-watch').textContent = S.projects.filter((p) => p.watching).length;
+  renderWatchRow();
 }
 
 function applyLang() {
@@ -708,7 +729,7 @@ async function tabOverview(proj) {
     $('#b-watch', root).onclick = async () => {
       try {
         if (w) { await api('DELETE', `/api/p/${enc(P)}/watch`); toast(t('watchStopped')); }
-        else { const gw = await api('POST', `/api/p/${enc(P)}/watch`, {}); trackJob(gw.job_id, { project: P, title: 'Watch', quiet: true }); toast(t('watchStarted')); }
+        else { const gw = await api('POST', `/api/p/${enc(P)}/watch`, {}); trackJob(gw.job_id, { kind: 'watch', project: P, title: 'Watch', quiet: true }); toast(t('watchStarted')); }
         await loadProjects(); render(true);
       } catch (e) { fail(e); }
     };
@@ -1940,6 +1961,7 @@ async function boot() {
   }));
   $('#btn-proje-ekle').onclick = addProjectFlow;
   $('#nav-ai').onclick = () => aiToggle();
+  $('#sb-watch-row').onclick = (e) => openWatches(e.currentTarget);
   $('#btn-kapat').onclick = async () => {
     if (!(await confirmBox(t('quit'), esc(t('quitConfirm')), t('quit'), true))) return;
     await api('POST', '/api/quit').catch(() => {});
