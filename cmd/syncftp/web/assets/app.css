@@ -452,7 +452,7 @@ body.terminal-modu #sayfa { height: 100%; }
 .term-sayfa { display: flex; flex-direction: column; height: 100%; }
 .term-bar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .term-bar h1 { display: flex; align-items: center; gap: 8px; font-size: 16px; margin: 0; }
-.term-bar select { width: auto; height: 30px; font-size: 13px; }
+.term-bar select { width: auto; min-width: 200px; height: 34px; padding: 0 10px; font-size: 13px; line-height: normal; }
 .term-dir { font-size: 11px; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .term-ipucu { font-size: 12px; }
 .term-kap { flex: 1; min-height: 0; background: #111113; padding: 8px 4px 4px 12px; }
