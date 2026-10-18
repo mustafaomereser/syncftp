@@ -707,6 +707,9 @@ type StringSet struct {
 	SyncCalibrateAbortFmt    string // "  ✗ calibrate başarısız, sync iptal edildi: %v\n"
 	SyncCleanupIncludeKept   string // "  ⚠ include listesi boşalacağı için olmayan yollar listede bırakıldı\n"
 	RollbackStoppedFmt       string // "  ! %s tamamen geri alınamadı — daha eski release'lere dokunulmadı\n"
+	RollbackKeptNewFmt       string // "  · %d yeni eklenen dosya sunucuda bırakıldı\n"
+	RollbackWillDeleteFmt    string // onay: "\n%d yeni eklenen dosya SİLİNECEK:\n  %s\n"
+	RollbackWillKeepFmt      string // onay: "\n%d yeni eklenen dosya sunucuda bırakılacak (silmek için --delete-new)\n"
 	ReleaseFileNotFoundFmt   string // "release'te böyle bir dosya yok: %s"
 	ReleaseDiffBinary        string
 	ReleaseDiffNoBefore      string

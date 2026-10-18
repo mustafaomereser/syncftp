@@ -56,7 +56,7 @@ func firstPositional(args []string) string {
 	return ""
 }
 
-// cmdRollback — rollback [release-id] [--list] [--server ad]
+// cmdRollback — rollback [release-id] [--list] [--delete-new] [--server ad]
 func (sh *shellState) cmdRollback(args []string) {
 	srv, ok := sh.shellTargetServer(args)
 	if !ok {
@@ -93,15 +93,12 @@ func (sh *shellState) cmdRollback(args []string) {
 		fmt.Printf(lang.L.ShellErrFmt, err)
 		return
 	}
-	var sb strings.Builder
-	for _, m := range plan {
-		fmt.Fprintf(&sb, "%s  %s\n", m.ID, releaseDesc(m))
-	}
-	if okc, _ := RunConfirm(fmt.Sprintf(lang.L.RollbackConfirmFmt, len(plan), srv.Name), sb.String()); !okc {
+	delNew := hasFlag(args, "--delete-new")
+	if okc, _ := RunConfirm(fmt.Sprintf(lang.L.RollbackConfirmFmt, len(plan), srv.Name), rollbackConfirmBody(plan, nil, delNew)); !okc {
 		fmt.Println(lang.L.ShellSyncCancelled)
 		return
 	}
-	_, logPath, err := rollbackLogged(os.Stdout, sh.configDir, srv, plan, nil)
+	_, logPath, err := rollbackLogged(os.Stdout, sh.configDir, srv, plan, nil, delNew)
 	if err != nil {
 		fmt.Printf(lang.L.ShellErrFmt, err)
 		return

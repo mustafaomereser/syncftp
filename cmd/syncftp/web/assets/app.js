@@ -93,11 +93,11 @@ const T = {
     colWhen: 'Zaman', colServer: 'Sunucu', colFiles: 'Dosya', colReplaced: 'Değişen', colNew: 'Yeni', colStatus: 'Durum',
     rolledBack: 'geri alındı', noBackupTag: 'yedek yok', restorable: 'geri alınabilir', details: 'Ayrıntı', undo: 'Geri al',
     noReleases: 'Henüz release yok', rollbackTitle: 'Geri alma — {0}',
-    rollbackBody: 'Aşağıdaki {0} release EN YENİDEN başlayarak geri alınacak: değişen dosyaların eski hali geri yüklenir, yeni eklenen dosyalar sunucudan silinir.',
+    rollbackBody: 'Aşağıdaki {0} release EN YENİDEN başlayarak geri alınacak: değişen dosyaların eski hali geri yüklenir. Yeni eklenen dosyalar, aşağıdaki kutuyu işaretlemezseniz sunucuda kalır.',
     rollbackGo: 'Geri al',
     logs: 'Loglar', noLogs: 'Log yok', releaseTitle: 'Release {0}',
     relPickFile: 'Farkını görmek için soldan bir dosya seçin', relSelected: '{0} dosya seçili', relNotRestorable: 'Bu release geri alınamaz (yedeği yok ya da geri alınmış)', relRollbackSel: 'Seçilenleri geri al ({0})', relRollbackAll: 'Tümünü geri al', relPartly: 'kısmen geri alındı ({0} dosya)', relRolledFile: 'Bu dosya geri alındı', relNoBackupFile: 'Yedek yok — geri alınamaz', noFiles: 'Dosya yok',
-    rbSelBody: '{0} dosya {1} release\'inden önceki hâline döner (yeni eklenmiş olanlar sunucudan silinir).', rbSelChain: 'Bu dosyalar daha yeni release\'lerde de değiştiği için onlarda da bu dosyalar geri alınır:',
+    rbSelBody: '{0} dosya {1} release\'inden önceki hâline döner.', rbDeleteNew: 'Sonradan eklenen {0} dosyayı da sunucudan sil', rbDeleteNewHint: 'Kapalıyken bu release\'lerin yeni eklediği dosyalar sunucuda kalır; sonra ağaçtan seçip silebilirsiniz.', rbSelChain: 'Bu dosyalar daha yeni release\'lerde de değiştiği için onlarda da bu dosyalar geri alınır:',
     relBefore: 'Önceki hal', relAfter: 'Yüklenen hal', relDiffHint: 'Sunucudaki önceki hal → bu sync\'te yüklenen hal', relFileHint: 'Farkı görmek için dosyaya tıklayın',
     relNoBefore: 'Önceki hal yok — yedek alınamamış ya da eski olduğu için silinmiş.', relNoAfter: 'Yüklenen hal saklanmamış ve yerel dosya o zamandan beri değişmiş.', relNewFile: 'Bu sync\'te sunucuya yeni eklenen dosya', relAfterLocal: 'Yüklenen hal yerel dosyadan (hash aynı)',
     jobsTitle: 'İşler', jobsSub: 'Bu oturumda çalışan ve tamamlanan işler', noJobs: 'Henüz iş yok', activeWatches: 'Aktif watch\'lar',
@@ -208,11 +208,11 @@ const T = {
     colWhen: 'When', colServer: 'Server', colFiles: 'Files', colReplaced: 'Replaced', colNew: 'New', colStatus: 'Status',
     rolledBack: 'rolled back', noBackupTag: 'no backup', restorable: 'restorable', details: 'Details', undo: 'Roll back',
     noReleases: 'No releases yet', rollbackTitle: 'Roll back — {0}',
-    rollbackBody: 'The following {0} release(s) will be undone, NEWEST first: replaced files get their previous version back, newly added files are deleted from the server.',
+    rollbackBody: 'The following {0} release(s) will be undone, NEWEST first: replaced files get their previous version back. Newly added files stay on the server unless you tick the box below.',
     rollbackGo: 'Roll back',
     logs: 'Logs', noLogs: 'No logs', releaseTitle: 'Release {0}',
     relPickFile: 'Pick a file on the left to see its diff', relSelected: '{0} file(s) selected', relNotRestorable: 'This release cannot be rolled back (no backup or already rolled back)', relRollbackSel: 'Roll back selected ({0})', relRollbackAll: 'Roll back all', relPartly: 'partly rolled back ({0} files)', relRolledFile: 'This file was rolled back', relNoBackupFile: 'No backup — cannot be rolled back', noFiles: 'No files',
-    rbSelBody: '{0} file(s) return to their version before release {1} (newly added ones are deleted from the server).', rbSelChain: 'These files also changed in newer releases, so they are rolled back there too:',
+    rbSelBody: '{0} file(s) return to their version before release {1}.', rbDeleteNew: 'Also delete the {0} newly added file(s) from the server', rbDeleteNewHint: 'When off, files these releases added stay on the server; you can select and delete them later from the tree.', rbSelChain: 'These files also changed in newer releases, so they are rolled back there too:',
     relBefore: 'Before', relAfter: 'Uploaded', relDiffHint: 'Previous server version → version uploaded by this sync', relFileHint: 'Click a file to see its diff',
     relNoBefore: 'No previous version — the backup is missing or was purged as old.', relNoAfter: 'The uploaded version was not stored and the local file has changed since.', relNewFile: 'File newly added to the server by this sync', relAfterLocal: 'Uploaded version taken from the local file (same hash)',
     jobsTitle: 'Jobs', jobsSub: 'Jobs running and finished in this session', noJobs: 'No jobs yet', activeWatches: 'Active watches',
@@ -2263,22 +2263,29 @@ async function rollbackFlow(P, srv, id, files = [], onStart) {
   const title = `${icon('undo')}${t('rollbackTitle', esc(srv))}`;
   const lm = await loadModal(title, 'orta', () => GET(`/api/p/${enc(P)}/releases/${enc(srv)}/${enc(id)}/plan${files.length ? '?files=' + enc(files.join('\n')) : ''}`));
   if (!lm) return;
-  const plan = lm.d || [];
+  const plan = (lm.d && lm.d.releases) || [];
+  const newFiles = (lm.d && lm.d.new_files) || [];
   const others = plan.filter((r) => r.id !== id);
   const body = files.length
     ? `<p>${t('rbSelBody', files.length, esc(id))}</p><div class="liste-kutu" style="max-height:30vh">${files.map((f) => `<div class="mono">${esc(f)}</div>`).join('')}</div>
       ${others.length ? `<p class="ipucu" style="margin-top:10px">${t('rbSelChain')}</p><div class="liste-kutu">${others.map((r) => `<div><b>${esc(r.id)}</b> <span class="faint">· ${fmtDate(r.created_at)}</span></div>`).join('')}</div>` : ''}`
     : `<p>${t('rollbackBody', plan.length)}</p><div class="liste-kutu">${plan.map((r) => `<div><b>${esc(r.id)}</b> <span class="faint">· ${fmtDate(r.created_at)} · ~${r.backed} +${r.new}</span></div>`).join('')}</div>`;
-  modal({
-    title, size: 'orta', body,
-    actions: [{ label: t('cancel'), cls: 'hayalet' }, { label: icon('undo') + (files.length ? t('relRollbackSel', files.length) : t('rollbackGo')), cls: 'tehlike', run: async () => {
-      const ids = await startJobs(P, { kind: 'rollback', servers: [srv], release: id, files }, t('rollback'));
+  // Yeni eklenen dosyalar varsayılan olarak sunucuda BIRAKILIR; silmek bilinçli seçim — liste gösterilir
+  const newBox = newFiles.length ? `<div class="rb-yeni">${fBool('delete_new', t('rbDeleteNew', newFiles.length), false, t('rbDeleteNewHint'))}
+      <div class="liste-kutu" data-newlist hidden style="max-height:24vh;margin-top:8px">${newFiles.map((f) => `<div class="mono bad-t">− ${esc(f)}</div>`).join('')}</div></div>` : '';
+  const cm = modal({
+    title, size: 'orta', body: body + newBox,
+    actions: [{ label: t('cancel'), cls: 'hayalet' }, { label: icon('undo') + (files.length ? t('relRollbackSel', files.length) : t('rollbackGo')), cls: 'tehlike', run: async (root) => {
+      const del = $('[data-k="delete_new"]', root);
+      const ids = await startJobs(P, { kind: 'rollback', servers: [srv], release: id, files, delete_new: !!(del && del.checked) }, t('rollback'));
       if (onStart) onStart();
       const j = ids[0] && S.jobs.get(ids[0]);
       if (j) j.doneCbs.push(() => { if (/\/history/.test(location.hash)) render(true); }); // Geçmiş durumları tazelensin
       if (ids[0]) showJobLog(ids[0]);
     } }],
   });
+  const del = $('[data-k="delete_new"]', cm.root);
+  if (del) del.onchange = () => { $('[data-newlist]', cm.root).hidden = !del.checked; };
 }
 
 // ═══ Sayfa: işler ═════════════════════════════════════════════════════════════

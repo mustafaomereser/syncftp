@@ -71,7 +71,7 @@ func TestRollbackStopsAtFirstFailedRelease(t *testing.T) {
 	fake := &fakeRollbackRemote{failUpload: map[string]bool{"bad.txt": true}}
 
 	var out strings.Builder
-	rep, err := applyRollback(&out, dir, srv, []*release.Manifest{r2, r1}, fake, nil)
+	rep, err := applyRollback(&out, dir, srv, []*release.Manifest{r2, r1}, fake, nil, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func TestRollbackStopsAtFirstFailedRelease(t *testing.T) {
 	fake2 := &fakeRollbackRemote{}
 	r3 := &release.Manifest{Version: 2, ID: "r3", Backed: []string{"a"}}
 	r4 := &release.Manifest{Version: 2, ID: "r4", New: []string{"b"}}
-	rep, err = applyRollback(&out, dir, srv, []*release.Manifest{r4, r3}, fake2, nil)
+	rep, err = applyRollback(&out, dir, srv, []*release.Manifest{r4, r3}, fake2, nil, true)
 	if err != nil || len(rep.Releases) != 2 || !r3.RolledBack || !r4.RolledBack {
 		t.Fatalf("full chain: rep=%+v err=%v", rep, err)
 	}
@@ -169,7 +169,7 @@ func TestSelectiveRollback(t *testing.T) {
 	}
 	fake := &fakeRollbackRemote{}
 	var out strings.Builder
-	if _, err := applyRollback(&out, dir, srv, plan, fake, []string{"a.php", "c.php"}); err != nil {
+	if _, err := applyRollback(&out, dir, srv, plan, fake, []string{"a.php", "c.php"}, true); err != nil {
 		t.Fatal(err)
 	}
 	if want := []string{"up:a.php", "up:a.php", "rm:/www/c.php"}; !reflect.DeepEqual(fake.calls, want) {
@@ -180,7 +180,8 @@ func TestSelectiveRollback(t *testing.T) {
 	}
 	// Kalanların tam rollback'i yalnızca b.php'yi işler ve r1'i tamamen geri alınmış yapar
 	fake2 := &fakeRollbackRemote{}
-	if _, err := applyRollback(&out, dir, srv, []*release.Manifest{r1}, fake2, nil); err != nil {
+	// Varsayılan (deleteNew=false): b.php geri yüklenir ama yeni eklenen kalmadı → release tamamen geri alınır
+	if _, err := applyRollback(&out, dir, srv, []*release.Manifest{r1}, fake2, nil, false); err != nil {
 		t.Fatal(err)
 	}
 	if want := []string{"up:b.php"}; !reflect.DeepEqual(fake2.calls, want) || !r1.RolledBack {
@@ -189,5 +190,36 @@ func TestSelectiveRollback(t *testing.T) {
 	// Seçilen dosya hedefte yoksa
 	if _, err := rollbackPlanFiles(list, "r2", []string{"a.php"}); err == nil {
 		t.Fatal("hedefte olmayan dosya hata vermeli")
+	}
+}
+
+// Varsayılan rollback yeni eklenen dosyaları silmez: release kısmen geri alınmış kalır, dosyalar
+// sonra seçilip --delete-new ile silinebilir.
+func TestRollbackKeepsNewFilesByDefault(t *testing.T) {
+	dir := t.TempDir()
+	srv := config.Server{Name: "prod", RemotePath: "/www"}
+	r1 := &release.Manifest{Version: 2, ID: "r1", Backed: []string{"a.php"}, New: []string{"n.php"}}
+	fake := &fakeRollbackRemote{}
+	var out strings.Builder
+	if _, err := applyRollback(&out, dir, srv, []*release.Manifest{r1}, fake, nil, false); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"up:a.php"}; !reflect.DeepEqual(fake.calls, want) || r1.RolledBack || r1.FileRolledBack("n.php") {
+		t.Fatalf("calls=%v rolled=%v files=%v", fake.calls, r1.RolledBack, r1.RolledBackFiles)
+	}
+	if got := planNewFiles([]*release.Manifest{r1}, nil); !reflect.DeepEqual(got, []string{"n.php"}) {
+		t.Fatalf("planNewFiles = %v", got)
+	}
+	// Sonra yalnızca yeni dosyayı seçip silmek release'i tamamlar
+	plan, err := rollbackPlanFiles([]*release.Manifest{r1}, "r1", []string{"n.php"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fake2 := &fakeRollbackRemote{}
+	if _, err := applyRollback(&out, dir, srv, plan, fake2, []string{"n.php"}, true); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"rm:/www/n.php"}; !reflect.DeepEqual(fake2.calls, want) || !r1.RolledBack {
+		t.Fatalf("calls=%v rolled=%v", fake2.calls, r1.RolledBack)
 	}
 }

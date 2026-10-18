@@ -326,9 +326,11 @@ syncftp rollback -s production                   # pick a release
 syncftp rollback 20261016-063017 -s production -y
 ```
 
-Rolling back a release also rolls back every newer one (newest first): replaced files get their previous version back (byte for byte), new files are deleted, and the state returns to the old hashes so the next `sync` detects your local changes again. If a release can only be partly rolled back, older releases are left untouched. Only the last `sync.backup_keep` releases keep backup files.
+Rolling back a release also rolls back every newer one (newest first): replaced files get their previous version back (byte for byte) and the state returns to the old hashes so the next `sync` detects your local changes again. If a release can only be partly rolled back, older releases are left untouched. Only the last `sync.backup_keep` releases keep backup files.
 
-**Rolling back selected files** returns just those files to their version before the release (files the release added are deleted). Newer releases that changed the same files are rolled back for those files too; the releases are marked *partly rolled back*, and a later full rollback does not touch those files again:
+**Files a release added are left on the server by default.** Pass `--delete-new` (or tick *Also delete the newly added files* in the panel's confirmation, which lists them first) to delete them. Kept files keep the release *partly rolled back*; you can select and delete them later.
+
+**Rolling back selected files** returns just those files to their version before the release (files the release added are deleted only with `--delete-new`). Newer releases that changed the same files are rolled back for those files too; the releases are marked *partly rolled back*, and a later full rollback does not touch those files again:
 
 ```bash
 syncftp rollback 20261016-063017 -s production --files css/app.css,js/app.js
@@ -535,6 +537,7 @@ Checks that every file the state considers up to date exists on the server with 
 syncftp rollback [RELEASE-ID] [-s NAME] [--list] [-y]
 syncftp rollback RELEASE-ID [-s NAME] --diff[=PATH]     # show what the release changed, no rollback
 syncftp rollback RELEASE-ID [-s NAME] --files A,B        # roll back only these files
+syncftp rollback RELEASE-ID [-s NAME] --delete-new       # also delete files the release(s) added
 ```
 
 See [Backup, rollback & atomic uploads](#backup-rollback--atomic-uploads).

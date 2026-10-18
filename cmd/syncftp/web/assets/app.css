@@ -601,3 +601,5 @@ details.bolum.katlanir > summary h3 + .ok-ac { margin-left: auto; }
 .rt-sag-bas { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 13px; }
 .rt-alt { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 @media (max-width: 760px) { .rt-grid { grid-template-columns: minmax(0, 1fr); height: auto; } .rt-agac { max-height: 40vh; } }
+
+.rb-yeni { margin-top: 12px; }

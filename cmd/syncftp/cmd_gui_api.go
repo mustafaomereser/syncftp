@@ -712,10 +712,11 @@ type guiJobReq struct {
 	Fix         bool     `json:"fix"`
 	Max         int      `json:"max"`
 	Command     string   `json:"command"`
-	Path        string   `json:"path"`    // tree: RemotePath'e göreceli başlangıç
-	Include     []string `json:"include"` // tek seferlik (CLI sync --include gibi; config'teki include'u geçersiz kılar)
-	Exclude     []string `json:"exclude"` // tek seferlik (CLI sync --exclude gibi; ek)
-	Files       []string `json:"files"`   // rollback: yalnızca bu dosyalar (boş = release'in tamamı)
+	Path        string   `json:"path"`       // tree: RemotePath'e göreceli başlangıç
+	Include     []string `json:"include"`    // tek seferlik (CLI sync --include gibi; config'teki include'u geçersiz kılar)
+	Exclude     []string `json:"exclude"`    // tek seferlik (CLI sync --exclude gibi; ek)
+	Files       []string `json:"files"`      // rollback: yalnızca bu dosyalar (boş = release'in tamamı)
+	DeleteNew   bool     `json:"delete_new"` // rollback: release'in yeni eklediği dosyaları da sil
 }
 
 func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
@@ -812,7 +813,7 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return nil, err
 			}
-			rep, _, err := rollbackLogged(j, dir, srv, plan, req.Files)
+			rep, _, err := rollbackLogged(j, dir, srv, plan, req.Files, req.DeleteNew)
 			return rep, err
 		}))
 	case "detect":
@@ -1128,7 +1129,8 @@ func (sv *guiServer) apiReleasePlan(w http.ResponseWriter, r *http.Request) {
 	for i, m := range plan {
 		out[i] = m.Summary()
 	}
-	guiJSON(w, out)
+	// new_files: geri alınırsa silinebilecek (yeni eklenmiş) dosyalar — onay penceresindeki kutu için
+	guiJSON(w, map[string]any{"releases": out, "new_files": planNewFiles(plan, files)})
 }
 
 // apiReleaseFile release'teki bir dosyanın eski (yedek) ve yüklenen halini döner — CLI
