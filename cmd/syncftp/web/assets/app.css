@@ -554,3 +554,7 @@ details.bolum.katlanir > summary h3 + .ok-ac { margin-left: auto; }
 .ed-hatirla { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-size: 13px; color: var(--muted); cursor: pointer; }
 .ed-hatirla input { accent-color: var(--accent); }
 .modal-alt .sol .ed-hedef { display: inline-flex; align-items: center; gap: 4px; margin-left: 12px; color: var(--muted); }
+
+/* Modal düğmesindeki tek tuş kısayolu (actions[].key) */
+.btn kbd.kisayol { margin-left: 6px; padding: 0 4px; font-size: 10px; line-height: 15px; opacity: .7; }
+.btn.birincil kbd.kisayol { background: rgb(0 0 0 / .08); border-color: rgb(0 0 0 / .15); color: inherit; }
