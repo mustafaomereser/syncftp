@@ -215,12 +215,14 @@ func explorerWindows() map[uintptr]string {
 // açtığı için yeni CabinetWClass penceresi beklenir; aynı klasör zaten açıksa başlığından bulunur.
 func revealInFileManager(path string, selectFile bool) error {
 	before := explorerWindows()
-	cmd := exec.Command("explorer")
-	arg := `"` + path + `"`
+	// `cmd /c start` üzerinden: kullanıcı denedi, Explorer böyle doğrudan önde açılıyor. Aşağıdaki
+	// bekle + öne al yedek olarak kalıyor. CmdLine elle: /select,"…" Go'nun tırnaklamasıyla bozuluyor.
+	cmd := exec.Command("cmd")
+	line := `cmd /c start "" "` + path + `"`
 	if selectFile {
-		arg = `/select,"` + path + `"`
+		line = `cmd /c start "" explorer /select,"` + path + `"`
 	}
-	cmd.SysProcAttr = &syscall.SysProcAttr{CmdLine: `explorer ` + arg} // /select,"…" Go'nun tırnaklamasıyla bozuluyor
+	cmd.SysProcAttr = &syscall.SysProcAttr{CmdLine: line, HideWindow: true, CreationFlags: windows.CREATE_NO_WINDOW}
 	if err := cmd.Start(); err != nil {
 		return err
 	}
