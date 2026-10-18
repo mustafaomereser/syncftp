@@ -1220,7 +1220,8 @@ func (sv *guiServer) apiFrozenPut(w http.ResponseWriter, r *http.Request) {
 	}
 	var clean []string
 	for _, f := range req.Files {
-		if f = strings.Trim(filepath.ToSlash(strings.TrimSpace(f)), "/"); f != "" {
+		// baştaki / atılır; sondaki / klasör freeze'idir, korunur
+		if f = strings.TrimLeft(filepath.ToSlash(strings.TrimSpace(f)), "/"); f != "" && f != "/" {
 			clean = append(clean, f)
 		}
 	}
@@ -1232,13 +1233,12 @@ func (sv *guiServer) apiFrozenPut(w http.ResponseWriter, r *http.Request) {
 }
 
 // apiFrozenToggle dosya tarayıcısındaki freeze — CLI tarayıcısıyla aynı çekirdek (freezeToggle):
-// klasörler SUNUCUDAKİ dosyalarına açılır, çözerken klasör önekiyle tüm kayıtlar silinir.
+// klasör tek "klasör/" kaydıdır (sunucuda listeleme yok); çözerken altındaki kayıtlar da silinir.
 func (sv *guiServer) apiFrozenToggle(w http.ResponseWriter, r *http.Request) {
-	pname, srv, ok := sv.remoteServer(w, r)
+	p, srv, ok := sv.projectServer(w, r, r.URL.Query().Get("server"))
 	if !ok {
 		return
 	}
-	p, _ := projects.Find(pname)
 	var req struct {
 		Items []freezeTarget `json:"items"`
 	}
@@ -1253,15 +1253,9 @@ func (sv *guiServer) apiFrozenToggle(w http.ResponseWriter, r *http.Request) {
 			set[k] = v
 		}
 	}
-	var frozenNow bool
-	var n int
-	err := withRemote(pname, srv, func(c *ftpclient.Client) error {
-		var e error
-		frozenNow, n, e = freezeToggle(set, req.Items, remoteFolderLister(c, srv.RemotePath))
-		return e
-	})
+	frozenNow, n, err := freezeToggle(set, req.Items)
 	if err != nil {
-		guiErr(w, 502, err)
+		guiErr(w, 400, err)
 		return
 	}
 	if err := frozen.Save(p.Path, srv.Name, frozenSetList(set)); err != nil {

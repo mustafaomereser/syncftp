@@ -757,6 +757,7 @@ Diğer:
 	ConnHasProfileFmt:        "%q zaten %q bağlantı profilini kullanıyor",
 	ConnExtractedFmt:         "%q sunucusunun bilgileri %q bağlantı profiline taşındı\n",
 	ConnExtractReusedFmt:     "%q sunucusu aynı hesabı tutan %q profiline bağlandı\n",
+	FreezeByParentFmt:        "%s, üst klasörü %s freeze'li olduğu için freeze'li — önce klasörü çözün",
 	NoActiveServer:           "aktif sunucu yok",
 	SyncFrozenSkippedFmt:     "  ❄ %d frozen (atlandı)\n",
 	SyncFailedListReadFmt:    "failed listesi okunamadı: %w",

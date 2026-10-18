@@ -698,6 +698,7 @@ type StringSet struct {
 	ConnHasProfileFmt     string // "%q zaten %q bağlantı profilini kullanıyor"
 	ConnExtractedFmt      string // "%q sunucusunun bilgileri %q profiline taşındı"
 	ConnExtractReusedFmt  string // "%q sunucusu aynı hesabı tutan %q profiline bağlandı"
+	FreezeByParentFmt     string // "%s üst klasör %s freeze'li olduğu için freeze'li — önce klasörü çözün"
 	// Sync çekirdeği düzeltmeleri (failsafe temizlik, calibrate, rollback zinciri)
 	NoActiveServer           string // "aktif sunucu yok"
 	SyncFrozenSkippedFmt     string // "  ❄ %d frozen (atlandı)\n"

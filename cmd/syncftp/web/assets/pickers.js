@@ -4,7 +4,7 @@
    Panel içi seçiciler (native diyalog yok — odak/pencere sorunu yaşanmaz)
    pickPath({mode:'dir'|'file', initial, title})       → Promise<string|null>
    pickLocalTree({P, server, current, title, mode})    → Promise<string[]|null>
-     mode: 'paths' (include/exclude/protect — klasör ya da dosya) | 'files' (freeze — klasör → altındaki dosyalar)
+     mode: 'paths' (include/exclude/protect — klasör ya da dosya) | 'files' (freeze — klasör "klasör/" olarak, altındaki her şey)
    app.js'ten sonra yüklenir; T / modal / api / icon / esc yardımcılarını kullanır.
    ═══════════════════════════════════════════════════════════════════════════ */
 
@@ -14,7 +14,7 @@ Object.assign(T.tr, {
   pkExplorerHint: 'Klasöre tıklayınca içine girer, .. ile geri çıkar. Onay kutusuyla işaretleyin. Klavye: ↑↓ gez, Enter gir, Space işaretle, Backspace geri.', pkRoot: 'Proje kökü',
   pkHidden: 'Gizlileri göster', pkTreeTitle: 'Yerel dosyalardan seç', pkIgnored: 'ignore', pkSelected: '{0} seçili',
   
-  pkFreezeHint: 'Klasör işaretlemek altındaki tüm dosyaları freeze listesine ekler.',
+  pkFreezeHint: 'Klasör işaretlenirse klasörün kendisi freeze\'lenir: altındaki her dosya (sonradan eklenenler dahil) yüklenmez.',
 });
 Object.assign(T.en, {
   pkTitleDir: 'Choose folder', pkTitleFile: 'Choose file', pkDrives: 'Drives', pkHome: 'Home', pkUp: 'Parent folder',
@@ -22,7 +22,7 @@ Object.assign(T.en, {
   pkExplorerHint: 'Click a folder to open it, .. to go back. Tick checkboxes to select. Keys: ↑↓ move, Enter open, Space select, Backspace back.', pkRoot: 'Project root',
   pkHidden: 'Show hidden', pkTreeTitle: 'Pick from local files', pkIgnored: 'ignored', pkSelected: '{0} selected',
   
-  pkFreezeHint: 'Checking a folder adds every file inside it to the freeze list.',
+  pkFreezeHint: 'Checking a folder freezes the folder itself: nothing inside it (including files added later) is uploaded.',
 });
 
 // ── Dosya sistemi seçici ─────────────────────────────────────────────────────
@@ -160,7 +160,7 @@ function relToProject(projectPath, abs) {
 // Üstte yol çubuğu (tıklanabilir), altta seçilenler (✕ ile çıkarılır). Listede olup ağaçta karşılığı
 // olmayan kalıplar (glob vb.) korunur.
 // root verilirse proje yerine o mutlak klasör gezilir (hızlı yükleme / varsayılanlar).
-// mode: 'paths' (include/exclude) | 'protect' (klasörlere / eklenir) | 'files' (freeze: klasör → altındaki dosyalar)
+// mode: 'paths' (include/exclude) | 'protect' (klasörlere / eklenir) | 'files' (freeze: klasör "klasör/" olarak)
 function pickLocalTree({ P, root = '', server = '', current = [], title, mode = 'paths' }) {
   return new Promise((resolve) => {
     const sel = new Set((current || []).map((x) => x.replace(/\/+$/, '')).filter(Boolean));
@@ -176,17 +176,8 @@ function pickLocalTree({ P, root = '', server = '', current = [], title, mode = 
         { left: '<span data-count></span>' },
         { label: t('cancel'), cls: 'hayalet', run: () => { done = true; resolve(null); } },
         { label: icon('check') + t('save'), cls: 'birincil', run: async () => {
-          let out = [...sel];
-          if (mode === 'files') {
-            const expanded = new Set();
-            for (const p of out) {
-              if (dirMarks.has(p)) {
-                const files = await GET(`/api/p/${enc(P)}/local/files?server=${enc(server)}&path=${enc(p)}`).catch(() => []);
-                files.forEach((f) => expanded.add(f));
-              } else expanded.add(p);
-            }
-            out = [...expanded];
-          } else out = out.map((p) => (dirMarks.has(p) && mode === 'protect' ? p + '/' : p));
+          // protect ve freeze ('files'): klasör "klasör/" olarak kaydedilir (altındaki her şey)
+          const out = [...sel].map((p) => (dirMarks.has(p) && mode !== 'paths' ? p + '/' : p));
           done = true; resolve(out.sort());
         } },
       ],

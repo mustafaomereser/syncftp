@@ -21,7 +21,6 @@ import (
 	"syncftp/internal/ignore"
 	"syncftp/internal/lang"
 	"syncftp/internal/projects"
-	"syncftp/internal/scanner"
 )
 
 // GUI 2.1 uçları: panel içi dosya seçici, proje yerel ağacı, uzak dosya işlemleri
@@ -34,7 +33,6 @@ func (sv *guiServer) routesMore(mux *http.ServeMux) {
 	sv.registerLibraryAPI(mux)
 	sv.registerTermAPI(mux)
 	mux.HandleFunc("GET /api/p/{p}/local/ls", sv.apiLocalLs)
-	mux.HandleFunc("GET /api/p/{p}/local/files", sv.apiLocalFiles)
 
 	mux.HandleFunc("POST /api/p/{p}/remote/upload", sv.apiRemoteUpload)
 	mux.HandleFunc("POST /api/p/{p}/remote/mkdir", sv.apiRemoteMkdir)
@@ -540,30 +538,6 @@ func (sv *guiServer) apiIgnorePut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	guiErr(w, 400, errors.New("dir"))
-}
-
-// apiLocalFiles bir yerel klasörün altındaki (ignore edilmeyen) tüm dosyaların göreceli yollarını
-// döner — freeze listesine klasör eklemek için (freeze dosya yolu bekler). En fazla 20000.
-func (sv *guiServer) apiLocalFiles(w http.ResponseWriter, r *http.Request) {
-	p, cfg, err := sv.project(r)
-	if err != nil {
-		guiErr(w, 404, err)
-		return
-	}
-	srv, ok := findServer(cfg, r.URL.Query().Get("server"))
-	if !ok {
-		guiErr(w, 404, fmt.Errorf(lang.L.ServerNotFoundFmt, r.URL.Query().Get("server")))
-		return
-	}
-	root := filepath.Join(p.Path, srv.EffectiveLocalPath(cfg.Project))
-	rel := strings.Trim(path.Clean("/"+r.URL.Query().Get("path")), "/")
-	matcher, _ := ignore.Load(root, cfg.Sync.IgnoreFiles)
-	files, _ := scanner.List(root, rel, matcher, 20000) // sync taramasıyla aynı kurallar (hash'siz)
-	out := make([]string, len(files))
-	for i, f := range files {
-		out[i] = f.RelPath
-	}
-	guiJSON(w, out)
 }
 
 // apiHelp CLI komut referansını doğrudan cobra tanımlarından üretir

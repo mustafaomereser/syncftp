@@ -757,6 +757,7 @@ Other:
 	ConnHasProfileFmt:        "%q already uses the %q connection profile",
 	ConnExtractedFmt:         "Moved the details of server %q to connection profile %q\n",
 	ConnExtractReusedFmt:     "Linked server %q to profile %q, which holds the same account\n",
+	FreezeByParentFmt:        "%s is frozen because its parent folder %s is — unfreeze the folder first",
 	NoActiveServer:           "no enabled server",
 	SyncFrozenSkippedFmt:     "  ❄ %d frozen (skipped)\n",
 	SyncFailedListReadFmt:    "could not read failed list: %w",

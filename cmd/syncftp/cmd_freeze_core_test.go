@@ -6,22 +6,27 @@ import (
 )
 
 func TestFreezeToggleFolderAndUnfreezeByPrefix(t *testing.T) {
-	set := map[string]bool{}
-	list := func(rel string) ([]string, error) { return []string{"a.php", "sub/b.php"}, nil }
-	// frozen değil → sunucudaki dosyalar eklenir
-	frozen, n, err := freezeToggle(set, []freezeTarget{{Rel: "app", Dir: true}}, list)
-	if err != nil || !frozen || n != 2 || !set["app/a.php"] || !set["app/sub/b.php"] {
-		t.Fatalf("freeze: frozen=%v n=%d set=%v err=%v", frozen, n, set, err)
+	// eski usul tek tek dosya kayıtları klasör freeze'inde temizlenir, tek "app/" kalır
+	set := map[string]bool{"app/a.php": true}
+	isFrozen, n, err := freezeToggle(set, []freezeTarget{{Rel: "app", Dir: true}, {Rel: "x.txt"}})
+	if err == nil && isFrozen { // app zaten "frozen" görünüyordu ama x.txt değildi → hepsi eklenir
+		if strings.Join(frozenSetList(set), ",") != "app/,x.txt" || n != 2 {
+			t.Fatalf("freeze: n=%d set=%v", n, set)
+		}
+	} else {
+		t.Fatalf("freeze: frozen=%v err=%v", isFrozen, err)
 	}
-	// altında frozen var (❄📁) → çöz; yerelde/sunucuda artık olmayan eski kayıt da önekle gider
-	set["app/old-deleted.php"] = true
-	frozen, n, _ = freezeToggle(set, []freezeTarget{{Rel: "app", Dir: true}}, list)
-	if frozen || n != 3 || len(set) != 0 {
-		t.Fatalf("unfreeze: frozen=%v n=%d set=%v", frozen, n, set)
+	// klasör altındaki dosya üst klasörden freeze'li, tek başına çözülemez
+	if !freezeIsFrozen(set, freezeTarget{Rel: "app/sub/b.php"}) {
+		t.Fatal("alt dosya freeze'li görünmeli")
 	}
-	// dosya
-	freezeToggle(set, []freezeTarget{{Rel: "x.txt"}}, nil)
-	if strings.Join(frozenSetList(set), ",") != "x.txt" {
-		t.Fatalf("file: %v", set)
+	if _, _, err := freezeToggle(set, []freezeTarget{{Rel: "app/sub/b.php"}}); err == nil {
+		t.Fatal("üst klasörü freeze'li dosya çözülememeli")
+	}
+	// klasörü çöz → "app/" ve altındaki eski kayıtlar gider
+	set["app/old.php"] = true
+	isFrozen, n, _ = freezeToggle(set, []freezeTarget{{Rel: "app", Dir: true}})
+	if isFrozen || n != 2 || strings.Join(frozenSetList(set), ",") != "x.txt" {
+		t.Fatalf("unfreeze: frozen=%v n=%d set=%v", isFrozen, n, set)
 	}
 }

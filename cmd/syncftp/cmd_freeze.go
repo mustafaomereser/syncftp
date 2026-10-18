@@ -95,11 +95,21 @@ func buildFreezeItems(configDir string, cfg *config.Config, srv config.Server) (
 	if err != nil {
 		return nil, err
 	}
+	// Klasör freeze'leri ("x/") listenin başında; altlarındaki dosyalar ayrıca gösterilmez
+	// (yoksa kaydederken klasör kaydı listeden düşerdi)
+	fl, _ := frozen.Load(configDir, srv.Name)
+	dirs := frozen.Dirs(fl)
+	sort.Strings(dirs)
+	items := make([]PickerItem, 0, len(dirs)+len(current))
+	for _, d := range dirs {
+		items = append(items, PickerItem{Icon: "📁", Label: d, Value: d})
+	}
 	rels := mapKeys(current)
 	sort.Strings(rels)
-	items := make([]PickerItem, len(rels))
-	for i, r := range rels {
-		items[i] = PickerItem{Label: r, Value: r}
+	for _, r := range rels {
+		if !frozenUnderDir(dirs, r) {
+			items = append(items, PickerItem{Label: r, Value: r})
+		}
 	}
 	return items, nil
 }

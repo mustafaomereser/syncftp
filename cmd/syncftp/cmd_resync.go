@@ -293,7 +293,13 @@ func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts ca
 
 	fmt.Fprintf(o, "  %s\n", lang.L.ResyncListing)
 	// Uzak taramada ignore/exclude edilen ve include dışında kalan dizinlere hiç girilmez
-	skip := remoteSkipFunc(matcher, effectiveInclude, effectiveExclude)
+	// Freeze'li klasörlere de girilmez (binlerce dosyalı node_modules / uploads listelenmesin)
+	frozenList, _ := frozen.Load(dir, srv.Name)
+	baseSkip := remoteSkipFunc(matcher, effectiveInclude, effectiveExclude)
+	frozenDirs := frozen.Dirs(frozenList)
+	skip := func(rel string) bool {
+		return baseSkip(rel) || frozen.IsFrozen(frozenList, strings.TrimSuffix(rel, "/")+"/")
+	}
 	var remoteFiles map[string]uint64
 	var err2 error
 	if opts.interactive {
@@ -327,8 +333,6 @@ func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts ca
 	}
 	p(lang.L.ResyncFoundFmt, len(remoteFiles))
 
-	frozenList, _ := frozen.Load(dir, srv.Name)
-
 	total := len(current)
 	done := 0
 	matched := 0
@@ -337,6 +341,9 @@ func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts ca
 	lastPrint := time.Now()
 	for key, hash := range current {
 		done++
+		if frozenUnderDir(frozenDirs, key) {
+			continue // freeze'li klasör sunucuda listelenmedi — state'e dokunma
+		}
 		if done%200 == 0 && ctx.Err() != nil {
 			return cancelled() // state kaydedilmeden
 		}
@@ -552,4 +559,14 @@ func remoteSkipFunc(matcher *ignore.Matcher, include, exclude []string) func(rel
 		}
 		return true
 	}
+}
+
+// frozenUnderDir yol freeze'li klasörlerden birinin altında mı (calibrate o klasörleri listelemez).
+func frozenUnderDir(dirs []string, rel string) bool {
+	for _, d := range dirs {
+		if strings.HasPrefix(rel, d) {
+			return true
+		}
+	}
+	return false
 }

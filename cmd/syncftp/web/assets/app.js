@@ -47,7 +47,7 @@ const T = {
     milestoneCurrent: 'Mevcut: {0}', milestoneDate: 'Tarih', milestonePh: 'bugün', milestoneDateHint: 'boş = şimdi · bugün · dün · 3d · 5h · 14:30 · 20.07 · 20.07.2026 15:04 · 2026-07-20',
     milestoneSet: 'Ayarla', milestoneClear: 'Kaldır', milestoneSaved: 'Milestone: {0}', milestoneCleared: 'Milestone kaldırıldı',
     freezeTitle: '{0} — freeze listesi', freezeBody: 'Her satıra bir dosya yolu (yerel dizine göreceli). Bu dosyalar değişse bile yüklenmez.',
-    freezeSaved: '{0} dosya frozen',
+    freezeSaved: 'Freeze listesi kaydedildi ({0} kayıt)',
     colName: 'Ad', colProtocol: 'Protokol', colHost: 'Host', colRemote: 'Uzak dizin', colLocal: 'Yerel dizin', colEnabled: 'Aktif',
     duplicate: 'Kopyala', deleteServerConfirm: '"{0}" sunucusu config\'ten silinsin mi? (State ve yedekler diskte kalır.)',
     serverNew: 'Yeni sunucu', serverEdit: 'Sunucuyu düzenle',
@@ -115,7 +115,7 @@ const T = {
     upload: 'Yükle', newFolder: 'Yeni klasör', folderName: 'Klasör adı', rename: 'Yeniden adlandır / taşı', newPath: 'Yeni yol (uzak dizine göreceli)',
     moveTo: 'Taşı', selectedN: '{0} seçili', clearSel: 'Seçimi temizle',
     freezeToggle: 'Freeze / unfreeze', frozenBadge: 'frozen', searchAll: 'Alt klasörlerde ara', searchTitle: '"{0}" araması', searchNone: 'Sonuç yok', searching: 'Aranıyor…', searchingN: '{0} sonuç · {1} klasör tarandı…', searchDoneN: '{0} sonuç · {1} klasör · {2} sn', searchTruncated: 'Çok fazla sonuç (ilk 2000) ya da 5 dakika sınırı doldu — aramayı daraltın.',
-    uploaded: '{0} dosya yüklendi', created: 'Oluşturuldu', moved: 'Taşındı', frozenAdded: '{0} dosya freeze listesine eklendi', frozenRemoved: '{0} dosya freeze listesinden çıkarıldı',
+    uploaded: '{0} dosya yüklendi', created: 'Oluşturuldu', moved: 'Taşındı', frozenAdded: '{0} öğe freeze listesine eklendi', frozenRemoved: '{0} kayıt freeze listesinden çıkarıldı',
     deleteManyConfirm: '{0} öğe sunucudan KALICI olarak silinsin mi? (klasörler içerikleriyle)', runCmd: 'Sunucuda komut çalıştır', runCmdHint: 'SSH ile uzak dizinde komut çalıştırır', diffLocalMissing: 'Yerelde yok', diffTooBig: 'Dosya karşılaştırma için çok büyük — tam görünüm gösteriliyor',
     unsavedTitle: 'Kaydedilmemiş değişiklikler', unsavedBody: 'Bu formda kaydedilmemiş değişiklikler var. Sayfadan çıkılırsa kaybolacak.', unsavedLeave: 'Kaydetmeden çık',
     diffHint: 'Sunucu → yerel: <span class="bad-t">−</span> sunucudan gidecek, <span class="ok-t">+</span> sync ile gelecek', foldN: '⋯ {0} aynı satır', clickToDiff: 'Farkı görmek için dosyaya tıklayın',
@@ -160,7 +160,7 @@ const T = {
     milestoneCurrent: 'Current: {0}', milestoneDate: 'Date', milestonePh: 'today', milestoneDateHint: 'empty = now · today · yesterday · 3d · 5h · 14:30 · 20.07 · 20.07.2026 15:04 · 2026-07-20',
     milestoneSet: 'Set', milestoneClear: 'Clear', milestoneSaved: 'Milestone: {0}', milestoneCleared: 'Milestone cleared',
     freezeTitle: '{0} — freeze list', freezeBody: 'One file path per line (relative to the local folder). These files are never uploaded, even when changed.',
-    freezeSaved: '{0} file(s) frozen',
+    freezeSaved: 'Freeze list saved ({0} entries)',
     colName: 'Name', colProtocol: 'Protocol', colHost: 'Host', colRemote: 'Remote path', colLocal: 'Local path', colEnabled: 'Enabled',
     duplicate: 'Duplicate', deleteServerConfirm: 'Remove server "{0}" from the config? (State and backups stay on disk.)',
     serverNew: 'New server', serverEdit: 'Edit server',
@@ -228,7 +228,7 @@ const T = {
     upload: 'Upload', newFolder: 'New folder', folderName: 'Folder name', rename: 'Rename / move', newPath: 'New path (relative to remote root)',
     moveTo: 'Move', selectedN: '{0} selected', clearSel: 'Clear selection',
     freezeToggle: 'Freeze / unfreeze', frozenBadge: 'frozen', searchAll: 'Search subfolders', searchTitle: 'Search "{0}"', searchNone: 'No results', searching: 'Searching…', searchingN: '{0} results · {1} folders scanned…', searchDoneN: '{0} results · {1} folders · {2}s', searchTruncated: 'Too many results (first 2000) or the 5-minute limit was hit — narrow the search.',
-    uploaded: '{0} file(s) uploaded', created: 'Created', moved: 'Moved', frozenAdded: '{0} file(s) added to the freeze list', frozenRemoved: '{0} file(s) removed from the freeze list',
+    uploaded: '{0} file(s) uploaded', created: 'Created', moved: 'Moved', frozenAdded: '{0} item(s) added to the freeze list', frozenRemoved: '{0} entr(y/ies) removed from the freeze list',
     deleteManyConfirm: 'PERMANENTLY delete {0} item(s) from the server? (folders with their contents)', runCmd: 'Run command on server', runCmdHint: 'Runs a command over SSH in the remote folder', diffLocalMissing: 'Missing locally', diffTooBig: 'File too large to diff — showing full view',
     unsavedTitle: 'Unsaved changes', unsavedBody: 'This form has unsaved changes. They will be lost if you leave the page.', unsavedLeave: 'Leave without saving',
     diffHint: 'Server → local: <span class="bad-t">−</span> leaves the server, <span class="ok-t">+</span> arrives with sync', foldN: '⋯ {0} unchanged lines', clickToDiff: 'Click a file to see the diff',
@@ -1686,8 +1686,8 @@ async function tabFiles(proj, srvName, relPath) {
   const entries = data.entries || [];
   const sel = new Set();
 
-  // Freeze ekle/çıkar: dosyalar doğrudan, klasörler yereldeki dosyalarına açılır
-  // CLI tarayıcısıyla aynı çekirdek: klasör → sunucudaki dosyaları; hepsi frozen ise çözer
+  // Freeze ekle/çıkar — CLI tarayıcısıyla aynı çekirdek: klasör tek "klasör/" kaydı (altındaki her şey);
+  // hepsi frozen ise çözer
   async function toggleFreeze(items) {
     try {
       const r = await api('POST', `/api/p/${enc(P)}/frozen/toggle?${q}`, { items: items.map((it) => ({ path: it.path, dir: it.type === 'dir' })) });
@@ -1955,10 +1955,16 @@ async function tabFiles(proj, srvName, relPath) {
 
   // Sync'e hiç girmeyen dosya/klasör: ignore dosyası / exclude / include dışı (syncSkipReason)
   const skipBadge = (k) => (k ? `<span class="pill" style="height:18px;font-size:11px" title="${t('skipHint_' + k)}">${icon('x')}${t('skip_' + k)}</span>` : '');
+  // frozen.MatchSet ile aynı: kendisi, "klasör/" kaydı ya da üst klasörlerinden biri; klasörde altında kayıt da
   const frozenUnder = (p) => { const pre = p + '/'; for (const f of frozenSet) if (f.startsWith(pre)) return true; return false; };
+  const frozenSelf = (p, dir) => {
+    if (frozenSet.has(dir ? p + '/' : p)) return true;
+    for (let i = p.indexOf('/'); i >= 0; i = p.indexOf('/', i + 1)) if (frozenSet.has(p.slice(0, i + 1))) return true;
+    return false;
+  };
   function rowHTML(e, checked) {
     const p = full(e.name);
-    const fz = e.type === 'dir' ? frozenUnder(p) : frozenSet.has(p);
+    const fz = frozenSelf(p, e.type === 'dir') || (e.type === 'dir' && frozenUnder(p));
     return `<tr data-entry="${esc(e.name)}" data-type="${e.type}" class="tikla"><td class="sec-hucre"><label><input type="checkbox" ${checked ? 'checked' : ''}></label></td>
       <td><div class="ad-hucre">${icon(e.type === 'dir' ? 'folder' : 'file', e.type === 'dir' ? 'acc-t' : 'faint')}<span>${esc(e.name)}</span>${fz ? `<span class="pill" style="height:18px;font-size:11px">${icon('snow')}${t('frozenBadge')}</span>` : ''}${skipBadge(e.skip)}</div></td>
       <td class="sag mono faint">${e.type === 'dir' ? '' : bytes(e.size)}</td><td class="mono faint">${e.time && !e.time.startsWith('0001') ? fmtDate(e.time) : ''}</td>

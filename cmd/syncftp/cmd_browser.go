@@ -856,9 +856,8 @@ func (m browserModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			for k, v := range m.frozenFiles {
 				set[k] = v
 			}
-			client, root := m.client, m.root
 			return m, func() tea.Msg {
-				frozenNow, n, err := freezeToggle(set, targets, remoteFolderLister(client, root))
+				frozenNow, n, err := freezeToggle(set, targets)
 				return freezeDoneMsg{files: set, frozen: frozenNow, n: n, label: label, err: err}
 			}
 
@@ -1096,22 +1095,8 @@ func (m browserModel) View() string {
 		entryFullP := m.entryFullPath(e)
 		relP := m.ftpRelPath(entryFullP)
 		var isFrozen bool
-		if isDir {
-			// Klasörün kendisi frozen (marked+f ile) veya altında frozen dosya var
-			if m.frozenFiles[relP] {
-				isFrozen = true
-			} else {
-				prefix := relP + "/"
-				for p, v := range m.frozenFiles {
-					if v && strings.HasPrefix(p, prefix) {
-						isFrozen = true
-						break
-					}
-				}
-			}
-		} else {
-			isFrozen = m.frozenFiles[relP]
-		}
+		// Kendisi / üst klasörü freeze'li ya da (klasörse) altında freeze'li dosya var
+		isFrozen = freezeIsFrozen(m.frozenFiles, freezeTarget{Rel: relP, Dir: isDir})
 
 		icon := "📄"
 		rawName := e.entry.Name
