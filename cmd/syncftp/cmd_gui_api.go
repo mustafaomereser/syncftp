@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -768,13 +769,20 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 	case "calibrate":
 		for _, srv := range servers {
 			srv := srv
-			add(sv.jobs.start("calibrate", p.Name, srv.Name, lang.L.GuiJobCalibrate, p.Name+"|"+srv.Name, func(j *job) (any, error) {
+			// İş penceresindeki "Durdur" ctx'i iptal eder → takılı bağlantı da kesilir
+			ctx, cancel := context.WithCancel(context.Background())
+			add(sv.jobs.startCancelable("calibrate", p.Name, srv.Name, lang.L.GuiJobCalibrate, p.Name+"|"+srv.Name, cancel, func(j *job) (any, error) {
+				defer cancel()
 				c, err := config.Load(dir)
 				if err != nil {
 					return nil, err
 				}
 				defer lockServer(dir, srv.Name)() // sync / watch / serve ile aynı sunucu kilidi
-				return nil, runCalibrateOpts(dir, srv, c, calibrateOpts{out: j, saveLog: true})
+				err = runCalibrateOpts(dir, srv, c, calibrateOpts{out: j, saveLog: true, progress: true, ctx: ctx})
+				if errors.Is(err, errCalibrateCancelled) {
+					err = errors.New(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(lang.L.ResyncCancelled), "!")))
+				}
+				return nil, err
 			}))
 		}
 	case "verify":

@@ -263,6 +263,11 @@ Other:
 	ResyncFrozenDiffFmt:  "  ❄ %d frozen file(s) differ/missing (will be skipped on sync)\n",
 	ResyncListTUIFmt:     "  Listing: %d files   (→ show files | ← hide | ctrl+c cancel)",
 	ResyncListCancelled:  "  ! Listing cancelled — calibrate skipped\n",
+	ResyncCancelled:      "  ! Calibrate stopped — state unchanged\n",
+	ResyncLocalScanning:  "  Scanning local files…\n",
+	ResyncConnectedLine:  "  ✓ Connected\n",
+	ResyncListLiveFmt:    "    … %d files listed · %s\n",
+	ResyncCompareLiveFmt: "    … comparing %d / %d\n",
 	ResyncLogFilesHeader: "\n── Scanned remote files (%d) ──\n",
 
 	MilestoneSetFmt:     "  ✓ Milestone [%s]: %s\n",

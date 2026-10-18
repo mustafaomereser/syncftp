@@ -263,6 +263,11 @@ Diğer:
 	ResyncFrozenDiffFmt:  "  ❄ %d frozen dosya farklı/eksik (sync sırasında atlanacak)\n",
 	ResyncListTUIFmt:     "  Listeleniyor: %d dosya   (→ dosyaları göster | ← gizle | ctrl+c iptal)",
 	ResyncListCancelled:  "  ! Listeleme iptal edildi — calibrate atlandı\n",
+	ResyncCancelled:      "  ! Calibrate durduruldu — state değişmedi\n",
+	ResyncLocalScanning:  "  Yerel dosyalar taranıyor…\n",
+	ResyncConnectedLine:  "  ✓ Bağlandı\n",
+	ResyncListLiveFmt:    "    … %d dosya listelendi · %s\n",
+	ResyncCompareLiveFmt: "    … karşılaştırılıyor %d / %d\n",
 	ResyncLogFilesHeader: "\n── Taranan uzak dosyalar (%d) ──\n",
 
 	MilestoneSetFmt:     "  ✓ Milestone [%s]: %s\n",

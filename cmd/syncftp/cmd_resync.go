@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -127,6 +128,11 @@ type calibrateOpts struct {
 	interactive bool      // listeleme fazında inline TUI: → taranan dosyaları canlı gösterir
 	saveLog     bool      // özet + taranan dosya listesi synclog'a kaydedilir
 	out         io.Writer // nil → stdout (canlı sayaçlarla); dolu → buffer/GUI akışı (sayaçsız)
+	// progress: \r sayaçları yerine birkaç saniyede bir tam satır (panel iş penceresi canlı görsün;
+	// iş yazıcısı satır sonu gelmeden göstermez). Log dosyasına girmez.
+	progress bool
+	// ctx iptal edilince bağlantı kesilir (takılı LIST dahil) ve state'e dokunmadan dönülür.
+	ctx context.Context
 }
 
 // errCalibrateCancelled interaktif listeleme kullanıcı tarafından iptal edildi.
@@ -138,6 +144,22 @@ func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts ca
 	o := opts.out
 	if o == nil {
 		o = os.Stdout
+	}
+	ctx := opts.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	cancelled := func() error {
+		fmt.Fprint(o, lang.L.ResyncCancelled)
+		return errCalibrateCancelled
+	}
+	// prog panel için throttled ilerleme satırı (log'a girmez)
+	lastProg := time.Now()
+	prog := func(force bool, format string, a ...any) {
+		if opts.progress && (force || time.Since(lastProg) >= 2*time.Second) {
+			fmt.Fprintf(o, format, a...)
+			lastProg = time.Now()
+		}
 	}
 	// Canlı \r sayaçları yalnızca terminale; buffer/GUI akışında satırları kirletmesin
 	live := opts.out == nil
@@ -155,9 +177,13 @@ func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts ca
 	localDir := filepath.Join(dir, localPath)
 
 	matcher, _ := ignore.Load(localDir, cfg.Sync.IgnoreFiles)
+	prog(true, "%s", lang.L.ResyncLocalScanning)
 	files, err := scanner.Scan(localDir, matcher)
 	if err != nil {
 		return err
+	}
+	if ctx.Err() != nil {
+		return cancelled()
 	}
 
 	// Sync ile aynı include/exclude filtreleri (cmd_plan.go — normalize edilmiş)
@@ -226,14 +252,44 @@ func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts ca
 		p(lang.L.ResyncFilteredFmt, excluded)
 	}
 	fmt.Fprint(o, lang.L.ResyncScanning)
+	if opts.progress { // panelde "bağlanılıyor" satırı bağlantı bitmeden görünsün
+		fmt.Fprintln(o)
+	}
 
-	client, err := ftpclient.Connect(srv)
-	if err != nil {
-		fmt.Fprintf(o, lang.L.ResyncConnErr, err)
-		return err
+	// Bağlantı ayrı goroutine'de: sunucuya ulaşılamıyorsa iptal beklemeden döner
+	type connRes struct {
+		c   *ftpclient.Client
+		err error
+	}
+	connCh := make(chan connRes, 1)
+	go func() {
+		c, err := ftpclient.Connect(srv)
+		connCh <- connRes{c, err}
+	}()
+	var client *ftpclient.Client
+	select {
+	case r := <-connCh:
+		if r.err != nil {
+			fmt.Fprintf(o, lang.L.ResyncConnErr, r.err)
+			return r.err
+		}
+		client = r.c
+	case <-ctx.Done():
+		go func() { // geç gelen bağlantıyı kapat
+			if r := <-connCh; r.c != nil {
+				r.c.Close()
+			}
+		}()
+		return cancelled()
 	}
 	defer client.Close()
-	fmt.Fprint(o, lang.L.ResyncConnected)
+	if opts.progress {
+		fmt.Fprint(o, lang.L.ResyncConnectedLine)
+	} else {
+		fmt.Fprint(o, lang.L.ResyncConnected)
+	}
+	stopAbort := context.AfterFunc(ctx, client.Abort) // iptal → takılı LIST/RETR'yi keser
+	defer stopAbort()
 
 	fmt.Fprintf(o, "  %s\n", lang.L.ResyncListing)
 	// Uzak taramada ignore/exclude edilen ve include dışında kalan dizinlere hiç girilmez
@@ -249,7 +305,8 @@ func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts ca
 		}
 	} else {
 		lastList := time.Now()
-		remoteFiles, err2 = client.ListRecursiveFiltered(srv.RemotePath, skip, func(n int, _ string) {
+		remoteFiles, err2 = client.ListRecursiveFiltered(srv.RemotePath, skip, func(n int, latest string) {
+			prog(false, lang.L.ResyncListLiveFmt, n, latest)
 			if time.Since(lastList) >= 80*time.Millisecond {
 				if live {
 					fmt.Fprintf(o, lang.L.ResyncListProgressFmt, n)
@@ -260,6 +317,9 @@ func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts ca
 		if live {
 			fmt.Fprint(o, "\r                                        \r")
 		}
+	}
+	if ctx.Err() != nil {
+		return cancelled()
 	}
 	if err2 != nil {
 		fmt.Fprintf(o, lang.L.ResyncListErr, err2)
@@ -277,6 +337,10 @@ func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts ca
 	lastPrint := time.Now()
 	for key, hash := range current {
 		done++
+		if done%200 == 0 && ctx.Err() != nil {
+			return cancelled() // state kaydedilmeden
+		}
+		prog(false, lang.L.ResyncCompareLiveFmt, done, total)
 		if done == total || time.Since(lastPrint) >= 80*time.Millisecond {
 			if live {
 				fmt.Fprintf(o, lang.L.ResyncComparingFmt, done, total)
@@ -320,6 +384,9 @@ func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts ca
 		p(lang.L.ResyncFrozenDiffFmt, frozenDiff)
 	}
 
+	if ctx.Err() != nil {
+		return cancelled()
+	}
 	st.FirstSyncDone = true
 	if err := state.Save(dir, st); err != nil {
 		return err

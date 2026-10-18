@@ -100,7 +100,7 @@ const T = {
     relNoBefore: 'Önceki hal yok — yedek alınamamış ya da eski olduğu için silinmiş.', relNoAfter: 'Yüklenen hal saklanmamış ve yerel dosya o zamandan beri değişmiş.', relNewFile: 'Bu sync\'te sunucuya yeni eklenen dosya', relAfterLocal: 'Yüklenen hal yerel dosyadan (hash aynı)',
     jobsTitle: 'İşler', jobsSub: 'Bu oturumda çalışan ve tamamlanan işler', noJobs: 'Henüz iş yok', activeWatches: 'Aktif watch\'lar',
     colJob: 'İş', colProject: 'Proje', colStarted: 'Başladı', colDuration: 'Süre',
-    stRunning: 'çalışıyor', stDone: 'tamam', stError: 'hata', stop: 'Durdur',
+    stRunning: 'çalışıyor', stDone: 'tamam', stError: 'hata', stop: 'Durdur', jobStopping: 'Durduruluyor…',
     jobDone: '{0} tamamlandı', jobFailed: '{0}: {1}', jobLog: 'İş günlüğü', resultLine: '↑ {0} yüklendi · {1} hata · {2}',
     quitConfirm: 'syncFTP tamamen kapatılsın mı? Çalışan watch\'lar ve webhook dinleyicisi de durur. (Pencereyi kapatırsanız tray\'de çalışmaya devam eder.)', quitDone: 'Panel kapandı — bu pencereyi kapatabilirsiniz.',
     sessionLost: 'Panel bağlantısı koptu', ago: '{0} önce', justNow: 'az önce', min: 'dk', hour: 'sa', day: 'gün',
@@ -213,7 +213,7 @@ const T = {
     relNoBefore: 'No previous version — the backup is missing or was purged as old.', relNoAfter: 'The uploaded version was not stored and the local file has changed since.', relNewFile: 'File newly added to the server by this sync', relAfterLocal: 'Uploaded version taken from the local file (same hash)',
     jobsTitle: 'Jobs', jobsSub: 'Jobs running and finished in this session', noJobs: 'No jobs yet', activeWatches: 'Active watches',
     colJob: 'Job', colProject: 'Project', colStarted: 'Started', colDuration: 'Duration',
-    stRunning: 'running', stDone: 'done', stError: 'error', stop: 'Stop',
+    stRunning: 'running', stDone: 'done', stError: 'error', stop: 'Stop', jobStopping: 'Stopping…',
     jobDone: '{0} finished', jobFailed: '{0}: {1}', jobLog: 'Job log', resultLine: '↑ {0} uploaded · {1} failed · {2}',
     quitConfirm: 'Quit syncFTP completely? Running watches and the webhook listener stop too. (Closing the window keeps it running in the tray.)', quitDone: 'Panel stopped — you can close this window.',
     sessionLost: 'Lost connection to the panel', ago: '{0} ago', justNow: 'just now', min: 'min', hour: 'h', day: 'd',
@@ -559,7 +559,12 @@ async function showJobLog(id) {
     body: `<div class="log" id="joblog">${(fresh ? [] : j.lines).map(logLine).join('')}</div>`,
     actions: [
       { left: `<span class="mono">${esc(snap.project || '')} · ${fmtDate(snap.started)}</span>` },
-      ...(snap.kind === 'watch' && j.status === 'running' ? [{ label: icon('stop') + t('stop'), cls: 'tehlike', run: async () => { await api('DELETE', `/api/jobs/${enc(id)}`); toast(t('watchStopped')); } }] : []),
+      // Durdurulabilen her iş (watch, calibrate…) — pencere açık kalır, durma satırı log'a düşer
+      ...(snap.cancelable && j.status === 'running' ? [{ label: icon('stop') + t('stop'), cls: 'tehlike', run: async () => {
+        await api('DELETE', `/api/jobs/${enc(id)}`);
+        toast(snap.kind === 'watch' ? t('watchStopped') : t('jobStopping'));
+        return snap.kind === 'watch';
+      } }] : []),
       { label: t('close'), cls: 'birincil' },
     ],
     onClose: () => { j.onLine = null; j.onDone = null; },
@@ -571,7 +576,10 @@ async function showJobLog(id) {
     box.insertAdjacentHTML('beforeend', logLine(l));
     if (stick) box.scrollTop = box.scrollHeight;
   };
-  j.onDone = () => { $('.modal-bas h3', m.root).innerHTML = header(); };
+  j.onDone = () => {
+    $('.modal-bas h3', m.root).innerHTML = header();
+    $$('.modal-alt .tehlike', m.root).forEach((b) => b.remove()); // bitti → Durdur anlamsız
+  };
 }
 
 function onJobFinished(j) {

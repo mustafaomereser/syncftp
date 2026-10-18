@@ -196,6 +196,11 @@ type StringSet struct {
 	ResyncFrozenDiffFmt  string // "  ❄ %d frozen dosya farklı/eksik (sync sırasında atlanacak)\n"
 	ResyncListTUIFmt     string // "  Listeleniyor: %d dosya   (→ dosyaları göster | ← gizle | ctrl+c iptal)"
 	ResyncListCancelled  string // "  ! Listeleme iptal edildi — calibrate atlandı\n"
+	ResyncCancelled      string // "  ! Calibrate durduruldu — state değişmedi\n"
+	ResyncLocalScanning  string // panel ilerlemesi: "  Yerel dosyalar taranıyor…\n"
+	ResyncConnectedLine  string // panel ilerlemesi: "  ✓ Bağlandı\n"
+	ResyncListLiveFmt    string // "    … %d dosya listelendi · %s\n"
+	ResyncCompareLiveFmt string // "    … karşılaştırılıyor %d / %d\n"
 	ResyncLogFilesHeader string // "\n── Taranan uzak dosyalar (%d) ──\n"
 
 	// ── cmd_milestone ────────────────────────────────────────────────────────

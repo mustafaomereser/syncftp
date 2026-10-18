@@ -513,7 +513,7 @@ func (j *job) snapshot() map[string]any {
 	return map[string]any{
 		"id": j.ID, "kind": j.Kind, "project": j.Project, "server": j.Server, "title": j.Title,
 		"status": j.Status, "error": j.Error, "started": j.Started, "ended": j.Ended,
-		"result": j.Result, "lines": j.Lines,
+		"result": j.Result, "lines": j.Lines, "cancelable": j.cancel != nil,
 	}
 }
 

@@ -41,6 +41,8 @@ type Client struct {
 	// mu altında: üzerine rename bir kez başarısız olduysa (sunucu izin vermiyor) bu bağlantıda
 	// tmp+rename denenmez, doğrudan yazılır (her dosyada boşa iki yükleme olmasın).
 	noRenameOver bool
+	// FTP'de açılan ağ bağlantıları — Abort kilit beklemeden keser (takılı LIST/RETR'yi bozar)
+	conns *connSet
 }
 
 // Connect dials and authenticates an FTP/SFTP connection.
@@ -92,6 +94,7 @@ func connectFTP(srv config.Server, tunnel *ssh.Client) (*Client, error) {
 	// ve idle deadline (takılan veri bağlantısı sync'i sonsuza kadar kilitlemesin) tek yerde.
 	serverHost := srv.Host
 	nat := srv.NATWorkaround
+	conns := &connSet{}
 	opts = append(opts, goftp.DialWithDialFunc(func(network, address string) (net.Conn, error) {
 		target := address
 		if nat {
@@ -100,9 +103,9 @@ func connectFTP(srv config.Server, tunnel *ssh.Client) (*Client, error) {
 			}
 		}
 		if tunnel != nil {
-			return withDeadline(tunnel.Dial(network, target))
+			return conns.track(withDeadline(tunnel.Dial(network, target)))
 		}
-		return withDeadline(net.DialTimeout(network, target, 30*time.Second))
+		return conns.track(withDeadline(net.DialTimeout(network, target, 30*time.Second)))
 	}))
 
 	conn, err := goftp.Dial(addr, opts...)
@@ -113,7 +116,7 @@ func connectFTP(srv config.Server, tunnel *ssh.Client) (*Client, error) {
 		_ = conn.Quit()
 		return nil, fmt.Errorf("giriş başarısız (%s@%s): %w", srv.User, addr, err)
 	}
-	return &Client{conn: conn, server: srv}, nil
+	return &Client{conn: conn, server: srv, conns: conns}, nil
 }
 
 func connectSFTP(srv config.Server, tunnel *ssh.Client) (*Client, error) {
@@ -187,6 +190,20 @@ func (c *Client) Close() {
 	}
 	if c.sftp != nil {
 		_ = c.sftp.Close()
+	}
+	if c.sshConn != nil {
+		_ = c.sshConn.Close()
+	}
+	if c.tunnel != nil {
+		_ = c.tunnel.Close()
+	}
+}
+
+// Abort bağlantıyı kilit BEKLEMEDEN keser: başka goroutine'de takılı duran işlem (LIST, RETR,
+// STOR) hata ile döner. İptal düğmeleri için — ardından Close yine çağrılabilir.
+func (c *Client) Abort() {
+	if c.conns != nil {
+		c.conns.closeAll()
 	}
 	if c.sshConn != nil {
 		_ = c.sshConn.Close()

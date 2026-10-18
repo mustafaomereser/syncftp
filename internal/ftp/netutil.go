@@ -2,6 +2,7 @@ package ftp
 
 import (
 	"net"
+	"sync"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -70,4 +71,56 @@ func sshKeepalive(c *ssh.Client) {
 			}
 		}
 	}()
+}
+
+// connSet bir FTP oturumunun açtığı ağ bağlantıları (kontrol + pasif veri) — Abort kilitsiz
+// kesebilsin diye. Kapanan bağlantı kendini çıkarır (her LIST/RETR yeni veri bağlantısı açar).
+type connSet struct {
+	mu      sync.Mutex
+	conns   map[*trackedConn]struct{}
+	aborted bool
+}
+
+type trackedConn struct {
+	net.Conn
+	set *connSet
+}
+
+func (t *trackedConn) Close() error {
+	t.set.mu.Lock()
+	delete(t.set.conns, t)
+	t.set.mu.Unlock()
+	return t.Conn.Close()
+}
+
+func (s *connSet) track(conn net.Conn, err error) (net.Conn, error) {
+	if err != nil {
+		return nil, err
+	}
+	t := &trackedConn{Conn: conn, set: s}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.aborted {
+		_ = conn.Close()
+		return nil, net.ErrClosed
+	}
+	if s.conns == nil {
+		s.conns = map[*trackedConn]struct{}{}
+	}
+	s.conns[t] = struct{}{}
+	return t, nil
+}
+
+func (s *connSet) closeAll() {
+	s.mu.Lock()
+	s.aborted = true
+	list := make([]net.Conn, 0, len(s.conns))
+	for t := range s.conns {
+		list = append(list, t.Conn)
+	}
+	s.conns = nil
+	s.mu.Unlock()
+	for _, c := range list {
+		_ = c.Close()
+	}
 }
