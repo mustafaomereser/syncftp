@@ -10,7 +10,7 @@ const T = {
   tr: {
     brandSub: 'Dağıtım paneli', navAll: 'Tüm projeler', navJobs: 'İşler', navProjects: 'Projeler',
     addProject: 'Proje ekle', navNoProjects: 'Bu klasörde proje yok', watching: 'Watch', language: 'Dil', quit: 'Kapat',
-    loading: 'Yükleniyor…', deleteRecursive: 'İçeriğiyle birlikte sil', deleteRecursiveHint: 'Kapalıyken yalnızca boş klasörler silinir (CLI: remote rm --recursive)', stFilter: 'Filtrele', stFilterHint: 'Tek seferlik include / exclude (virgülle ayırın) — CLI: status --include / --exclude', moreRows: '{0} öğe daha göster', stFrozen: 'Freeze', stProtected: 'Korunan', stBlocked: 'Engelli', stUploadSize: 'yüklenecek: {0}', treeView: 'Ağaç', treeHint: 'Bu klasörün altını ağaç olarak göster (shell tree)', treeAsk: 'Klasör başına en fazla kaç öğe gösterilsin?', treeAll: 'Tümü', ignoreNoFile: 'ignore_files listesinde syncFTP dosyası yok — yalnızca .gitignore okunuyor', viewCode: 'Kod', viewRendered: 'Önizleme', viewRenderedLocal: 'Önizleme (yerel)', viewRenderedRemote: 'Önizleme (sunucu)', scanningLocal: 'Taranıyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
+    loading: 'Yükleniyor…', foldAdvanced: 'Gelişmiş', foldMore: 'Diğer', foldDefault: 'varsayılan', foldOff: 'kapalı', foldConn: 'bağlantı', foldRetry: 'deneme', foldBlock: 'engelli uzantı', setTabGeneral: 'Genel', setTabLibrary: 'Bağlantı kütüphanesi', setTabDefaults: 'Yeni proje varsayılanları', setTabProjects: 'Projeler', setTabHooks: 'Webhook / CI', setTabSecurity: 'Host anahtarları', setTabSystem: 'Sistem', deleteRecursive: 'İçeriğiyle birlikte sil', deleteRecursiveHint: 'Kapalıyken yalnızca boş klasörler silinir (CLI: remote rm --recursive)', stFilter: 'Filtrele', stFilterHint: 'Tek seferlik include / exclude (virgülle ayırın) — CLI: status --include / --exclude', moreRows: '{0} öğe daha göster', stFrozen: 'Freeze', stProtected: 'Korunan', stBlocked: 'Engelli', stUploadSize: 'yüklenecek: {0}', treeView: 'Ağaç', treeHint: 'Bu klasörün altını ağaç olarak göster (shell tree)', treeAsk: 'Klasör başına en fazla kaç öğe gösterilsin?', treeAll: 'Tümü', ignoreNoFile: 'ignore_files listesinde syncFTP dosyası yok — yalnızca .gitignore okunuyor', viewCode: 'Kod', viewRendered: 'Önizleme', viewRenderedLocal: 'Önizleme (yerel)', viewRenderedRemote: 'Önizleme (sunucu)', scanningLocal: 'Taranıyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
     edit: 'Düzenle', back: 'Geri', yes: 'Evet', confirm: 'Onayla', browse: 'Gözat', add: 'Ekle', open: 'Aç',
     saved: 'Kaydedildi', copied: 'Kopyalandı', never: 'hiç', none: 'yok', all: 'Tümü', manual: '(manuel giriş)',
     projectsTitle: 'Projeler', projectsSub: `{0} klasöründeki syncFTP projeleri (CLI gibi: panel açıldığı klasörü esas alır)`,
@@ -119,7 +119,7 @@ const T = {
   en: {
     brandSub: 'Deploy panel', navAll: 'All projects', navJobs: 'Jobs', navProjects: 'Projects',
     addProject: 'Add project', navNoProjects: 'No project in this folder', watching: 'Watch', language: 'Language', quit: 'Quit',
-    loading: 'Loading…', deleteRecursive: 'Delete with contents', deleteRecursiveHint: 'When off, only empty folders are deleted (CLI: remote rm --recursive)', stFilter: 'Filter', stFilterHint: 'One-off include / exclude (comma separated) — CLI: status --include / --exclude', moreRows: 'Show {0} more', stFrozen: 'Frozen', stProtected: 'Protected', stBlocked: 'Blocked', stUploadSize: 'to upload: {0}', treeView: 'Tree', treeHint: 'Show everything below this folder as a tree (shell tree)', treeAsk: 'Show at most how many entries per folder?', treeAll: 'All', ignoreNoFile: 'ignore_files has no syncFTP file — only .gitignore is read', viewCode: 'Code', viewRendered: 'Preview', viewRenderedLocal: 'Preview (local)', viewRenderedRemote: 'Preview (server)', scanningLocal: 'Scanning…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
+    loading: 'Loading…', foldAdvanced: 'Advanced', foldMore: 'More', foldDefault: 'default', foldOff: 'off', foldConn: 'connections', foldRetry: 'retries', foldBlock: 'blocked ext', setTabGeneral: 'General', setTabLibrary: 'Connection library', setTabDefaults: 'New project defaults', setTabProjects: 'Projects', setTabHooks: 'Webhook / CI', setTabSecurity: 'Host keys', setTabSystem: 'System', deleteRecursive: 'Delete with contents', deleteRecursiveHint: 'When off, only empty folders are deleted (CLI: remote rm --recursive)', stFilter: 'Filter', stFilterHint: 'One-off include / exclude (comma separated) — CLI: status --include / --exclude', moreRows: 'Show {0} more', stFrozen: 'Frozen', stProtected: 'Protected', stBlocked: 'Blocked', stUploadSize: 'to upload: {0}', treeView: 'Tree', treeHint: 'Show everything below this folder as a tree (shell tree)', treeAsk: 'Show at most how many entries per folder?', treeAll: 'All', ignoreNoFile: 'ignore_files has no syncFTP file — only .gitignore is read', viewCode: 'Code', viewRendered: 'Preview', viewRenderedLocal: 'Preview (local)', viewRenderedRemote: 'Preview (server)', scanningLocal: 'Scanning…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
     edit: 'Edit', back: 'Back', yes: 'Yes', confirm: 'Confirm', browse: 'Browse', add: 'Add', open: 'Open',
     saved: 'Saved', copied: 'Copied', never: 'never', none: 'none', all: 'All', manual: '(manual entry)',
     projectsTitle: 'Projects', projectsSub: `syncFTP projects in {0} (like the CLI: the panel works on the folder it was opened in)`,
@@ -539,7 +539,7 @@ function parseRoute() {
   if (parts[0] === 'p' && parts[1]) return { page: 'project', project: parts[1], tab: parts[2] || 'overview', sub: parts[3] ?? null, sub2: parts[4] ?? null };
   if (parts[0] === 'jobs') return { page: 'jobs' };
   if (parts[0] === 'help') return { page: 'help', sub: parts[1] || '' };
-  if (parts[0] === 'settings') return { page: 'settings' };
+  if (parts[0] === 'settings') return { page: 'settings', sub: parts[1] || 'general' };
   if (parts[0] === 'terminal') return { page: 'terminal', sub: parts.length > 1 ? parts[1] : null };
   return { page: 'home' };
 }
@@ -572,7 +572,7 @@ async function render(soft = false) {
     if (r.page === 'home') html = await pageHome();
     else if (r.page === 'jobs') html = await pageJobs();
     else if (r.page === 'help') html = await pageHelp(r.sub);
-    else if (r.page === 'settings') html = await pageSettings();
+    else if (r.page === 'settings') html = await pageSettings(r.sub);
     else if (r.page === 'terminal') html = await pageTerminal(r.sub);
     else html = await pageProject(r);
     if (seq !== S.renderSeq) return;
@@ -1092,15 +1092,42 @@ const fBool = (k, label, val, hint = '', dis = false) =>
   `<label class="anahtar"><span class="metin"><b>${label}</b>${hint ? `<small>${hint}</small>` : ''}</span><span class="switch"><input type="checkbox" data-k="${k}" data-ty="bool" ${val ? 'checked' : ''} ${dis ? 'disabled' : ''}><i></i></span></label>`;
 const fSelect = (k, label, val, opts, { hint = '', dis = false } = {}) =>
   `<div class="alan"><label>${label}</label><select data-k="${k}" data-ty="text" ${dis ? 'disabled' : ''}>${opts.map(([v, l]) => `<option value="${esc(v)}" ${v === (val ?? '') ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>${hint ? `<small>${hint}</small>` : ''}</div>`;
-const section = (icn, title, desc, inner) => `<div class="bolum"><h3>${icon(icn)}${title}</h3>${desc ? `<p class="aciklama">${desc}</p>` : '<div style="height:10px"></div>'}${inner}</div>`;
+// section(..., {fold, open, summary, proto}): fold → başlığa tıklayınca açılan bölüm (nadiren
+// değişen ayarlar kapalı gelir, özet satırı ne ayarlı olduğunu söyler); proto → yalnızca o protokolde görünür
+const section = (icn, title, desc, inner, o = {}) => {
+  const pa = o.proto ? ` data-proto="${o.proto}"` : '';
+  const body = `${desc ? `<p class="aciklama">${desc}</p>` : '<div style="height:10px"></div>'}${inner}`;
+  if (!o.fold) return `<div class="bolum"${pa}><h3>${icon(icn)}${title}</h3>${body}</div>`;
+  return `<details class="bolum katlanir"${pa} ${o.open ? 'open' : ''}><summary><h3>${icon(icn)}${title}</h3>${o.summary ? `<span class="kat-ozet">${o.summary}</span>` : ''}${icon('right', 'ok-ac')}</summary><div class="katlanir-ic">${body}</div></details>`;
+};
+// Protokole özel alanlar: FTP'de SSH anahtarı, SFTP'de passive/EPSV/NAT görünmez (değerleri korunur)
+const PROTO_FIELDS = { key_file: 'sftp', passive: 'ftp ftps', disable_epsv: 'ftp ftps', nat_workaround: 'ftp ftps', tls_skip_verify: 'ftps' };
+function applyProtoVis(root) {
+  $$('select[data-k$="protocol"]', root).forEach((sel) => {
+    const prefix = sel.dataset.k.slice(0, -'protocol'.length);
+    const scope = sel.closest('.form, .modal, form') || root;
+    const update = () => {
+      const pr = sel.value || 'ftp';
+      for (const [k, ps] of Object.entries(PROTO_FIELDS)) {
+        const el = $(`[data-k="${prefix}${k}"]`, scope);
+        const box = el && el.closest('.alan, .anahtar');
+        if (box) box.hidden = !ps.split(' ').includes(pr);
+      }
+      $$('[data-proto]', scope).forEach((b) => (b.hidden = !b.dataset.proto.split(' ').includes(pr)));
+    };
+    if (!sel.dataset.pv) { sel.dataset.pv = '1'; sel.addEventListener('change', update); }
+    update();
+  });
+}
 
 // Form içindeki Gözat / ağaç / webhook test düğmelerini bağlar.
 // Bağlam form kökündeki data-p (proje), data-ppath (proje yolu), data-srv (sunucu) özniteliklerinden okunur.
 function bindFormTools(root) {
+  applyProtoVis(root);
   const ctx = root.closest('[data-ppath]') || root.querySelector('[data-ppath]') || root;
   const P = ctx.dataset.p, ppath = ctx.dataset.ppath || '', srv = ctx.dataset.srv || '';
   const input = (k) => root.querySelector(`[data-k="${k}"]`);
-  $$('[data-browse]', root).forEach((b) => (b.onclick = async (e) => {
+  $$('[data-browse]:not([data-browse="remote"])', root).forEach((b) => (b.onclick = async (e) => {
     e.preventDefault();
     const inp = input(b.dataset.for), kind = b.dataset.browse;
     let initial = inp.value.trim();
@@ -1192,6 +1219,7 @@ function tunnelFields(src, locked) {
 }
 // Protokol değişince port varsayılandaysa çevir
 function bindProtoPort(root) {
+  applyProtoVis(root);
   const sel = $('[data-k="protocol"]', root), port = $('[data-k="port"]', root);
   if (!sel || !port) return;
   sel.onchange = () => {
@@ -1242,6 +1270,14 @@ async function tabServerEdit(proj, name) {
       if (isNew) next.servers.push(out); else next.servers[idx] = out;
       try { await api('PUT', `/api/p/${enc(P)}/config`, next); toast(t('saved')); await loadProjects(); go(pHash(P, 'servers')); } catch (e) { fail(e); }
     };
+    // Uzak dizin → Gözat: formdaki bilgilerle bağlanıp sunucudaki klasörlerden seçtirir (kaydetmeden)
+    const rb = $('[data-browse="remote"]', root);
+    if (rb) rb.onclick = async (e) => {
+      e.preventDefault();
+      const inp = $('[data-k="remote_path"]', root);
+      const picked = await pickRemoteDir({ initial: inp.value.trim() || '/', list: (path) => api('POST', `/api/p/${enc(P)}/browse-dirs`, { server: collect(), connections: cfg.connections, path }) });
+      if (picked != null) inp.value = picked;
+    };
     $('#b-test', root).onclick = async (e) => {
       const b = e.currentTarget; b.disabled = true; const old = b.innerHTML; b.innerHTML = icon('refresh', 'spin') + t('testing');
       try { const r = await api('POST', `/api/p/${enc(P)}/test`, { server: collect(), connections: cfg.connections }); toast(t('testOk', r.ms, r.entries) + (r.list_error ? ' — ' + r.list_error : ''), r.list_error ? 'bad' : 'ok'); }
@@ -1265,26 +1301,35 @@ async function tabServerEdit(proj, name) {
     return c ? `<div class="kilit" style="margin-bottom:14px">${icon('lock')}${esc(t('lockedByProfile', c.name))}</div>${connFields(c, true)}` : connFields(s, false);
   }
 
+  const n = (a) => (a || []).filter(Boolean).length;
+  const onOff = (pairs) => pairs.filter(([v]) => v).map(([, l]) => l).join(' · ') || t('foldDefault');
+  const tun = (conn || s).tunnel_host;
+  const sumPerf = `${s.max_connections || 1} ${t('foldConn')} · ${s.max_retries || 0} ${t('foldRetry')} · ${s.bandwidth_limit ? s.bandwidth_limit + ' KB/s' : globalBw}`;
+  const sumUpload = onOff([[s.minify, 'minify'], [s.obfuscate, 'obfuscate'], [s.no_backup, t('fNoBackup')], [s.direct_upload, t('fDirect')], [s.webhook, 'webhook']]);
+  const sumFilt = `include ${n(s.include)} · exclude ${n(s.exclude)} · protect ${n(s.protect)} · ${t('foldBlock')} ${n(s.block_extensions)}`;
+  const sumHooks = `pre ${n(s.pre_sync)} · post ${n(s.post_sync)}`;
+  const sumRemote = `pre ${n(s.remote_pre_sync)} · post ${n(s.remote_post_sync)}`;
   return `<a class="faint" href="${pHash(P, 'servers')}" style="display:inline-flex;gap:6px;align-items:center;margin-bottom:12px">${icon('left')}${t('back')}</a>
   <h2 style="margin-top:0">${isNew ? t('serverNew') : t('serverEdit') + ' — ' + esc(s.name)}</h2>
   <div class="form" id="srv-form" data-p="${esc(P)}" data-ppath="${esc(proj.path)}" data-srv="${esc(isNew ? '' : s.name)}">
     ${section('server', t('secGeneral'), '', `<div class="alanlar">${fText('name', t('fName'), s.name, { ph: 'production' })}${fBool('enabled', t('fEnabled'), s.enabled, t('fEnabledHint'))}</div>`)}
     ${section('link', t('secConnection'), t('secConnectionDesc'), `<div class="alanlar" style="margin-bottom:14px">${fSelect('connection', t('fConnection'), s.connection || '', [['', t('manual')], ...cfg.connections.map((c) => [c.name, `${c.name} — ${c.host}`])])}</div><div id="conn-box">${connBox(conn)}</div>`)}
-    ${section('tunnel', t('secTunnel'), t('secTunnelDesc'), `<div id="tunnel-box">${tunnelFields(conn || s, !!conn)}</div>`)}
-    ${section('folder', t('secPaths'), '', `<div class="alanlar">${fText('remote_path', t('fRemote'), s.remote_path, { mono: true, hint: t('fRemoteHint') })}${fText('local_path', t('fLocal'), s.local_path, { mono: true, ph: defPath, hint: t('fLocalHint', esc(defPath)), browse: 'reldir' })}</div>`)}
+    ${section('folder', t('secPaths'), '', `<div class="alanlar">${fText('remote_path', t('fRemote'), s.remote_path, { mono: true, hint: t('fRemoteHint'), browse: 'remote' })}${fText('local_path', t('fLocal'), s.local_path, { mono: true, ph: defPath, hint: t('fLocalHint', esc(defPath)), browse: 'reldir' })}</div>`)}
+    <div class="ara-baslik">${t('foldAdvanced')}</div>
+    ${section('tunnel', t('secTunnel'), t('secTunnelDesc'), `<div id="tunnel-box">${tunnelFields(conn || s, !!conn)}</div>`, { fold: true, open: !!tun, summary: tun ? esc(tun) : t('foldOff') })}
     ${section('zap', t('secPerf'), '', `<div class="alanlar uc">
         <div class="alan"><label>${t('fMaxConn')}</label><div class="girdi-grup"><input type="number" data-k="max_connections" data-ty="int" value="${s.max_connections || 1}" min="1">${isNew ? '' : `<button class="btn" id="b-detect">${icon('gauge')}${t('measure')}</button>`}</div><small>${t('fMaxConnHint')}</small></div>
         ${fNum('max_retries', t('fRetries'), s.max_retries)}
-        ${fNum('bandwidth_limit', t('fBandwidth'), s.bandwidth_limit, { hint: t('fBandwidthHint', globalBw) })}</div>`)}
+        ${fNum('bandwidth_limit', t('fBandwidth'), s.bandwidth_limit, { hint: t('fBandwidthHint', globalBw) })}</div>`, { fold: true, summary: sumPerf })}
     ${section('upload', t('secUpload'), '', `<div class="alanlar">
         ${fBool('minify', t('fMinify'), s.minify, t('fMinifyHint'))}${fBool('obfuscate', t('fObfuscate'), s.obfuscate, t('fObfuscateHint'))}
         ${fBool('no_backup', t('fNoBackup'), s.no_backup, t('fNoBackupHint'))}${fBool('direct_upload', t('fDirect'), s.direct_upload, t('fDirectHint'))}
-        ${fText('webhook', t('fWebhook'), s.webhook, { wide: true, mono: true, hint: t('fWebhookHint'), ph: 'https://…', whtest: true })}</div>`)}
+        ${fText('webhook', t('fWebhook'), s.webhook, { wide: true, mono: true, hint: t('fWebhookHint'), ph: 'https://…', whtest: true })}</div>`, { fold: true, summary: sumUpload })}
     ${section('sliders', t('secFilters'), t('secFiltersDesc'), `<div class="alanlar">
         ${fArea('include', t('fInclude'), s.include, { wide: false, tree: 'paths', chips: 'include' })}${fArea('exclude', t('fExclude'), s.exclude, { wide: false, tree: 'paths', chips: 'exclude' })}
-        ${fArea('protect', t('fProtect'), s.protect, { wide: false, tree: 'protect', chips: 'protect' })}${fArea('block_extensions', t('fBlock'), s.block_extensions, { ty: 'words', wide: false, hint: t('fBlockHint'), chips: 'block' })}</div>`)}
-    ${section('log', t('secHooks'), t('secHooksDesc'), `<div class="alanlar">${fArea('pre_sync', t('fPre'), s.pre_sync, { wide: false, rows: 3 })}${fArea('post_sync', t('fPost'), s.post_sync, { wide: false, rows: 3 })}</div>`)}
-    ${section('terminal', t('secRemote'), t('secRemoteDesc'), `<div class="alanlar">${fArea('remote_pre_sync', t('fRemotePre'), s.remote_pre_sync, { wide: false, rows: 3 })}${fArea('remote_post_sync', t('fRemotePost'), s.remote_post_sync, { wide: false, rows: 3, hint: 'php artisan migrate --force' })}</div>`)}
+        ${fArea('protect', t('fProtect'), s.protect, { wide: false, tree: 'protect', chips: 'protect' })}${fArea('block_extensions', t('fBlock'), s.block_extensions, { ty: 'words', wide: false, hint: t('fBlockHint'), chips: 'block' })}</div>`, { fold: true, summary: sumFilt })}
+    ${section('log', t('secHooks'), t('secHooksDesc'), `<div class="alanlar">${fArea('pre_sync', t('fPre'), s.pre_sync, { wide: false, rows: 3 })}${fArea('post_sync', t('fPost'), s.post_sync, { wide: false, rows: 3 })}</div>`, { fold: true, summary: sumHooks })}
+    ${section('terminal', t('secRemote'), t('secRemoteDesc'), `<div class="alanlar">${fArea('remote_pre_sync', t('fRemotePre'), s.remote_pre_sync, { wide: false, rows: 3 })}${fArea('remote_post_sync', t('fRemotePost'), s.remote_post_sync, { wide: false, rows: 3, hint: 'php artisan migrate --force' })}</div>`, { fold: true, summary: sumRemote, proto: 'sftp' })}
   </div>
   <div class="form-alt"><div class="sol">${isNew ? '' : `<button class="btn tehlike" id="b-del">${icon('trash')}${t('delete')}</button>`}</div>
     <button class="btn" id="b-test">${icon('test')}${t('testConn')}</button>
@@ -1433,31 +1478,37 @@ async function tabSettings(proj) {
   const ign = ignCur;
   const tmpls = await GET('/api/ignore-templates').catch(() => ({}));
   const gitLines = (ign.gitignore || '').split('\n').filter((l) => l.trim() && !l.trim().startsWith('#')).length;
+  const n = (a) => (a || []).filter(Boolean).length;
+  const sumFilt = `include ${n(sy.include)} · exclude ${n(sy.exclude)} · protect ${n(sy.protect)} · ${t('foldBlock')} ${n(sy.block_extensions)}`;
+  const sumUp = [sy.webhook && 'webhook', sy.bandwidth_limit && sy.bandwidth_limit + ' KB/s', sy.no_backup ? t('fNoBackup') : `${t('fBackupKeep')}: ${sy.backup_keep || 10}`, sy.direct_upload && t('fDirect'), cfg.first_sync && cfg.first_sync.full && t('fFirstFull')].filter(Boolean).join(' · ');
   return `<div class="form" id="set-form" data-p="${esc(P)}" data-ppath="${esc(proj.path)}" data-srv="">
     ${section('folder', t('secProject'), '', `<div class="alanlar">${fText('project.name', t('fProjectName'), cfg.project.name)}${fText('project.default_path', t('fDefaultPath'), cfg.project.default_path, { mono: true, ph: '.', hint: t('fDefaultPathHint'), browse: 'reldir' })}</div>`)}
-    ${section('sliders', t('secGlobal'), t('secGlobalDesc'), `<div class="alanlar">
+    <div class="ara-baslik">${t('secGlobal')}</div>
+    ${section('sliders', t('secFilters'), t('secGlobalDesc'), `<div class="alanlar">
         ${fArea('sync.include', t('fInclude'), sy.include, { wide: false, tree: 'paths', chips: 'include' })}${fArea('sync.exclude', t('fExclude'), sy.exclude, { wide: false, tree: 'paths', chips: 'exclude' })}
         ${fArea('sync.protect', t('fProtect'), sy.protect, { wide: false, tree: 'protect', chips: 'protect' })}${fArea('sync.block_extensions', t('fBlock'), sy.block_extensions, { ty: 'words', wide: false, hint: t('fBlockHint'), chips: 'block' })}
         ${fArea('sync.ignore_files', t('fIgnoreFiles'), sy.ignore_files, { wide: false, tree: 'paths', ph: '.gitignore', hint: t('fIgnoreFilesHint') })}
+      </div>`, { fold: true, summary: sumFilt })}
+    ${section('upload', t('secUpload'), '', `<div class="alanlar">
         ${fText('sync.webhook', t('fWebhook'), sy.webhook, { mono: true, ph: 'https://…', whtest: true })}
         ${fNum('sync.bandwidth_limit', t('fBandwidth'), sy.bandwidth_limit, { hint: '0 = ∞' })}
         ${fNum('sync.backup_keep', t('fBackupKeep'), sy.backup_keep || 10, { hint: t('fBackupKeepHint') })}
         ${fBool('sync.no_backup', t('fNoBackup'), sy.no_backup, t('fNoBackupHint'))}
         ${fBool('sync.direct_upload', t('fDirect'), sy.direct_upload, t('fDirectHint'))}
         ${fBool('first_sync.full', t('fFirstFull'), cfg.first_sync && cfg.first_sync.full, t('fFirstFullHint'))}
-      </div>`)}
-    ${section('log', t('secHooks'), t('secHooksDesc'), `<div class="alanlar">${fArea('sync.pre_sync', t('fPre'), sy.pre_sync, { wide: false, rows: 3 })}${fArea('sync.post_sync', t('fPost'), sy.post_sync, { wide: false, rows: 3 })}</div>`)}
-    <div class="bolum"><h3>${icon('x')}${t('ignoreTitle')}</h3><p class="aciklama">${t('ignoreDesc')}${gitLines ? ' · ' + t('gitignoreNote', gitLines) : ''}</p>
+      </div>`, { fold: true, summary: sumUp })}
+    ${section('log', t('secHooks'), t('secHooksDesc'), `<div class="alanlar">${fArea('sync.pre_sync', t('fPre'), sy.pre_sync, { wide: false, rows: 3 })}${fArea('sync.post_sync', t('fPost'), sy.post_sync, { wide: false, rows: 3 })}</div>`, { fold: true, summary: `pre ${n(sy.pre_sync)} · post ${n(sy.post_sync)}` })}
+    <div class="ara-baslik">${t('foldMore')}</div>
+    ${section('x', t('ignoreTitle'), `${t('ignoreDesc')}${gitLines ? ' · ' + t('gitignoreNote', gitLines) : ''}`, `
       <div class="aksiyonlar" style="margin-bottom:10px">${ignTargets.length > 1 ? `<select id="ign-dir" style="width:auto">${ignTargets.map((g, i) => `<option value="${i}">${esc(g.dir)} — ${esc((g.servers || []).join(', '))}</option>`).join('')}</select>` : ''}
         <span class="mono faint" id="ign-file" style="font-size:12px">${ign.file ? esc(`${ign.dir === '.' ? '' : ign.dir + '/'}${ign.file}`) : t('ignoreNoFile')}</span>
         <select id="ign-tmpl" style="width:auto"><option value="">${t('ignoreTemplate')}</option>${Object.keys(tmpls).map((k) => `<option value="${esc(k)}">${esc(k)}</option>`).join('')}</select>
         <span style="margin-left:auto"></span><button class="btn" id="ign-save">${icon('check')}${t('save')}</button></div>
-      <textarea id="ign-text" rows="10" spellcheck="false" ${ign.file ? '' : 'disabled'}>${esc(ign.content || '')}</textarea></div>
-    <div class="bolum"><h3>${icon('lock')}${t('secSecurity')}</h3><div style="height:10px"></div>
-      <label class="anahtar"><span class="metin"><b>${t('keyringTitle')}</b><small>${t('keyringHint')}</small></span><span class="switch"><input type="checkbox" id="kr" ${cfg.project.keyring ? 'checked' : ''}><i></i></span></label></div>
+      <textarea id="ign-text" rows="10" spellcheck="false" ${ign.file ? '' : 'disabled'}>${esc(ign.content || '')}</textarea>`, { fold: true, summary: ign.file ? esc(ign.file) : '' })}
+    ${section('lock', t('secSecurity'), '', `
+      <label class="anahtar"><span class="metin"><b>${t('keyringTitle')}</b><small>${t('keyringHint')}</small></span><span class="switch"><input type="checkbox" id="kr" ${cfg.project.keyring ? 'checked' : ''}><i></i></span></label>`, { fold: true, summary: cfg.project.keyring ? 'keyring' : t('foldOff') })}
     ${projToolsHTML()}
-    <div class="bolum"><h3>${icon('layers')}${t('secRegistry')}</h3><p class="aciklama">${t('registryDesc')}</p>
-      <div class="aksiyonlar"><button class="btn" id="b-rename">${icon('edit')}${t('renameProject')}</button></div></div>
+    ${section('layers', t('secRegistry'), t('registryDesc'), `<div class="aksiyonlar"><button class="btn" id="b-rename">${icon('edit')}${t('renameProject')}</button></div>`, { fold: true })}
   </div>
   <div class="form-alt"><button class="btn birincil" id="b-save">${icon('check')}${t('save')}</button></div>`;
 }

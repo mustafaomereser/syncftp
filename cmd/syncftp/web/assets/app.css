@@ -206,7 +206,7 @@ textarea { font-family: var(--mono); font-size: 12.5px; min-height: 84px; resize
 .anahtar .metin { flex: 1; min-width: 0; }
 .anahtar .metin b { display: block; font-weight: 500; font-size: 13.5px; }
 .anahtar .metin small { color: var(--faint); font-size: 12px; }
-.switch { position: relative; width: 36px; height: 20px; flex: none; }
+.switch { position: relative; display: inline-block; vertical-align: middle; width: 36px; height: 20px; flex: none; }
 .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
 .switch i { position: absolute; inset: 0; background: var(--surface-3); border-radius: 20px; transition: background .15s; }
 .switch i::after { content: ""; position: absolute; left: 3px; top: 3px; width: 14px; height: 14px; background: var(--muted); border-radius: 50%; transition: transform .15s, background .15s; }
@@ -473,3 +473,18 @@ body.terminal-modu #sayfa { height: 100%; }
 
 /* Dosyalar: kalan satırları göster */
 .tam-gen { width: 100%; margin-top: 8px; justify-content: center; }
+
+/* Katlanabilir form bölümleri */
+details.bolum.katlanir { padding: 0; }
+details.bolum.katlanir > summary { list-style: none; display: flex; align-items: center; gap: 12px; padding: 14px 20px; cursor: pointer; border-radius: var(--r-card); }
+details.bolum.katlanir > summary::-webkit-details-marker { display: none; }
+details.bolum.katlanir > summary:hover { background: var(--surface); }
+details.bolum.katlanir > summary h3 { margin: 0; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+details.bolum.katlanir > summary .kat-ozet { color: var(--faint); font-size: 12.5px; margin-left: auto; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+details.bolum.katlanir > summary .ok-ac { color: var(--faint); transition: transform .15s; flex: none; }
+details.bolum.katlanir[open] > summary .ok-ac { transform: rotate(90deg); }
+details.bolum.katlanir[open] > summary { border-bottom: 1px solid var(--line); border-radius: var(--r-card) var(--r-card) 0 0; }
+details.bolum.katlanir > .katlanir-ic { padding: 14px 20px 18px; }
+.ara-baslik { font: 600 11px var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--faint); margin: 8px 2px -4px; }
+[hidden] { display: none !important; }
+details.bolum.katlanir > summary h3 + .ok-ac { margin-left: auto; }

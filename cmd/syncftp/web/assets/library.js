@@ -184,11 +184,10 @@ function bindDefaultsSection(root, lib, rerender) {
 
 // ── Proje araçları (Proje ayarları sekmesi) ──────────────────────────────────
 function projToolsHTML() {
-  return `<div class="bolum"><h3>${icon('copy')}${t('ptTools')}</h3><p class="aciklama">${t('ptToolsDesc')}</p>
-      <div class="aksiyonlar"><button class="btn" id="pt-export">${icon('download')}${t('ptExport')}</button>
+  return section('copy', t('ptTools'), t('ptToolsDesc'), `<div class="aksiyonlar"><button class="btn" id="pt-export">${icon('download')}${t('ptExport')}</button>
         <button class="btn" id="pt-import">${icon('upload')}${t('ptImport')}</button>
-        <button class="btn" id="pt-defaults">${icon('sliders')}${t('ptAsDefaults')}</button></div></div>
-    <div class="bolum"><h3>${icon('zap')}${t('ptServe')}</h3><p class="aciklama">${t('ptServeDesc')}</p><div id="pt-serve"></div></div>`;
+        <button class="btn" id="pt-defaults">${icon('sliders')}${t('ptAsDefaults')}</button></div>`, { fold: true })
+    + section('zap', t('ptServe'), t('ptServeDesc'), '<div id="pt-serve"></div>', { fold: true });
 }
 
 function bindProjTools(root, P) {

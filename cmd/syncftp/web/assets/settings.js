@@ -43,7 +43,7 @@ Object.assign(T.en, {
   setOpenFolder: 'Open folder',
 });
 
-async function pageSettings() {
+async function pageSettings(sub = "general") {
   const [s, hooks, lib] = await Promise.all([GET('/api/settings'), GET('/api/hooks').catch(() => ({ tunnel: {} })), GET('/api/library')]);
   if (!S.projects.length) await loadProjects();
   const tun = hooks.tunnel || {};
@@ -144,6 +144,18 @@ async function pageSettings() {
     <div class="alan"><label>${t('setPlatform')}</label><input type="text" class="mono" value="${esc(s.os)} · ${esc(s.go)}" readonly></div>
     ${pathRow(t('setExe'), s.exe, '')}${pathRow(t('setConfigDir'), s.config_dir, 'config')}${pathRow(t('setRegistry'), s.registry, '')}</div>`);
 
+  // Tek sayfada 8 bölüm alt alta kafa karıştırıyordu → her iş kendi alt sayfasında
+  const tabs = [
+    ['general', 'sliders', t('setTabGeneral'), general],
+    ['library', 'link', t('setTabLibrary'), libSectionHTML(lib)],
+    ['defaults', 'layers', t('setTabDefaults'), defaultsSectionHTML(lib)],
+    ['projects', 'folder', t('setTabProjects'), projSec],
+    ['hooks', 'zap', t('setTabHooks'), hooksSec],
+    ['security', 'shield', t('setTabSecurity'), hostSec],
+    ['system', 'gauge', t('setTabSystem'), cacheSec + about],
+  ];
+  const cur = tabs.find((x) => x[0] === sub) || tabs[0];
   return `<div class="sayfa"><div class="baslik-satir"><div><h1>${t('setTitle')}</h1><div class="yol">${esc(t('setSub'))}</div></div></div>
-    <div class="form">${general}${libSectionHTML(lib)}${defaultsSectionHTML(lib)}${projSec}${hooksSec}${hostSec}${cacheSec}${about}</div></div>`;
+    <div class="tabs" style="margin-bottom:16px">${tabs.map(([k, ic, label]) => `<a href="#/settings/${k}" class="${k === cur[0] ? 'aktif' : ''}">${icon(ic)}${label}</a>`).join('')}</div>
+    ${tabs.map(([k, , , html]) => `<div class="form" ${k === cur[0] ? '' : 'hidden'}>${html}</div>`).join('')}</div>`;
 }

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -54,6 +55,7 @@ func (sv *guiServer) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/p/{p}/config", sv.apiConfigGet)
 	mux.HandleFunc("PUT /api/p/{p}/config", sv.apiConfigPut)
 	mux.HandleFunc("POST /api/p/{p}/test", sv.apiTestConn)
+	mux.HandleFunc("POST /api/p/{p}/browse-dirs", sv.apiBrowseDirs)
 	mux.HandleFunc("POST /api/p/{p}/keyring", sv.apiKeyring)
 	mux.HandleFunc("POST /api/p/{p}/jobs", sv.apiJobStart)
 
@@ -605,17 +607,61 @@ func (sv *guiServer) apiTestConn(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 404, err)
 		return
 	}
-	var req struct {
-		Server      config.Server       `json:"server"`
-		Connections []config.Connection `json:"connections"`
-	}
+	var req formServerReq
 	if err := guiDecode(r, &req); err != nil {
 		guiErr(w, 400, err)
 		return
 	}
-	tmp := config.Config{Servers: []config.Server{req.Server}, Connections: req.Connections}
+	testConnection(w, req.resolve(old))
+}
+
+// formServerReq sunucu formundaki (henüz kaydedilmemiş) sunucu — "__keep__" şifreler kayıtlı
+// config'ten geri konur, bağlantı profili çözülür. Bağlantı testi ve uzak dizin seçici ortak.
+type formServerReq struct {
+	Server      config.Server       `json:"server"`
+	Connections []config.Connection `json:"connections"`
+	Path        string              `json:"path"`
+}
+
+func (q formServerReq) resolve(old *config.Config) config.Server {
+	tmp := config.Config{Servers: []config.Server{q.Server}, Connections: q.Connections}
 	restoreSecrets(&tmp, old)
-	testConnection(w, tmp.Servers[0].Resolve(tmp.Connections))
+	return tmp.Servers[0].Resolve(tmp.Connections)
+}
+
+// apiBrowseDirs sunucu formundaki "Uzak dizin → Gözat": formdaki bilgilerle bağlanıp bir dizinin
+// alt klasörlerini döner (remoteEntries — CLI tarayıcısıyla aynı sıralama). Yol mutlak.
+func (sv *guiServer) apiBrowseDirs(w http.ResponseWriter, r *http.Request) {
+	_, old, err := sv.project(r)
+	if err != nil {
+		guiErr(w, 404, err)
+		return
+	}
+	var req formServerReq
+	if err := guiDecode(r, &req); err != nil {
+		guiErr(w, 400, err)
+		return
+	}
+	srv := req.resolve(old)
+	dir := path.Clean("/" + strings.TrimSpace(req.Path))
+	c, err := ftpclient.Connect(srv)
+	if err != nil {
+		guiErr(w, 400, err)
+		return
+	}
+	defer c.Close()
+	entries, err := remoteEntries(c, dir)
+	if err != nil {
+		guiErr(w, 400, err)
+		return
+	}
+	dirs := []string{}
+	for _, e := range entries {
+		if entryKind(e) == "dir" {
+			dirs = append(dirs, e.Name)
+		}
+	}
+	guiJSON(w, map[string]any{"path": dir, "dirs": dirs})
 }
 
 // testConnection bağlanır, uzak dizini listeler, süreyi döner — sunucu formu ve kütüphane ortak.

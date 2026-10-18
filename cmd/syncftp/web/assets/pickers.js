@@ -10,7 +10,7 @@
 
 Object.assign(T.tr, {
   pkTitleDir: 'Klasör seç', pkTitleFile: 'Dosya seç', pkDrives: 'Sürücüler', pkHome: 'Ev dizini', pkUp: 'Üst klasör',
-  pkSelectThis: 'Bu klasörü seç', pkSelect: 'Seç', pkGo: 'Git', pkEmpty: 'Klasör boş', pkProject: 'syncFTP projesi',
+  pkSelectThis: 'Bu klasörü seç', pkRemoteTitle: 'Sunucuda klasör seç', pkNoSubdirs: 'Alt klasör yok', pkSelect: 'Seç', pkGo: 'Git', pkEmpty: 'Klasör boş', pkProject: 'syncFTP projesi',
   pkExplorerHint: 'Klasöre tıklayınca içine girer, .. ile geri çıkar. Onay kutusuyla işaretleyin. Klavye: ↑↓ gez, Enter gir, Space işaretle, Backspace geri.', pkRoot: 'Proje kökü',
   pkHidden: 'Gizlileri göster', pkTreeTitle: 'Yerel dosyalardan seç', pkIgnored: 'ignore', pkSelected: '{0} seçili',
   pkTreeHint: 'İşaretlediğiniz klasör ve dosyalar listeye eklenir; işareti kaldırılanlar çıkarılır. Listede olup burada görünmeyen kalıplar (glob vb.) korunur.',
@@ -18,7 +18,7 @@ Object.assign(T.tr, {
 });
 Object.assign(T.en, {
   pkTitleDir: 'Choose folder', pkTitleFile: 'Choose file', pkDrives: 'Drives', pkHome: 'Home', pkUp: 'Parent folder',
-  pkSelectThis: 'Select this folder', pkSelect: 'Select', pkGo: 'Go', pkEmpty: 'Folder is empty', pkProject: 'syncFTP project',
+  pkSelectThis: 'Select this folder', pkRemoteTitle: 'Choose a server folder', pkNoSubdirs: 'No subfolders', pkSelect: 'Select', pkGo: 'Go', pkEmpty: 'Folder is empty', pkProject: 'syncFTP project',
   pkExplorerHint: 'Click a folder to open it, .. to go back. Tick checkboxes to select. Keys: ↑↓ move, Enter open, Space select, Backspace back.', pkRoot: 'Project root',
   pkHidden: 'Show hidden', pkTreeTitle: 'Pick from local files', pkIgnored: 'ignored', pkSelected: '{0} selected',
   pkTreeHint: 'Checked folders and files are added to the list; unchecked ones are removed. Patterns that are not visible here (globs etc.) are kept.',
@@ -93,6 +93,49 @@ function pickPath({ mode = 'dir', initial = '', title } = {}) {
     $p('path').onkeydown = (e) => { if (e.key === 'Enter') load($p('path').value.trim()); };
     $p('hidden').onchange = (e) => { hidden = e.target.checked; load(cur); };
     load(cur).then(() => { if (!cur) GET('/api/fs/list?path=').then((d) => { home = d.home; }); });
+  });
+}
+
+// Uzak klasör seçici — sunucu formundaki "Uzak dizin → Gözat". list(path) → {path, dirs}; formdaki
+// (kaydedilmemiş) bağlantı bilgileriyle sunucuya bağlanır. Klasöre tıkla → içine gir, ".." → üst.
+function pickRemoteDir({ list, initial = '/', title }) {
+  return new Promise((resolve) => {
+    let cur = initial || '/', done = false, busy = 0;
+    const m = modal({
+      title: `${icon('server')}${title || t('pkRemoteTitle')}`, size: 'orta',
+      body: `<div class="girdi-grup" style="margin-bottom:10px">
+          <button class="ikon-btn" data-rp="up" title="${t('pkUp')}">${icon('left')}</button>
+          <input type="text" class="mono" data-rp="path" spellcheck="false">
+          <button class="btn" data-rp="go">${t('pkGo')}</button></div>
+        <div class="liste-kutu pk-liste" data-rp="list" style="height:46vh;max-height:none"></div>`,
+      actions: [
+        { label: t('cancel'), cls: 'hayalet', run: () => { done = true; resolve(null); } },
+        { label: icon('check') + t('pkSelectThis'), cls: 'birincil', run: () => { done = true; resolve(cur); } },
+      ],
+      onClose: () => { if (!done) resolve(null); },
+    });
+    const $r = (k) => $(`[data-rp="${k}"]`, m.root);
+    const parent = (p) => (p === '/' ? '/' : p.replace(/\/[^/]*$/, '') || '/');
+    async function load(path) {
+      const seq = ++busy;
+      $r('list').innerHTML = `<div class="faint" style="padding:10px 12px">${icon('refresh', 'spin')} ${t('loading')}</div>`;
+      let d;
+      try { d = await list(path); } catch (e) {
+        if (seq !== busy) return;
+        $r('list').innerHTML = `<div class="bad-t" style="padding:10px 12px">${esc(e.message)}</div>`;
+        return;
+      }
+      if (seq !== busy) return;
+      cur = d.path; $r('path').value = cur;
+      const rows = (cur === '/' ? [] : [['..', parent(cur)]]).concat(d.dirs.map((n) => [n, (cur === '/' ? '' : cur) + '/' + n]));
+      $r('list').innerHTML = rows.length ? rows.map(([n, full]) => `<div class="tikla pk-satir" data-full="${esc(full)}">${icon(n === '..' ? 'left' : 'folder', n === '..' ? 'faint' : 'acc-t')} ${esc(n)}</div>`).join('')
+        : `<div class="faint" style="padding:10px 12px">${t('pkNoSubdirs')}</div>`;
+      $$('.pk-satir', $r('list')).forEach((row) => (row.onclick = () => load(row.dataset.full)));
+    }
+    $r('up').onclick = () => load(parent(cur));
+    $r('go').onclick = () => load($r('path').value.trim() || '/');
+    $r('path').onkeydown = (e) => { if (e.key === 'Enter') load($r('path').value.trim() || '/'); };
+    load(cur);
   });
 }
 
