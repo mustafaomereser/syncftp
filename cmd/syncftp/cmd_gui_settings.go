@@ -219,6 +219,7 @@ func dataLocations() []dataLocation {
 		{Key: "registry", Group: "app", Path: projects.Path(), File: true},
 		{Key: "known_hosts", Group: "app", Path: ftpclient.KnownHostsPath(), File: true},
 		{Key: "cloudflared", Group: "app", Path: cloudflaredLocalPath(), File: true},
+		{Key: "cache_dir", Group: "cache", Path: cacheRoot},
 		{Key: "hashcache", Group: "cache", Path: scanner.CacheDir()},
 		{Key: "panel_profile", Group: "cache", Path: filepath.Join(cacheRoot, "panel-profile")},
 		{Key: "temp", Group: "temp", Path: os.TempDir()},

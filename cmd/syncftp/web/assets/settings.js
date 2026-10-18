@@ -24,7 +24,7 @@ Object.assign(T.tr, {
   setAbout: 'Hakkında', setVersion: 'Sürüm', setExe: 'Program', setPlatform: 'Platform',
   setOpenFolder: 'Klasörü aç',
   setLocs: "Veri konumları", setLocsDesc: "syncFTP'nin diske yazdığı her şey. Anahtarlık modu açıksa şifreler bu dosyalarda değil, Windows Kimlik Bilgisi Yöneticisi'nde durur.",
-  setLocApp: 'Uygulama ayarları', setLocCache: 'Önbellek — silinebilir, gerekince yeniden oluşur', setLocTemp: 'Geçici dosyalar', setLocProjects: 'Projeler',
+  setLocApp: 'Uygulama ayarları', setLocCache: 'Önbellek (silinebilir)', setLocTemp: 'Geçici dosyalar', setLocProjects: 'Projeler',
   setLocMissing: 'henüz yok', setLocReveal: 'Dosyayı klasöründe göster',
   loc_config_dir: 'Ayar klasörü', locHint_config_dir: 'Aşağıdaki uygulama dosyalarının hepsi burada',
   loc_library: 'Bağlantı kütüphanesi', locHint_library: 'Kayıtlı bağlantılar ve yeni proje varsayılanları',
@@ -58,7 +58,7 @@ Object.assign(T.en, {
   setAbout: 'About', setVersion: 'Version', setExe: 'Program', setPlatform: 'Platform',
   setOpenFolder: 'Open folder',
   setLocs: 'Data locations', setLocsDesc: 'Everything syncFTP writes to disk. With keyring mode on, passwords are kept in the OS credential store, not in these files.',
-  setLocApp: 'App settings', setLocCache: 'Cache — safe to delete, rebuilt when needed', setLocTemp: 'Temporary files', setLocProjects: 'Projects',
+  setLocApp: 'App settings', setLocCache: 'Cache (safe to delete)', setLocTemp: 'Temporary files', setLocProjects: 'Projects',
   setLocMissing: 'not created yet', setLocReveal: 'Show the file in its folder',
   loc_config_dir: 'Settings folder', locHint_config_dir: 'All the app files below live here',
   loc_library: 'Connection library', locHint_library: 'Saved connections and new-project defaults',
@@ -161,16 +161,30 @@ async function pageSettings(sub = "general") {
 
   // Veri konumları: Go'daki dataLocations listesi (Klasörü aç da yalnızca bunları açar)
   const locs = s.locations || [];
-  const locRow = (l) => `<tr><td><b>${esc(l.project || t('loc_' + l.key))}</b>${l.exists ? '' : ` <span class="pill">${t('setLocMissing')}</span>`}
-      <div class="faint" style="font-size:12px;margin-top:2px">${t(l.project ? 'locHint_project' : 'locHint_' + l.key)}</div>
-      <div class="mono" style="font-size:12px;margin-top:4px;word-break:break-all">${esc(l.path)}</div></td>
-    <td class="sag" style="white-space:nowrap;vertical-align:top"><button class="ikon-btn" data-copy="${esc(l.path)}" title="${t('copyPath')}">${icon('copy')}</button><button class="ikon-btn" data-open="${esc(l.key)}" title="${t(l.file && l.exists ? 'setLocReveal' : 'setOpenFolder')}">${icon('folder')}</button></td></tr>`;
-  const locGroup = (g, title) => {
-    const rows = locs.filter((l) => l.group === g);
-    return rows.length ? `<div class="ara-baslik" style="margin-top:14px">${title}</div><div class="tablo-kap"><table class="tablo"><tbody>${rows.map(locRow).join('')}</tbody></table></div>` : '';
+  const byKey = Object.fromEntries(locs.map((l) => [l.key, l]));
+  const locBtns = (l) => `<span class="konum-aks">${l.exists ? '' : `<span class="pill">${t('setLocMissing')}</span>`}
+      <button class="ikon-btn" data-copy="${esc(l.path)}" title="${t('copyPath')}">${icon('copy')}</button><button class="ikon-btn" data-open="${esc(l.key)}" title="${t(l.file && l.exists ? 'setLocReveal' : 'setOpenFolder')}">${icon('folder')}</button></span>`;
+  // Satır tek satır: ad (açıklama tooltip'te) · kök klasöre göreceli yol (tam yol tooltip'te) · düğmeler
+  const locRow = (l, root) => {
+    const rel = root && l.path.startsWith(root) ? l.path.slice(root.length).replace(/^[\\/]/, '') : l.path;
+    return `<div class="konum-satir"><span class="konum-ad" title="${esc(t(l.project ? 'locHint_project' : 'locHint_' + l.key))}">${esc(l.project || t('loc_' + l.key))}</span>
+      <span class="konum-yol mono" title="${esc(l.path)}">${esc(rel)}</span>${locBtns(l)}</div>`;
   };
+  // Grup: başlıkta ortak kök klasör (kopyala/aç), altında o klasöre göreceli satırlar
+  const locGroup = (title, rootKey, rows) => {
+    const root = byKey[rootKey];
+    return `<div class="konum-grup"><div class="konum-bas"><span class="konum-baslik">${title}</span>
+      ${root ? `<span class="konum-yol mono" title="${esc(root.path)}">${esc(root.path)}</span>${locBtns(root)}` : ''}</div>
+      ${rows.map((l) => locRow(l, root && root.path)).join('')}</div>`;
+  };
+  const projLocs = locs.filter((l) => l.group === 'project');
   const locSec = section('folder', t('setLocs'), t('setLocsDesc'),
-    locGroup('app', t('setLocApp')) + locGroup('project', t('setLocProjects')) + locGroup('cache', t('setLocCache')) + locGroup('temp', t('setLocTemp')));
+    locGroup(t('setLocApp'), 'config_dir', locs.filter((l) => l.group === 'app' && l.key !== 'config_dir')) +
+    locGroup(t('setLocCache'), 'cache_dir', locs.filter((l) => l.group === 'cache' && l.key !== 'cache_dir')) +
+    locGroup(t('setLocTemp'), '', locs.filter((l) => l.group === 'temp')) +
+    (projLocs.length ? `<details class="konum-grup konum-kat"><summary class="konum-bas"><span class="konum-baslik">${t('setLocProjects')} · ${projLocs.length}</span>
+      <span class="faint" style="font-size:12px">${esc(t('locHint_project'))}</span>${icon('right', 'ok-ac')}</summary>
+      ${projLocs.map((l) => locRow(l, '')).join('')}</details>` : ''));
 
   // Tek sayfada 8 bölüm alt alta kafa karıştırıyordu → her iş kendi alt sayfasında
   const tabs = [
@@ -180,7 +194,7 @@ async function pageSettings(sub = "general") {
     ['projects', 'folder', t('setTabProjects'), projSec],
     ['hooks', 'zap', t('setTabHooks'), hooksSec],
     ['security', 'shield', t('setTabSecurity'), hostSec],
-    ['system', 'gauge', t('setTabSystem'), locSec + cacheSec + about],
+    ['system', 'gauge', t('setTabSystem'), cacheSec + about + locSec],
   ];
   const cur = tabs.find((x) => x[0] === sub) || tabs[0];
   return `<div class="sayfa"><div class="baslik-satir"><div><h1>${t('setTitle')}</h1><div class="yol">${esc(t('setSub'))}</div></div></div>
