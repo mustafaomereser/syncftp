@@ -379,8 +379,13 @@ function openMenu(anchor, items) {
   }
   const kap = anchor.closest('.menu-kap') || anchor.parentElement;
   kap.appendChild(m);
-  const r = m.getBoundingClientRect();
-  if (r.bottom > window.innerHeight - 10) { m.style.top = 'auto'; m.style.bottom = 'calc(100% + 6px)'; }
+  // Menü düğmenin altına sığmıyorsa daha çok yer olan tarafa açılır ve o taraftaki boşlukla
+  // sınırlanır (kaydırılır) — yukarı açılınca ekranın üstünden taşıp tıklanamaz hale geliyordu
+  const a = kap.getBoundingClientRect();
+  const below = window.innerHeight - a.bottom - 16, above = a.top - 16;
+  const h = m.scrollHeight;
+  if (h > below && above > below) { m.style.top = 'auto'; m.style.bottom = 'calc(100% + 6px)'; m.style.maxHeight = `${Math.max(120, above)}px`; }
+  else m.style.maxHeight = `${Math.max(120, below)}px`;
 }
 function closeMenus() { $$('.menu').forEach((m) => m.remove()); }
 document.addEventListener('click', (e) => { if (!e.target.closest('.menu') && !e.target.closest('[data-menu]')) closeMenus(); });
