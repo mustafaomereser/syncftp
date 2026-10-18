@@ -49,7 +49,26 @@ type termSession struct {
 var (
 	termsMu sync.Mutex
 	terms   = map[string]*termSession{} // id → oturum
+	// termOpenMu apiTermOpen'u sıralar: "var mı → yoksa aç" iki ayrı termsMu bölümünde olduğundan
+	// eş zamanlı iki açma isteği aynı projeye iki shell başlatıyordu (biri yetim kalıyordu).
+	termOpenMu sync.Mutex
 )
+
+// termView oturumun JSON görünümü — Exited/ExitInfo wait() tarafından s.mu altında yazılır.
+type termView struct {
+	ID       string    `json:"id"`
+	Project  string    `json:"project"`
+	Dir      string    `json:"dir"`
+	Started  time.Time `json:"started"`
+	Exited   bool      `json:"exited"`
+	ExitInfo string    `json:"exit_info,omitempty"`
+}
+
+func (s *termSession) view() termView {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return termView{ID: s.ID, Project: s.Project, Dir: s.Dir, Started: s.Started, Exited: s.Exited, ExitInfo: s.ExitInfo}
+}
 
 func (sv *guiServer) registerTermAPI(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/terms", sv.apiTermList)
@@ -122,6 +141,8 @@ func (sv *guiServer) apiTermOpen(w http.ResponseWriter, r *http.Request) {
 	if dir == "" {
 		dir, _ = os.Getwd()
 	}
+	termOpenMu.Lock()
+	defer termOpenMu.Unlock()
 	termsMu.Lock()
 	for id, s := range terms {
 		if s.Project == req.Project {
@@ -130,7 +151,7 @@ func (sv *guiServer) apiTermOpen(w http.ResponseWriter, r *http.Request) {
 			s.mu.Unlock()
 			if !exited && !req.Restart {
 				termsMu.Unlock()
-				guiJSON(w, s)
+				guiJSON(w, s.view())
 				return
 			}
 			_ = s.pty.Close()
@@ -167,7 +188,7 @@ func (sv *guiServer) apiTermOpen(w http.ResponseWriter, r *http.Request) {
 	termsMu.Unlock()
 	go s.pump()
 	go s.wait()
-	guiJSON(w, s)
+	guiJSON(w, s.view())
 }
 
 func termByID(r *http.Request) *termSession {
@@ -178,9 +199,9 @@ func termByID(r *http.Request) *termSession {
 
 func (sv *guiServer) apiTermList(w http.ResponseWriter, r *http.Request) {
 	termsMu.Lock()
-	out := make([]*termSession, 0, len(terms))
+	out := make([]termView, 0, len(terms))
 	for _, s := range terms {
-		out = append(out, s)
+		out = append(out, s.view())
 	}
 	termsMu.Unlock()
 	sort.Slice(out, func(i, j int) bool { return out[i].Started.Before(out[j].Started) })

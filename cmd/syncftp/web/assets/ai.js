@@ -6,8 +6,8 @@
 Object.assign(T.tr, {
   aiTitle: 'Yapay zekâ asistanı', aiNav: 'AI asistan', aiPick: 'Hangi araçla açalım?', aiPickSub: 'Bu bilgisayarda yüklü yapay zekâ araçları. Asistan syncFTP dokümanlarını ve projenin şifresiz özetini okuyarak yardım eder; isterseniz sizin yerinize ayar yapar.',
   aiChat: 'Panel içi sohbet', aiNotInstalled: 'yüklü değil', aiProject: 'Proje',
-  aiNew: 'Yeni sohbet', aiStop: 'Durdur', aiSend: 'Gönder', aiPlaceholder: 'Sorun ya da yaptırın… (Enter gönderir, Shift+Enter yeni satır)',
-  aiThinking: 'düşünüyor…', aiNoProject: 'Önce bir proje ekleyin', aiNoAgents: 'Yüklü yapay zekâ aracı bulunamadı. Claude Code ya da OpenCode kurun.',
+  aiNew: 'Yeni sohbet', aiPlaceholder: 'Sorun ya da yaptırın… (Enter gönderir, Shift+Enter yeni satır)',
+  aiThinking: 'düşünüyor…', aiNoAgents: 'Yüklü yapay zekâ aracı bulunamadı. Claude Code ya da OpenCode kurun.',
   aiPerms: 'İzinler: dosya düzenleme + yalnızca syncftp komutları. Gerçek sync, rollback ve silme gibi işlemlerden önce size sorar.',
   aiS1: 'Bu projede neler var, özetler misin?', aiS2: 'Yeni bir SFTP sunucusu eklemek istiyorum, adım adım sorarak ekle', aiS3: 'GitHub\'a push yapınca otomatik deploy olsun, kur', aiS4: 'Neden bu dosyalar yükleniyor? Bekleyen değişiklikleri açıkla',
   aiS5: 'vendor ve node_modules\'ü sync dışında bırak, .env\'yi koru', aiS6: 'Deploy sonrası sunucuda php artisan migrate çalışsın',
@@ -20,8 +20,8 @@ Object.assign(T.tr, {
 Object.assign(T.en, {
   aiTitle: 'AI assistant', aiNav: 'AI assistant', aiPick: 'Which tool should we use?', aiPickSub: 'AI tools installed on this computer. The assistant reads the syncFTP docs and a secret-free summary of the project; it can also change settings for you.',
   aiChat: 'In-panel chat', aiNotInstalled: 'not installed', aiProject: 'Project',
-  aiNew: 'New chat', aiStop: 'Stop', aiSend: 'Send', aiPlaceholder: 'Ask or ask it to do something… (Enter sends, Shift+Enter new line)',
-  aiThinking: 'thinking…', aiNoProject: 'Add a project first', aiNoAgents: 'No AI tool found. Install Claude Code or OpenCode.',
+  aiNew: 'New chat', aiPlaceholder: 'Ask or ask it to do something… (Enter sends, Shift+Enter new line)',
+  aiThinking: 'thinking…', aiNoAgents: 'No AI tool found. Install Claude Code or OpenCode.',
   aiPerms: 'Permissions: file edits + syncftp commands only. It asks you before real syncs, rollbacks and deletions.',
   aiS1: 'What is in this project? Give me a summary', aiS2: 'I want to add a new SFTP server — ask me step by step and add it', aiS3: 'Deploy automatically when I push to GitHub — set it up', aiS4: 'Why are these files being uploaded? Explain the pending changes',
   aiS5: 'Keep vendor and node_modules out of sync and protect .env', aiS6: 'Run php artisan migrate on the server after each deploy',
@@ -138,12 +138,14 @@ function aiRenderChat() {
     if (AI.es) AI.es.close();
     api('DELETE', `/api/ai/sessions/${enc(s.id)}`).catch(() => {});
     AI.session = null;
+    AI.cost = 0; AI.busy = false;
     aiRenderPicker(s.setup);
   };
   const ta = $('#ai-text', el);
   const send = async (text) => {
     text = (text ?? ta.value).trim();
-    if (!text) return;
+    // Asistan çalışırken gönderilmez (düğme gizli; Enter / öneri de engellenir) — yazılan metin kutuda kalır
+    if (!text || AI.busy) return;
     ta.value = '';
     try { await api('POST', `/api/ai/sessions/${enc(s.id)}/send`, { text }); } catch (e) { fail(e); }
   };
@@ -158,6 +160,8 @@ function aiRenderChat() {
   AI.lastId = 0;
   AI.busy = false;
   AI.changed = false;
+  // Akış baştan oynatılır (info olayları maliyeti yeniden ekler) → toplam sıfırdan hesaplanır
+  AI.cost = 0;
   AI.es = new EventSource(`/api/ai/sessions/${enc(s.id)}/stream`);
   AI.es.onmessage = (e) => { try { aiOnMsg(JSON.parse(e.data)); } catch { /* yoksay */ } };
 }

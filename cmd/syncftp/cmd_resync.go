@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -116,10 +117,10 @@ func passesFilter(relPath string, include, exclude []string) bool {
 }
 
 // runCalibrate yerel dosyaları FTP boyutlarıyla karşılaştırıp eşleşenleri state'e yazar.
-// Yükleme yapmaz. Hata olursa sessizce devam eder (state değişmez).
-// Sync içindeki otomatik tetikleme bu sürümü kullanır (TUI ve log yok — paralel güvenli).
-func runCalibrate(dir string, srv config.Server, cfg *config.Config) {
-	runCalibrateOpts(dir, srv, cfg, calibrateOpts{})
+// Yükleme yapmaz. Hata olursa state değişmez ve hata döner.
+// TUI ve log yok — paralel güvenli.
+func runCalibrate(dir string, srv config.Server, cfg *config.Config) error {
+	return runCalibrateOpts(dir, srv, cfg, calibrateOpts{})
 }
 
 type calibrateOpts struct {
@@ -128,7 +129,12 @@ type calibrateOpts struct {
 	out         io.Writer // nil → stdout (canlı sayaçlarla); dolu → buffer/GUI akışı (sayaçsız)
 }
 
-func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts calibrateOpts) {
+// errCalibrateCancelled interaktif listeleme kullanıcı tarafından iptal edildi.
+var errCalibrateCancelled = errors.New("calibrate cancelled")
+
+// runCalibrateOpts tarama/bağlantı/listeleme hatasında (ve iptalde) state'e DOKUNMADAN hata döner —
+// sync'in otomatik tetiklemesi bunu görüp sync'i iptal eder (yoksa her dosya yeniden yüklenirdi).
+func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts calibrateOpts) error {
 	o := opts.out
 	if o == nil {
 		o = os.Stdout
@@ -151,7 +157,7 @@ func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts ca
 	matcher, _ := ignore.Load(localDir, cfg.Sync.IgnoreFiles)
 	files, err := scanner.Scan(localDir, matcher)
 	if err != nil {
-		return
+		return err
 	}
 
 	// Sync ile aynı include/exclude filtreleri (cmd_plan.go — normalize edilmiş)
@@ -203,7 +209,10 @@ func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts ca
 	})
 	ignoredCount := ignoredFiles
 
-	st, _ := state.Load(dir, srv.Name)
+	st, err := state.Load(dir, srv.Name)
+	if err != nil {
+		return err
+	}
 
 	p("  [%s]\n", srv.Name)
 	p(lang.L.ResyncLocalFmt, len(current))
@@ -221,7 +230,7 @@ func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts ca
 	client, err := ftpclient.Connect(srv)
 	if err != nil {
 		fmt.Fprintf(o, lang.L.ResyncConnErr, err)
-		return
+		return err
 	}
 	defer client.Close()
 	fmt.Fprint(o, lang.L.ResyncConnected)
@@ -236,7 +245,7 @@ func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts ca
 		remoteFiles, aborted, err2 = runListingTUI(client, srv.RemotePath, skip)
 		if aborted {
 			fmt.Fprint(o, lang.L.ResyncListCancelled)
-			return
+			return errCalibrateCancelled
 		}
 	} else {
 		lastList := time.Now()
@@ -254,7 +263,7 @@ func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts ca
 	}
 	if err2 != nil {
 		fmt.Fprintf(o, lang.L.ResyncListErr, err2)
-		return
+		return err2
 	}
 	p(lang.L.ResyncFoundFmt, len(remoteFiles))
 
@@ -312,7 +321,9 @@ func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts ca
 	}
 
 	st.FirstSyncDone = true
-	_ = state.Save(dir, st)
+	if err := state.Save(dir, st); err != nil {
+		return err
+	}
 
 	p(lang.L.ResyncDoneFmt, srv.Name)
 
@@ -330,6 +341,7 @@ func runCalibrateOpts(dir string, srv config.Server, cfg *config.Config, opts ca
 			fmt.Fprintf(o, lang.L.SyncLogSavedFmt, lp)
 		}
 	}
+	return nil
 }
 
 // ── listeleme TUI (interaktif calibrate) ──────────────────────────────────────

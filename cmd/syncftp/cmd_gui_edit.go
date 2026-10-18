@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -24,7 +25,7 @@ func (sv *guiServer) apiRemoteEditOpen(w http.ResponseWriter, r *http.Request) {
 	}
 	srv, ok := findServer(cfg, r.URL.Query().Get("server"))
 	if !ok {
-		guiErr(w, 404, errors.New("server"))
+		guiErr(w, 404, fmt.Errorf(lang.L.ServerNotFoundFmt, r.URL.Query().Get("server")))
 		return
 	}
 	rel := editRel(r.URL.Query().Get("path"))
@@ -72,7 +73,7 @@ func (sv *guiServer) apiRemoteEditSave(w http.ResponseWriter, r *http.Request) {
 	}
 	srv, ok := findServer(cfg, req.Server)
 	if !ok {
-		guiErr(w, 404, errors.New("server"))
+		guiErr(w, 404, fmt.Errorf(lang.L.ServerNotFoundFmt, req.Server))
 		return
 	}
 	rel := editRel(req.Path)

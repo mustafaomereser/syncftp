@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"syncftp/internal/fsutil"
 )
 
 type State struct {
@@ -59,7 +61,7 @@ func Save(configDir string, s *State) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(statePath(configDir, s.Server), data, 0644)
+	return fsutil.WriteFileAtomic(statePath(configDir, s.Server), data, 0644)
 }
 
 // Diff compares stored hashes against the current file scan.

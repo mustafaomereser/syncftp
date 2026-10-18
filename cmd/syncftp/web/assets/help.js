@@ -112,8 +112,8 @@ const HELP = [
       <li>Unchanged files are not re-read (cache) and scanning runs in parallel — checks take seconds even on large projects.</li></ul>`],
   }],
   ['tray', 'power', {
-    tr: ['Tray ve açılışta başlatma', `<p>syncFTP sağ alttaki sistem tepsisinde çalışır: sol tık paneli açar, sağ tık menüsünde durum, aktif watch'lar, <b>Windows açılışında başlat</b> ve çıkış vardır. Pencereyi kapatmak syncFTP'yi kapatmaz — watch'lar ve CI/CD dinleyicisi çalışmaya devam eder. Tamamen kapatmak için tray'den <i>Çık</i> ya da sol alttaki <i>Kapat</i>.</p>`],
-    en: ['Tray and start with Windows', `<p>syncFTP lives in the system tray: left click opens the panel; the right-click menu shows status, active watches, <b>Start with Windows</b> and quit. Closing the window does not quit syncFTP — watches and the CI/CD listener keep running. Quit from the tray or with <i>Quit</i> at the bottom left.</p>`],
+    tr: ['Tray ve açılışta başlatma', `<p>syncFTP sağ alttaki sistem tepsisinde çalışır: sol tık paneli açar, sağ tık menüsünde durum, projeler, aktif watch'lar, webhook tüneli ve çıkış vardır. <b>Windows açılışında başlat</b> seçeneği <i>Ayarlar → Genel</i>'dedir. Pencereyi kapatmak syncFTP'yi kapatmaz — watch'lar ve CI/CD dinleyicisi çalışmaya devam eder. Tamamen kapatmak için tray'den <i>Çık</i> ya da sol alttaki <i>Kapat</i>.</p>`],
+    en: ['Tray and start with Windows', `<p>syncFTP lives in the system tray: left click opens the panel; the right-click menu shows status, projects, active watches, the webhook tunnel and quit. <b>Start with Windows</b> is under <i>Settings → General</i>. Closing the window does not quit syncFTP — watches and the CI/CD listener keep running. Quit from the tray or with <i>Quit</i> at the bottom left.</p>`],
   }],
 ];
 

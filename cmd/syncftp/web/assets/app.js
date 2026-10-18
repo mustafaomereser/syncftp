@@ -8,9 +8,9 @@
 // ── i18n ─────────────────────────────────────────────────────────────────────
 const T = {
   tr: {
-    brandSub: 'Dağıtım paneli', navAll: 'Tüm projeler', navJobs: 'İşler', navProjects: 'Projeler',
+    navAll: 'Tüm projeler', navJobs: 'İşler', navProjects: 'Projeler',
     addProject: 'Proje ekle', navNoProjects: 'Bu klasörde proje yok', watching: 'Watch', language: 'Dil', quit: 'Kapat',
-    loading: 'Yükleniyor…', shortcutKey: 'Kısayol: {0}', skip_ignored: 'ignore', skip_excluded: 'exclude', skip_not_included: 'include dışı', skipHint_ignored: 'Yerelde ignore dosyalarında (.gitignore / syncftp.ignore): sync bu yolu taramaz, sunucuya yüklemez. Sunucudaki kopyaya dokunulmaz, silinmez.', skipHint_excluded: 'Exclude yerel taraf içindir: yereldeki bu dosya sunucuya yüklenmez. Sunucudaki kopyaya dokunulmaz, silinmez.', skipHint_not_included: 'Include listesinde değil: yereldeki bu dosya sunucuya yüklenmez. Sunucudaki kopyaya dokunulmaz, silinmez.', watchAll: 'Tümünü izle', watchStopAll: 'Tüm watch\'ları durdur', watchAllHint: 'Projedeki her aktif sunucu için ayrı watch başlatır', watchServerHint: 'Bu sunucuyu izle: yerelde değişen dosyalar otomatik yüklenir (CLI: watch -s)', watchingTag: 'izleniyor', watchCount: '{0}/{1} sunucu', watchSyncs: '{0} otomatik sync', mgSync: 'Sync', mgCheck: 'Kontrol', mgHistory: 'Zaman ve geri alma', mgServer: 'Sunucu', showMore: '{0} tane daha göster', foldAdvanced: 'Gelişmiş', foldMore: 'Diğer', foldDefault: 'varsayılan', foldOff: 'kapalı', foldConn: 'bağlantı', foldRetry: 'deneme', foldBlock: 'engelli uzantı', setTabGeneral: 'Genel', setTabLibrary: 'Bağlantı kütüphanesi', setTabDefaults: 'Yeni proje varsayılanları', setTabProjects: 'Projeler', setTabHooks: 'Webhook / CI', setTabSecurity: 'Host anahtarları', setTabSystem: 'Sistem', deleteRecursive: 'İçeriğiyle birlikte sil', deleteRecursiveHint: 'Kapalıyken yalnızca boş klasörler silinir (CLI: remote rm --recursive)', stFilter: 'Filtrele', stFilterHint: 'Tek seferlik include / exclude (virgülle ayırın) — CLI: status --include / --exclude', moreRows: '{0} öğe daha göster', stFrozen: 'Freeze', stProtected: 'Korunan', stBlocked: 'Engelli', stUploadSize: 'yüklenecek: {0}', treeView: 'Ağaç', treeHint: 'Bu klasörün altını ağaç olarak göster (shell tree)', treeAsk: 'Klasör başına en fazla kaç öğe gösterilsin?', treeAll: 'Tümü', ignoreNoFile: 'ignore_files listesinde syncFTP dosyası yok — yalnızca .gitignore okunuyor', viewCode: 'Kod', viewRendered: 'Önizleme', viewRenderedLocal: 'Önizleme (yerel)', viewRenderedRemote: 'Önizleme (sunucu)', scanningLocal: 'Taranıyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
+    loading: 'Yükleniyor…', shortcutKey: 'Kısayol: {0}', skip_ignored: 'ignore', skip_excluded: 'exclude', skip_not_included: 'include dışı', skipHint_ignored: 'Yerelde ignore dosyalarında (.gitignore / syncftp.ignore): sync bu yolu taramaz, sunucuya yüklemez. Sunucudaki kopyaya dokunulmaz, silinmez.', skipHint_excluded: 'Exclude yerel taraf içindir: yereldeki bu dosya sunucuya yüklenmez. Sunucudaki kopyaya dokunulmaz, silinmez.', skipHint_not_included: 'Include listesinde değil: yereldeki bu dosya sunucuya yüklenmez. Sunucudaki kopyaya dokunulmaz, silinmez.', watchAll: 'Tümünü izle', watchStopAll: 'Tüm watch\'ları durdur', watchAllHint: 'Projedeki her aktif sunucu için ayrı watch başlatır', watchServerHint: 'Bu sunucuyu izle: yerelde değişen dosyalar otomatik yüklenir (CLI: watch -s)', watchingTag: 'izleniyor', watchCount: '{0}/{1} sunucu', watchSyncs: '{0} otomatik sync', mgSync: 'Sync', mgCheck: 'Kontrol', mgHistory: 'Zaman ve geri alma', mgServer: 'Sunucu', showMore: '{0} tane daha göster', foldAdvanced: 'Gelişmiş', foldMore: 'Diğer', foldDefault: 'varsayılan', foldOff: 'kapalı', foldConn: 'bağlantı', foldRetry: 'deneme', foldBlock: 'engelli uzantı', setTabGeneral: 'Genel', setTabLibrary: 'Bağlantı kütüphanesi', setTabDefaults: 'Yeni proje varsayılanları', setTabProjects: 'Projeler', setTabHooks: 'Webhook / CI', setTabSecurity: 'Host anahtarları', setTabSystem: 'Sistem', deleteRecursive: 'İçeriğiyle birlikte sil', deleteRecursiveHint: 'Kapalıyken yalnızca boş klasörler silinir (CLI: remote rm --recursive)', stFilter: 'Filtrele', stFilterHint: 'Yalnızca bu liste için — config değişmez (CLI: status --include / --exclude)', moreRows: '{0} öğe daha göster', stFrozen: 'Freeze', stProtected: 'Korunan', stBlocked: 'Engelli', stUploadSize: 'yüklenecek: {0}', treeView: 'Ağaç', treeHint: 'Bu klasörün altını ağaç olarak göster (shell tree)', treeAsk: 'Klasör başına en fazla kaç öğe gösterilsin?', treeAll: 'Tümü', ignoreNoFile: 'ignore_files listesinde syncFTP dosyası yok — yalnızca .gitignore okunuyor', viewCode: 'Kod', viewRendered: 'Önizleme', viewRenderedLocal: 'Önizleme (yerel)', viewRenderedRemote: 'Önizleme (sunucu)', scanningLocal: 'Taranıyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
     edit: 'Düzenle', back: 'Geri', yes: 'Evet', confirm: 'Onayla', browse: 'Gözat', add: 'Ekle', open: 'Aç',
     saved: 'Kaydedildi', copied: 'Kopyalandı', never: 'hiç', none: 'yok', all: 'Tümü', manual: '(manuel giriş)',
     projectsTitle: 'Projeler', projectsSub: `{0} klasöründeki syncFTP projeleri (CLI gibi: panel açıldığı klasörü esas alır)`,
@@ -27,7 +27,7 @@ const T = {
     calibrateAll: 'Tümünü calibrate et', calibrateHint: 'Sunucudaki dosyaları boyutla eşleştir, state\'i kur (yükleme yok)',
     verifyAll: 'Tümünü doğrula', verifyHint: 'Sunucuda elle değiştirilen/silinen dosyaları bul',
     detectAll: 'Bağlantı limitlerini ölç', detectHint: 'Sunucunun kabul ettiği en fazla bağlantıyı bulup max_connections\'a yazar',
-    watchStart: 'Watch başlat', watchStop: 'Watch durdur', watchOn: 'Açık', watchOff: 'Kapalı',
+    watchStart: 'Watch başlat', watchStop: 'Watch durdur', watchOff: 'Kapalı',
     watchSince: '{0} beri · {1} sync', watchStarted: 'Watch başladı', watchStopped: 'Watch durduruldu', noWatches: 'Çalışan watch yok',
     noServers: 'Bu projede sunucu yok', noServersSub: 'İlk sunucuyu ekleyin — FTP, FTPS veya SFTP; isterseniz SSH tüneli üzerinden.',
     addServer: 'Sunucu ekle', disabled: 'pasif', busy: 'çalışıyor', tunnel: 'tünel',
@@ -44,11 +44,11 @@ const T = {
     statusTitle: '{0} — bekleyen değişiklikler', newFiles: 'Yeni', changedFiles: 'Değişen', deletedFiles: 'Yerelde silinen',
     deletedNote: 'Yerelde silinen dosyalar sunucudan silinmez, yalnızca raporlanır.', emptyList: 'Liste boş',
     milestoneTitle: '{0} — milestone', milestoneBody: 'Milestone, bu tarihten önce değişmiş dosyaları sync dışında bırakır (kalıcı filtre). "Milestone sync" yalnızca tarihten sonra değişenleri yükler.',
-    milestoneCurrent: 'Mevcut: {0}', milestoneDate: 'Tarih', milestoneDateHint: 'boş = şimdi · bugün · dün · 3d · 5h · 14:30 · 20.07 · 20.07.2026 15:04 · 2026-07-20',
+    milestoneCurrent: 'Mevcut: {0}', milestoneDate: 'Tarih', milestonePh: 'bugün', milestoneDateHint: 'boş = şimdi · bugün · dün · 3d · 5h · 14:30 · 20.07 · 20.07.2026 15:04 · 2026-07-20',
     milestoneSet: 'Ayarla', milestoneClear: 'Kaldır', milestoneSaved: 'Milestone: {0}', milestoneCleared: 'Milestone kaldırıldı',
     freezeTitle: '{0} — freeze listesi', freezeBody: 'Her satıra bir dosya yolu (yerel dizine göreceli). Bu dosyalar değişse bile yüklenmez.',
     freezeSaved: '{0} dosya frozen',
-    serversTitle: 'Sunucular', colName: 'Ad', colProtocol: 'Protokol', colHost: 'Host', colRemote: 'Uzak dizin', colLocal: 'Yerel dizin', colEnabled: 'Aktif',
+    colName: 'Ad', colProtocol: 'Protokol', colHost: 'Host', colRemote: 'Uzak dizin', colLocal: 'Yerel dizin', colEnabled: 'Aktif',
     duplicate: 'Kopyala', deleteServerConfirm: '"{0}" sunucusu config\'ten silinsin mi? (State ve yedekler diskte kalır.)',
     serverNew: 'Yeni sunucu', serverEdit: 'Sunucuyu düzenle',
     secGeneral: 'Genel', secConnection: 'Bağlantı', secConnectionDesc: 'Bir bağlantı profili seçin ya da bilgileri elle girin.',
@@ -73,11 +73,11 @@ const T = {
     testConn: 'Bağlantıyı test et', testOk: 'Bağlantı başarılı — {0} ms, {1} öğe', testing: 'Test ediliyor…',
     lockedByProfile: 'Bağlantı bilgileri "{0}" profilinden geliyor.', editProfile: 'Profili düzenle',
     tunnelByProfile: 'Tünel ayarı da "{0}" profilinden geliyor.',
-    connectionsTitle: 'Bağlantı profilleri', connectionsSub: 'Aynı FTP/SFTP hesabını kullanan sunucular bilgileri tek yerden paylaşır.',
+    connectionsSub: 'Aynı FTP/SFTP hesabını kullanan sunucular bilgileri tek yerden paylaşır.',
     noConnections: 'Bağlantı profili yok', noConnectionsSub: 'Birden fazla sunucu aynı hesaba bağlanıyorsa bilgileri bir profilde toplayın.',
     addConnection: 'Profil ekle', connNew: 'Yeni bağlantı profili', connEdit: 'Profili düzenle', usedBy: 'Kullanan',
     connInUse: '"{0}" profilini kullanan sunucular var: {1}', deleteConnConfirm: '"{0}" profili silinsin mi?',
-    settingsTitle: 'Proje ayarları', secProject: 'Proje', fProjectName: 'Proje adı (config)', fDefaultPath: 'Varsayılan yerel dizin', fDefaultPathHint: 'Kendi yerel dizini olmayan sunucular buradan okur',
+    secProject: 'Proje', fProjectName: 'Proje adı (config)', fDefaultPath: 'Varsayılan yerel dizin', fDefaultPathHint: 'Kendi yerel dizini olmayan sunucular buradan okur',
     secGlobal: 'Global sync ayarları', secGlobalDesc: 'Tüm sunuculara uygulanır; sunucu ayarları bunları genişletir.',
     fIgnoreFiles: 'Ignore dosyaları', fIgnoreFilesHint: 'Boş = .gitignore + .syncftp/syncftp.ignore',
     fFirstFull: 'İlk sync\'te her şeyi yükle', fFirstFullHint: 'Kapalıyken ilk sync calibrate ile mevcut dosyaları eşleştirir',
@@ -85,11 +85,11 @@ const T = {
     secSecurity: 'Güvenlik', keyringTitle: 'Şifreleri sistem anahtarlığında sakla', keyringHint: 'Windows Credential Manager / macOS Keychain. syncftp.json\'da yalnızca "keyring:" işareti kalır.',
     keyringOn: 'Şifreler anahtarlığa taşındı', keyringOff: 'Şifreler tekrar config\'te', secretErrors: 'Bazı şifreler anahtarlıktan okunamadı',
     secRegistry: 'Proje kaydı', registryDesc: 'Panelde görünen ad ve kayıt. Kayıttan çıkarmak dosyalara dokunmaz.',
-    renameProject: 'Yeniden adlandır', removeProject: 'Listeden çıkar', removeProjectConfirm: '"{0}" panel listesinden çıkarılsın mı? Proje dosyaları silinmez.',
-    filesTitle: 'Sunucu dosyaları', pickServer: 'Sunucu', filter: 'Bu klasörde filtrele…', colSize: 'Boyut', colDate: 'Tarih',
+    renameProject: 'Yeniden adlandır', 
+    filter: 'Bu klasörde filtrele…', colSize: 'Boyut', colDate: 'Tarih',
     emptyDir: 'Klasör boş', preview: 'Önizle', download: 'İndir', deleteRemoteConfirm: '"{0}" sunucudan KALICI olarak silinsin mi?', deleteDirConfirm: '"{0}" klasörü ve İÇİNDEKİ HER ŞEY sunucudan kalıcı olarak silinsin mi?',
     deleted: 'Silindi', binaryFile: 'Binary dosya — önizleme yok', truncated: '(ilk 256 KB)',
-    historyTitle: 'Geçmiş', releases: 'Sync geçmişi (release)', releasesSub: 'Her sync, değiştirdiği dosyaların eski halini yedekler. Bir release\'i geri almak onu ve ondan sonrakileri geri alır.',
+    releases: 'Sync geçmişi (release)', releasesSub: 'Her sync, değiştirdiği dosyaların eski halini yedekler. Bir release\'i geri almak onu ve ondan sonrakileri geri alır.',
     colWhen: 'Zaman', colServer: 'Sunucu', colFiles: 'Dosya', colReplaced: 'Değişen', colNew: 'Yeni', colStatus: 'Durum',
     rolledBack: 'geri alındı', noBackupTag: 'yedek yok', restorable: 'geri alınabilir', details: 'Ayrıntı', undo: 'Geri al',
     noReleases: 'Henüz release yok', rollbackTitle: 'Geri alma — {0}',
@@ -99,7 +99,7 @@ const T = {
     jobsTitle: 'İşler', jobsSub: 'Bu oturumda çalışan ve tamamlanan işler', noJobs: 'Henüz iş yok', activeWatches: 'Aktif watch\'lar',
     colJob: 'İş', colProject: 'Proje', colStarted: 'Başladı', colDuration: 'Süre',
     stRunning: 'çalışıyor', stDone: 'tamam', stError: 'hata', stop: 'Durdur',
-    jobDone: '{0} tamamlandı', jobFailed: '{0}: {1}', jobStarted: '{0} başladı', jobLog: 'İş günlüğü', resultLine: '↑ {0} yüklendi · {1} hata · {2}',
+    jobDone: '{0} tamamlandı', jobFailed: '{0}: {1}', jobLog: 'İş günlüğü', resultLine: '↑ {0} yüklendi · {1} hata · {2}',
     quitConfirm: 'syncFTP tamamen kapatılsın mı? Çalışan watch\'lar ve webhook dinleyicisi de durur. (Pencereyi kapatırsanız tray\'de çalışmaya devam eder.)', quitDone: 'Panel kapandı — bu pencereyi kapatabilirsiniz.',
     sessionLost: 'Panel bağlantısı koptu', ago: '{0} önce', justNow: 'az önce', min: 'dk', hour: 'sa', day: 'gün',
     copyPath: 'Yolu kopyala', notFound: 'Bulunamadı', minutes: '{0} dk', seconds: '{0} sn',
@@ -108,19 +108,20 @@ const T = {
     secRemote: 'SSH komutları (sunucuda)', secRemoteDesc: 'Yalnızca SFTP sunucularında: SSH ile uzak dizinde çalışır. pre hata verirse sync iptal olur; post deploy sonrası çalışır (migrate, cache, restart…).', fRemotePre: 'remote_pre_sync', fRemotePost: 'remote_post_sync',
     whTest: 'Test et', whTestOk: 'Webhook gönderildi: {0}', ignoreTitle: 'Ignore kuralları (.syncftp/syncftp.ignore)', ignoreDesc: 'Gitignore sözdizimi. .gitignore ile birleştirilir; ignore edilen klasörlere yerelde ve sunucuda hiç girilmez.',
     ignoreTemplate: 'Şablon ekle…', ignoreSaved: 'Ignore kuralları kaydedildi', gitignoreNote: '.gitignore ({0} satır) de uygulanıyor',
-    treePick: 'Ağaçtan seç', failedTitle: '{0} — başarısız dosyalar', failedBody: 'Son sync\'te yüklenemeyen dosyalar. Tekrar denemek yalnızca bunları yükler.',
+    failedTitle: '{0} — başarısız dosyalar', failedBody: 'Son sync\'te yüklenemeyen dosyalar. Tekrar denemek yalnızca bunları yükler.',
     compareServers: 'Sunucuları karşılaştır', compareServersHint: 'İki sunucunun uzak içeriğini karşılaştırır (sadece birinde olan / boyutu farklı)', compareA: 'Sunucu A', compareB: 'Sunucu B', compareGo: 'Karşılaştır',
     upload: 'Yükle', newFolder: 'Yeni klasör', folderName: 'Klasör adı', rename: 'Yeniden adlandır / taşı', newPath: 'Yeni yol (uzak dizine göreceli)',
-    moveTo: 'Taşı', moveTarget: 'Hedef klasör (uzak dizine göreceli)', selectedN: '{0} seçili', clearSel: 'Seçimi temizle',
+    moveTo: 'Taşı', selectedN: '{0} seçili', clearSel: 'Seçimi temizle',
     freezeToggle: 'Freeze / unfreeze', frozenBadge: 'frozen', searchAll: 'Alt klasörlerde ara', searchTitle: '"{0}" araması', searchNone: 'Sonuç yok', searching: 'Aranıyor…', searchingN: '{0} sonuç · {1} klasör tarandı…', searchDoneN: '{0} sonuç · {1} klasör · {2} sn', searchTruncated: 'Çok fazla sonuç (ilk 2000) ya da 5 dakika sınırı doldu — aramayı daraltın.',
     uploaded: '{0} dosya yüklendi', created: 'Oluşturuldu', moved: 'Taşındı', frozenAdded: '{0} dosya freeze listesine eklendi', frozenRemoved: '{0} dosya freeze listesinden çıkarıldı',
     deleteManyConfirm: '{0} öğe sunucudan KALICI olarak silinsin mi? (klasörler içerikleriyle)', runCmd: 'Sunucuda komut çalıştır', runCmdHint: 'SSH ile uzak dizinde komut çalıştırır', diffLocalMissing: 'Yerelde yok', diffTooBig: 'Dosya karşılaştırma için çok büyük — tam görünüm gösteriliyor',
+    unsavedTitle: 'Kaydedilmemiş değişiklikler', unsavedBody: 'Bu formda kaydedilmemiş değişiklikler var. Sayfadan çıkılırsa kaybolacak.', unsavedLeave: 'Kaydetmeden çık',
     diffHint: 'Sunucu → yerel: <span class="bad-t">−</span> sunucudan gidecek, <span class="ok-t">+</span> sync ile gelecek', foldN: '⋯ {0} aynı satır', clickToDiff: 'Farkı görmek için dosyaya tıklayın',
   },
   en: {
-    brandSub: 'Deploy panel', navAll: 'All projects', navJobs: 'Jobs', navProjects: 'Projects',
+    navAll: 'All projects', navJobs: 'Jobs', navProjects: 'Projects',
     addProject: 'Add project', navNoProjects: 'No project in this folder', watching: 'Watch', language: 'Language', quit: 'Quit',
-    loading: 'Loading…', shortcutKey: 'Shortcut: {0}', skip_ignored: 'ignored', skip_excluded: 'excluded', skip_not_included: 'not included', skipHint_ignored: 'Matched by the local ignore files (.gitignore / syncftp.ignore): sync doesn’t scan or upload it. The copy on the server is left alone, never deleted.', skipHint_excluded: 'Exclude applies to the local side: this local file is not uploaded. The copy on the server is left alone, never deleted.', skipHint_not_included: 'Not in the include list: this local file is not uploaded. The copy on the server is left alone, never deleted.', watchAll: 'Watch all', watchStopAll: 'Stop all watches', watchAllHint: 'Starts a separate watch for every enabled server', watchServerHint: 'Watch this server: locally changed files upload automatically (CLI: watch -s)', watchingTag: 'watching', watchCount: '{0}/{1} servers', watchSyncs: '{0} auto syncs', mgSync: 'Sync', mgCheck: 'Check', mgHistory: 'Time & rollback', mgServer: 'Server', showMore: 'Show {0} more', foldAdvanced: 'Advanced', foldMore: 'More', foldDefault: 'default', foldOff: 'off', foldConn: 'connections', foldRetry: 'retries', foldBlock: 'blocked ext', setTabGeneral: 'General', setTabLibrary: 'Connection library', setTabDefaults: 'New project defaults', setTabProjects: 'Projects', setTabHooks: 'Webhook / CI', setTabSecurity: 'Host keys', setTabSystem: 'System', deleteRecursive: 'Delete with contents', deleteRecursiveHint: 'When off, only empty folders are deleted (CLI: remote rm --recursive)', stFilter: 'Filter', stFilterHint: 'One-off include / exclude (comma separated) — CLI: status --include / --exclude', moreRows: 'Show {0} more', stFrozen: 'Frozen', stProtected: 'Protected', stBlocked: 'Blocked', stUploadSize: 'to upload: {0}', treeView: 'Tree', treeHint: 'Show everything below this folder as a tree (shell tree)', treeAsk: 'Show at most how many entries per folder?', treeAll: 'All', ignoreNoFile: 'ignore_files has no syncFTP file — only .gitignore is read', viewCode: 'Code', viewRendered: 'Preview', viewRenderedLocal: 'Preview (local)', viewRenderedRemote: 'Preview (server)', scanningLocal: 'Scanning…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
+    loading: 'Loading…', shortcutKey: 'Shortcut: {0}', skip_ignored: 'ignored', skip_excluded: 'excluded', skip_not_included: 'not included', skipHint_ignored: 'Matched by the local ignore files (.gitignore / syncftp.ignore): sync doesn’t scan or upload it. The copy on the server is left alone, never deleted.', skipHint_excluded: 'Exclude applies to the local side: this local file is not uploaded. The copy on the server is left alone, never deleted.', skipHint_not_included: 'Not in the include list: this local file is not uploaded. The copy on the server is left alone, never deleted.', watchAll: 'Watch all', watchStopAll: 'Stop all watches', watchAllHint: 'Starts a separate watch for every enabled server', watchServerHint: 'Watch this server: locally changed files upload automatically (CLI: watch -s)', watchingTag: 'watching', watchCount: '{0}/{1} servers', watchSyncs: '{0} auto syncs', mgSync: 'Sync', mgCheck: 'Check', mgHistory: 'Time & rollback', mgServer: 'Server', showMore: 'Show {0} more', foldAdvanced: 'Advanced', foldMore: 'More', foldDefault: 'default', foldOff: 'off', foldConn: 'connections', foldRetry: 'retries', foldBlock: 'blocked ext', setTabGeneral: 'General', setTabLibrary: 'Connection library', setTabDefaults: 'New project defaults', setTabProjects: 'Projects', setTabHooks: 'Webhook / CI', setTabSecurity: 'Host keys', setTabSystem: 'System', deleteRecursive: 'Delete with contents', deleteRecursiveHint: 'When off, only empty folders are deleted (CLI: remote rm --recursive)', stFilter: 'Filter', stFilterHint: 'Only for this list — config is not changed (CLI: status --include / --exclude)', moreRows: 'Show {0} more', stFrozen: 'Frozen', stProtected: 'Protected', stBlocked: 'Blocked', stUploadSize: 'to upload: {0}', treeView: 'Tree', treeHint: 'Show everything below this folder as a tree (shell tree)', treeAsk: 'Show at most how many entries per folder?', treeAll: 'All', ignoreNoFile: 'ignore_files has no syncFTP file — only .gitignore is read', viewCode: 'Code', viewRendered: 'Preview', viewRenderedLocal: 'Preview (local)', viewRenderedRemote: 'Preview (server)', scanningLocal: 'Scanning…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
     edit: 'Edit', back: 'Back', yes: 'Yes', confirm: 'Confirm', browse: 'Browse', add: 'Add', open: 'Open',
     saved: 'Saved', copied: 'Copied', never: 'never', none: 'none', all: 'All', manual: '(manual entry)',
     projectsTitle: 'Projects', projectsSub: `syncFTP projects in {0} (like the CLI: the panel works on the folder it was opened in)`,
@@ -137,7 +138,7 @@ const T = {
     calibrateAll: 'Calibrate all', calibrateHint: 'Match server files by size and build state (no upload)',
     verifyAll: 'Verify all', verifyHint: 'Find files changed/deleted on the server by hand',
     detectAll: 'Measure connection limits', detectHint: 'Find the most connections the server accepts and save to max_connections',
-    watchStart: 'Start watch', watchStop: 'Stop watch', watchOn: 'On', watchOff: 'Off',
+    watchStart: 'Start watch', watchStop: 'Stop watch', watchOff: 'Off',
     watchSince: 'since {0} · {1} syncs', watchStarted: 'Watch started', watchStopped: 'Watch stopped', noWatches: 'No watch is running',
     noServers: 'No servers in this project', noServersSub: 'Add the first server — FTP, FTPS or SFTP, optionally through an SSH tunnel.',
     addServer: 'Add server', disabled: 'disabled', busy: 'running', tunnel: 'tunnel',
@@ -154,11 +155,11 @@ const T = {
     statusTitle: '{0} — pending changes', newFiles: 'New', changedFiles: 'Changed', deletedFiles: 'Deleted locally',
     deletedNote: 'Locally deleted files are not deleted from the server, only reported.', emptyList: 'Empty',
     milestoneTitle: '{0} — milestone', milestoneBody: 'A milestone keeps files changed before its date out of syncs (persistent filter). "Milestone sync" uploads only files changed after it.',
-    milestoneCurrent: 'Current: {0}', milestoneDate: 'Date', milestoneDateHint: 'empty = now · today · yesterday · 3d · 5h · 14:30 · 20.07 · 20.07.2026 15:04 · 2026-07-20',
+    milestoneCurrent: 'Current: {0}', milestoneDate: 'Date', milestonePh: 'today', milestoneDateHint: 'empty = now · today · yesterday · 3d · 5h · 14:30 · 20.07 · 20.07.2026 15:04 · 2026-07-20',
     milestoneSet: 'Set', milestoneClear: 'Clear', milestoneSaved: 'Milestone: {0}', milestoneCleared: 'Milestone cleared',
     freezeTitle: '{0} — freeze list', freezeBody: 'One file path per line (relative to the local folder). These files are never uploaded, even when changed.',
     freezeSaved: '{0} file(s) frozen',
-    serversTitle: 'Servers', colName: 'Name', colProtocol: 'Protocol', colHost: 'Host', colRemote: 'Remote path', colLocal: 'Local path', colEnabled: 'Enabled',
+    colName: 'Name', colProtocol: 'Protocol', colHost: 'Host', colRemote: 'Remote path', colLocal: 'Local path', colEnabled: 'Enabled',
     duplicate: 'Duplicate', deleteServerConfirm: 'Remove server "{0}" from the config? (State and backups stay on disk.)',
     serverNew: 'New server', serverEdit: 'Edit server',
     secGeneral: 'General', secConnection: 'Connection', secConnectionDesc: 'Pick a connection profile or enter the details by hand.',
@@ -183,11 +184,11 @@ const T = {
     testConn: 'Test connection', testOk: 'Connected — {0} ms, {1} entries', testing: 'Testing…',
     lockedByProfile: 'Connection details come from the "{0}" profile.', editProfile: 'Edit profile',
     tunnelByProfile: 'The tunnel setting also comes from the "{0}" profile.',
-    connectionsTitle: 'Connection profiles', connectionsSub: 'Servers that use the same FTP/SFTP account share the details from one place.',
+    connectionsSub: 'Servers that use the same FTP/SFTP account share the details from one place.',
     noConnections: 'No connection profiles', noConnectionsSub: 'If several servers connect to the same account, keep the details in a profile.',
     addConnection: 'Add profile', connNew: 'New connection profile', connEdit: 'Edit profile', usedBy: 'Used by',
     connInUse: 'Profile "{0}" is used by: {1}', deleteConnConfirm: 'Delete profile "{0}"?',
-    settingsTitle: 'Project settings', secProject: 'Project', fProjectName: 'Project name (config)', fDefaultPath: 'Default local folder', fDefaultPathHint: 'Servers without their own local folder read from here',
+    secProject: 'Project', fProjectName: 'Project name (config)', fDefaultPath: 'Default local folder', fDefaultPathHint: 'Servers without their own local folder read from here',
     secGlobal: 'Global sync settings', secGlobalDesc: 'Apply to every server; server settings extend them.',
     fIgnoreFiles: 'Ignore files', fIgnoreFilesHint: 'Empty = .gitignore + .syncftp/syncftp.ignore',
     fFirstFull: 'Upload everything on first sync', fFirstFullHint: 'When off, the first sync matches existing files with calibrate',
@@ -195,11 +196,11 @@ const T = {
     secSecurity: 'Security', keyringTitle: 'Store passwords in the system keyring', keyringHint: 'Windows Credential Manager / macOS Keychain. Only a "keyring:" marker stays in syncftp.json.',
     keyringOn: 'Passwords moved to the keyring', keyringOff: 'Passwords are in the config again', secretErrors: 'Some passwords could not be read from the keyring',
     secRegistry: 'Project registry', registryDesc: 'The name shown in the panel. Removing from the list does not touch any files.',
-    renameProject: 'Rename', removeProject: 'Remove from list', removeProjectConfirm: 'Remove "{0}" from the panel list? Project files are not deleted.',
-    filesTitle: 'Server files', pickServer: 'Server', filter: 'Filter this folder…', colSize: 'Size', colDate: 'Date',
+    renameProject: 'Rename', 
+    filter: 'Filter this folder…', colSize: 'Size', colDate: 'Date',
     emptyDir: 'Folder is empty', preview: 'Preview', download: 'Download', deleteRemoteConfirm: 'PERMANENTLY delete "{0}" from the server?', deleteDirConfirm: 'PERMANENTLY delete folder "{0}" and EVERYTHING inside it from the server?',
     deleted: 'Deleted', binaryFile: 'Binary file — no preview', truncated: '(first 256 KB)',
-    historyTitle: 'History', releases: 'Sync history (releases)', releasesSub: 'Every sync backs up the previous version of the files it changes. Rolling back a release also rolls back every newer one.',
+    releases: 'Sync history (releases)', releasesSub: 'Every sync backs up the previous version of the files it changes. Rolling back a release also rolls back every newer one.',
     colWhen: 'When', colServer: 'Server', colFiles: 'Files', colReplaced: 'Replaced', colNew: 'New', colStatus: 'Status',
     rolledBack: 'rolled back', noBackupTag: 'no backup', restorable: 'restorable', details: 'Details', undo: 'Roll back',
     noReleases: 'No releases yet', rollbackTitle: 'Roll back — {0}',
@@ -209,7 +210,7 @@ const T = {
     jobsTitle: 'Jobs', jobsSub: 'Jobs running and finished in this session', noJobs: 'No jobs yet', activeWatches: 'Active watches',
     colJob: 'Job', colProject: 'Project', colStarted: 'Started', colDuration: 'Duration',
     stRunning: 'running', stDone: 'done', stError: 'error', stop: 'Stop',
-    jobDone: '{0} finished', jobFailed: '{0}: {1}', jobStarted: '{0} started', jobLog: 'Job log', resultLine: '↑ {0} uploaded · {1} failed · {2}',
+    jobDone: '{0} finished', jobFailed: '{0}: {1}', jobLog: 'Job log', resultLine: '↑ {0} uploaded · {1} failed · {2}',
     quitConfirm: 'Quit syncFTP completely? Running watches and the webhook listener stop too. (Closing the window keeps it running in the tray.)', quitDone: 'Panel stopped — you can close this window.',
     sessionLost: 'Lost connection to the panel', ago: '{0} ago', justNow: 'just now', min: 'min', hour: 'h', day: 'd',
     copyPath: 'Copy path', notFound: 'Not found', minutes: '{0} min', seconds: '{0} s',
@@ -218,13 +219,14 @@ const T = {
     secRemote: 'SSH commands (on the server)', secRemoteDesc: 'SFTP servers only: run over SSH in the remote folder. If pre fails the sync is aborted; post runs after the deploy (migrate, cache, restart…).', fRemotePre: 'remote_pre_sync', fRemotePost: 'remote_post_sync',
     whTest: 'Test', whTestOk: 'Webhook sent: {0}', ignoreTitle: 'Ignore rules (.syncftp/syncftp.ignore)', ignoreDesc: 'Gitignore syntax. Merged with .gitignore; ignored folders are never walked locally or on the server.',
     ignoreTemplate: 'Add template…', ignoreSaved: 'Ignore rules saved', gitignoreNote: '.gitignore ({0} lines) is applied too',
-    treePick: 'Pick from tree', failedTitle: '{0} — failed files', failedBody: 'Files that could not be uploaded in the last sync. Retrying uploads only these.',
+    failedTitle: '{0} — failed files', failedBody: 'Files that could not be uploaded in the last sync. Retrying uploads only these.',
     compareServers: 'Compare servers', compareServersHint: 'Compare the remote contents of two servers (only on one side / size differs)', compareA: 'Server A', compareB: 'Server B', compareGo: 'Compare',
     upload: 'Upload', newFolder: 'New folder', folderName: 'Folder name', rename: 'Rename / move', newPath: 'New path (relative to remote root)',
-    moveTo: 'Move', moveTarget: 'Target folder (relative to remote root)', selectedN: '{0} selected', clearSel: 'Clear selection',
+    moveTo: 'Move', selectedN: '{0} selected', clearSel: 'Clear selection',
     freezeToggle: 'Freeze / unfreeze', frozenBadge: 'frozen', searchAll: 'Search subfolders', searchTitle: 'Search "{0}"', searchNone: 'No results', searching: 'Searching…', searchingN: '{0} results · {1} folders scanned…', searchDoneN: '{0} results · {1} folders · {2}s', searchTruncated: 'Too many results (first 2000) or the 5-minute limit was hit — narrow the search.',
     uploaded: '{0} file(s) uploaded', created: 'Created', moved: 'Moved', frozenAdded: '{0} file(s) added to the freeze list', frozenRemoved: '{0} file(s) removed from the freeze list',
     deleteManyConfirm: 'PERMANENTLY delete {0} item(s) from the server? (folders with their contents)', runCmd: 'Run command on server', runCmdHint: 'Runs a command over SSH in the remote folder', diffLocalMissing: 'Missing locally', diffTooBig: 'File too large to diff — showing full view',
+    unsavedTitle: 'Unsaved changes', unsavedBody: 'This form has unsaved changes. They will be lost if you leave the page.', unsavedLeave: 'Leave without saving',
     diffHint: 'Server → local: <span class="bad-t">−</span> leaves the server, <span class="ok-t">+</span> arrives with sync', foldN: '⋯ {0} unchanged lines', clickToDiff: 'Click a file to see the diff',
   },
 };
@@ -265,7 +267,6 @@ function dur(ms) {
   const s = Math.round(ms / 1000);
   return s >= 60 ? t('minutes', Math.floor(s / 60)) + ' ' + (s % 60) + 's' : t('seconds', s);
 }
-const lines = (v) => (v || []).join('\n');
 const unlines = (s) => String(s || '').split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
 const unwords = (s) => String(s || '').split(/[\s,]+/).map((x) => x.trim()).filter(Boolean);
 
@@ -402,6 +403,13 @@ function openMenu(anchor, items) {
 }
 function closeMenus() { $$('.menu').forEach((m) => m.remove()); }
 document.addEventListener('click', (e) => { if (!e.target.closest('.menu') && !e.target.closest('[data-menu]')) closeMenus(); });
+// Kopyala düğmeleri: data-copy="metin" taşıyan her öğe — sayfa/modal fark etmez, tek yerden
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-copy]');
+  if (!b) return;
+  e.preventDefault();
+  navigator.clipboard.writeText(b.dataset.copy).then(() => toast(t('copied')), fail);
+});
 
 // ── durum ────────────────────────────────────────────────────────────────────
 const S = { meta: null, projects: [], jobs: new Map(), renderSeq: 0, modals: new Set(), lsCache: new Map() };
@@ -409,15 +417,19 @@ const S = { meta: null, projects: [], jobs: new Map(), renderSeq: 0, modals: new
 // ── iş (job) yönetimi ───────────────────────────────────────────────────────
 function trackJob(id, opts = {}) {
   if (S.jobs.has(id)) return S.jobs.get(id);
-  const j = { id, kind: opts.kind || '', title: opts.title || id, server: opts.server || '', project: opts.project || '', status: 'running', last: '', lines: [], es: null, shownUntil: 0 };
+  // onDone: açık log penceresinin işleyicisi (pencere kapanınca null); doneCbs: diğer bekleyenler
+  // (ör. "Ölç" sonucu forma yazılır) — log penceresi açılıp kapansa da kaybolmaz
+  const j = { id, kind: opts.kind || '', title: opts.title || id, server: opts.server || '', project: opts.project || '', status: 'running', last: '', lines: [], es: null, shownUntil: 0, doneCbs: [] };
   S.jobs.set(id, j);
   const es = new EventSource(`/api/jobs/${enc(id)}/stream`);
   j.es = es;
   es.onmessage = (e) => {
     j.lines.push(e.data);
+    // Günlerce süren watch işlerinde bellek şişmesin: son JOB_MAX_LINES satır tutulur
+    if (j.lines.length > JOB_MAX_LINES + 500) j.lines.splice(0, j.lines.length - JOB_MAX_LINES);
     if (e.data.trim()) j.last = e.data;
     if (j.onLine) j.onLine(e.data);
-    renderDock();
+    scheduleDock();
   };
   es.addEventListener('done', (e) => {
     es.close();
@@ -426,7 +438,9 @@ function trackJob(id, opts = {}) {
       Object.assign(j, { kind: snap.kind || j.kind, status: snap.status, error: snap.error, result: snap.result, title: snap.title, server: snap.server, project: snap.project, ended: snap.ended, started: snap.started });
     } catch { j.status = 'done'; }
     j.shownUntil = Date.now() + 9000;
+    j.finishedAt = Date.now();
     if (j.onDone) j.onDone(j);
+    for (const cb of j.doneCbs.splice(0)) { try { cb(j); } catch (err) { console.error(err); } }
     const name = `${j.title}${j.server ? ' · ' + j.server : ''}`;
     if (j.status === 'error') toast(t('jobFailed', name, j.error || ''), 'bad');
     else if (opts.quiet !== true) toast(t('jobDone', name) + resultSuffix(j.result));
@@ -450,7 +464,17 @@ async function startJobs(project, req, label) {
 }
 // Watch süresiz çalışan bir iş: sağ alttaki kutuda durmaz (her sync satırında git-gel yapıyordu),
 // sol alttaki "Watch" satırında sayılır, konsolu oradan açılır.
-const isWatchJob = (j) => j.kind === 'watch' || j.title === 'Watch';
+const isWatchJob = (j) => j.kind === 'watch';
+const JOB_MAX_LINES = 5000;
+const JOB_KEEP_MS = 30 * 60 * 1000;
+// SSE her log satırında dock'u yeniden çizmesin — kare başına en fazla bir kez
+let dockRaf = 0;
+function scheduleDock() { if (!dockRaf) dockRaf = requestAnimationFrame(() => { dockRaf = 0; renderDock(); }); }
+// Biteli 30 dk'dan uzun olan işler bellekten atılır (çalışanlar ve log penceresi açık olanlar kalır)
+function pruneJobs() {
+  const now = Date.now();
+  for (const [id, j] of S.jobs) if (j.status !== 'running' && j.finishedAt && now - j.finishedAt > JOB_KEEP_MS && !j.onLine) S.jobs.delete(id);
+}
 function renderDock() {
   const el = $('#isler');
   const now = Date.now();
@@ -472,7 +496,7 @@ function renderDock() {
 async function watchStart(P, servers) {
   try {
     const res = await api('POST', `/api/p/${enc(P)}/watch`, { servers });
-    for (const w of res.started || []) trackJob(w.job_id, { kind: 'watch', project: P, server: w.server, title: 'Watch', quiet: true });
+    for (const w of res.started || []) trackJob(w.job_id, { kind: 'watch', project: P, server: w.server, title: t('watching'), quiet: true });
     for (const e of res.errors || []) toast(e, 'bad');
     if ((res.started || []).length) toast(t('watchStarted') + ': ' + res.started.map((w) => w.server).join(', '));
   } catch (e) { fail(e); }
@@ -499,7 +523,7 @@ async function openWatches(anchor) {
   if (ws.length === 1) return showJobLog(ws[0].id);
   openMenu(anchor, ws.map((j) => ({ icon: 'eye', label: `${j.project}${j.server ? ' · ' + j.server : ''}`, hint: j.last || '…', run: () => showJobLog(j.id) })));
 }
-setInterval(renderDock, 3000);
+setInterval(() => { pruneJobs(); renderDock(); }, 3000);
 
 function logClass(l) {
   if (/══|^\s*\[.*\]\s*$|──/.test(l)) return 'l-head';
@@ -572,7 +596,30 @@ function parseRoute() {
 }
 const go = (h) => { if (location.hash === h) render(); else location.hash = h; };
 const pHash = (p, tab, sub) => `#/p/${enc(p)}${tab ? '/' + tab : ''}${sub != null ? '/' + enc(sub) : ''}`;
-window.addEventListener('hashchange', () => render());
+// Kaydedilmemiş form koruması: trackDirty ile izlenen formda (sunucu / bağlantı / proje ayarları) değişiklik
+// varken başka sayfaya geçilirse sorulur; vazgeçilirse adres eski haline döner, sayfa yeniden çizilmez.
+function trackDirty(form) {
+  if (!form) return;
+  const d = { form, hash: location.hash, on: false };
+  S.dirty = d;
+  // Yalnızca config alanları (data-k) sayılır — anında kaydedilen anahtarlar / ignore editörü sayılmaz
+  const mark = (e) => { if (S.dirty === d && e.target.closest('[data-k]')) d.on = true; };
+  form.addEventListener('input', mark);
+  form.addEventListener('change', mark);
+}
+const clearDirty = () => { S.dirty = null; };
+window.addEventListener('hashchange', async () => {
+  const d = S.dirty;
+  if (d && d.on && d.form.isConnected && location.hash !== d.hash) {
+    const target = location.hash;
+    history.replaceState(null, '', d.hash);
+    if (!(await confirmBox(t('unsavedTitle'), esc(t('unsavedBody')), t('unsavedLeave'), true))) return;
+    if (S.dirty === d) S.dirty = null;
+    location.hash = target;
+    return;
+  }
+  render();
+});
 
 async function render(soft = false) {
   const seq = ++S.renderSeq;
@@ -583,6 +630,7 @@ async function render(soft = false) {
     !!((a.dataset.nav === 'home' && r.page === 'home') || (a.dataset.nav === 'jobs' && r.page === 'jobs') || (a.dataset.nav === 'help' && r.page === 'help') || (a.dataset.nav === 'settings' && r.page === 'settings') || (a.dataset.nav === 'terminal' && r.page === 'terminal') || (a.dataset.proj && a.dataset.proj === r.project))));
   const root = $('#sayfa');
   if (!soft) {
+    S.dirty = null;
     [...S.modals].forEach((c) => c());
     const tabsEl = r.page === 'project' && root.dataset.proj === r.project ? $('.sayfa > .tabs', root) : null;
     if (tabsEl) {
@@ -606,8 +654,12 @@ async function render(soft = false) {
     if (typeof html === 'string') root.innerHTML = html;
     root.dataset.proj = r.page === 'project' ? r.project : '';
     if (root._bind) { const b = root._bind; root._bind = null; b(root); }
+    // Sayfa değişimiyle birlikte açılacak modal (ör. arama sonucundan önizleme): hashchange'in
+    // tetiklediği render modalları kapatır → modal ancak çizim bittikten SONRA açılabilir
+    if (S.afterRender) { const f = S.afterRender; S.afterRender = null; f(); }
   } catch (e) {
     if (seq !== S.renderSeq) return;
+    S.afterRender = null;
     root.innerHTML = `<div class="bos"><div class="buyuk">${icon('alert')}</div><h3>${esc(e.message)}</h3></div>`;
   }
 }
@@ -727,11 +779,6 @@ async function pageProject(r) {
     case 'cicd': body = await tabCicd(proj); break;
     default: body = await tabOverview(proj);
   }
-  const inner = $('#sayfa')._bind;
-  bind((root) => {
-    $$('[data-copy]', root).forEach((b) => (b.onclick = () => { navigator.clipboard.writeText(b.dataset.copy); toast(t('copied')); }));
-    inner && inner(root);
-  });
   return `<div class="sayfa">${head}${body}</div>`;
 }
 
@@ -899,8 +946,11 @@ function bindServerCard(card, P, s) {
   ]));
 }
 
-async function statusModal(P, s, flt = { include: '', exclude: '' }) {
-  const fq = `&include=${enc(flt.include)}&exclude=${enc(flt.exclude)}`;
+// flt: tek seferlik include/exclude (CLI status --include / --exclude) — "Filtreli sync" ile aynı liste editörleri
+async function statusModal(P, s, flt = { include: [], exclude: [] }) {
+  const fq = `&include=${enc(flt.include.join('\n'))}&exclude=${enc(flt.exclude.join('\n'))}`;
+  const proj = S.projects.find((x) => x.name === P) || {};
+  const fltOn = flt.include.length + flt.exclude.length > 0;
   const lm = await loadModal(t('statusTitle', esc(s.name)), 'orta', () => GET(`/api/p/${enc(P)}/status?server=${enc(s.name)}${fq}`));
   if (!lm) return;
   const st = lm.d;
@@ -913,17 +963,22 @@ async function statusModal(P, s, flt = { include: '', exclude: '' }) {
   const m = modal({
     title: t('statusTitle', esc(s.name)), size: 'orta',
     body: `<div class="tabs" style="margin-bottom:12px">${tabs.map(([k, l, a], i) => `<a href="javascript:void 0" data-st="${k}" class="${i === first ? 'aktif' : ''}">${l} <span class="sayac">${st.counts[k]}</span></a>`).join('')}</div>
-      <div class="girdi-grup" style="margin:-4px 0 10px;gap:6px"><input type="text" class="mono" id="st-inc" placeholder="include: src/, *.php" value="${esc(flt.include)}" spellcheck="false">
-        <input type="text" class="mono" id="st-exc" placeholder="exclude: vendor/, *.log" value="${esc(flt.exclude)}" spellcheck="false">
-        <button class="btn kucuk" id="st-flt" title="${t('stFilterHint')}">${icon('sliders')}${t('stFilter')}</button></div>
+      <details class="st-filtre" style="margin:-4px 0 10px" ${fltOn ? 'open' : ''}><summary class="faint" style="cursor:pointer">${icon('sliders')} ${t('stFilter')}${fltOn ? ` <span class="pill">${flt.include.length + flt.exclude.length}</span>` : ''}</summary>
+        <p class="ipucu" style="margin:6px 0 8px">${t('stFilterHint')}</p>
+        <div class="form" id="st-form" data-p="${esc(P)}" data-ppath="${esc(proj.path || '')}" data-srv="${esc(s.name)}"><div class="alanlar">
+          ${fArea('include', t('syncOnceInc'), flt.include, { wide: false, tree: 'paths', chips: 'include' })}${fArea('exclude', t('syncOnceExc'), flt.exclude, { wide: false, tree: 'paths', chips: 'exclude' })}</div></div>
+        <div class="aksiyonlar" style="margin-top:8px;justify-content:flex-end"><button class="btn kucuk" id="st-flt">${icon('sliders')}${t('stFilter')}</button></div></details>
       <p class="ipucu" style="margin:-4px 0 10px">${t('clickToDiff')}${st.bytes ? ' · ' + t('stUploadSize', bytes(st.bytes)) : ''}</p>
       ${tabs.map(([k, , a, mk], i) => `<div data-stp="${k}" ${i !== first ? 'hidden' : ''}>${list(a, mk, k === 'new' || k === 'changed')}${k === 'deleted' ? `<p class="ipucu" style="margin-top:10px">${t('deletedNote')}</p>` : ''}</div>`).join('')}`,
     actions: [{ label: t('close'), cls: 'hayalet' }, { label: icon('upload') + t('sync'), cls: 'mavi', run: () => startJobs(P, { kind: 'sync', servers: [s.name] }, t('sync')) }],
   });
+  bindFormTools(m.root);
   $$('[data-diff]', m.root).forEach((d) => (d.onclick = () => compareModal(P, s.name, d.dataset.diff)));
-  const applyFlt = () => { const next = { include: $('#st-inc', m.root).value.trim(), exclude: $('#st-exc', m.root).value.trim() }; m.close(); statusModal(P, s, next); };
-  $('#st-flt', m.root).onclick = applyFlt;
-  $$('#st-inc, #st-exc', m.root).forEach((i) => (i.onkeydown = (e) => { if (e.key === 'Enter') applyFlt(); }));
+  $('#st-flt', m.root).onclick = () => {
+    const f = readForm($('#st-form', m.root), {});
+    m.close();
+    statusModal(P, s, { include: f.include || [], exclude: f.exclude || [] });
+  };
   $$('[data-st]', m.root).forEach((a) => (a.onclick = () => {
     $$('[data-st]', m.root).forEach((x) => x.classList.toggle('aktif', x === a));
     $$('[data-stp]', m.root).forEach((p) => (p.hidden = p.dataset.stp !== a.dataset.st));
@@ -934,7 +989,7 @@ function milestoneModal(P, s) {
   modal({
     title: t('milestoneTitle', esc(s.name)),
     body: `<p>${t('milestoneBody')}</p>${s.milestone ? `<p><b>${t('milestoneCurrent', esc(s.milestone))}</b></p>` : ''}
-      <div class="alan"><label>${t('milestoneDate')}</label><input type="text" id="ms-date" data-date placeholder="${LANG === 'tr' ? 'bugün' : 'today'}"><small>${t('milestoneDateHint')}</small></div>`,
+      <div class="alan"><label>${t('milestoneDate')}</label><input type="text" id="ms-date" data-date placeholder="${t('milestonePh')}"><small>${t('milestoneDateHint')}</small></div>`,
     actions: [
       ...(s.milestone ? [{ label: t('milestoneClear'), cls: 'tehlike', run: async () => { await api('DELETE', `/api/p/${enc(P)}/milestones?server=${enc(s.name)}`); toast(t('milestoneCleared')); render(true); } }] : []),
       { label: t('cancel'), cls: 'hayalet' },
@@ -1019,28 +1074,42 @@ async function tabServers(proj) {
       const name = tr.dataset.row;
       tr.onclick = (e) => { if (!e.target.closest('button,label')) go(pHash(P, 'server', name)); };
     });
+    $$('[data-add-server]', root).forEach((b) => (b.onclick = () => go(pHash(P, 'server', 'new'))));
+    // Her işlem config'i YENİDEN okur, kopyasını değiştirip yazar: sayfa çizildikten sonra başka yerde
+    // (AI / CLI / başka sekme) yapılan değişiklikler ezilmez, başarısız işlem ekrandaki kopyayı bozmaz
+    const mutate = async (fn) => { const next = await getConfig(P); const r = fn(next); await api('PUT', `/api/p/${enc(P)}/config`, next); return r; };
     $$('[data-toggle]', root).forEach((inp) => (inp.onchange = async () => {
-      const s = cfg.servers.find((x) => x.name === inp.dataset.toggle);
-      s.enabled = inp.checked;
-      try { await api('PUT', `/api/p/${enc(P)}/config`, cfg); toast(t('saved')); loadProjects(); } catch (e) { inp.checked = !inp.checked; fail(e); }
+      const on = inp.checked;
+      try {
+        await mutate((c) => { const s = c.servers.find((x) => x.name === inp.dataset.toggle); if (!s) throw new Error(t('notFound') + ': ' + inp.dataset.toggle); s.enabled = on; });
+        toast(t('saved')); loadProjects();
+      } catch (e) { inp.checked = !on; fail(e); }
     }));
     $$('[data-dup]', root).forEach((b) => (b.onclick = async () => {
-      const src = cfg.servers.find((x) => x.name === b.dataset.dup);
-      const copy = JSON.parse(JSON.stringify(src));
-      let n = 2; while (cfg.servers.some((x) => x.name === `${src.name}-${n}`)) n++;
-      copy.name = `${src.name}-${n}`; copy.enabled = false;
-      cfg.servers.push(copy);
-      try { await api('PUT', `/api/p/${enc(P)}/config`, cfg); go(pHash(P, 'server', copy.name)); } catch (e) { fail(e); }
+      try {
+        const name = await mutate((c) => {
+          const src = c.servers.find((x) => x.name === b.dataset.dup);
+          if (!src) throw new Error(t('notFound') + ': ' + b.dataset.dup);
+          const copy = JSON.parse(JSON.stringify(src));
+          let n = 2; while (c.servers.some((x) => x.name === `${src.name}-${n}`)) n++;
+          copy.name = `${src.name}-${n}`; copy.enabled = false;
+          c.servers.push(copy);
+          return copy.name;
+        });
+        go(pHash(P, 'server', name));
+      } catch (e) { fail(e); }
     }));
     $$('[data-del]', root).forEach((b) => (b.onclick = async () => {
       if (!(await confirmBox(t('delete'), esc(t('deleteServerConfirm', b.dataset.del)), t('delete'), true))) return;
-      cfg.servers = cfg.servers.filter((x) => x.name !== b.dataset.del);
-      try { await api('PUT', `/api/p/${enc(P)}/config`, cfg); toast(t('saved')); render(true); loadProjects(); } catch (e) { fail(e); }
+      try {
+        await mutate((c) => { c.servers = c.servers.filter((x) => x.name !== b.dataset.del); });
+        toast(t('saved')); render(true); loadProjects();
+      } catch (e) { fail(e); }
     }));
   });
   if (!cfg.servers.length) {
     return `<div class="bos"><div class="buyuk">${icon('server', 'lg')}</div><h3>${t('noServers')}</h3><p>${t('noServersSub')}</p>
-      <button class="btn birincil" onclick="location.hash='${pHash(P, 'server', 'new')}'">${icon('plus')}${t('addServer')}</button></div>`;
+      <button class="btn birincil" data-add-server>${icon('plus')}${t('addServer')}</button></div>`;
   }
   return `<div class="tablo-kap"><table class="tablo"><thead><tr><th>${t('colName')}</th><th>${t('colProtocol')}</th><th>${t('colHost')}</th><th>${t('colLocal')} → ${t('colRemote')}</th><th>${t('colEnabled')}</th><th></th></tr></thead><tbody>
     ${cfg.servers.map((s) => {
@@ -1099,7 +1168,9 @@ function ledBox(el) { return el.closest('[data-led]'); }
 function ledGet(box) { const h = box.querySelector('input[type=hidden]'); return box.dataset.ledty === 'words' ? unwords(h.value) : unlines(h.value); }
 function ledSet(box, arr) {
   const uniq = [...new Set(arr.map((x) => String(x).trim()).filter(Boolean))];
-  box.querySelector('input[type=hidden]').value = box.dataset.ledty === 'words' ? uniq.join(' ') : uniq.join('\n');
+  const h = box.querySelector('input[type=hidden]');
+  h.value = box.dataset.ledty === 'words' ? uniq.join(' ') : uniq.join('\n');
+  h.dispatchEvent(new Event('change', { bubbles: true })); // kaydedilmemiş form koruması duysun
   box.querySelector('.led-items').innerHTML = uniq.length ? uniq.map(ledItem).join('') : `<div class="led-bos">${t('ledEmpty')}</div>`;
 }
 function ledAddFromInput(box) {
@@ -1170,7 +1241,7 @@ function bindFormTools(root) {
     const picked = await pickPath({ mode: kind === 'file' ? 'file' : 'dir', initial });
     if (picked == null) return;
     inp.value = kind === 'reldir' ? relToProject(ppath, picked) : picked;
-    inp.dispatchEvent(new Event('change'));
+    inp.dispatchEvent(new Event('change', { bubbles: true }));
   }));
   // Ağaç kökü: proje (data-p) → projenin yerel dizini; yoksa data-rootfrom="#input" (ör. hızlı yüklemedeki kaynak);
   // o da yoksa (varsayılanlar) bir kez örnek klasör sorulur ve hatırlanır.
@@ -1279,6 +1350,7 @@ async function tabServerEdit(proj, name) {
     $('#proj-aks', root).innerHTML = '';
     bindProtoPort(root);
     bindFormTools($('#srv-form', root));
+    trackDirty($('#srv-form', root));
     // Kayıtlı bilgiler profile taşınır (formdaki kaydedilmemiş değişiklikler değil) → sayfa yeniden yüklenir
     $('#srv-form', root).addEventListener('click', async (e) => {
       const b = e.target.closest('[data-toprofile]');
@@ -1309,7 +1381,7 @@ async function tabServerEdit(proj, name) {
       const out = collect();
       const next = JSON.parse(JSON.stringify(cfg));
       if (isNew) next.servers.push(out); else next.servers[idx] = out;
-      try { await api('PUT', `/api/p/${enc(P)}/config`, next); toast(t('saved')); await loadProjects(); go(pHash(P, 'servers')); } catch (e) { fail(e); }
+      try { await api('PUT', `/api/p/${enc(P)}/config`, next); clearDirty(); toast(t('saved')); await loadProjects(); go(pHash(P, 'servers')); } catch (e) { fail(e); }
     };
     // Uzak dizin → Gözat: formdaki bilgilerle bağlanıp sunucudaki klasörlerden seçtirir (kaydetmeden)
     const rb = $('[data-browse="remote"]', root);
@@ -1327,14 +1399,14 @@ async function tabServerEdit(proj, name) {
     const det = $('#b-detect', root);
     if (det) det.onclick = () => startJobs(P, { kind: 'detect', servers: [s.name] }, t('detect')).then((ids) => {
       const j = S.jobs.get(ids[0]);
-      if (j) j.onDone = (jj) => { if (jj.result && jj.result[s.name]) $('[data-k="max_connections"]', root).value = jj.result[s.name]; };
+      if (j) j.doneCbs.push((jj) => { const inp = $('[data-k="max_connections"]', root); if (inp && jj.result && jj.result[s.name]) inp.value = jj.result[s.name]; });
     }).catch(fail);
     const del = $('#b-del', root);
     if (del) del.onclick = async () => {
       if (!(await confirmBox(t('delete'), esc(t('deleteServerConfirm', s.name)), t('delete'), true))) return;
       const next = JSON.parse(JSON.stringify(cfg));
       next.servers.splice(idx, 1);
-      try { await api('PUT', `/api/p/${enc(P)}/config`, next); toast(t('saved')); await loadProjects(); go(pHash(P, 'servers')); } catch (e) { fail(e); }
+      try { await api('PUT', `/api/p/${enc(P)}/config`, next); clearDirty(); toast(t('saved')); await loadProjects(); go(pHash(P, 'servers')); } catch (e) { fail(e); }
     };
   });
 
@@ -1377,8 +1449,8 @@ async function tabServerEdit(proj, name) {
     ${section('sliders', t('secFilters'), t('secFiltersDesc'), `<div class="alanlar">
         ${fArea('include', t('fInclude'), s.include, { wide: false, tree: 'paths', chips: 'include' })}${fArea('exclude', t('fExclude'), s.exclude, { wide: false, tree: 'paths', chips: 'exclude' })}
         ${fArea('protect', t('fProtect'), s.protect, { wide: false, tree: 'protect', chips: 'protect' })}${fArea('block_extensions', t('fBlock'), s.block_extensions, { ty: 'words', wide: false, hint: t('fBlockHint'), chips: 'block' })}</div>`, { fold: true, summary: sumFilt })}
-    ${section('log', t('secHooks'), t('secHooksDesc'), `<div class="alanlar">${fArea('pre_sync', t('fPre'), s.pre_sync, { wide: false, rows: 3 })}${fArea('post_sync', t('fPost'), s.post_sync, { wide: false, rows: 3 })}</div>`, { fold: true, summary: sumHooks })}
-    ${section('terminal', t('secRemote'), t('secRemoteDesc'), `<div class="alanlar">${fArea('remote_pre_sync', t('fRemotePre'), s.remote_pre_sync, { wide: false, rows: 3 })}${fArea('remote_post_sync', t('fRemotePost'), s.remote_post_sync, { wide: false, rows: 3, hint: 'php artisan migrate --force' })}</div>`, { fold: true, summary: sumRemote, proto: 'sftp' })}
+    ${section('log', t('secHooks'), t('secHooksDesc'), `<div class="alanlar">${fArea('pre_sync', t('fPre'), s.pre_sync, { wide: false })}${fArea('post_sync', t('fPost'), s.post_sync, { wide: false })}</div>`, { fold: true, summary: sumHooks })}
+    ${section('terminal', t('secRemote'), t('secRemoteDesc'), `<div class="alanlar">${fArea('remote_pre_sync', t('fRemotePre'), s.remote_pre_sync, { wide: false })}${fArea('remote_post_sync', t('fRemotePost'), s.remote_post_sync, { wide: false, hint: 'php artisan migrate --force' })}</div>`, { fold: true, summary: sumRemote, proto: 'sftp' })}
   </div>
   <div class="form-alt"><div class="sol">${isNew ? '' : `<button class="btn tehlike" id="b-del">${icon('trash')}${t('delete')}</button>`}</div>
     <button class="btn" id="b-test">${icon('test')}${t('testConn')}</button>
@@ -1435,6 +1507,7 @@ async function tabConnEdit(proj, name) {
     $('#proj-aks', root).innerHTML = '';
     bindProtoPort(root);
     bindFormTools($('#conn-form', root));
+    trackDirty($('#conn-form', root));
     $('#b-save', root).onclick = async () => {
       const out = readForm($('#conn-form', root), JSON.parse(JSON.stringify(c)));
       if (out.protocol === '') delete out.protocol;
@@ -1444,7 +1517,7 @@ async function tabConnEdit(proj, name) {
         next.connections[idx] = out;
         if (out.name !== c.name) next.servers.forEach((s) => { if (s.connection === c.name) s.connection = out.name; });
       }
-      try { await api('PUT', `/api/p/${enc(P)}/config`, next); toast(t('saved')); go(pHash(P, 'connections')); } catch (e) { fail(e); }
+      try { await api('PUT', `/api/p/${enc(P)}/config`, next); clearDirty(); toast(t('saved')); go(pHash(P, 'connections')); } catch (e) { fail(e); }
     };
     $('#b-test', root).onclick = async (e) => {
       const b = e.currentTarget; b.disabled = true;
@@ -1460,7 +1533,7 @@ async function tabConnEdit(proj, name) {
       if (!(await confirmBox(t('delete'), esc(t('deleteConnConfirm', c.name)), t('delete'), true))) return;
       const next = JSON.parse(JSON.stringify(cfg));
       next.connections.splice(idx, 1);
-      try { await api('PUT', `/api/p/${enc(P)}/config`, next); toast(t('saved')); go(pHash(P, 'connections')); } catch (e) { fail(e); }
+      try { await api('PUT', `/api/p/${enc(P)}/config`, next); clearDirty(); toast(t('saved')); go(pHash(P, 'connections')); } catch (e) { fail(e); }
     };
   });
   return `<a class="faint" href="${pHash(P, 'connections')}" style="display:inline-flex;gap:6px;align-items:center;margin-bottom:12px">${icon('left')}${t('back')}</a>
@@ -1484,6 +1557,7 @@ async function tabSettings(proj) {
   bind((root) => {
     $('#proj-aks', root).innerHTML = '';
     bindFormTools($('#set-form', root));
+    trackDirty($('#set-form', root));
     $('#ign-tmpl', root).onchange = (e) => {
       const v = tmpls[e.target.value];
       if (v) { const ta = $('#ign-text', root); ta.value = (ta.value.trim() ? ta.value.trimEnd() + '\n\n' : '') + v.trim() + '\n'; }
@@ -1523,6 +1597,7 @@ async function tabSettings(proj) {
           await api('PATCH', `/api/projects/${enc(P)}`, { name: nn });
           await loadProjects();
           const np = S.projects.find((x) => x.path === proj.path);
+          clearDirty();
           go(pHash(np ? np.name : nn, 'settings'));
         } }],
       });
@@ -1555,7 +1630,7 @@ async function tabSettings(proj) {
         ${fBool('sync.direct_upload', t('fDirect'), sy.direct_upload, t('fDirectHint'))}
         ${fBool('first_sync.full', t('fFirstFull'), cfg.first_sync && cfg.first_sync.full, t('fFirstFullHint'))}
       </div>`, { fold: true, summary: sumUp })}
-    ${section('log', t('secHooks'), t('secHooksDesc'), `<div class="alanlar">${fArea('sync.pre_sync', t('fPre'), sy.pre_sync, { wide: false, rows: 3 })}${fArea('sync.post_sync', t('fPost'), sy.post_sync, { wide: false, rows: 3 })}</div>`, { fold: true, summary: `pre ${n(sy.pre_sync)} · post ${n(sy.post_sync)}` })}
+    ${section('log', t('secHooks'), t('secHooksDesc'), `<div class="alanlar">${fArea('sync.pre_sync', t('fPre'), sy.pre_sync, { wide: false })}${fArea('sync.post_sync', t('fPost'), sy.post_sync, { wide: false })}</div>`, { fold: true, summary: `pre ${n(sy.pre_sync)} · post ${n(sy.post_sync)}` })}
     <div class="ara-baslik">${t('foldMore')}</div>
     ${section('x', t('ignoreTitle'), `${t('ignoreDesc')}${gitLines ? ' · ' + t('gitignoreNote', gitLines) : ''}`, `
       <div class="aksiyonlar" style="margin-bottom:10px">${ignTargets.length > 1 ? `<select id="ign-dir" style="width:auto">${ignTargets.map((g, i) => `<option value="${i}">${esc(g.dir)} — ${esc((g.servers || []).join(', '))}</option>`).join('')}</select>` : ''}
@@ -1626,19 +1701,32 @@ async function tabFiles(proj, srvName, relPath) {
     } catch (err) { fail(err); }
     reload();
   }
-  function moveItems(items) {
-    modal({
-      title: `${icon('folder')}${t('moveTo')}`,
-      body: `<div class="alan"><label>${t('moveTarget')}</label><input type="text" class="mono" id="mv" value="${esc(rel)}"></div>`,
-      actions: [{ label: t('cancel'), cls: 'hayalet' }, { label: t('moveTo'), cls: 'birincil', run: async (root) => {
-        const target = $('#mv', root).value.trim().replace(/^\/+|\/+$/g, '');
-        for (const it of items) {
-          const name = it.path.split('/').pop();
-          await api('POST', `/api/p/${enc(P)}/remote/rename?${q}&from=${enc(it.path)}&to=${enc((target ? target + '/' : '') + name)}`);
-        }
-        toast(t('moved')); reload();
-      } }],
+  // Taşı: sunucudaki klasörlerden gezerek seç (pickRemoteDir; yol kutusu elle yazmaya da izin verir).
+  // Seçicide "/" = sunucunun uzak dizini; liste dosya tarayıcısının remote/ls ucundan gelir.
+  async function moveItems(items) {
+    const toRel = (p) => String(p || '').replace(/^\/+|\/+$/g, '');
+    const target = await pickRemoteDir({
+      title: `${t('moveTo')} — ${items.length === 1 ? esc(items[0].path) : t('selectedN', items.length)}`,
+      initial: '/' + rel,
+      list: async (path) => {
+        const r = toRel(path);
+        const d = await GET(`/api/p/${enc(P)}/remote/ls?${q}&path=${enc(r)}`);
+        if (d.error) throw new Error(d.error);
+        return { path: '/' + r, dirs: (d.entries || []).filter((e) => e.type === 'dir').map((e) => e.name) };
+      },
     });
+    if (target == null) return;
+    const to = toRel(target);
+    try {
+      for (const it of items) {
+        const name = it.path.split('/').pop();
+        const dest = (to ? to + '/' : '') + name;
+        if (dest === it.path) continue;
+        await api('POST', `/api/p/${enc(P)}/remote/rename?${q}&from=${enc(it.path)}&to=${enc(dest)}`);
+      }
+      toast(t('moved'));
+    } catch (e) { fail(e); }
+    reload();
   }
   function renameItem(it) {
     modal({
@@ -1684,7 +1772,11 @@ async function tabFiles(proj, srvName, relPath) {
       m.close();
       const p = d.dataset.hit;
       if (d.dataset.dir === '1') go(hashFor(p));
-      else { const parent = p.split('/').slice(0, -1).join('/'); go(parent ? hashFor(parent) : pHash(P, 'files', srv)); previewFile(P, srv, p); }
+      else {
+        const parent = p.split('/').slice(0, -1).join('/');
+        S.afterRender = () => previewFile(P, srv, p);
+        go(parent ? hashFor(parent) : pHash(P, 'files', srv));
+      }
     };
     es = new EventSource(`/api/p/${enc(P)}/remote/search?${q}&path=${enc(rel)}&q=${enc(term)}`);
     es.addEventListener('hit', (e) => { n++; buf.push(JSON.parse(e.data)); if (!raf) raf = requestAnimationFrame(flushHits); });
@@ -1712,7 +1804,9 @@ async function tabFiles(proj, srvName, relPath) {
     if (fs) fs.onchange = (e) => go(pHash(P, 'files', e.target.value));
     $$('[data-crumb]', root).forEach((b) => (b.onclick = () => go(b.dataset.crumb === '' ? pHash(P, 'files', srv) : hashFor(b.dataset.crumb))));
     const filter = $('#f-filter', root);
-    filter.oninput = () => applyFilter(filter.value);
+    // Binlerce girdide her tuşta yeniden çizmesin: yazma durunca (120 ms) filtrele
+    let fltTimer = 0;
+    filter.oninput = () => { clearTimeout(fltTimer); fltTimer = setTimeout(() => applyFilter(filter.value), 120); };
     filter.onkeydown = (e) => { if (e.key === 'Enter' && filter.value.trim()) searchAll(filter.value.trim()); };
     $('#f-search', root).onclick = () => { if (filter.value.trim()) searchAll(filter.value.trim()); else filter.focus(); };
     const up = $('#f-upload-input', root);
@@ -1723,9 +1817,13 @@ async function tabFiles(proj, srvName, relPath) {
       [...up.files].forEach((f) => fd.append('files', f, f.name));
       const b = $('#f-upload', root); b.disabled = true; b.innerHTML = icon('refresh', 'spin') + t('upload');
       try {
-        const r = await fetch(`/api/p/${enc(P)}/remote/upload?${q}&path=${enc(rel)}`, { method: 'POST', body: fd }).then((x) => x.json());
-        if (!r.ok) throw new Error(r.error);
-        toast(t('uploaded', r.data.length));
+        // api() JSON gövde gönderir; dosya için FormData — hata işleme api() ile aynı (HTTP durumu + hata gövdesi)
+        let res;
+        try { res = await fetch(`/api/p/${enc(P)}/remote/upload?${q}&path=${enc(rel)}`, { method: 'POST', body: fd }); } catch { throw new Error(t('sessionLost')); }
+        let r = null;
+        try { r = await res.json(); } catch { /* boş / JSON değil */ }
+        if (!res.ok || !r || r.ok === false) throw new Error((r && r.error) || `HTTP ${res.status}`);
+        toast(t('uploaded', (r.data || []).length));
       } catch (err) { fail(err); }
       reload();
     };
@@ -1775,9 +1873,12 @@ async function tabFiles(proj, srvName, relPath) {
       if (body) { body.innerHTML = ''; shown = 0; renderMore(); }
       refreshBar();
     };
+    // Önceki çizimin gözlemcisi bırakılır (her yeniden çizimde biri daha birikiyordu)
+    if (S.filesObs) { S.filesObs.disconnect(); S.filesObs = null; }
     if (more) {
       more.onclick = renderMore;
-      new IntersectionObserver((ents) => { if (ents.some((x) => x.isIntersecting) && document.body.contains(more)) renderMore(); }, { rootMargin: '600px' }).observe(more);
+      S.filesObs = new IntersectionObserver((ents) => { if (ents.some((x) => x.isIntersecting) && document.body.contains(more)) renderMore(); }, { rootMargin: '600px' });
+      S.filesObs.observe(more);
     }
     const items = () => [...sel].map((p) => ({ path: p, type: typeOf.get(p) }));
     const allBox = $('#f-all', root); // bağlantı hatası / boş klasörde tablo yok
@@ -2010,12 +2111,14 @@ async function tabHistory(proj, srvFilter) {
 }
 
 async function releaseDetail(P, srv, id) {
-  const d = await GET(`/api/p/${enc(P)}/releases/${enc(srv)}/${enc(id)}`).catch(fail);
-  if (!d) return;
+  const title = `${icon('history')}${t('releaseTitle', esc(id))} · ${esc(srv)}`;
+  const lm = await loadModal(title, 'orta', () => GET(`/api/p/${enc(P)}/releases/${enc(srv)}/${enc(id)}`));
+  if (!lm) return;
+  const d = lm.d;
   const m = d.manifest;
   const sets = { backed: new Set(m.backed || []), nw: new Set(m.new || []) };
   modal({
-    title: `${icon('history')}${t('releaseTitle', esc(id))} · ${esc(srv)}`, size: 'orta',
+    title, size: 'orta',
     body: `<p class="mono faint">${fmtDate(m.created_at)} · ${t('colFiles')}: ${d.files.length} · ${t('colReplaced')}: ${sets.backed.size} · ${t('colNew')}: ${sets.nw.size}</p>
       <div class="liste-kutu">${d.files.map((f) => `<div><span class="${sets.nw.has(f) ? 'ok-t' : sets.backed.has(f) ? 'warn-t' : 'faint'}">${sets.nw.has(f) ? '+' : sets.backed.has(f) ? '~' : '·'}</span> ${esc(f)}</div>`).join('')}</div>`,
     actions: [{ label: t('close'), cls: 'birincil' }],
@@ -2023,8 +2126,10 @@ async function releaseDetail(P, srv, id) {
 }
 
 async function rollbackFlow(P, srv, id) {
-  const rels = await GET(`/api/p/${enc(P)}/releases?server=${enc(srv)}`).catch(fail);
-  if (!rels) return;
+  const title = `${icon('undo')}${t('rollbackTitle', esc(srv))}`;
+  const lm = await loadModal(title, 'orta', () => GET(`/api/p/${enc(P)}/releases?server=${enc(srv)}`));
+  if (!lm) return;
+  const rels = lm.d || [];
   const plan = [];
   let blocked = '';
   for (const r of rels) { // en yeniden eskiye
@@ -2035,7 +2140,7 @@ async function rollbackFlow(P, srv, id) {
   }
   if (blocked && !plan.some((r) => r.id === id)) return toast(t('rollbackBlocked', blocked), 'bad');
   modal({
-    title: `${icon('undo')}${t('rollbackTitle', esc(srv))}`, size: 'orta',
+    title, size: 'orta',
     body: `<p>${t('rollbackBody', plan.length)}</p><div class="liste-kutu">${plan.map((r) => `<div><b>${esc(r.id)}</b> <span class="faint">· ${fmtDate(r.created_at)} · ~${r.backed} +${r.new}</span></div>`).join('')}</div>`,
     actions: [{ label: t('cancel'), cls: 'hayalet' }, { label: icon('undo') + t('rollbackGo'), cls: 'tehlike', run: async () => {
       const ids = await startJobs(P, { kind: 'rollback', servers: [srv], release: id }, t('rollback'));

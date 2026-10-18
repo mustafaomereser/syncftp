@@ -86,6 +86,8 @@ type editSaveOpts struct {
 // saveRemoteEdit içeriği sunucuya (ve istenirse yerele) yazar. Yalnızca sunucu modunda state
 // DEĞİŞMEZ: yerel dosya değişmedikçe sync düzenlemeyi ezmez.
 func saveRemoteEdit(w io.Writer, dir string, cfg *config.Config, srv config.Server, rel, content string, o editSaveOpts) (string, error) {
+	// Sync ile aynı proje+sunucu kilidi: eş zamanlı bir sync'in state'i ile karışmasın
+	defer lockServer(dir, srv.Name)()
 	localFile, err := editLocalPath(dir, cfg, srv, rel)
 	if err != nil {
 		return "", err

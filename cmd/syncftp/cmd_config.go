@@ -1110,11 +1110,8 @@ func (m *globalEditModel) getDisplayValue(i int) string {
 	case 3:
 		return listDisplay(m.sync.Exclude)
 	case 4:
-		if m.sync.IgnoreFiles == nil {
+		if len(m.sync.IgnoreFiles) == 0 { // nil ya da boş = varsayılan (ignore.Load ile aynı)
 			return lang.L.CfgGlobalIgnoreDefVal
-		}
-		if len(m.sync.IgnoreFiles) == 0 {
-			return lang.L.CfgGlobalIgnoreNone
 		}
 		return strings.Join(m.sync.IgnoreFiles, ", ")
 	case 5:

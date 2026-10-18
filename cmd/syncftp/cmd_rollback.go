@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -129,7 +130,7 @@ func resolveOneServer(cfg *config.Config, name string) (config.Server, bool, err
 	enabled := cfg.EnabledServers()
 	switch len(enabled) {
 	case 0:
-		return config.Server{}, false, fmt.Errorf("aktif sunucu yok")
+		return config.Server{}, false, errors.New(lang.L.NoActiveServer)
 	case 1:
 		return enabled[0], true, nil
 	}
@@ -191,13 +192,25 @@ type rollbackReport struct {
 // Yedeklenen dosyalar geri yüklenir, yeni dosyalar silinir, state eski hash'lere döner.
 // Ortak çekirdek: CLI, shell ve GUI aynı fonksiyonu kullanır.
 func performRollback(w io.Writer, configDir string, srv config.Server, plan []*release.Manifest) (rollbackReport, error) {
-	var rep rollbackReport
 	client, err := ftpclient.Connect(srv)
 	if err != nil {
-		return rep, err
+		return rollbackReport{}, err
 	}
 	defer client.Close()
+	return applyRollback(w, configDir, srv, plan, client)
+}
 
+// rollbackRemote performRollback'in kullandığı uzak işlemler (testte sahte istemci).
+type rollbackRemote interface {
+	UploadRaw(localPath, relPath string) error
+	DeleteFile(remotePath string) error
+}
+
+// applyRollback plan'ı verilen bağlantı üzerinden uygular. Bir release'te hata olursa
+// DURULUR: daha eski release'ler geri alınmaz — yoksa yeni release yarım kalırken eskiler
+// "geri alındı" işaretlenir, zincir tutarsızlaşırdı (tekrar denemede kaldığı yerden sürer).
+func applyRollback(w io.Writer, configDir string, srv config.Server, plan []*release.Manifest, client rollbackRemote) (rollbackReport, error) {
+	var rep rollbackReport
 	st, err := state.Load(configDir, srv.Name)
 	if err != nil {
 		return rep, err
@@ -209,7 +222,8 @@ func performRollback(w io.Writer, configDir string, srv config.Server, plan []*r
 		failedHere := 0
 		for _, rel := range m.Backed {
 			src := filepath.Join(filesDir, filepath.FromSlash(rel))
-			if err := client.Upload(src, rel); err != nil {
+			// Yedek sunucudaki ham baytlardır → CRLF normalizasyonu yapılmadan geri yüklenir
+			if err := client.UploadRaw(src, rel); err != nil {
 				fmt.Fprintf(w, lang.L.RollbackFileErrFmt, rel, err)
 				rep.Failed = append(rep.Failed, rel)
 				failedHere++
@@ -238,15 +252,17 @@ func performRollback(w io.Writer, configDir string, srv config.Server, plan []*r
 		if len(m.NoBackup) > 0 {
 			fmt.Fprintf(w, lang.L.RollbackSkippedNoBackupFmt, len(m.NoBackup))
 		}
-		// Kısmi hata: release geri alınmış sayılmaz (tekrar denenebilir)
-		if failedHere == 0 {
-			now := time.Now()
-			m.RolledBack = true
-			m.RolledBackAt = &now
-			_, _ = release.Write(configDir, srv.Name, m.ID, m)
-			rep.Releases = append(rep.Releases, m.ID)
-		}
 		_ = state.Save(configDir, st)
+		// Kısmi hata: release geri alınmış sayılmaz (tekrar denenebilir) ve zincir burada durur
+		if failedHere > 0 {
+			fmt.Fprintf(w, lang.L.RollbackStoppedFmt, m.ID)
+			break
+		}
+		now := time.Now()
+		m.RolledBack = true
+		m.RolledBackAt = &now
+		_, _ = release.Write(configDir, srv.Name, m.ID, m)
+		rep.Releases = append(rep.Releases, m.ID)
 	}
 	fmt.Fprintf(w, lang.L.RollbackDoneFmt, rep.Restored, rep.Deleted, len(rep.Failed))
 	return rep, nil

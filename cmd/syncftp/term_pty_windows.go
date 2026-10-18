@@ -20,6 +20,7 @@ type winPTY struct {
 	in      *os.File // çocuğun stdin'ine yazılır
 	out     *os.File // çocuğun çıktısı okunur
 	closeMu sync.Once
+	procMu  sync.Mutex // proc tutamacı: Close kapatırken Wait aynı tutamacı beklemesin
 }
 
 func startTermPTY(exe string, args []string, dir string, env []string, cols, rows int) (termPTY, error) {
@@ -114,11 +115,22 @@ func (p *winPTY) Resize(cols, rows int) error {
 }
 
 // Wait çocuk süreç bitene kadar bekler.
+// Tutamacın kopyasını bekler: Close asıl tutamacı (CloseHandle) beklerken kapatabilir.
 func (p *winPTY) Wait() error {
+	p.procMu.Lock()
 	if p.proc == 0 {
+		p.procMu.Unlock()
 		return errors.New("not started")
 	}
-	_, err := windows.WaitForSingleObject(p.proc, windows.INFINITE)
+	var dup windows.Handle
+	self := windows.CurrentProcess()
+	err := windows.DuplicateHandle(self, p.proc, self, &dup, 0, false, windows.DUPLICATE_SAME_ACCESS)
+	p.procMu.Unlock()
+	if err != nil {
+		return err
+	}
+	defer windows.CloseHandle(dup)
+	_, err = windows.WaitForSingleObject(dup, windows.INFINITE)
 	return err
 }
 
@@ -126,9 +138,11 @@ func (p *winPTY) Wait() error {
 // bloklayabildiği için okuma ucu en son kapatılır.
 func (p *winPTY) Close() error {
 	p.closeMu.Do(func() {
+		p.procMu.Lock()
 		if p.proc != 0 {
 			_ = windows.TerminateProcess(p.proc, 0)
 		}
+		p.procMu.Unlock()
 		_ = p.in.Close()
 		done := make(chan struct{})
 		go func() { windows.ClosePseudoConsole(p.hpc); close(done) }()
@@ -142,9 +156,12 @@ func (p *winPTY) Close() error {
 		}()
 		<-done
 		_ = p.out.Close()
+		p.procMu.Lock()
 		if p.proc != 0 {
 			windows.CloseHandle(p.proc)
+			p.proc = 0
 		}
+		p.procMu.Unlock()
 	})
 	return nil
 }

@@ -155,21 +155,44 @@ func (sv *guiServer) apiRemoteSearch(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), searchTimeout)
 	defer cancel()
 	start := time.Now()
+	// onHit/onProgress arama motorunun kilidi altında çağrılır → HTTP yazımı (yavaş istemci) orada
+	// yapılmaz; olaylar kanala konur, bu goroutine yazar.
+	type sseEvent struct {
+		name string
+		v    any
+	}
+	events := make(chan sseEvent, 256)
 	var lastProg time.Time
 	hits := 0
-	scanned, listErr, err := searchRemoteTree(ctx, srv, nil, guiRemotePath(srv, r.URL.Query().Get("path")), q,
-		func(dir string, e *goftp.Entry) bool {
-			rel := strings.TrimPrefix(strings.TrimPrefix(path.Join(dir, e.Name), srv.RemotePath), "/")
-			send("hit", map[string]any{"path": rel, "dir": e.Type == goftp.EntryTypeFolder, "size": e.Size, "time": e.Time})
-			hits++
-			return hits < searchMaxHits
-		},
-		func(n int) {
-			if time.Since(lastProg) > 120*time.Millisecond { // sayaç saniyede ~8 kez
-				lastProg = time.Now()
-				send("progress", map[string]any{"dirs": n})
-			}
-		})
+	var scanned int
+	var listErr string
+	var err error
+	go func() {
+		defer close(events)
+		scanned, listErr, err = searchRemoteTree(ctx, srv, nil, guiRemotePath(srv, r.URL.Query().Get("path")), q,
+			func(dir string, e *goftp.Entry) bool {
+				rel := strings.TrimPrefix(strings.TrimPrefix(path.Join(dir, e.Name), srv.RemotePath), "/")
+				select {
+				case events <- sseEvent{"hit", map[string]any{"path": rel, "dir": e.Type == goftp.EntryTypeFolder, "size": e.Size, "time": e.Time}}:
+				case <-ctx.Done():
+					return false
+				}
+				hits++
+				return hits < searchMaxHits
+			},
+			func(n int) {
+				if time.Since(lastProg) > 120*time.Millisecond { // sayaç saniyede ~8 kez
+					lastProg = time.Now()
+					select {
+					case events <- sseEvent{"progress", map[string]any{"dirs": n}}:
+					default: // sayaç düşebilir
+					}
+				}
+			})
+	}()
+	for ev := range events {
+		send(ev.name, ev.v)
+	}
 	if err != nil {
 		send("done", map[string]any{"error": err.Error()})
 		return

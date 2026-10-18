@@ -3,10 +3,14 @@ package main
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -15,18 +19,30 @@ import (
 	"github.com/spf13/cobra"
 
 	"syncftp/internal/config"
-	"syncftp/internal/lang"
 	"syncftp/internal/failed"
 	ftpclient "syncftp/internal/ftp"
+	"syncftp/internal/lang"
 	"syncftp/internal/release"
 	"syncftp/internal/state"
 )
 
-var servePort int
+var (
+	servePort     int
+	serveTokenArg string
+)
 
 func init() {
 	serveCmd.Flags().IntVar(&servePort, "port", 8080, "Dinlenecek port")
+	serveCmd.Flags().StringVar(&serveTokenArg, "token", "", "İsteklerde zorunlu token (X-Token başlığı, Bearer ya da ?token=); boşsa SYNCFTP_SERVE_TOKEN")
 	rootCmd.AddCommand(serveCmd)
+}
+
+// serveToken API token'ı: --token, yoksa SYNCFTP_SERVE_TOKEN (panelin proje başına HTTP API'si de okur).
+func serveToken() string {
+	if serveTokenArg != "" {
+		return serveTokenArg
+	}
+	return os.Getenv("SYNCFTP_SERVE_TOKEN")
 }
 
 var serveCmd = &cobra.Command{
@@ -52,15 +68,18 @@ func newServeHandler(dir string) http.Handler {
 	mux.HandleFunc("/api/remote/cat", wrap(dir, handleRemoteCat))
 	mux.HandleFunc("/api/remote/get", wrap(dir, handleRemoteGet))
 	mux.HandleFunc("/api/remote/rm", wrap(dir, handleRemoteRm))
-	return corsMiddleware(mux)
+	return serveGuard(mux, serveToken())
 }
 
 func runServe(cmd *cobra.Command, args []string) error {
 	dir, _ := os.Getwd()
 	handler := newServeHandler(dir)
 	addr := fmt.Sprintf("127.0.0.1:%d", servePort)
-	fmt.Printf("syncFTP API → http://%s\n\n", addr)
-	fmt.Println("Endpoint'ler:")
+	fmt.Printf(lang.L.ServeBannerFmt, addr)
+	if serveToken() != "" {
+		fmt.Println(lang.L.ServeTokenOn)
+	}
+	fmt.Println(lang.L.ServeEndpoints)
 	fmt.Printf("  GET    /api/servers\n")
 	fmt.Printf("  GET    /api/status[?server=<ad>]\n")
 	fmt.Printf("  POST   /api/sync\n")
@@ -68,12 +87,12 @@ func runServe(cmd *cobra.Command, args []string) error {
 	fmt.Printf("  GET    /api/failed[?server=<ad>]\n")
 	fmt.Printf("  GET    /api/releases[?server=<ad>&limit=10]\n")
 	fmt.Printf("  POST   /api/reload\n")
-	fmt.Printf("  POST   /api/trigger/github[?server=<ad>&branch=main&secret=xxx]\n")
+	fmt.Printf("  POST   /api/trigger/github[?server=<ad>&branch=main]   (SYNCFTP_GITHUB_SECRET zorunlu)\n")
 	fmt.Printf("  GET    /api/remote/ls?server=<ad>&path=<yol>[&recursive=true]\n")
 	fmt.Printf("  GET    /api/remote/cat?server=<ad>&path=<yol>[&max_kb=10]\n")
 	fmt.Printf("  GET    /api/remote/get?server=<ad>&path=<yol>\n")
 	fmt.Printf("  DELETE /api/remote/rm?server=<ad>&path=<yol>[&recursive=true]\n")
-	fmt.Println("\nDurdurmak için Ctrl+C")
+	fmt.Println(lang.L.ServeStopHint)
 
 	return http.ListenAndServe(addr, handler)
 }
@@ -86,17 +105,78 @@ func wrap(dir string, h handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) { h(w, r, dir) }
 }
 
-func corsMiddleware(next http.Handler) http.Handler {
+// isLoopbackName localhost / 127.x / ::1 mi (port'suz ad).
+func isLoopbackName(h string) bool {
+	h = strings.TrimSuffix(strings.TrimPrefix(h, "["), "]")
+	if strings.EqualFold(h, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(h)
+	return ip != nil && ip.IsLoopback()
+}
+
+// localOrigin Origin başlığı http(s)://localhost|127.0.0.1|[::1](:port) mi.
+func localOrigin(origin string) bool {
+	u, err := url.Parse(origin)
+	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && isLoopbackName(u.Hostname())
+}
+
+// serveGuard yerel API'nin kapısı. Eskiden "Access-Control-Allow-Origin: *" + Host denetimi yoktu →
+// kullanıcının açtığı herhangi bir web sitesi (ya da DNS rebinding) üretim dosyalarını okuyup
+// silebiliyordu. Artık:
+//   - Host yalnızca loopback adı (DNS rebinding'e karşı)
+//   - Origin varsa yerel olmalı (tarayıcıdan başka siteler reddedilir; PHP/curl Origin yollamaz)
+//   - CORS yalnızca yerel Origin'e yansıtılır
+//   - token tanımlıysa (--token / SYNCFTP_SERVE_TOKEN) X-Token, Bearer ya da ?token= zorunlu
+func serveGuard(next http.Handler, token string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		host := r.Host
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
+		}
+		origin := r.Header.Get("Origin")
+		if !isLoopbackName(host) || (origin != "" && !localOrigin(origin)) || r.Header.Get("Sec-Fetch-Site") == "cross-site" {
+			jsonErr(w, http.StatusForbidden, errors.New(lang.L.ServeForbidden))
+			return
+		}
+		if origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Vary", "Origin")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Token, Authorization")
+		}
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
+		if token != "" {
+			got := r.Header.Get("X-Token")
+			if got == "" {
+				got = strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+			}
+			if got == "" {
+				got = r.URL.Query().Get("token")
+			}
+			if !eqConst(got, token) {
+				jsonErr(w, http.StatusUnauthorized, errors.New(lang.L.ServeUnauthorized))
+				return
+			}
+		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// serveRemotePath API'deki yolu sunucunun RemotePath'i içine sabitler (panelin guiRemotePath'i gibi;
+// ".." ile köke çıkılamaz). Mutlak yol RemotePath'in altındaysa aynen kabul edilir (geriye dönük
+// uyumluluk), değilse RemotePath'e göreceli sayılır.
+func serveRemotePath(srv config.Server, p string) string {
+	if strings.HasPrefix(p, "/") {
+		root := path.Clean("/" + srv.RemotePath)
+		if c := path.Clean(p); c == root || strings.HasPrefix(c, strings.TrimSuffix(root, "/")+"/") {
+			return c
+		}
+	}
+	return guiRemotePath(srv, p)
 }
 
 // ── JSON yardımcıları ─────────────────────────────────────────────────────────
@@ -132,7 +212,7 @@ func getServer(cfg *config.Config, name string) (config.Server, error) {
 		for i, s := range servers {
 			names[i] = s.Name
 		}
-		return config.Server{}, fmt.Errorf("server parametresi zorunlu (mevcut: %s)", strings.Join(names, ", "))
+		return config.Server{}, fmt.Errorf(lang.L.ServeServerRequiredFmt, strings.Join(names, ", "))
 	}
 	for _, s := range servers {
 		if s.Name == name {
@@ -159,7 +239,7 @@ type serverInfo struct {
 
 func handleServers(w http.ResponseWriter, r *http.Request, configDir string) {
 	if r.Method != http.MethodGet {
-		jsonErr(w, 405, fmt.Errorf("GET bekleniyor"))
+		jsonErr(w, 405, fmt.Errorf(lang.L.ServeMethodFmt, "GET"))
 		return
 	}
 	cfg, err := loadCfg(configDir)
@@ -193,7 +273,7 @@ type statusData struct {
 
 func handleStatus(w http.ResponseWriter, r *http.Request, configDir string) {
 	if r.Method != http.MethodGet {
-		jsonErr(w, 405, fmt.Errorf("GET bekleniyor"))
+		jsonErr(w, 405, fmt.Errorf(lang.L.ServeMethodFmt, "GET"))
 		return
 	}
 	cfg, err := loadCfg(configDir)
@@ -275,13 +355,14 @@ type syncData struct {
 
 func handleSync(w http.ResponseWriter, r *http.Request, configDir string) {
 	if r.Method != http.MethodPost {
-		jsonErr(w, 405, fmt.Errorf("POST bekleniyor"))
+		jsonErr(w, 405, fmt.Errorf(lang.L.ServeMethodFmt, "POST"))
 		return
 	}
 
 	var req syncRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err.Error() != "EOF" {
-		jsonErr(w, 400, fmt.Errorf("geçersiz JSON: %w", err))
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+		jsonErr(w, 400, fmt.Errorf(lang.L.ServeBadJSONFmt, err))
 		return
 	}
 
@@ -318,7 +399,7 @@ func handleSync(w http.ResponseWriter, r *http.Request, configDir string) {
 	}
 }
 
-// apiSyncServer ana sync akışını (syncToServerResult) çalıştırır: frozen, block,
+// apiSyncServer ana sync akışını (syncServer) çalıştırır: frozen, block,
 // protect, hook, minify, webhook, milestone, yedek/rollback dahil CLI ile birebir aynı.
 func apiSyncServer(configDir string, cfg *config.Config, srv config.Server, req syncRequest) (syncData, error) {
 	res := syncData{Server: srv.Name, DryRun: req.DryRun}
@@ -340,7 +421,7 @@ func apiSyncServer(configDir string, cfg *config.Config, srv config.Server, req 
 
 func handleFailed(w http.ResponseWriter, r *http.Request, configDir string) {
 	if r.Method != http.MethodGet {
-		jsonErr(w, 405, fmt.Errorf("GET bekleniyor"))
+		jsonErr(w, 405, fmt.Errorf(lang.L.ServeMethodFmt, "GET"))
 		return
 	}
 
@@ -388,7 +469,7 @@ type lsEntry struct {
 
 func handleRemoteLs(w http.ResponseWriter, r *http.Request, configDir string) {
 	if r.Method != http.MethodGet {
-		jsonErr(w, 405, fmt.Errorf("GET bekleniyor"))
+		jsonErr(w, 405, fmt.Errorf(lang.L.ServeMethodFmt, "GET"))
 		return
 	}
 
@@ -405,7 +486,7 @@ func handleRemoteLs(w http.ResponseWriter, r *http.Request, configDir string) {
 
 	remotePath := srv.RemotePath
 	if p := r.URL.Query().Get("path"); p != "" {
-		remotePath = resolveRemotePath(srv, p)
+		remotePath = serveRemotePath(srv, p)
 	}
 	recursive := r.URL.Query().Get("recursive") == "true"
 
@@ -450,7 +531,7 @@ func collectEntries(client *ftpclient.Client, remotePath string, recursive bool)
 
 func handleRemoteCat(w http.ResponseWriter, r *http.Request, configDir string) {
 	if r.Method != http.MethodGet {
-		jsonErr(w, 405, fmt.Errorf("GET bekleniyor"))
+		jsonErr(w, 405, fmt.Errorf(lang.L.ServeMethodFmt, "GET"))
 		return
 	}
 
@@ -467,7 +548,7 @@ func handleRemoteCat(w http.ResponseWriter, r *http.Request, configDir string) {
 
 	p := r.URL.Query().Get("path")
 	if p == "" {
-		jsonErr(w, 400, fmt.Errorf("path parametresi zorunlu"))
+		jsonErr(w, 400, errors.New(lang.L.ServePathRequired))
 		return
 	}
 	maxKB := 10
@@ -484,7 +565,7 @@ func handleRemoteCat(w http.ResponseWriter, r *http.Request, configDir string) {
 	}
 	defer client.Close()
 
-	remotePath := resolveRemotePath(srv, p)
+	remotePath := serveRemotePath(srv, p)
 	pv, err := remotePreview(client, remotePath, maxKB*1024)
 	if err != nil {
 		jsonErr(w, 502, err)
@@ -503,7 +584,7 @@ func handleRemoteCat(w http.ResponseWriter, r *http.Request, configDir string) {
 
 func handleRemoteGet(w http.ResponseWriter, r *http.Request, configDir string) {
 	if r.Method != http.MethodGet {
-		jsonErr(w, 405, fmt.Errorf("GET bekleniyor"))
+		jsonErr(w, 405, fmt.Errorf(lang.L.ServeMethodFmt, "GET"))
 		return
 	}
 
@@ -520,7 +601,7 @@ func handleRemoteGet(w http.ResponseWriter, r *http.Request, configDir string) {
 
 	p := r.URL.Query().Get("path")
 	if p == "" {
-		jsonErr(w, 400, fmt.Errorf("path parametresi zorunlu"))
+		jsonErr(w, 400, errors.New(lang.L.ServePathRequired))
 		return
 	}
 
@@ -534,7 +615,7 @@ func handleRemoteGet(w http.ResponseWriter, r *http.Request, configDir string) {
 	}
 	defer client.Close()
 
-	remotePath := resolveRemotePath(srv, p)
+	remotePath := serveRemotePath(srv, p)
 
 	if asJSON {
 		// Tüm içeriği belleğe alıp base64 ile döndür
@@ -561,7 +642,7 @@ func handleRemoteGet(w http.ResponseWriter, r *http.Request, configDir string) {
 
 func handleRemoteRm(w http.ResponseWriter, r *http.Request, configDir string) {
 	if r.Method != http.MethodDelete {
-		jsonErr(w, 405, fmt.Errorf("DELETE bekleniyor"))
+		jsonErr(w, 405, fmt.Errorf(lang.L.ServeMethodFmt, "DELETE"))
 		return
 	}
 
@@ -578,7 +659,7 @@ func handleRemoteRm(w http.ResponseWriter, r *http.Request, configDir string) {
 
 	p := r.URL.Query().Get("path")
 	if p == "" {
-		jsonErr(w, 400, fmt.Errorf("path parametresi zorunlu"))
+		jsonErr(w, 400, errors.New(lang.L.ServePathRequired))
 		return
 	}
 	recursive := r.URL.Query().Get("recursive") == "true"
@@ -590,7 +671,7 @@ func handleRemoteRm(w http.ResponseWriter, r *http.Request, configDir string) {
 	}
 	defer client.Close()
 
-	remotePath := resolveRemotePath(srv, p)
+	remotePath := serveRemotePath(srv, p)
 
 	isDir, err := remoteDelete(client, remotePath, recursive)
 	if err != nil {
@@ -620,12 +701,12 @@ func (s *sseWriter) Write(p []byte) (n int, err error) {
 
 func handleSyncStream(w http.ResponseWriter, r *http.Request, configDir string) {
 	if r.Method != http.MethodGet {
-		jsonErr(w, 405, fmt.Errorf("GET bekleniyor"))
+		jsonErr(w, 405, fmt.Errorf(lang.L.ServeMethodFmt, "GET"))
 		return
 	}
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		jsonErr(w, 500, fmt.Errorf("SSE bu sunucu tarafından desteklenmiyor"))
+		jsonErr(w, 500, errors.New(lang.L.ServeSSEUnsupported))
 		return
 	}
 
@@ -639,7 +720,7 @@ func handleSyncStream(w http.ResponseWriter, r *http.Request, configDir string) 
 
 	cfg, err := config.Load(configDir)
 	if err != nil {
-		fmt.Fprintf(sw, "config yüklenemedi: %v", err)
+		fmt.Fprintf(sw, lang.L.ServeConfigLoadFmt, err)
 		return
 	}
 
@@ -661,14 +742,14 @@ func handleSyncStream(w http.ResponseWriter, r *http.Request, configDir string) 
 		syncServer(sw, configDir, cfg, srv, nil, nil, nil, syncOpts{full: full, dryRun: dryRun})
 	}
 
-	fmt.Fprintf(sw, "[sync tamamlandı]")
+	fmt.Fprint(sw, lang.L.ServeSyncDone)
 }
 
 // ── GET /api/releases ─────────────────────────────────────────────────────────
 
 func handleReleases(w http.ResponseWriter, r *http.Request, configDir string) {
 	if r.Method != http.MethodGet {
-		jsonErr(w, 405, fmt.Errorf("GET bekleniyor"))
+		jsonErr(w, 405, fmt.Errorf(lang.L.ServeMethodFmt, "GET"))
 		return
 	}
 
@@ -708,12 +789,12 @@ func handleReleases(w http.ResponseWriter, r *http.Request, configDir string) {
 
 func handleReload(w http.ResponseWriter, r *http.Request, configDir string) {
 	if r.Method != http.MethodPost {
-		jsonErr(w, 405, fmt.Errorf("POST bekleniyor"))
+		jsonErr(w, 405, fmt.Errorf(lang.L.ServeMethodFmt, "POST"))
 		return
 	}
 	cfg, err := config.Load(configDir)
 	if err != nil {
-		jsonErr(w, 500, fmt.Errorf("config geçersiz: %w", err))
+		jsonErr(w, 500, fmt.Errorf(lang.L.ServeConfigInvalidFmt, err))
 		return
 	}
 	jsonOK(w, map[string]any{
@@ -727,7 +808,7 @@ func handleReload(w http.ResponseWriter, r *http.Request, configDir string) {
 
 func handleGitHubTrigger(w http.ResponseWriter, r *http.Request, configDir string) {
 	if r.Method != http.MethodPost {
-		jsonErr(w, 405, fmt.Errorf("POST bekleniyor"))
+		jsonErr(w, 405, fmt.Errorf(lang.L.ServeMethodFmt, "POST"))
 		return
 	}
 
@@ -737,20 +818,23 @@ func handleGitHubTrigger(w http.ResponseWriter, r *http.Request, configDir strin
 		return
 	}
 
-	body, err := io.ReadAll(r.Body)
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 25<<20)) // GitHub teslimat sınırı 25 MB
 	if err != nil {
-		jsonErr(w, 400, fmt.Errorf("body okunamadı: %w", err))
+		jsonErr(w, 400, fmt.Errorf(lang.L.ServeBodyReadFmt, err))
 		return
 	}
 
-	// HMAC imzası doğrulama (opsiyonel — ?secret=xxx query param ile)
-	if secret := r.URL.Query().Get("secret"); secret != "" {
-		sig := r.Header.Get("X-Hub-Signature-256")
-		// CI/CD dinleyicisiyle aynı HMAC + sabit zamanlı karşılaştırma (cmd_deploy.go)
-		if !eqConst("sha256="+hmacSHA256Hex(secret, body), sig) {
-			jsonErr(w, 401, fmt.Errorf("geçersiz imza"))
-			return
-		}
+	// HMAC imzası ZORUNLU, secret yalnızca sunucu tarafında (SYNCFTP_GITHUB_SECRET): ?secret= kabul
+	// EDİLMEZ — çağıran kendi seçtiği secret'la kendi imzalayabilirdi, koruma sağlamazdı.
+	secret := os.Getenv("SYNCFTP_GITHUB_SECRET")
+	if secret == "" {
+		jsonErr(w, 401, errors.New(lang.L.ServeSecretRequired))
+		return
+	}
+	// CI/CD dinleyicisiyle aynı HMAC + sabit zamanlı karşılaştırma (cmd_deploy.go)
+	if !eqConst("sha256="+hmacSHA256Hex(secret, body), r.Header.Get("X-Hub-Signature-256")) {
+		jsonErr(w, 401, errors.New(lang.L.ServeBadSignature))
+		return
 	}
 
 	var payload struct {
@@ -788,7 +872,6 @@ func handleGitHubTrigger(w http.ResponseWriter, r *http.Request, configDir strin
 		}
 	}()
 }
-
 
 // ── küçük yardımcılar ─────────────────────────────────────────────────────────
 

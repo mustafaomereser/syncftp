@@ -97,11 +97,13 @@ function bindLibSection(root, lib, rerender) {
 function pickProjectModal(title) {
   return new Promise((res) => {
     let done = false;
-    modal({
+    const m = modal({
       title, body: `<div class="liste-kutu">${S.projects.map((p) => `<div class="tikla pk-satir" data-p="${esc(p.name)}">${icon('folder', 'acc-t')} <b>${esc(p.name)}</b> <span class="faint mono" style="font-size:12px">${esc(p.path)}</span></div>`).join('')}</div>`,
       actions: [{ label: t('cancel'), cls: 'hayalet', run: () => { done = true; res(null); } }],
       onClose: () => { if (!done) res(null); },
-    }).root.querySelectorAll('[data-p]').forEach((el) => (el.onclick = () => { done = true; res(el.dataset.p); el.closest('.modal-arka').remove(); }));
+    });
+    // m.close: klavye dinleyicisi ve S.modals kaydı da temizlenir (DOM'u elle silmek ikisini sızdırıyordu)
+    m.root.querySelectorAll('[data-p]').forEach((el) => (el.onclick = () => { done = true; res(el.dataset.p); m.close(); }));
   });
 }
 
@@ -154,7 +156,7 @@ function defaultsSectionHTML(lib) {
       ${fNum('sync.backup_keep', t('fBackupKeep'), sy.backup_keep || 10, { hint: t('fBackupKeepHint') })}
       ${fNum('max_connections', t('defMaxConn'), d.max_connections || 1)}
       ${fNum('max_retries', t('defMaxRetry'), d.max_retries || 2)}
-      ${fArea('sync.pre_sync', t('fPre'), sy.pre_sync, { wide: false, rows: 2 })}${fArea('sync.post_sync', t('fPost'), sy.post_sync, { wide: false, rows: 2 })}
+      ${fArea('sync.pre_sync', t('fPre'), sy.pre_sync, { wide: false })}${fArea('sync.post_sync', t('fPost'), sy.post_sync, { wide: false })}
     </div><div style="height:12px"></div><div class="alanlar">
       ${fBool('sync.no_backup', t('fNoBackup'), sy.no_backup, t('fNoBackupHint'))}
       ${fBool('sync.direct_upload', t('fDirect'), sy.direct_upload, t('fDirectHint'))}
@@ -205,10 +207,9 @@ function bindProjTools(root, P) {
     const s = await GET(`/api/p/${enc(P)}/serve`).catch(() => ({ active: false }));
     box.innerHTML = s.active
       ? `<div class="aksiyonlar"><span class="pill ok"><span class="nokta"></span>${t('ptServeOn')}</span><span class="mono">${esc(s.url)}</span>
-          <button class="ikon-btn" data-copy2="${esc(s.url)}">${icon('copy')}</button><span style="margin-left:auto"></span><button class="btn tehlike" id="srv-stop">${icon('stop')}${t('ptServeStop')}</button></div>`
+          <button class="ikon-btn" data-copy="${esc(s.url)}" title="${t('copyPath')}">${icon('copy')}</button><span style="margin-left:auto"></span><button class="btn tehlike" id="srv-stop">${icon('stop')}${t('ptServeStop')}</button></div>`
       : `<div class="aksiyonlar"><label style="display:flex;gap:8px;align-items:center">${t('ptServePort')} <input type="number" id="srv-port" value="8080" style="width:110px"></label>
           <span style="margin-left:auto"></span><button class="btn mavi" id="srv-start">${icon('play')}${t('ptServeStart')}</button></div>`;
-    const c = $('[data-copy2]', box); if (c) c.onclick = () => { navigator.clipboard.writeText(c.dataset.copy2); toast(t('copied')); };
     const st = $('#srv-start', box); if (st) st.onclick = async () => { try { await api('POST', `/api/p/${enc(P)}/serve`, { on: true, port: parseInt($('#srv-port', box).value, 10) || 8080 }); draw(); } catch (e) { fail(e); } };
     const sp = $('#srv-stop', box); if (sp) sp.onclick = async () => { await api('POST', `/api/p/${enc(P)}/serve`, { on: false }).catch(fail); draw(); };
   };
@@ -224,7 +225,7 @@ function importModal(P) {
       <div class="alan gizli" id="im-json-box"><textarea id="im-json" rows="8" class="mono" spellcheck="false" placeholder="{ &quot;sync&quot;: { … } }"></textarea></div>
       <div class="alan"><label>${t('ptParts')}</label>
         ${[['sync', t('ptPartSync'), true], ['servers', t('ptPartServers')], ['connections', t('ptPartConns')], ['deploy', t('ptPartDeploy')]].map(([k, l, on]) =>
-          `<label style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" data-part="${k}" ${on ? 'checked' : ''}> ${l}</label>`).join('')}</div>
+          `<label class="anahtar"><span class="metin"><b>${l}</b></span><span class="switch"><input type="checkbox" data-part="${k}" ${on ? 'checked' : ''}><i></i></span></label>`).join('')}</div>
       <div class="alan"><select id="im-mode"><option value="merge">${t('ptModeMerge')}</option><option value="replace">${t('ptModeReplace')}</option></select></div></div>`,
     actions: [{ label: t('cancel'), cls: 'hayalet' }, { label: icon('check') + t('ptImport').replace('…', ''), cls: 'birincil', run: async (root) => {
       const src = $('#im-src', root).value;
@@ -280,7 +281,7 @@ function filteredSyncModal(P, s) {
   const m = modal({
     title: `${icon('upload')}${t('syncOnceTitle')} · ${esc(s.name)}`, size: 'orta',
     body: `<p class="aciklama">${t('syncOnceDesc')}</p><div class="form" id="fs-form" data-p="${esc(P)}" data-ppath="${esc(proj.path || '')}" data-srv="${esc(s.name)}"><div class="alanlar">
-      ${fArea('include', t('syncOnceInc'), [], { wide: false, rows: 5, tree: 'paths', chips: 'include' })}${fArea('exclude', t('syncOnceExc'), [], { wide: false, rows: 5, tree: 'paths', chips: 'exclude' })}</div>
+      ${fArea('include', t('syncOnceInc'), [], { wide: false, tree: 'paths', chips: 'include' })}${fArea('exclude', t('syncOnceExc'), [], { wide: false, tree: 'paths', chips: 'exclude' })}</div>
       <div style="height:10px"></div>${fBool('dry_run', t('dryRun'), false, t('dryRunHint'))}</div>`,
     actions: [{ label: t('cancel'), cls: 'hayalet' }, { label: icon('upload') + t('sync'), cls: 'mavi', run: async (root) => {
       const f = readForm($('#fs-form', root), {});

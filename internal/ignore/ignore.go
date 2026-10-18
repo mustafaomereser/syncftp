@@ -17,15 +17,12 @@ type Matcher struct {
 }
 
 // Load reads the given ignore files from dir and merges their patterns.
-// Pass nil to use the default list (.gitignore + syncftp.ignore).
-// Pass an empty (non-nil) slice to use no ignore files at all.
+// nil ya da boş liste → varsayılan (.gitignore + .syncftp/syncftp.ignore) — JSON "ignore_files": []
+// ve editörlerdeki boş alan da varsayılan demektir (CLAUDE.md + panel ile aynı anlam).
 // Files that do not exist are silently skipped.
 func Load(dir string, ignoreFiles []string) (*Matcher, error) {
-	if ignoreFiles == nil {
-		ignoreFiles = defaultIgnoreFiles
-	}
 	if len(ignoreFiles) == 0 {
-		return &Matcher{}, nil
+		ignoreFiles = defaultIgnoreFiles
 	}
 	var lines []string
 	for _, name := range ignoreFiles {
@@ -81,10 +78,10 @@ func (m *Matcher) MatchDir(relPath string) bool {
 }
 
 // EditableFile sync'in okuduğu syncFTP'ye özel ignore dosyasının (localDir'e göreceli) yolu:
-// liste nil → ".syncftp/syncftp.ignore"; değilse .gitignore dışındaki ilk giriş. Listede böyle bir
-// dosya yoksa (ör. yalnızca .gitignore ya da boş liste) "" — düzenlenecek dosya sync'te okunmaz.
+// liste nil/boş → ".syncftp/syncftp.ignore"; değilse .gitignore dışındaki ilk giriş. Listede böyle bir
+// dosya yoksa (ör. yalnızca .gitignore) "" — düzenlenecek dosya sync'te okunmaz.
 func EditableFile(ignoreFiles []string) string {
-	if ignoreFiles == nil {
+	if len(ignoreFiles) == 0 {
 		return defaultIgnoreFiles[1]
 	}
 	for _, f := range ignoreFiles {

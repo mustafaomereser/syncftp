@@ -48,10 +48,8 @@ Object.assign(T.en, {
 async function pageSettings(sub = "general") {
   const [s, hooks, lib] = await Promise.all([GET('/api/settings'), GET('/api/hooks').catch(() => ({ tunnel: {} })), GET('/api/library')]);
   if (!S.projects.length) await loadProjects();
-  const tun = hooks.tunnel || {};
 
   bind((root) => {
-    $$('[data-copy]', root).forEach((b) => (b.onclick = () => { navigator.clipboard.writeText(b.dataset.copy); toast(t('copied')); }));
     $$('[data-open]', root).forEach((b) => (b.onclick = () => api('POST', '/api/settings/open', { what: b.dataset.open }).catch(fail)));
     $$('#set-lang button', root).forEach((b) => (b.onclick = async () => {
       try { await api('PUT', '/api/lang', { lang: b.dataset.l }); LANG = b.dataset.l; applyLang(); render(true); } catch (e) { fail(e); }
@@ -72,17 +70,10 @@ async function pageSettings(sub = "general") {
         render(true);
       } catch (e) { fail(e); }
     };
-    const tb = $('#set-tunnel', root);
-    if (tb) tb.onclick = () => toggleTunnel(tb, tun, hooks);
-    $('#set-hooks-save', root).onclick = async () => {
-      try {
-        await api('PUT', '/api/hooks/settings', { custom_url: $('#set-custom', root).value, auto_tunnel: $('#set-auto', root).checked });
-        toast(t('saved')); render(true);
-      } catch (e) { fail(e); }
-    };
+    bindTunnelCtl(root, hooks, 'set');
     $$('[data-hkdel]', root).forEach((b) => (b.onclick = async () => {
       if (!(await confirmBox(t('delete'), esc(t('setHostDelConfirm', b.dataset.host)), t('delete'), true))) return;
-      try { await api('DELETE', `/api/settings/known-hosts/${b.dataset.hkdel}`); render(true); } catch (e) { fail(e); }
+      try { await api('DELETE', `/api/settings/known-hosts/${b.dataset.hkdel}?fp=${encodeURIComponent(b.dataset.fp)}`); render(true); } catch (e) { fail(e); }
     }));
     $('#set-cache-clear', root).onclick = async () => {
       try { await api('POST', '/api/settings/cache-clear'); toast(t('setCacheCleared')); render(true); } catch (e) { fail(e); }
@@ -105,8 +96,6 @@ async function pageSettings(sub = "general") {
       <select id="set-editsave" style="width:auto">${[['', 'setEditAsk'], ['both', 'setEditBoth'], ['remote', 'setEditRemote']].map(([v, k]) => `<option value="${v}" ${(s.edit_save_target || '') === v ? 'selected' : ''}>${t(k)}</option>`).join('')}</select></label>
     ${s.tray ? `<p class="ipucu">${icon('check', 'ok-t')} ${t('setTrayOn')}</p>` : ''}`);
 
-  const tunnelPill = tun.active && tun.url ? `<span class="pill ok"><span class="nokta"></span>${t('ciTunnelOn')}</span>`
-    : tun.active ? `<span class="pill busy"><span class="nokta"></span>${t('ciTunnelStarting')}</span>` : `<span class="pill"><span class="nokta"></span>${t('ciTunnelOff')}</span>`;
   const hooksSec = section('zap', t('setHooks'), t('setHooksDesc'), `
     <div class="alanlar">
       <div class="alan"><label>${t('setPort')}</label><div class="girdi-grup"><input type="number" id="set-port" value="${s.hook_port === s.hook_default_port ? 0 : s.hook_port}" min="0" max="65535">
@@ -115,16 +104,7 @@ async function pageSettings(sub = "general") {
       <div class="alan"><label>${t('ciPublic')}</label><div class="girdi-grup"><input type="text" class="mono" value="${esc(hooks.public_url || '')}" readonly><button class="btn" data-copy="${esc(hooks.public_url || '')}">${icon('copy')}</button></div></div>
     </div>
     <div class="ayrac"></div>
-    <div class="aksiyonlar" style="margin-bottom:10px"><b style="font-weight:600">${t('ciTunnel')}</b> ${tunnelPill}
-      ${tun.url ? `<span class="mono faint">${esc(tun.url)}</span>` : ''}${tun.error && !tun.active ? `<span class="bad-t" style="font-size:12px">${esc(tun.error)}</span>` : ''}
-      <span style="margin-left:auto"></span>
-      <button class="btn ${tun.active ? 'tehlike' : 'mavi'}" id="set-tunnel">${icon(tun.active ? 'stop' : 'play')}${tun.active ? t('ciTunnelStop') : hooks.cloudflared ? t('ciTunnelStart') : t('ciInstall')}</button></div>
-    ${hooks.cloudflared ? `<p class="ipucu mono">${esc(hooks.cloudflared)}</p>` : `<p class="ipucu">${t('ciInstallHint')}</p>`}
-    <div class="alanlar" style="margin-top:12px">
-      <div class="alan"><label>${t('ciCustomURL')}</label><input type="text" class="mono" id="set-custom" value="${esc(hooks.custom_url || '')}" placeholder="https://…"></div>
-      <div class="alan"><label>&nbsp;</label><label class="anahtar"><span class="metin"><b>${t('ciAutoTunnel')}</b></span><span class="switch"><input type="checkbox" id="set-auto" ${hooks.auto_tunnel ? 'checked' : ''}><i></i></span></label></div>
-    </div>
-    <div class="aksiyonlar" style="margin-top:10px;justify-content:flex-end"><button class="btn" id="set-hooks-save">${icon('check')}${t('save')}</button></div>`);
+    ${tunnelCtlHTML(hooks, 'set')}`);
 
   const projSec = `<div class="bolum"><h3>${icon('layers')}${t('setProjects')}</h3><p class="aciklama">${t('setProjectsDesc')}</p>
     ${S.projects.length ? `<div class="tablo-kap"><table class="tablo"><tbody>${S.projects.map((p) => `<tr>
@@ -138,7 +118,7 @@ async function pageSettings(sub = "general") {
   const hostSec = `<div class="bolum"><h3>${icon('shield')}${t('setHostKeys')}</h3><p class="aciklama">${t('setHostKeysDesc')}</p>
     ${hk.length ? `<div class="tablo-kap"><table class="tablo"><thead><tr><th>${t('colHost')}</th><th>${t('colKeyType')}</th><th>${t('colFingerprint')}</th><th></th></tr></thead><tbody>
       ${hk.map((h) => `<tr><td class="mono">${esc(h.hosts)}</td><td class="mono faint">${esc(h.type)}</td><td class="mono faint" style="font-size:12px;word-break:break-all">${esc(h.fingerprint)}</td>
-        <td class="sag"><button class="ikon-btn tehlike" data-hkdel="${h.line}" data-host="${esc(h.hosts)}" title="${t('delete')}">${icon('trash')}</button></td></tr>`).join('')}</tbody></table></div>`
+        <td class="sag"><button class="ikon-btn tehlike" data-hkdel="${h.line}" data-fp="${esc(h.fingerprint)}" data-host="${esc(h.hosts)}" title="${t('delete')}">${icon('trash')}</button></td></tr>`).join('')}</tbody></table></div>`
       : `<div class="bos" style="padding:18px">${t('setNoHostKeys')}</div>`}
     <div class="alanlar" style="margin-top:12px">${pathRow('known_hosts', s.known_hosts_path, 'known_hosts')}</div></div>`;
 

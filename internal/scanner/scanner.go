@@ -256,10 +256,3 @@ func saveCache(dir string, c hashCache) {
 	}
 	_ = os.Rename(tmp, p)
 }
-
-// ClearCache dizinin hash cache'ini siler (sonraki tarama tüm dosyaları yeniden hash'ler).
-func ClearCache(dir string) {
-	cacheMu.Lock()
-	defer cacheMu.Unlock()
-	_ = os.Remove(cachePath(dir))
-}

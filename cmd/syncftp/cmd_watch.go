@@ -233,18 +233,30 @@ func (w *watchWorker) notify() {
 	}
 }
 
+// run tetikleri debounce edip doSync'i çağırır. trigger kapanınca (watch durdu) döner;
+// debounce sırasında kapanırsa bekleyen sync çalıştırılmaz.
 func (w *watchWorker) run(doSync func()) {
+	w.runDebounced(doSync, watchDebounce)
+}
+
+func (w *watchWorker) runDebounced(doSync func(), debounce time.Duration) {
 	for range w.trigger {
-		// Debounce: son olaydan sonra watchDebounce kadar sessizlik bekle
-		t := time.NewTimer(watchDebounce)
+		// Debounce: son olaydan sonra debounce kadar sessizlik bekle
+		t := time.NewTimer(debounce)
 	quiet:
 		for {
 			select {
-			case <-w.trigger:
+			case _, ok := <-w.trigger:
 				if !t.Stop() {
-					<-t.C
+					select { // eski değer varsa boşalt (Go 1.23+ zamanlayıcılarında bloklamaz)
+					case <-t.C:
+					default:
+					}
 				}
-				t.Reset(watchDebounce)
+				if !ok {
+					return // kapalı kanal sonsuza dek "hazır" döner — dönmezsek döngü CPU yakar
+				}
+				t.Reset(debounce)
 			case <-t.C:
 				break quiet
 			}

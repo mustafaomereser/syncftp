@@ -47,7 +47,6 @@ func (sv *guiServer) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/projects", sv.apiProjects)
 	mux.HandleFunc("POST /api/projects", sv.apiProjectAdd)
 	mux.HandleFunc("PATCH /api/projects/{p}", sv.apiProjectRename)
-	mux.HandleFunc("DELETE /api/projects/{p}", sv.apiProjectRemove)
 
 	mux.HandleFunc("GET /api/p/{p}/overview", sv.apiOverview)
 	mux.HandleFunc("GET /api/p/{p}/scan", sv.apiServerScan)
@@ -63,7 +62,6 @@ func (sv *guiServer) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/p/{p}/releases/{srv}/{id}", sv.apiReleaseDetail)
 	mux.HandleFunc("GET /api/p/{p}/logs", sv.apiLogs)
 	mux.HandleFunc("GET /api/p/{p}/logs/{srv}/{file}", sv.apiLogFile)
-	mux.HandleFunc("GET /api/p/{p}/milestones", sv.apiMilestones)
 	mux.HandleFunc("PUT /api/p/{p}/milestones", sv.apiMilestoneSet)
 	mux.HandleFunc("DELETE /api/p/{p}/milestones", sv.apiMilestoneClear)
 	mux.HandleFunc("GET /api/p/{p}/frozen", sv.apiFrozenGet)
@@ -80,7 +78,6 @@ func (sv *guiServer) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/p/{p}/remote/edit", sv.apiRemoteEditOpen) // cmd_gui_edit.go
 	mux.HandleFunc("PUT /api/p/{p}/remote/edit", sv.apiRemoteEditSave)
 
-	mux.HandleFunc("GET /api/p/{p}/watch", sv.apiWatchGet)
 	mux.HandleFunc("POST /api/p/{p}/watch", sv.apiWatchStart)
 	mux.HandleFunc("DELETE /api/p/{p}/watch", sv.apiWatchStop)
 	mux.HandleFunc("GET /api/watches", func(w http.ResponseWriter, r *http.Request) { guiJSON(w, sv.watches.all()) })
@@ -318,20 +315,11 @@ func (sv *guiServer) apiProjectRename(w http.ResponseWriter, r *http.Request) {
 	// Klasör modu: görünen ad config'teki project.name
 	p, ok := projects.Find(r.PathValue("p"))
 	if !ok {
-		guiErr(w, 404, errors.New("project"))
+		guiErr(w, 404, fmt.Errorf(lang.L.ProjectNotFoundFmt, r.PathValue("p")))
 		return
 	}
 	if err := renameProject(p.Path, req.Name); err != nil {
 		guiErr(w, 400, err)
-		return
-	}
-	guiJSON(w, true)
-}
-
-func (sv *guiServer) apiProjectRemove(w http.ResponseWriter, r *http.Request) {
-	sv.watches.stop(r.PathValue("p"), "")
-	if err := projects.Remove(r.PathValue("p")); err != nil {
-		guiErr(w, 404, err)
 		return
 	}
 	guiJSON(w, true)
@@ -457,7 +445,7 @@ func (sv *guiServer) apiServerScan(w http.ResponseWriter, r *http.Request) {
 	}
 	srv, ok := findServer(cfg, r.URL.Query().Get("server"))
 	if !ok {
-		guiErr(w, 404, errors.New("server"))
+		guiErr(w, 404, fmt.Errorf(lang.L.ServerNotFoundFmt, r.URL.Query().Get("server")))
 		return
 	}
 	guiJSON(w, sv.serverInfo(p, cfg, srv, sv.jobs.busyServers(p.Name), srv.Enabled))
@@ -471,7 +459,7 @@ func (sv *guiServer) apiStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	srv, ok := findServer(cfg, r.URL.Query().Get("server"))
 	if !ok {
-		guiErr(w, 404, errors.New("server"))
+		guiErr(w, 404, fmt.Errorf(lang.L.ServerNotFoundFmt, r.URL.Query().Get("server")))
 		return
 	}
 	st, err := state.Load(p.Path, srv.Name)
@@ -755,6 +743,13 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 	dir := p.Path
 
 	switch req.Kind {
+	case "rollback", "exec", "tree": // tek sunuculuk işler — boş liste "tüm aktif sunucular" demek, ilkini seçme
+		if len(req.Servers) != 1 {
+			guiErr(w, 400, errors.New(lang.L.GuiNeedOneServer))
+			return
+		}
+	}
+	switch req.Kind {
 	case "sync", "milestone-sync":
 		for _, srv := range servers {
 			srv := srv
@@ -777,8 +772,8 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					return nil, err
 				}
-				runCalibrateOpts(dir, srv, c, calibrateOpts{out: j, saveLog: true})
-				return nil, nil
+				defer lockServer(dir, srv.Name)() // sync / watch / serve ile aynı sunucu kilidi
+				return nil, runCalibrateOpts(dir, srv, c, calibrateOpts{out: j, saveLog: true})
 			}))
 		}
 	case "verify":
@@ -1005,8 +1000,8 @@ func (sv *guiServer) apiJobCancel(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 404, errors.New("job"))
 		return
 	}
-	if j.cancel != nil {
-		j.cancel()
+	if cancel := j.cancelFunc(); cancel != nil {
+		cancel()
 		guiJSON(w, true)
 		return
 	}
@@ -1054,7 +1049,7 @@ func (sv *guiServer) apiReleases(w http.ResponseWriter, r *http.Request) {
 func (sv *guiServer) apiReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	p, ok := projects.Find(r.PathValue("p"))
 	if !ok {
-		guiErr(w, 404, errors.New("project"))
+		guiErr(w, 404, fmt.Errorf(lang.L.ProjectNotFoundFmt, r.PathValue("p")))
 		return
 	}
 	m, err := release.Load(p.Path, filepath.Base(r.PathValue("srv")), filepath.Base(r.PathValue("id")))
@@ -1089,7 +1084,7 @@ func (sv *guiServer) apiLogs(w http.ResponseWriter, r *http.Request) {
 func (sv *guiServer) apiLogFile(w http.ResponseWriter, r *http.Request) {
 	p, ok := projects.Find(r.PathValue("p"))
 	if !ok {
-		guiErr(w, 404, errors.New("project"))
+		guiErr(w, 404, fmt.Errorf(lang.L.ProjectNotFoundFmt, r.PathValue("p")))
 		return
 	}
 	text, err := synclog.Read(p.Path, r.PathValue("srv"), r.PathValue("file"), 4<<20)
@@ -1101,21 +1096,6 @@ func (sv *guiServer) apiLogFile(w http.ResponseWriter, r *http.Request) {
 }
 
 // ── milestone / freeze / failed ───────────────────────────────────────────────
-
-func (sv *guiServer) apiMilestones(w http.ResponseWriter, r *http.Request) {
-	p, cfg, err := sv.project(r)
-	if err != nil {
-		guiErr(w, 404, err)
-		return
-	}
-	out := map[string]string{}
-	for _, s := range cfg.Servers {
-		if ms, _ := milestone.Load(p.Path, s.Name); ms != nil {
-			out[s.Name] = ms.Date.Format("2006-01-02 15:04:05")
-		}
-	}
-	guiJSON(w, out)
-}
 
 func (sv *guiServer) apiMilestoneSet(w http.ResponseWriter, r *http.Request) {
 	p, cfg, err := sv.project(r)
@@ -1164,14 +1144,29 @@ func (sv *guiServer) apiMilestoneClear(w http.ResponseWriter, r *http.Request) {
 	guiJSON(w, true)
 }
 
-func (sv *guiServer) apiFrozenGet(w http.ResponseWriter, r *http.Request) {
-	p, _, err := sv.project(r)
+// projectServer proje + istekteki sunucu adı (?server= ya da verilen ad); bilinmeyen ad 404.
+// Sunucu adı dosya yoluna (.syncftp/frozen/<ad>.json …) girdiği için önce config'te aranmalı.
+func (sv *guiServer) projectServer(w http.ResponseWriter, r *http.Request, name string) (projects.Project, config.Server, bool) {
+	p, cfg, err := sv.project(r)
 	if err != nil {
 		guiErr(w, 404, err)
+		return p, config.Server{}, false
+	}
+	srv, ok := findServer(cfg, name)
+	if !ok {
+		guiErr(w, 404, fmt.Errorf(lang.L.ServerNotFoundFmt, name))
+		return p, config.Server{}, false
+	}
+	return p, srv, true
+}
+
+func (sv *guiServer) apiFrozenGet(w http.ResponseWriter, r *http.Request) {
+	p, srv, ok := sv.projectServer(w, r, r.URL.Query().Get("server"))
+	if !ok {
 		return
 	}
 	out := []string{}
-	if fl, _ := frozen.Load(p.Path, r.URL.Query().Get("server")); fl != nil {
+	if fl, _ := frozen.Load(p.Path, srv.Name); fl != nil {
 		for f := range fl.Files {
 			out = append(out, f)
 		}
@@ -1181,17 +1176,16 @@ func (sv *guiServer) apiFrozenGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (sv *guiServer) apiFrozenPut(w http.ResponseWriter, r *http.Request) {
-	p, _, err := sv.project(r)
-	if err != nil {
-		guiErr(w, 404, err)
-		return
-	}
 	var req struct {
 		Server string   `json:"server"`
 		Files  []string `json:"files"`
 	}
-	if err := guiDecode(r, &req); err != nil || req.Server == "" {
-		guiErr(w, 400, errors.New("server"))
+	if err := guiDecode(r, &req); err != nil {
+		guiErr(w, 400, err)
+		return
+	}
+	p, srv, ok := sv.projectServer(w, r, req.Server)
+	if !ok {
 		return
 	}
 	var clean []string
@@ -1200,7 +1194,7 @@ func (sv *guiServer) apiFrozenPut(w http.ResponseWriter, r *http.Request) {
 			clean = append(clean, f)
 		}
 	}
-	if err := frozen.Save(p.Path, req.Server, clean); err != nil {
+	if err := frozen.Save(p.Path, srv.Name, clean); err != nil {
 		guiErr(w, 500, err)
 		return
 	}
@@ -1248,12 +1242,11 @@ func (sv *guiServer) apiFrozenToggle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (sv *guiServer) apiFailed(w http.ResponseWriter, r *http.Request) {
-	p, _, err := sv.project(r)
-	if err != nil {
-		guiErr(w, 404, err)
+	p, srv, ok := sv.projectServer(w, r, r.URL.Query().Get("server"))
+	if !ok {
 		return
 	}
-	fl, _ := failed.Load(p.Path, r.URL.Query().Get("server"))
+	fl, _ := failed.Load(p.Path, srv.Name)
 	if fl == nil || fl.Files == nil {
 		guiJSON(w, map[string]any{"files": []string{}})
 		return
@@ -1263,10 +1256,6 @@ func (sv *guiServer) apiFailed(w http.ResponseWriter, r *http.Request) {
 }
 
 // ── watch ─────────────────────────────────────────────────────────────────────
-
-func (sv *guiServer) apiWatchGet(w http.ResponseWriter, r *http.Request) {
-	guiJSON(w, sv.watches.forProject(r.PathValue("p")))
-}
 
 // apiWatchStart {servers: [...]} — her sunucu için ayrı watch; boşsa tüm aktif sunucular ("tümünü izle").
 // Zaten izlenen sunucular atlanır; başlatılamayanlar errors'ta döner.
@@ -1314,19 +1303,25 @@ func (sv *guiServer) startWatch(project string, serverNames []string) ([]guiWatc
 	var started []guiWatch
 	var errs []error
 	for _, srv := range servers {
-		if sv.watches.has(p.Name, srv.Name) {
+		// Anahtar watches.mu altında AYRILIR: has()+ekleme ayrı kilitlerdeyken çift POST iki watch
+		// başlatıyor, ilki haritadan düştüğü için bir daha durdurulamıyordu.
+		gw := &guiWatch{Project: p.Name, Server: srv.Name, Servers: []string{srv.Name}, path: p.Path, Started: time.Now(), stop: make(chan struct{})}
+		if !sv.watches.reserve(gw) {
 			continue
 		}
 		if pid := watchLockOwner(p.Path, srv.Name); pid != 0 { // başka panel / CLI watch bu sunucuyu izliyor
+			sv.watches.release(gw)
 			errs = append(errs, fmt.Errorf("%s: "+lang.L.WatchLockedFmt, srv.Name, pid))
 			continue
 		}
-		gw, err := sv.startServerWatch(p, cfg, srv)
-		if err != nil {
+		if err := sv.startServerWatch(p, cfg, srv, gw); err != nil {
+			sv.watches.release(gw)
 			errs = append(errs, fmt.Errorf("%s: %w", srv.Name, err))
 			continue
 		}
+		sv.watches.mu.Lock()
 		started = append(started, *gw)
+		sv.watches.mu.Unlock()
 	}
 	if len(started) == 0 && len(errs) == 0 && len(servers) > 0 {
 		return nil, nil, errors.New(lang.L.GuiWatchRunning)
@@ -1334,9 +1329,10 @@ func (sv *guiServer) startWatch(project string, serverNames []string) ([]guiWatc
 	return started, errs, nil
 }
 
-func (sv *guiServer) startServerWatch(p projects.Project, cfg *config.Config, srv config.Server) (*guiWatch, error) {
-	gw := &guiWatch{Project: p.Name, Server: srv.Name, Servers: []string{srv.Name}, path: p.Path, Started: time.Now(), stop: make(chan struct{})}
-	j, err := sv.jobs.start("watch", p.Name, srv.Name, lang.L.GuiJobWatch, "", func(j *job) (any, error) {
+// startServerWatch watches.reserve ile haritaya konmuş gw için watch işini başlatır.
+func (sv *guiServer) startServerWatch(p projects.Project, cfg *config.Config, srv config.Server, gw *guiWatch) error {
+	cancel := func() { sv.watches.stop(p.Name, srv.Name); sv.persistWatches() }
+	j, err := sv.jobs.startCancelable("watch", p.Name, srv.Name, lang.L.GuiJobWatch, "", cancel, func(j *job) (any, error) {
 		return nil, watchLoop(p.Path, cfg, []config.Server{srv}, j, gw.stop, func(res serverSyncResult) {
 			sv.watches.mu.Lock()
 			gw.Syncs++
@@ -1345,14 +1341,12 @@ func (sv *guiServer) startServerWatch(p projects.Project, cfg *config.Config, sr
 		})
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
-	j.cancel = func() { sv.watches.stop(p.Name, srv.Name); sv.persistWatches() }
-	gw.JobID = j.ID
 	sv.watches.mu.Lock()
-	sv.watches.m[watchKey(p.Name, srv.Name)] = gw
+	gw.JobID = j.ID
 	sv.watches.mu.Unlock()
-	return gw, nil
+	return nil
 }
 
 func mustJSON(v any) string {

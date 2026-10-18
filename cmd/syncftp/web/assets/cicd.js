@@ -16,7 +16,7 @@ Object.assign(T.tr, {
   ciDryRun: 'Dry-run', ciDryRunHint: 'Hiçbir şey yükleme, sadece neyin gideceğini logla', ciSecret: 'Secret', ciRegen: 'Yeni secret', ciShow: 'Göster',
   ciRunNow: 'Şimdi deploy et', ciSetup: 'Kurulum', ciDeliveries: 'Son webhook istekleri', ciNoDeliveries: 'Henüz istek gelmedi',
   ciColEvent: 'Olay', ciColResult: 'Sonuç', ciDeleteConfirm: '"{0}" tetikleyicisi silinsin mi?', ciNameHint: 'URL\'de kullanılır: harf, rakam, - ve _',
-  ciSetupTitle: '{0} kurulumu', ciEnabled: 'Aktif', ciDeployStarted: 'Deploy başladı',
+  ciSetupTitle: '{0} kurulumu', ciEnabled: 'Aktif', ciDeployStarted: 'Deploy başladı', ciDeployTitle: 'Deploy', ciDupName: 'Bu adla bir tetikleyici zaten var: {0}',
   ciGitHub: '<ol><li>Repo → <b>Settings → Webhooks → Add webhook</b></li><li><b>Payload URL</b>: aşağıdaki URL</li><li><b>Content type</b>: <code>application/json</code></li><li><b>Secret</b>: aşağıdaki secret</li><li><b>Just the push event</b> → Add webhook</li></ol>',
   ciGitLab: '<ol><li>Proje → <b>Settings → Webhooks → Add new webhook</b></li><li><b>URL</b>: aşağıdaki URL</li><li><b>Secret token</b>: aşağıdaki secret</li><li><b>Trigger</b>: Push events (isteğe bağlı branch filtresi)</li></ol>',
   ciGitea: '<ol><li>Repo → <b>Settings → Webhooks → Add Webhook → Gitea</b></li><li><b>Target URL</b>: aşağıdaki URL, <b>POST</b>, <code>application/json</code></li><li><b>Secret</b>: aşağıdaki secret</li><li><b>Trigger On</b>: Push Events</li></ol>',
@@ -37,7 +37,7 @@ Object.assign(T.en, {
   ciDryRun: 'Dry-run', ciDryRunHint: 'Upload nothing, only log what would be deployed', ciSecret: 'Secret', ciRegen: 'New secret', ciShow: 'Show',
   ciRunNow: 'Deploy now', ciSetup: 'Setup', ciDeliveries: 'Recent webhook requests', ciNoDeliveries: 'No requests yet',
   ciColEvent: 'Event', ciColResult: 'Result', ciDeleteConfirm: 'Delete trigger "{0}"?', ciNameHint: 'Used in the URL: letters, digits, - and _',
-  ciSetupTitle: '{0} setup', ciEnabled: 'Enabled', ciDeployStarted: 'Deploy started',
+  ciSetupTitle: '{0} setup', ciEnabled: 'Enabled', ciDeployStarted: 'Deploy started', ciDeployTitle: 'Deploy', ciDupName: 'A trigger with this name already exists: {0}',
   ciGitHub: '<ol><li>Repo → <b>Settings → Webhooks → Add webhook</b></li><li><b>Payload URL</b>: the URL below</li><li><b>Content type</b>: <code>application/json</code></li><li><b>Secret</b>: the secret below</li><li><b>Just the push event</b> → Add webhook</li></ol>',
   ciGitLab: '<ol><li>Project → <b>Settings → Webhooks → Add new webhook</b></li><li><b>URL</b>: the URL below</li><li><b>Secret token</b>: the secret below</li><li><b>Trigger</b>: Push events (optional branch filter)</li></ol>',
   ciGitea: '<ol><li>Repo → <b>Settings → Webhooks → Add Webhook → Gitea</b></li><li><b>Target URL</b>: the URL below, <b>POST</b>, <code>application/json</code></li><li><b>Secret</b>: the secret below</li><li><b>Trigger On</b>: Push Events</li></ol>',
@@ -78,54 +78,78 @@ async function toggleTunnel(btn, tun, hooks) {
   render(true);
 }
 
+// Tünel denetimi (durum + aç/kapa + kalıcı adres + otomatik başlat) — CI/CD sekmesi ve Ayarlar → Webhook
+// aynı parçayı kullanır; id öneki öğe kimliklerini ayırır (ci-tunnel / set-tunnel …).
+function tunnelPillHTML(tun) {
+  if (tun.active && tun.url) return `<span class="pill ok"><span class="nokta"></span>${t('ciTunnelOn')}</span>`;
+  if (tun.active) return `<span class="pill busy"><span class="nokta"></span>${t('ciTunnelStarting')}</span>`;
+  return `<span class="pill"><span class="nokta"></span>${t('ciTunnelOff')}</span>`;
+}
+function tunnelCtlHTML(hooks, id) {
+  const tun = hooks.tunnel || {};
+  const localPort = (hooks.local_url || '').split(':').pop();
+  return `<div class="aksiyonlar" style="margin-bottom:10px"><b style="font-weight:600">${t('ciTunnel')}</b> ${tunnelPillHTML(tun)}
+      ${tun.url ? `<span class="mono faint">${esc(tun.url)}</span>` : ''}${tun.error && !tun.active ? `<span class="bad-t" style="font-size:12px">${esc(tun.error)}</span>` : ''}
+      <span style="margin-left:auto"></span>
+      <button class="btn ${tun.active ? 'tehlike' : 'mavi'}" id="${id}-tunnel">${icon(tun.active ? 'stop' : 'play')}${tun.active ? t('ciTunnelStop') : hooks.cloudflared ? t('ciTunnelStart') : t('ciInstall')}</button></div>
+    ${hooks.cloudflared ? `<p class="ipucu mono">${esc(hooks.cloudflared)}</p>` : !tun.active ? `<p class="ipucu">${t('ciInstallHint')}</p>` : ''}
+    <p class="ipucu">${t('ciTunnelNote')}</p>
+    <div class="alanlar" style="margin-top:12px">
+      <div class="alan"><label>${t('ciCustomURL')}</label><input type="text" class="mono" id="${id}-custom" value="${esc(hooks.custom_url || '')}" placeholder="https://…">${localPort ? `<small>${t('ciCustomHint', esc(localPort))}</small>` : ''}</div>
+      <div class="alan"><label>&nbsp;</label>
+        <label class="anahtar"><span class="metin"><b>${t('ciAutoTunnel')}</b></span><span class="switch"><input type="checkbox" id="${id}-auto" ${hooks.auto_tunnel ? 'checked' : ''}><i></i></span></label></div>
+    </div>
+    <div class="aksiyonlar" style="margin-top:10px;justify-content:flex-end"><button class="btn" id="${id}-save-url">${icon('check')}${t('save')}</button></div>`;
+}
+function bindTunnelCtl(root, hooks, id) {
+  const tb = $(`#${id}-tunnel`, root);
+  if (tb) tb.onclick = () => toggleTunnel(tb, hooks.tunnel || {}, hooks);
+  const sv = $(`#${id}-save-url`, root);
+  if (sv) sv.onclick = async () => {
+    try {
+      await api('PUT', '/api/hooks/settings', { custom_url: $(`#${id}-custom`, root).value, auto_tunnel: $(`#${id}-auto`, root).checked });
+      toast(t('saved')); render(true);
+    } catch (e) { fail(e); }
+  };
+}
+
 async function tabCicd(proj) {
   const P = proj.name;
   const [hooks, dep, cfg] = await Promise.all([GET('/api/hooks'), GET(`/api/p/${enc(P)}/deploy`), getConfig(P)]);
-  const tun = hooks.tunnel || {};
-  const localPort = (hooks.local_url || '').split(':').pop();
   const isLocalOnly = dep.local_only;
 
   bind((root) => {
     $('#proj-aks', root).innerHTML = `<button class="ikon-btn" id="ci-rf" title="${t('refresh')}">${icon('refresh')}</button><button class="btn birincil" id="ci-add">${icon('plus')}${t('ciAdd')}</button>`;
     $('#ci-rf', root).onclick = () => render(true);
-    $('#ci-add', root).onclick = () => triggerModal(P, cfg, null);
-    $$('[data-copy]', root).forEach((b) => (b.onclick = () => { navigator.clipboard.writeText(b.dataset.copy); toast(t('copied')); }));
-    const tb = $('#ci-tunnel', root);
-    if (tb) tb.onclick = () => toggleTunnel(tb, tun, hooks);
-    $('#ci-save-url', root).onclick = async () => {
-      try {
-        await api('PUT', '/api/hooks/settings', { custom_url: $('#ci-custom', root).value, auto_tunnel: $('#ci-auto', root).checked });
-        toast(t('saved')); render(true);
-      } catch (e) { fail(e); }
-    };
+    $('#ci-add', root).onclick = () => triggerModal(P, null);
+    bindTunnelCtl(root, hooks, 'ci');
     $$('[data-trig]', root).forEach((card) => {
       const name = card.dataset.trig;
       const d = cfg.deploy.find((x) => x.name === name);
       const it = dep.triggers.find((x) => x.name === name);
       const on = (sel, fn) => { const b = $(sel, card); if (b) b.onclick = fn; };
       on('[data-act="run"]', async () => {
-        try { const r = await api('POST', `/api/p/${enc(P)}/deploy/${enc(name)}/run`); if (r.job) { trackJob(r.job, { project: P, title: 'Deploy' }); toast(t('ciDeployStarted')); } } catch (e) { fail(e); }
+        try { const r = await api('POST', `/api/p/${enc(P)}/deploy/${enc(name)}/run`); if (r.job) { trackJob(r.job, { kind: 'deploy', project: P, title: t('ciDeployTitle') }); toast(t('ciDeployStarted')); } } catch (e) { fail(e); }
       });
       on('[data-act="setup"]', () => setupModal(d, it.url));
-      on('[data-act="edit"]', () => triggerModal(P, cfg, d));
+      on('[data-act="edit"]', () => triggerModal(P, d));
       on('[data-act="del"]', async () => {
         if (!(await confirmBox(t('delete'), esc(t('ciDeleteConfirm', name)), t('delete'), true))) return;
-        const next = JSON.parse(JSON.stringify(cfg));
-        next.deploy = next.deploy.filter((x) => x.name !== name);
-        try { await api('PUT', `/api/p/${enc(P)}/config`, next); render(true); } catch (e) { fail(e); }
+        try { await mutateDeploy(P, (list) => list.filter((x) => x.name !== name)); render(true); } catch (e) { fail(e); }
       });
       on('[data-act="show"]', (e) => { const s = $('[data-secret]', card); s.textContent = s.textContent.includes('•') ? d.secret : '•'.repeat(16); });
       const tg = $('[data-act="toggle"]', card);
       if (tg) tg.onchange = async () => {
-        const next = JSON.parse(JSON.stringify(cfg));
-        next.deploy.find((x) => x.name === name).enabled = tg.checked;
-        try { await api('PUT', `/api/p/${enc(P)}/config`, next); toast(t('saved')); } catch (e) { tg.checked = !tg.checked; fail(e); }
+        const v = tg.checked;
+        try {
+          await mutateDeploy(P, (list) => { const x = list.find((y) => y.name === name); if (!x) throw new Error(t('notFound') + ': ' + name); x.enabled = v; return list; });
+          toast(t('saved'));
+        } catch (e) { tg.checked = !v; fail(e); }
       };
     });
     $$('[data-djob]', root).forEach((tr) => (tr.onclick = () => showJobLog(tr.dataset.djob)));
   });
 
-  const tunnelPill = tun.active && tun.url ? `<span class="pill ok"><span class="nokta"></span>${t('ciTunnelOn')}</span>` : tun.active ? `<span class="pill busy"><span class="nokta"></span>…</span>` : `<span class="pill"><span class="nokta"></span>${t('ciTunnelOff')}</span>`;
   const listenerCard = `<div class="bolum" style="margin-bottom:18px"><h3>${icon('link')}${t('ciListener')}</h3><p class="aciklama">${t('ciIntro')}</p>
     <div class="alanlar">
       <div class="alan"><label>${t('ciLocal')}</label><div class="girdi-grup"><input type="text" class="mono" value="${esc(hooks.local_url)}" readonly>${copyBtn(hooks.local_url)}</div></div>
@@ -133,18 +157,7 @@ async function tabCicd(proj) {
         ${isLocalOnly ? `<small class="warn-t">${t('ciNotPublic')}</small>` : ''}</div>
     </div>
     <div class="ayrac"></div>
-    <div class="aksiyonlar" style="margin-bottom:10px"><b style="font-weight:600">${t('ciTunnel')}</b> ${tunnelPill}
-      ${tun.url ? `<span class="mono faint">${esc(tun.url)}</span>` : ''}${tun.error && !tun.active ? `<span class="bad-t" style="font-size:12px">${esc(tun.error)}</span>` : ''}
-      <span style="margin-left:auto"></span>
-      <button class="btn ${tun.active ? 'tehlike' : 'mavi'}" id="ci-tunnel">${icon(tun.active ? 'stop' : 'play')}${tun.active ? t('ciTunnelStop') : hooks.cloudflared ? t('ciTunnelStart') : t('ciInstall')}</button></div>
-    ${!hooks.cloudflared && !tun.active ? `<p class="ipucu">${t('ciInstallHint')}</p>` : ''}
-    <p class="ipucu">${t('ciTunnelNote')}</p>
-    <div class="alanlar" style="margin-top:12px">
-      <div class="alan"><label>${t('ciCustomURL')}</label><input type="text" class="mono" id="ci-custom" value="${esc(hooks.custom_url || '')}" placeholder="https://…"><small>${t('ciCustomHint', localPort)}</small></div>
-      <div class="alan"><label>&nbsp;</label>
-        <label class="anahtar"><span class="metin"><b>${t('ciAutoTunnel')}</b></span><span class="switch"><input type="checkbox" id="ci-auto" ${hooks.auto_tunnel ? 'checked' : ''}><i></i></span></label></div>
-    </div>
-    <div class="aksiyonlar" style="margin-top:10px;justify-content:flex-end"><button class="btn" id="ci-save-url">${icon('check')}${t('save')}</button></div>
+    ${tunnelCtlHTML(hooks, 'ci')}
   </div>`;
 
   const trigCards = dep.triggers.length ? `<div class="kartlar">${dep.triggers.map((d) => `<div class="kart ${d.enabled ? '' : 'pasif'}" data-trig="${esc(d.name)}">
@@ -171,10 +184,20 @@ async function tabCicd(proj) {
   return `${listenerCard}<h2 style="margin-top:6px">${icon('zap')}${t('ciTriggers')}</h2>${trigCards}<h2>${icon('history')}${t('ciDeliveries')}</h2>${deliveries}`;
 }
 
-function triggerModal(P, cfg, d) {
+// Tetikleyici listesini güncel config üzerinde değiştirip yazar (sayfa açıldıktan sonra başka yerde
+// yapılan config değişiklikleri ezilmesin). fn(list) yeni listeyi döner.
+async function mutateDeploy(P, fn) {
+  const next = await getConfig(P);
+  next.deploy = fn(next.deploy || []);
+  await api('PUT', `/api/p/${enc(P)}/config`, next);
+}
+
+async function triggerModal(P, d) {
   const isNew = !d;
+  const cfg = await getConfig(P).catch((e) => { fail(e); return null; });
+  if (!cfg) return;
   const cur = d ? JSON.parse(JSON.stringify(d)) : { name: 'main', provider: 'github', secret: genSecret(), branch: 'main', servers: [], git_pull: true, dry_run: false, enabled: true };
-  const srvChecks = cfg.servers.map((s) => `<label class="anahtar" style="padding:7px 10px"><span class="metin"><b>${esc(s.name)}</b></span><input type="checkbox" data-srv="${esc(s.name)}" ${(cur.servers || []).includes(s.name) ? 'checked' : ''}></label>`).join('');
+  const srvChecks = cfg.servers.map((s) => `<label class="anahtar" style="padding:7px 10px"><span class="metin"><b>${esc(s.name)}</b></span><span class="switch"><input type="checkbox" data-trsrv="${esc(s.name)}" ${(cur.servers || []).includes(s.name) ? 'checked' : ''}><i></i></span></label>`).join('');
   modal({
     title: `${icon('zap')}${isNew ? t('ciNew') : t('ciEdit')}`, size: 'orta',
     body: `<div class="form">
@@ -190,13 +213,15 @@ function triggerModal(P, cfg, d) {
     actions: [{ label: t('cancel'), cls: 'hayalet' }, { label: icon('check') + t('save'), cls: 'birincil', run: async (root) => {
       const out = readForm($('.form', root), cur);
       out.name = out.name.replace(/[^A-Za-z0-9_-]/g, '-');
-      out.servers = $$('[data-srv]', root).filter((c) => c.checked).map((c) => c.dataset.srv);
+      out.servers = $$('[data-trsrv]', root).filter((c) => c.checked).map((c) => c.dataset.trsrv);
       if (!out.name) return false;
-      const next = JSON.parse(JSON.stringify(cfg));
-      next.deploy = next.deploy || [];
-      if (next.deploy.some((x) => x.name === out.name && (!d || x.name !== d.name))) { toast(t('GuiValDupFmt') || 'duplicate', 'bad'); return false; }
-      if (isNew) next.deploy.push(out); else next.deploy[next.deploy.findIndex((x) => x.name === d.name)] = out;
-      await api('PUT', `/api/p/${enc(P)}/config`, next);
+      // Hata fırlarsa modal açık kalır ve hata gösterilir (aynı adlı tetikleyici → config yazılmaz)
+      await mutateDeploy(P, (list) => {
+        if (list.some((x) => x.name === out.name && (!d || x.name !== d.name))) throw new Error(t('ciDupName', out.name));
+        const i = d ? list.findIndex((x) => x.name === d.name) : -1;
+        if (i >= 0) list[i] = out; else list.push(out);
+        return list;
+      });
       toast(t('saved')); render(true);
     } }],
   }).root.querySelector('[data-regen]').onclick = (e) => { e.preventDefault(); e.currentTarget.parentElement.querySelector('input').value = genSecret(); };
@@ -205,7 +230,7 @@ function triggerModal(P, cfg, d) {
 function setupModal(d, url) {
   const guide = { github: t('ciGitHub'), gitlab: t('ciGitLab'), gitea: t('ciGitea'), bitbucket: t('ciBitbucket'), generic: t('ciGeneric') }[d.provider] || '';
   const curl = `curl -X POST -H "X-Syncftp-Token: ${d.secret}" ${url}`;
-  const m = modal({
+  modal({
     title: `${icon('log')}${t('ciSetupTitle', esc(PROVIDER_LABEL[d.provider] || d.provider))}`, size: 'orta',
     body: `<div class="kurulum">${guide}</div>
       <div class="alan" style="margin-top:12px"><label>URL</label><div class="girdi-grup"><input type="text" class="mono" value="${esc(url)}" readonly>${copyBtn(url)}</div></div>
@@ -213,5 +238,4 @@ function setupModal(d, url) {
       ${d.provider === 'generic' ? `<div class="alan" style="margin-top:10px"><label>curl</label><div class="girdi-grup"><input type="text" class="mono" value="${esc(curl)}" readonly>${copyBtn(curl)}</div></div>` : ''}`,
     actions: [{ label: t('close'), cls: 'birincil' }],
   });
-  $$('[data-copy]', m.root).forEach((b) => (b.onclick = () => { navigator.clipboard.writeText(b.dataset.copy); toast(t('copied')); }));
 }

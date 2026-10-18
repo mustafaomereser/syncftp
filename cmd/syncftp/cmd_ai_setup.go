@@ -155,6 +155,10 @@ func (sv *guiServer) apiAISetup(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 400, fmt.Errorf(lang.L.GuiDirNotFoundFmt, dir))
 		return
 	}
+	if !projects.InBase(dir) { // proje ekleme ile aynı sınır — panel klasörü dışına asistan açılmaz
+		guiErr(w, 400, fmt.Errorf(lang.L.GuiOutsideBaseFmt, dir, projects.Base()))
+		return
+	}
 	a, ok := findAgent(req.Agent)
 	if !ok || !a.Chat {
 		guiErr(w, 400, errors.New(lang.L.AINoChat))

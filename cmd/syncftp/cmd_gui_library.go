@@ -250,6 +250,15 @@ func (sv *guiServer) apiConfigImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	replace := req.Mode == "replace"
+	// Dışa aktarma şifreleri boşaltır (MaskEmpty) → aynı adlı kayıtta boş gelen sır mevcut olanı
+	// silmesin (anahtarlıktaki kayıt da Save'de boşla ezilirdi).
+	keepEmptySecrets(src.Servers, cfg.Servers, func(s *config.Server) (string, []*string) {
+		return s.Name, []*string{&s.Password, &s.TunnelPassword}
+	})
+	keepEmptySecrets(src.Connections, cfg.Connections, connSecrets)
+	keepEmptySecrets(src.Deploy, cfg.Deploy, func(d *config.Deploy) (string, []*string) {
+		return d.Name, []*string{&d.Secret}
+	})
 	counts := map[string]int{}
 	for _, part := range req.Parts {
 		switch part {
@@ -277,6 +286,29 @@ func (sv *guiServer) apiConfigImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	guiJSON(w, counts)
+}
+
+// keepEmptySecrets içe aktarılan kayıtlarda boş sırları aynı adlı (mergeByName gibi tam ad) mevcut
+// kayıttan doldurur. restoreKept'ten farkı: işaret "__keep__" değil boş değer, sıra eşleşmesi yok.
+func keepEmptySecrets[T any](in, old []T, fields func(*T) (string, []*string)) {
+	byName := map[string]int{}
+	for i := range old {
+		n, _ := fields(&old[i])
+		byName[n] = i
+	}
+	for i := range in {
+		n, dst := fields(&in[i])
+		oi, ok := byName[n]
+		if !ok {
+			continue
+		}
+		_, src := fields(&old[oi])
+		for k, d := range dst {
+			if *d == "" {
+				*d = *src[k]
+			}
+		}
+	}
 }
 
 func mergeByName[T any](dst, src []T, replace bool, name func(T) string) []T {

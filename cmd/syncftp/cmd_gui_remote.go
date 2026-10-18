@@ -2,6 +2,9 @@ package main
 
 import (
 	"errors"
+	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"path"
 	"path/filepath"
@@ -14,6 +17,8 @@ import (
 	"syncftp/internal/config"
 	ftpclient "syncftp/internal/ftp"
 	"syncftp/internal/ignore"
+	"syncftp/internal/lang"
+	"syncftp/internal/projects"
 )
 
 // GUI dosya tarayıcısı için bağlantı önbelleği: her klasör tıklamasında yeniden
@@ -40,17 +45,22 @@ func withRemote(project string, srv config.Server, fn func(c *ftpclient.Client) 
 	remoteJanitor.Do(func() {
 		go func() {
 			for range time.Tick(30 * time.Second) {
+				// Kapatma (QUIT) ağ işlemi — 90 sn'ye kadar sürebilir; önbellek kilidi tutulurken yapılmaz
+				var stale []*ftpclient.Client
 				remoteCacheMu.Lock()
 				for k, cc := range remoteCache {
 					if cc.mu.TryLock() {
 						if time.Since(cc.used) > 90*time.Second {
-							cc.client.Close()
+							stale = append(stale, cc.client)
 							delete(remoteCache, k)
 						}
 						cc.mu.Unlock()
 					}
 				}
 				remoteCacheMu.Unlock()
+				for _, c := range stale {
+					c.Close()
+				}
 			}
 		}()
 	})
@@ -83,18 +93,36 @@ func withRemote(project string, srv config.Server, fn func(c *ftpclient.Client) 
 		if err == nil || ftpclient.IsNotFound(err) {
 			return err
 		}
-		// Bağlantı ölmüş olabilir → at, bir kez daha dene
+		// Bağlantı bozulmuş olabilir → at. Yalnızca taşıma hatasında (ölü önbellek bağlantısı) bir kez
+		// daha denenir: sunucunun reddettiği (izin, kota…) ya da yarıda kalmış idempotent olmayan
+		// işlem (yükleme, taşıma, klasör oluşturma) tekrarlanmaz.
 		remoteCacheMu.Lock()
 		if remoteCache[key] == cc {
 			delete(remoteCache, key)
 		}
 		remoteCacheMu.Unlock()
 		cc.client.Close()
-		if attempt == 1 {
+		if attempt == 1 || !isTransportErr(err) {
 			return err
 		}
 	}
 	return nil
+}
+
+// isTransportErr bağlantının kendisinin koptuğunu gösteren hatalar (boşta kapanmış önbellek bağlantısı).
+func isTransportErr(err error) bool {
+	var ne net.Error
+	if errors.As(err, &ne) || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, net.ErrClosed) {
+		return true
+	}
+	s := strings.ToLower(err.Error())
+	for _, k := range []string{"use of closed network connection", "connection reset", "broken pipe",
+		"connection lost", "connection aborted", "eof", "421 "} {
+		if strings.Contains(s, k) {
+			return true
+		}
+	}
+	return false
 }
 
 // guiRemotePath GUI'nin RemotePath'e göreceli yolunu mutlak uzak yola çevirir;
@@ -105,17 +133,24 @@ func guiRemotePath(srv config.Server, rel string) string {
 }
 
 func (sv *guiServer) remoteServer(w http.ResponseWriter, r *http.Request) (string, config.Server, bool) {
+	p, _, srv, ok := sv.remoteServerCfg(w, r)
+	return p.Name, srv, ok
+}
+
+// remoteServerCfg remoteServer + proje ve config (config'i ikinci kez yüklememek için).
+func (sv *guiServer) remoteServerCfg(w http.ResponseWriter, r *http.Request) (projects.Project, *config.Config, config.Server, bool) {
 	p, cfg, err := sv.project(r)
 	if err != nil {
 		guiErr(w, 404, err)
-		return "", config.Server{}, false
+		return p, nil, config.Server{}, false
 	}
-	srv, ok := findServer(cfg, r.URL.Query().Get("server"))
+	name := r.URL.Query().Get("server")
+	srv, ok := findServer(cfg, name)
 	if !ok {
-		guiErr(w, 404, errors.New("server"))
-		return "", config.Server{}, false
+		guiErr(w, 404, fmt.Errorf(lang.L.ServerNotFoundFmt, name))
+		return p, nil, config.Server{}, false
 	}
-	return p.Name, srv, true
+	return p, cfg, srv, true
 }
 
 type guiEntry struct {
@@ -127,13 +162,13 @@ type guiEntry struct {
 }
 
 func (sv *guiServer) apiRemoteLs(w http.ResponseWriter, r *http.Request) {
-	pname, srv, ok := sv.remoteServer(w, r)
+	p, cfg, srv, ok := sv.remoteServerCfg(w, r)
 	if !ok {
 		return
 	}
 	full := guiRemotePath(srv, r.URL.Query().Get("path"))
 	var entries []*goftp.Entry
-	err := withRemote(pname, srv, func(c *ftpclient.Client) error {
+	err := withRemote(p.Name, srv, func(c *ftpclient.Client) error {
 		var e error
 		entries, e = remoteEntries(c, full)
 		return e
@@ -143,12 +178,9 @@ func (sv *guiServer) apiRemoteLs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Sync'e hiç girmeyenler (ignore / exclude / include dışı) satırda rozetle gösterilir
-	skip := func(string, bool) string { return "" }
-	if p, cfg, err := sv.project(r); err == nil {
-		m, _ := ignore.Load(filepath.Join(p.Path, srv.EffectiveLocalPath(cfg.Project)), cfg.Sync.IgnoreFiles)
-		f := effectiveFilters(cfg, srv, nil, nil)
-		skip = func(rel string, dir bool) string { return syncSkipReason(rel, dir, m, f) }
-	}
+	m, _ := ignore.Load(filepath.Join(p.Path, srv.EffectiveLocalPath(cfg.Project)), cfg.Sync.IgnoreFiles)
+	f := effectiveFilters(cfg, srv, nil, nil)
+	skip := func(rel string, dir bool) string { return syncSkipReason(rel, dir, m, f) }
 	base := editRel(r.URL.Query().Get("path"))
 	out := make([]guiEntry, 0, len(entries))
 	for _, e := range entries {
@@ -222,7 +254,7 @@ func (sv *guiServer) apiLocalCat(w http.ResponseWriter, r *http.Request) {
 	}
 	srv, ok := findServer(cfg, r.URL.Query().Get("server"))
 	if !ok {
-		guiErr(w, 404, errors.New("server"))
+		guiErr(w, 404, fmt.Errorf(lang.L.ServerNotFoundFmt, r.URL.Query().Get("server")))
 		return
 	}
 	root := filepath.Join(p.Path, srv.EffectiveLocalPath(cfg.Project))

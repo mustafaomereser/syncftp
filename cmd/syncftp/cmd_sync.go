@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -148,6 +149,9 @@ type syncOpts struct {
 // sync, shell, panel işleri, watch, serve API, webhook). Değişiklik olan (dry-run olmayan) turun
 // çıktısı .syncftp/logs/<sunucu>/ altına kaydedilir; yol result.logPath'te döner.
 func syncServer(w io.Writer, configDir string, cfg *config.Config, srv config.Server, cliInclude, cliExclude []string, since *time.Time, opts syncOpts) serverSyncResult {
+	// Aynı proje+sunucuya eş zamanlı iki sync (watch + panel işi + serve + deploy…) state
+	// yükle→yükle→kaydet adımlarını birbirine karıştırmasın
+	defer lockServer(configDir, srv.Name)()
 	var buf strings.Builder
 	out := io.MultiWriter(w, &buf)
 	fmt.Fprintf(out, "══ %s (%s://%s) ══\n", srv.Name, srv.ProtocolName(), srv.Host)
@@ -171,57 +175,16 @@ func cliSyncOpts() syncOpts {
 	return syncOpts{full: flagFull, dryRun: flagDryRun, retryFailed: flagRetryFailed}
 }
 
-// syncToServerResult çıktıyı w'ye yazar, sayım bilgilerini döner (parallel sync için).
-// since != nil → milestone modu: state diff yerine mtime >= since olan dosyalar yüklenir.
-// Modlar CLI flag'lerinden okunur; flag'siz çağrılar için syncToServerOpts.
-func syncToServerResult(w io.Writer, configDir string, cfg *config.Config, srv config.Server, current map[string]string, byKey map[string]scanner.File, cliInclude, cliExclude []string, since *time.Time) serverSyncResult {
-	return syncToServerOpts(w, configDir, cfg, srv, current, byKey, cliInclude, cliExclude, since, cliSyncOpts())
-}
-
 // syncToServerOpts sync çekirdeği — modlar opts'tan gelir.
+// since != nil → milestone modu: state diff yerine mtime >= since olan dosyalar yüklenir.
 func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv config.Server, current map[string]string, byKey map[string]scanner.File, cliInclude, cliExclude []string, since *time.Time, opts syncOpts) serverSyncResult {
 	result := serverSyncResult{name: srv.Name}
 	startTime := time.Now()
 
-	// Failsafe: artık diskte olmayan tam dosya yollarını include/exclude/protect listelerinden sil
-	{
-		lp := srv.EffectiveLocalPath(cfg.Project)
-		ld := filepath.Join(configDir, lp)
-		dirty := false
-		if newL, ch := cleanPatternList(cfg.Sync.Include, ld); ch {
-			cfg.Sync.Include = newL
-			dirty = true
-		}
-		if newL, ch := cleanPatternList(cfg.Sync.Exclude, ld); ch {
-			cfg.Sync.Exclude = newL
-			dirty = true
-		}
-		if newL, ch := cleanPatternList(cfg.Sync.Protect, ld); ch {
-			cfg.Sync.Protect = newL
-			dirty = true
-		}
-		for i := range cfg.Servers {
-			if cfg.Servers[i].Name == srv.Name {
-				if newL, ch := cleanPatternList(cfg.Servers[i].Include, ld); ch {
-					cfg.Servers[i].Include = newL
-					dirty = true
-				}
-				if newL, ch := cleanPatternList(cfg.Servers[i].Exclude, ld); ch {
-					cfg.Servers[i].Exclude = newL
-					dirty = true
-				}
-				if newL, ch := cleanPatternList(cfg.Servers[i].Protect, ld); ch {
-					cfg.Servers[i].Protect = newL
-					dirty = true
-				}
-				break
-			}
-		}
-		if dirty {
-			if saveErr := config.Save(configDir, cfg); saveErr != nil {
-				fmt.Fprintf(w, lang.L.SyncConfigSaveErr, saveErr)
-			}
-		}
+	// Failsafe: artık diskte olmayan tam dosya yollarını include/exclude listelerinden sil
+	// (taze config üzerinde, kilitli — failsafeCleanup). Dry-run config'e dokunmaz.
+	if !opts.dryRun {
+		failsafeCleanup(w, configDir, cfg, srv.Name)
 	}
 
 	st, err := state.Load(configDir, srv.Name)
@@ -238,8 +201,8 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 	if since != nil {
 		fmt.Fprintf(w, lang.L.MilestoneSinceFmt, since.Format("2006-01-02 15:04:05"))
 		for rel := range current {
-			f := byKey[rel]
-			if info, statErr := os.Stat(f.AbsPath); statErr == nil && !info.ModTime().Before(*since) {
+			// mtime tarama anında zaten alındı (scanner.File.ModTime) — dosya başına ek Stat yok
+			if !byKey[rel].ModTime.Before(*since) {
 				toUpload = append(toUpload, rel)
 			}
 		}
@@ -247,7 +210,7 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 	} else if opts.retryFailed {
 		fl, err := failed.Load(configDir, srv.Name)
 		if err != nil {
-			result.err = fmt.Errorf("failed listesi okunamadı: %w", err)
+			result.err = fmt.Errorf(lang.L.SyncFailedListReadFmt, err)
 			return result
 		}
 		if fl == nil || len(fl.Files) == 0 {
@@ -271,7 +234,13 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 				toUpload = mapKeys(current)
 			} else {
 				fmt.Fprint(w, lang.L.ResyncAutoMsg)
-				runCalibrateOpts(configDir, srv, cfg, calibrateOpts{out: w})
+				// Calibrate başarısızsa (bağlantı / listeleme hatası) devam ETME: FirstSyncDone=false
+				// ile her dosya yüklenir (ve yedeklenir) — bu sunucunun sync'i iptal
+				if calErr := runCalibrateOpts(configDir, srv, cfg, calibrateOpts{out: w}); calErr != nil {
+					fmt.Fprintf(w, lang.L.SyncCalibrateAbortFmt, calErr)
+					result.err = calErr
+					return result
+				}
 				if reloaded, err := state.Load(configDir, srv.Name); err == nil {
 					st = reloaded
 				}
@@ -298,7 +267,7 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 		fmt.Fprintf(w, lang.L.MilestoneFilterFmt, plan.msDate.Format("2006-01-02 15:04"), plan.msDropped)
 	}
 	if n := len(plan.frozen); n > 0 {
-		fmt.Fprintf(w, "  ❄ %d frozen (skipped)\n", n)
+		fmt.Fprintf(w, lang.L.SyncFrozenSkippedFmt, n)
 		result.frozenSkipped = n
 	}
 	if n := len(plan.blocked); n > 0 {
@@ -602,33 +571,6 @@ func jsonStringArray(ss []string) string {
 	return b.String()
 }
 
-// ── Block filter ──────────────────────────────────────────────────────────────
-
-// filterByBlock uzantıya göre engeller, kalan yolları ve engellenen sayısını döner.
-// Uzantılar nokta olmadan da girilebilir: "jpg" → ".jpg"
-func filterByBlock(paths []string, blockExts []string) (filtered []string, blocked int) {
-	if len(blockExts) == 0 {
-		return paths, 0
-	}
-	extSet := make(map[string]bool, len(blockExts))
-	for _, e := range blockExts {
-		ext := strings.ToLower(e)
-		if !strings.HasPrefix(ext, ".") {
-			ext = "." + ext
-		}
-		extSet[ext] = true
-	}
-	for _, p := range paths {
-		ext := strings.ToLower(filepath.Ext(p))
-		if extSet[ext] {
-			blocked++
-		} else {
-			filtered = append(filtered, p)
-		}
-	}
-	return filtered, blocked
-}
-
 // ── Sync result + summary TUI ─────────────────────────────────────────────────
 
 type serverSyncResult struct {
@@ -833,27 +775,139 @@ func serverNames(servers []config.Server) []string {
 	return names
 }
 
+// serverLocks proje dizini + sunucu adı → *sync.Mutex (süreç geneli).
+var serverLocks sync.Map
+
+// lockServer proje+sunucu kilidini alır, bırakma fonksiyonunu döner. Anahtar:
+// filepath.Clean(mutlak dizin) + "|" + sunucu (Windows'ta yol büyük/küçük harf duyarsız).
+// Kilit içinde aynı kilidi tekrar isteyen çağrı (syncServer → saveRemoteEdit vb.) YOKTUR — öyle kalmalı.
+func lockServer(dir, server string) func() {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		abs = dir
+	}
+	key := filepath.Clean(abs)
+	if runtime.GOOS == "windows" {
+		key = strings.ToLower(key)
+	}
+	m, _ := serverLocks.LoadOrStore(key+"|"+server, &sync.Mutex{})
+	mu := m.(*sync.Mutex)
+	mu.Lock()
+	return mu.Unlock
+}
+
 // isExactPath returns true if p looks like an exact file path (no wildcards, no trailing slash).
 func isExactPath(p string) bool { return pattern.Exact(p) }
 
-// cleanPatternList removes exact file paths from list that no longer exist on disk.
-// Directory patterns (trailing /) and glob patterns (* ? {) are preserved unchanged.
-func cleanPatternList(list []string, localDir string) ([]string, bool) {
+// failsafeMu failsafe temizliğinin config oku→yaz adımını süreç genelinde serileştirir.
+var failsafeMu sync.Mutex
+
+// failsafeCleanup diskte artık olmayan tam yolları include/exclude listelerinden çıkarır.
+// Güvenlik kuralları:
+//   - protect listelerine ASLA dokunulmaz (.env bir sunucunun dizininde yok diye korumasız kalmasın)
+//   - include listesi temizlikle boşaltılmaz (boş include = her şey yüklenir; build sırasında dosya
+//     geçici olarak yok olabilir)
+//   - sunucu listeleri o sunucunun yerel dizinine göre; global listeler yalnızca yol HİÇBİR
+//     sunucunun yerel dizininde yoksa temizlenir
+//   - değişiklik çağıranın cfg'sine değil, kilit altında diskten taze okunan config'e yazılır:
+//     paralel sync goroutine'leri aynı *Config'i paylaşır, uzun yaşayan watch/shell kopyası da
+//     daha yeni düzenlemelerin üzerine eski config yazmamalı. Çıkarılan yollar zaten hiçbir dosyaya
+//     uymadığından bu turun filtre sonucu değişmez → bellekteki kopyayı güncellemeye gerek yok.
+func failsafeCleanup(w io.Writer, configDir string, cfg *config.Config, serverName string) {
+	// Ön kontrol çağıranın config'inin kopyası üzerinde (salt okunur): çoğu sync'te temizlenecek
+	// bir şey yoktur → config.Load (anahtarlık okuması) hiç yapılmaz
+	cp := *cfg
+	cp.Servers = append([]config.Server(nil), cfg.Servers...)
+	if !applyFailsafeCleanup(io.Discard, configDir, &cp, serverName) {
+		return
+	}
+
+	failsafeMu.Lock()
+	defer failsafeMu.Unlock()
+	fresh, err := config.Load(configDir)
+	if err != nil {
+		return
+	}
+	if !applyFailsafeCleanup(w, configDir, fresh, serverName) {
+		return
+	}
+	if saveErr := config.Save(configDir, fresh); saveErr != nil {
+		fmt.Fprintf(w, lang.L.SyncConfigSaveErr, saveErr)
+	}
+}
+
+// applyFailsafeCleanup c üzerinde temizliği yapar (yalnızca alanlara yeni dilim atar, eski
+// dilimleri değiştirmez); değişiklik olduysa true.
+func applyFailsafeCleanup(w io.Writer, configDir string, c *config.Config, serverName string) bool {
+	idx := -1
+	for i := range c.Servers {
+		if c.Servers[i].Name == serverName {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return false
+	}
+	self := c.Servers[idx]
+	own := func(p string) bool { return patternExistsFor(configDir, c.Project, self, p) }
+	anyServer := func(p string) bool {
+		for _, s := range c.Servers {
+			if patternExistsFor(configDir, c.Project, s, p) {
+				return true
+			}
+		}
+		return false
+	}
+	dirty := false
+	if l, ch := cleanPatternList(w, c.Sync.Include, anyServer, true); ch {
+		c.Sync.Include, dirty = l, true
+	}
+	if l, ch := cleanPatternList(w, c.Sync.Exclude, anyServer, false); ch {
+		c.Sync.Exclude, dirty = l, true
+	}
+	if l, ch := cleanPatternList(w, self.Include, own, true); ch {
+		c.Servers[idx].Include, dirty = l, true
+	}
+	if l, ch := cleanPatternList(w, self.Exclude, own, false); ch {
+		c.Servers[idx].Exclude, dirty = l, true
+	}
+	return dirty
+}
+
+// patternExistsFor kalıp, sunucunun yerel dizininde (local_path önekli eski kayıtlar da
+// normalize edilerek) var mı. Stat'in "yok" dışındaki hataları var sayılır (temkinli taraf).
+func patternExistsFor(configDir string, proj config.Project, s config.Server, p string) bool {
+	lp := s.EffectiveLocalPath(proj)
+	np := normalizePatterns([]string{p}, lp)[0]
+	_, err := os.Stat(filepath.Join(configDir, lp, filepath.FromSlash(strings.TrimPrefix(np, "/"))))
+	return !os.IsNotExist(err)
+}
+
+// cleanPatternList listeden exists'e göre artık olmayan tam yolları çıkarır; klasör (sonda /) ve
+// jokerli kalıplar olduğu gibi kalır. keepNonEmpty → temizlik listeyi boşaltacaksa hiç dokunulmaz.
+// Girdi dilimi değiştirilmez (yeni dilim döner).
+func cleanPatternList(w io.Writer, list []string, exists func(string) bool, keepNonEmpty bool) ([]string, bool) {
 	if len(list) == 0 {
 		return list, false
 	}
-	var out []string
-	changed := false
+	var out, removed []string
 	for _, p := range list {
-		if isExactPath(p) {
-			absPath := filepath.Join(localDir, filepath.FromSlash(p))
-			if _, err := os.Stat(absPath); os.IsNotExist(err) {
-				fmt.Printf(lang.L.SyncCleanupRemovedFmt, p)
-				changed = true
-				continue
-			}
+		if isExactPath(p) && strings.TrimSpace(p) != "" && !exists(p) {
+			removed = append(removed, p)
+			continue
 		}
 		out = append(out, p)
 	}
-	return out, changed
+	if len(removed) == 0 {
+		return list, false
+	}
+	if keepNonEmpty && len(out) == 0 {
+		fmt.Fprint(w, lang.L.SyncCleanupIncludeKept)
+		return list, false
+	}
+	for _, p := range removed {
+		fmt.Fprintf(w, lang.L.SyncCleanupRemovedFmt, p)
+	}
+	return out, true
 }

@@ -39,13 +39,40 @@ type UploadResult struct {
 // Aynı hesaba (protokol+host+port+user) bağlanan birden fazla sunucu tanımı paralel
 // sync edilince her pool kendi max_connections'ını açıyordu → toplam host limitini
 // aşıp "421 Too many connections" alınıyordu. Artık aynı hesaba giden tüm pool'lar
-// tek bir semaphore'u paylaşır; limit, kayıtlı sunucuların en küçük max_connections'ıdır.
+// tek bir semaphore'u paylaşır; limit, O AN açık pool'ların en küçük max_connections'ıdır
+// (pool kapanınca kaydı düşer → max_connections artırılınca yeniden başlatma gerekmez).
 
 type hostSem struct {
-	mu    sync.Mutex
-	cond  *sync.Cond
-	limit int
-	used  int
+	mu   sync.Mutex
+	cond *sync.Cond
+	regs map[int]int // açık pool'ların max_connections değeri → pool sayısı
+	used int
+}
+
+// limitLocked kayıtlı en küçük limit (kayıt yoksa 1) — s.mu alınmış olmalı.
+func (s *hostSem) limitLocked() int {
+	lim := 0
+	for l, n := range s.regs {
+		if n > 0 && (lim == 0 || l < lim) {
+			lim = l
+		}
+	}
+	if lim <= 0 {
+		lim = 1
+	}
+	return lim
+}
+
+// unregister semFor kaydını düşer (pool kapandı); limit büyüyebilir → bekleyenler uyanır.
+func (s *hostSem) unregister(limit int) {
+	s.mu.Lock()
+	if s.regs[limit] > 1 {
+		s.regs[limit]--
+	} else {
+		delete(s.regs, limit)
+	}
+	s.mu.Unlock()
+	s.cond.Broadcast()
 }
 
 var (
@@ -58,21 +85,19 @@ func HostKey(srv config.Server) string {
 	return strings.ToLower(fmt.Sprintf("%s://%s@%s:%d", srv.ProtocolName(), srv.User, srv.Host, srv.Port))
 }
 
+// semFor hesabın semaphore'unu döner ve limit'i kaydeder; iş bitince unregister(limit) çağrılmalı.
 func semFor(srv config.Server, limit int) *hostSem {
 	hostSemsMu.Lock()
 	defer hostSemsMu.Unlock()
 	k := HostKey(srv)
 	s, ok := hostSems[k]
 	if !ok {
-		s = &hostSem{limit: limit}
+		s = &hostSem{regs: map[int]int{}}
 		s.cond = sync.NewCond(&s.mu)
 		hostSems[k] = s
-		return s
 	}
 	s.mu.Lock()
-	if limit < s.limit {
-		s.limit = limit
-	}
+	s.regs[limit]++
 	s.mu.Unlock()
 	return s
 }
@@ -80,7 +105,7 @@ func semFor(srv config.Server, limit int) *hostSem {
 // acquire bir slot bekler (pool'un ilk bağlantısı — en az bir bağlantı garanti).
 func (s *hostSem) acquire() {
 	s.mu.Lock()
-	for s.used >= s.limit {
+	for s.used >= s.limitLocked() {
 		s.cond.Wait()
 	}
 	s.used++
@@ -91,7 +116,7 @@ func (s *hostSem) acquire() {
 func (s *hostSem) tryAcquire() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.used >= s.limit {
+	if s.used >= s.limitLocked() {
 		return false
 	}
 	s.used++
@@ -124,6 +149,7 @@ type Pool struct {
 	clients    []*Client
 	maxRetries int
 	sem        *hostSem
+	semLimit   int // semFor'a kaydedilen limit (Close'da düşülür)
 	held       int
 }
 
@@ -152,7 +178,7 @@ func NewPoolLimited(srv config.Server, kbps int) (*Pool, error) {
 
 	lim := NewLimiter(kbps)
 	sem := semFor(srv, n)
-	p := &Pool{maxRetries: maxRetries, sem: sem}
+	p := &Pool{maxRetries: maxRetries, sem: sem, semLimit: n}
 
 	for i := 0; i < n; i++ {
 		if i == 0 {
@@ -166,6 +192,7 @@ func NewPoolLimited(srv config.Server, kbps int) (*Pool, error) {
 			sem.release(1)
 			p.held--
 			if i == 0 {
+				sem.unregister(n)
 				return nil, err
 			}
 			break // ek bağlantı açılamadı (çoğunlukla 421) — eldeki bağlantılarla devam
@@ -200,6 +227,10 @@ func (p *Pool) Close() {
 	if p.sem != nil && p.held > 0 {
 		p.sem.release(p.held)
 		p.held = 0
+	}
+	if p.sem != nil && p.semLimit > 0 {
+		p.sem.unregister(p.semLimit)
+		p.semLimit = 0
 	}
 }
 

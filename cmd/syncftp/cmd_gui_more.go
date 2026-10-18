@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path"
@@ -218,35 +219,23 @@ func (sv *guiServer) apiRemoteUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dir := guiRemotePath(srv, r.URL.Query().Get("path"))
+	r.Body = http.MaxBytesReader(w, r.Body, guiUploadMax)
 	if err := r.ParseMultipartForm(64 << 20); err != nil {
 		guiErr(w, 400, err)
 		return
 	}
+	defer r.MultipartForm.RemoveAll() // diske taşan parçalar (multipart-*) temp'te kalmasın
 	var done []string
 	for _, fh := range r.MultipartForm.File["files"] {
-		src, err := fh.Open()
+		local, cleanup, err := multipartLocalFile(fh)
 		if err != nil {
-			guiErr(w, 400, err)
-			return
-		}
-		tmp, err := os.CreateTemp("", "syncftp-up-*")
-		if err != nil {
-			src.Close()
 			guiErr(w, 500, err)
-			return
-		}
-		_, cerr := io.Copy(tmp, src)
-		src.Close()
-		tmp.Close()
-		if cerr != nil {
-			os.Remove(tmp.Name())
-			guiErr(w, 500, cerr)
 			return
 		}
 		name := path.Base(strings.ReplaceAll(fh.Filename, `\`, "/"))
 		target := path.Join(dir, name)
-		err = withRemote(pname, srv, func(c *ftpclient.Client) error { return c.UploadTo(tmp.Name(), target) })
-		os.Remove(tmp.Name())
+		err = withRemote(pname, srv, func(c *ftpclient.Client) error { return c.UploadTo(local, target) })
+		cleanup()
 		if err != nil {
 			guiErr(w, 502, fmt.Errorf("%s: %w", name, err))
 			return
@@ -254,6 +243,33 @@ func (sv *guiServer) apiRemoteUpload(w http.ResponseWriter, r *http.Request) {
 		done = append(done, name)
 	}
 	guiJSON(w, done)
+}
+
+// guiUploadMax panelden tek istekte yüklenebilecek toplam boyut.
+const guiUploadMax = 4 << 30
+
+// multipartLocalFile parçanın diskteki yolunu döner: büyük parçalar zaten temp dosyadadır (ek kopya
+// yok); bellekte tutulan küçük parçalar geçici dosyaya yazılır. cleanup'ı her durumda çağır.
+func multipartLocalFile(fh *multipart.FileHeader) (string, func(), error) {
+	src, err := fh.Open()
+	if err != nil {
+		return "", func() {}, err
+	}
+	if f, ok := src.(*os.File); ok {
+		return f.Name(), func() { f.Close() }, nil // RemoveAll siler
+	}
+	defer src.Close()
+	tmp, err := os.CreateTemp("", "syncftp-up-*")
+	if err != nil {
+		return "", func() {}, err
+	}
+	_, cerr := io.Copy(tmp, src)
+	tmp.Close()
+	if cerr != nil {
+		os.Remove(tmp.Name())
+		return "", func() {}, cerr
+	}
+	return tmp.Name(), func() { os.Remove(tmp.Name()) }, nil
 }
 
 func (sv *guiServer) apiRemoteMkdir(w http.ResponseWriter, r *http.Request) {
@@ -414,10 +430,17 @@ func (sv *guiServer) apiWebhookTest(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 400, errors.New("url"))
 		return
 	}
-	var buf strings.Builder
-	sendWebhook(&buf, strings.TrimSpace(req.URL), fmt.Sprintf(lang.L.WebhookTestFmt, r.PathValue("p")), 1, 0, []string{"index.php"})
-	out := strings.TrimSpace(buf.String())
-	if strings.Contains(out, "!") {
+	// sendWebhook ile aynı istemci + gövde; başarı HTTP durum koduyla belirlenir (metinden tahmin yok)
+	u := strings.TrimSpace(req.URL)
+	payload := webhookPayload(u, fmt.Sprintf(lang.L.WebhookTestFmt, r.PathValue("p")), 1, 0, []string{"index.php"})
+	resp, err := webhookClient.Post(u, "application/json", strings.NewReader(payload))
+	if err != nil {
+		guiErr(w, 502, errors.New(strings.TrimSpace(fmt.Sprintf(lang.L.SyncWebhookErrFmt, err))))
+		return
+	}
+	resp.Body.Close()
+	out := strings.TrimSpace(fmt.Sprintf(lang.L.SyncWebhookSentFmt, u, resp.StatusCode))
+	if resp.StatusCode >= 400 {
 		guiErr(w, 502, errors.New(out))
 		return
 	}
@@ -529,7 +552,7 @@ func (sv *guiServer) apiLocalFiles(w http.ResponseWriter, r *http.Request) {
 	}
 	srv, ok := findServer(cfg, r.URL.Query().Get("server"))
 	if !ok {
-		guiErr(w, 404, errors.New("server"))
+		guiErr(w, 404, fmt.Errorf(lang.L.ServerNotFoundFmt, r.URL.Query().Get("server")))
 		return
 	}
 	root := filepath.Join(p.Path, srv.EffectiveLocalPath(cfg.Project))

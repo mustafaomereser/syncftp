@@ -116,7 +116,7 @@ func toolServers(cfg *config.Config, name string, all bool) ([]config.Server, er
 	}
 	enabled := cfg.EnabledServers()
 	if len(enabled) == 0 {
-		return nil, fmt.Errorf("aktif sunucu yok")
+		return nil, fmt.Errorf("%s", lang.L.NoActiveServer)
 	}
 	if all || len(enabled) == 1 {
 		return enabled, nil

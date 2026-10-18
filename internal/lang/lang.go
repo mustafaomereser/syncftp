@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 )
 
 // StringSet holds all user-visible strings for one locale.
@@ -564,41 +565,61 @@ type StringSet struct {
 	GuiNoBrowser         string // "Edge/Chrome bulunamadı — varsayılan tarayıcıda açılıyor\n"
 
 	// ── GUI backend ─────────────────────────────────────────────────
-	GuiBusyFmt           string // "%s üzerinde zaten çalışan bir iş var (%s)"
-	GuiPathRequired      string // "klasör yolu gerekli"
-	GuiDirNotFoundFmt    string // "klasör bulunamadı: %s"
-	LocalDirMissingFmt   string // "yerel klasör yok: %s (%s) — sunucunun yerel dizinini düzeltin"
-	GuiIgnoreNoFile      string
-	GuiJobTree           string
-	TreeMoreFmt          string
-	LangSavedUserFmt     string
-	LogsNone             string
-	LogsHint             string
-	ServerNotFoundFmt    string // "sunucu bulunamadı: %q"
-	NoServerSelected     string
-	GuiOutsideBaseFmt    string // "%s panelin açıldığı klasörün (%s) dışında"
-	GuiValConnName       string // "her bağlantı profilinin bir adı olmalı"
-	GuiValDupFmt         string // "ad iki kez kullanılmış: %s"
-	GuiValServerName     string // "her sunucunun bir adı olmalı"
-	GuiValConnMissingFmt string // "%s: %q bağlantı profili yok"
-	GuiValHostFmt        string // "%s: host gerekli (ya da bağlantı profili seçin)"
-	GuiValRemoteFmt      string // "%s: uzak dizin gerekli"
-	GuiJobSync           string // "Sync"
-	GuiJobDryRun         string // "Dry-run"
-	GuiJobMilestoneSync  string // "Milestone sync"
-	GuiJobCalibrate      string // "Calibrate"
-	GuiJobVerify         string // "Doğrula"
-	GuiJobEdit           string // "Düzenle"
-	EditConflict         string // sunucudaki dosya açıldıktan sonra değişti
-	EditSavedLocalFmt    string // yerel dosya yazıldı
-	GuiJobRollback       string // "Rollback"
-	GuiJobDetect         string // "Bağlantı limiti ölç"
-	GuiJobWatch          string // "Watch"
-	GuiScannedFmt        string // "  Tarandı: %s → %d dosya\n\n"
-	GuiNoMilestoneFmt    string // "%s için milestone yok"
-	GuiJobNotCancelable  string // "bu iş iptal edilemez"
-	GuiWatchRunning      string // "bu projede watch zaten çalışıyor"
-	WatchLockedFmt       string // başka bir süreç bu projeyi izliyor (%d = PID)
+	GuiBusyFmt             string // "%s üzerinde zaten çalışan bir iş var (%s)"
+	GuiPathRequired        string // "klasör yolu gerekli"
+	GuiDirNotFoundFmt      string // "klasör bulunamadı: %s"
+	LocalDirMissingFmt     string // "yerel klasör yok: %s (%s) — sunucunun yerel dizinini düzeltin"
+	GuiIgnoreNoFile        string
+	GuiJobTree             string
+	TreeMoreFmt            string
+	LangSavedUserFmt       string
+	LogsNone               string
+	LogsHint               string
+	ServerNotFoundFmt      string // "sunucu bulunamadı: %q"
+	NoServerSelected       string
+	GuiOutsideBaseFmt      string // "%s panelin açıldığı klasörün (%s) dışında"
+	GuiValConnName         string // "her bağlantı profilinin bir adı olmalı"
+	GuiValDupFmt           string // "ad iki kez kullanılmış: %s"
+	GuiValServerName       string // "her sunucunun bir adı olmalı"
+	GuiValConnMissingFmt   string // "%s: %q bağlantı profili yok"
+	GuiValHostFmt          string // "%s: host gerekli (ya da bağlantı profili seçin)"
+	GuiValRemoteFmt        string // "%s: uzak dizin gerekli"
+	GuiJobSync             string // "Sync"
+	GuiJobDryRun           string // "Dry-run"
+	GuiJobMilestoneSync    string // "Milestone sync"
+	GuiJobCalibrate        string // "Calibrate"
+	GuiJobVerify           string // "Doğrula"
+	GuiJobEdit             string // "Düzenle"
+	GuiSessionInvalidHTML  string // yetkisiz panel sayfası (HTML)
+	GuiNeedOneServer       string // rollback/exec/tree tek sunucu ister
+	GuiKnownHostChanged    string // known_hosts satırı liste çizildiğinden beri değişti
+	ServeBannerFmt         string // "syncFTP API → http://%s\n\n"
+	ServeTokenOn           string
+	ServeEndpoints         string
+	ServeStopHint          string
+	ServeForbidden         string
+	ServeUnauthorized      string
+	ServeMethodFmt         string // "%s bekleniyor"
+	ServePathRequired      string
+	ServeServerRequiredFmt string // "server parametresi zorunlu (mevcut: %s)"
+	ServeBadJSONFmt        string
+	ServeSSEUnsupported    string
+	ServeConfigLoadFmt     string
+	ServeConfigInvalidFmt  string
+	ServeSyncDone          string
+	ServeBodyReadFmt       string
+	ServeSecretRequired    string
+	ServeBadSignature      string
+	EditConflict           string // sunucudaki dosya açıldıktan sonra değişti
+	EditSavedLocalFmt      string // yerel dosya yazıldı
+	GuiJobRollback         string // "Rollback"
+	GuiJobDetect           string // "Bağlantı limiti ölç"
+	GuiJobWatch            string // "Watch"
+	GuiScannedFmt          string // "  Tarandı: %s → %d dosya\n\n"
+	GuiNoMilestoneFmt      string // "%s için milestone yok"
+	GuiJobNotCancelable    string // "bu iş iptal edilemez"
+	GuiWatchRunning        string // "bu projede watch zaten çalışıyor"
+	WatchLockedFmt         string // başka bir süreç bu projeyi izliyor (%d = PID)
 
 	// ── Tray / CI-CD deploy ─────────────────────────────────────────
 	TrayOpen             string // "Paneli aç"
@@ -672,30 +693,39 @@ type StringSet struct {
 	ConnHasProfileFmt     string // "%q zaten %q bağlantı profilini kullanıyor"
 	ConnExtractedFmt      string // "%q sunucusunun bilgileri %q profiline taşındı"
 	ConnExtractReusedFmt  string // "%q sunucusu aynı hesabı tutan %q profiline bağlandı"
-	GlobalLoadWarnFmt     string // "  ⚠ global ayarlar okunamadı: %v\n"
-	InitConnManual        string // "Elle gir"
-	InitConnPickTitle     string // "Bağlantı"
-	InitConnPickSub       string // "Kayıtlı bir bağlantı seçin ya da elle girin"
-	InitUsingConnFmt      string // "  ✓ Kayıtlı bağlantı: %s (%s@%s:%d)\n"
-	GlobalFileFmt         string // "  Global ayarlar: %s\n"
-	GlobalDefaultsHeader  string // "  Yeni proje varsayılanları"
-	GlobalSecretWarnFmt   string // "\n  ⚠ Anahtarlıktan okunamayan şifreler: %s\n"
-	GlobalConnHeaderFmt   string // "  Kayıtlı bağlantılar (%d)\n"
-	GlobalConnNone        string // "    — yok (syncftp global conn add <ad> --host …)"
-	GlobalConnAddedFmt    string // "  ✓ Bağlantı eklendi: %s\n"
-	GlobalConnUpdatedFmt  string // "  ✓ Bağlantı güncellendi: %s\n"
-	GlobalConnRemovedFmt  string // "  ✓ Bağlantı silindi: %s\n"
-	GlobalConnImportedFmt string // "  ✓ %d bağlantı aktarıldı (%s)\n"
-	GlobalDefaultsFromFmt string // "  ✓ Varsayılanlar %s projesinden alındı\n"
-	GlobalTemplateSetFmt  string // "  ✓ Varsayılan ignore şablonu: %s\n"
-	GlobalDefaultsReset   string // "  ✓ Varsayılanlar sıfırlandı"
-	PushFailedErrFmt      string // "%d dosya yüklenemedi"
+	// Sync çekirdeği düzeltmeleri (failsafe temizlik, calibrate, rollback zinciri)
+	NoActiveServer         string // "aktif sunucu yok"
+	SyncFrozenSkippedFmt   string // "  ❄ %d frozen (atlandı)\n"
+	SyncFailedListReadFmt  string // "failed listesi okunamadı: %w"
+	SyncCalibrateAbortFmt  string // "  ✗ calibrate başarısız, sync iptal edildi: %v\n"
+	SyncCleanupIncludeKept string // "  ⚠ include listesi boşalacağı için olmayan yollar listede bırakıldı\n"
+	RollbackStoppedFmt     string // "  ! %s tamamen geri alınamadı — daha eski release'lere dokunulmadı\n"
+	GlobalLoadWarnFmt      string // "  ⚠ global ayarlar okunamadı: %v\n"
+	InitConnManual         string // "Elle gir"
+	InitConnPickTitle      string // "Bağlantı"
+	InitConnPickSub        string // "Kayıtlı bir bağlantı seçin ya da elle girin"
+	InitUsingConnFmt       string // "  ✓ Kayıtlı bağlantı: %s (%s@%s:%d)\n"
+	GlobalFileFmt          string // "  Global ayarlar: %s\n"
+	GlobalDefaultsHeader   string // "  Yeni proje varsayılanları"
+	GlobalSecretWarnFmt    string // "\n  ⚠ Anahtarlıktan okunamayan şifreler: %s\n"
+	GlobalConnHeaderFmt    string // "  Kayıtlı bağlantılar (%d)\n"
+	GlobalConnNone         string // "    — yok (syncftp global conn add <ad> --host …)"
+	GlobalConnAddedFmt     string // "  ✓ Bağlantı eklendi: %s\n"
+	GlobalConnUpdatedFmt   string // "  ✓ Bağlantı güncellendi: %s\n"
+	GlobalConnRemovedFmt   string // "  ✓ Bağlantı silindi: %s\n"
+	GlobalConnImportedFmt  string // "  ✓ %d bağlantı aktarıldı (%s)\n"
+	GlobalDefaultsFromFmt  string // "  ✓ Varsayılanlar %s projesinden alındı\n"
+	GlobalTemplateSetFmt   string // "  ✓ Varsayılan ignore şablonu: %s\n"
+	GlobalDefaultsReset    string // "  ✓ Varsayılanlar sıfırlandı"
+	PushFailedErrFmt       string // "%d dosya yüklenemedi"
 }
 
 // L is the active locale. Defaults to English.
-var L = En
+// İşaretçi: Set (panelden dil değişimi) koca struct'ı kopyalamak yerine tek kelimelik
+// işaretçiyi değiştirir — eş zamanlı okuyan goroutine'ler yarım yazılmış struct görmez.
+var L = &En
 
-var currentLang = "en"
+var currentLang atomic.Value // "en" | "tr"
 
 // detectSystemLang returns "tr" or "en" based on the OS locale.
 // Used as the default when no saved preference or env override is present.
@@ -763,16 +793,21 @@ func Init(configDir string) {
 func Set(l string) {
 	switch strings.ToLower(l) {
 	case "tr":
-		L = Tr
-		currentLang = "tr"
+		L = &Tr
+		currentLang.Store("tr")
 	default:
-		L = En
-		currentLang = "en"
+		L = &En
+		currentLang.Store("en")
 	}
 }
 
 // Current returns the active language code ("en" or "tr").
-func Current() string { return currentLang }
+func Current() string {
+	if v, ok := currentLang.Load().(string); ok {
+		return v
+	}
+	return "en"
+}
 
 // Save writes the language preference to .syncftp/lang.
 func Save(configDir, l string) error {

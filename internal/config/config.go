@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"syncftp/internal/fsutil"
 	"syncftp/internal/secret"
 )
 
@@ -299,7 +300,7 @@ func Save(dir string, cfg *Config) error {
 	if err := os.MkdirAll(filepath.Dir(p), 0700); err != nil {
 		return err
 	}
-	return os.WriteFile(p, data, 0600)
+	return fsutil.WriteFileAtomic(p, data, 0600)
 }
 
 func (c *Config) EnabledServers() []Server {

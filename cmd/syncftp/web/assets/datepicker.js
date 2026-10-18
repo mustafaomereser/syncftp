@@ -12,11 +12,11 @@
 
 Object.assign(T.tr, {
   dpOpen: 'Takvimden seç', dpNow: 'Şimdi', dpToday: 'Bugün', dpYesterday: 'Dün', dp1h: '1 saat önce', dp3d: '3 gün önce', dp1w: '1 hafta önce',
-  dpClear: 'Temizle', dpOk: 'Tamam', dpTime: 'Saat', dpPrev: 'Önceki ay', dpNext: 'Sonraki ay',
+  dpClear: 'Temizle', dpOk: 'Tamam', dpTime: 'Saat', dpPrev: 'Önceki ay', dpNext: 'Sonraki ay', dpDays: 'Pt Sa Ça Pe Cu Ct Pz',
 });
 Object.assign(T.en, {
   dpOpen: 'Pick from calendar', dpNow: 'Now', dpToday: 'Today', dpYesterday: 'Yesterday', dp1h: '1 hour ago', dp3d: '3 days ago', dp1w: '1 week ago',
-  dpClear: 'Clear', dpOk: 'Done', dpTime: 'Time', dpPrev: 'Previous month', dpNext: 'Next month',
+  dpClear: 'Clear', dpOk: 'Done', dpTime: 'Time', dpPrev: 'Previous month', dpNext: 'Next month', dpDays: 'Mo Tu We Th Fr Sa Su',
 });
 
 const DP = { open: null };
@@ -55,7 +55,7 @@ function dpShow(input, { time = true } = {}) {
   document.body.appendChild(el);
 
   const months = (i) => new Date(2000, i, 1).toLocaleDateString(LANG === 'tr' ? 'tr-TR' : 'en-GB', { month: 'long' });
-  const days = LANG === 'tr' ? ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz'] : ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+  const days = t('dpDays').split(' ');
   const write = () => { if (sel) { sel.setHours(hh, mm, 0, 0); input.value = dpFormat(sel, time); input.dispatchEvent(new Event('input', { bubbles: true })); } };
   const quick = [
     ['dpNow', () => new Date()],

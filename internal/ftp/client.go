@@ -35,6 +35,12 @@ type Client struct {
 	server  config.Server
 	limiter *rate.Limiter // upload hız sınırı (nil = sınırsız); pool genelinde paylaşılır
 	mu      sync.Mutex
+	// mu altında: bu bağlantının oluşturduğu/var olduğunu bildiği dizinler (her upload'da
+	// her segment için MKD atılmasın); DeleteDir/Rename önbelleği sıfırlar.
+	knownDirs map[string]bool
+	// mu altında: üzerine rename bir kez başarısız olduysa (sunucu izin vermiyor) bu bağlantıda
+	// tmp+rename denenmez, doğrudan yazılır (her dosyada boşa iki yükleme olmasın).
+	noRenameOver bool
 }
 
 // Connect dials and authenticates an FTP/SFTP connection.
@@ -196,6 +202,16 @@ func (c *Client) Close() {
 // Rename başarısız olursa (üzerine rename'e izin vermeyen sunucu) doğrudan yazmaya düşer.
 // server.DirectUpload = true → doğrudan hedefe yazılır.
 func (c *Client) Upload(localPath, relPath string) error {
+	return c.upload(localPath, relPath, false)
+}
+
+// UploadRaw Upload ile aynıdır ama CRLF normalizasyonu YAPMAZ — dosya bayt bayt gider.
+// Rollback geri yüklemesi bunu kullanır: yedek sunucudaki ham baytlardır.
+func (c *Client) UploadRaw(localPath, relPath string) error {
+	return c.upload(localPath, relPath, true)
+}
+
+func (c *Client) upload(localPath, relPath string, raw bool) error {
 	remoteFull := path.Join(c.server.RemotePath, relPath)
 	remoteDir := path.Dir(remoteFull)
 
@@ -206,25 +222,27 @@ func (c *Client) Upload(localPath, relPath string) error {
 		return fmt.Errorf("dizin oluşturulamadı (%s): %w", remoteDir, err)
 	}
 
-	if c.server.DirectUpload {
-		return c.storLocked(localPath, relPath, remoteFull)
+	if c.server.DirectUpload || c.noRenameOver {
+		return c.storLocked(localPath, relPath, remoteFull, raw)
 	}
 
 	tmp := path.Join(remoteDir, ".syncftp-"+path.Base(remoteFull)+".tmp")
-	if err := c.storLocked(localPath, relPath, tmp); err != nil {
+	if err := c.storLocked(localPath, relPath, tmp, raw); err != nil {
 		c.removeQuietLocked(tmp)
 		return err
 	}
 	if err := c.renameOverLocked(tmp, remoteFull); err != nil {
-		// Atomik yer değiştirme olmadı → güvenli yol: doğrudan yaz, tmp'yi temizle
+		// Atomik yer değiştirme olmadı → güvenli yol: doğrudan yaz, tmp'yi temizle.
+		// Bu bağlantıda bir daha denenmez.
+		c.noRenameOver = true
 		c.removeQuietLocked(tmp)
-		return c.storLocked(localPath, relPath, remoteFull)
+		return c.storLocked(localPath, relPath, remoteFull, raw)
 	}
 	return nil
 }
 
-// storLocked dosyayı remoteFull'e yazar (mu alınmış olmalı).
-func (c *Client) storLocked(localPath, relPath, remoteFull string) error {
+// storLocked dosyayı remoteFull'e yazar (mu alınmış olmalı). raw → CRLF normalizasyonu yok.
+func (c *Client) storLocked(localPath, relPath, remoteFull string, raw bool) error {
 	f, err := os.Open(localPath)
 	if err != nil {
 		return fmt.Errorf("dosya açılamadı: %w", err)
@@ -258,7 +276,7 @@ func (c *Client) storLocked(localPath, relPath, remoteFull string) error {
 	// Binary dosyalar (resim, PDF, ZIP vb.): normalizer ATLANIR — bozulmayı önler.
 	// Önce uzantı (kesin), sonra içerik (null byte) kontrolü.
 	var uploadReader io.Reader
-	if isBinaryExt(relPath) || isBinaryContent(f) {
+	if raw || isBinaryExt(relPath) || isBinaryContent(f) {
 		uploadReader = f
 	} else {
 		uploadReader = newCRLFNormalizer(f)
@@ -391,10 +409,14 @@ func isBinaryContent(f *os.File) bool {
 }
 
 // crlfNormalizer \r\n → \n dönüşümü yapan io.Reader wrapper'ı.
+// Bir okumanın son baytı \r ise karar sonraki okumaya ertelenir (pendingCR):
+// \n gelirse \r atılır, başka bir şey ya da EOF gelirse \r olduğu gibi yazılır.
 type crlfNormalizer struct {
-	r   io.Reader
-	buf []byte
-	out []byte
+	r         io.Reader
+	buf       []byte
+	out       []byte
+	pendingCR bool
+	err       error // alttaki okuyucunun hatası (EOF dahil) — out boşalınca döner
 }
 
 func newCRLFNormalizer(r io.Reader) *crlfNormalizer {
@@ -402,31 +424,35 @@ func newCRLFNormalizer(r io.Reader) *crlfNormalizer {
 }
 
 func (c *crlfNormalizer) Read(p []byte) (int, error) {
-	if len(c.out) > 0 {
-		n := copy(p, c.out)
-		c.out = c.out[n:]
-		return n, nil
-	}
-	n, err := c.r.Read(c.buf)
-	if n == 0 {
-		return 0, err
-	}
-	// \r\n → \n
-	src := c.buf[:n]
-	dst := make([]byte, 0, n)
-	for i := 0; i < len(src); i++ {
-		if src[i] == '\r' && i+1 < len(src) && src[i+1] == '\n' {
-			continue // \r'ı atla, \n gelecek
+	for len(c.out) == 0 {
+		if c.err != nil {
+			return 0, c.err
 		}
-		// \r tek başına (son byte olabilir) — bir sonraki chunk'ta \n gelebilir,
-		// güvenli taraf: olduğu gibi bırak
-		dst = append(dst, src[i])
+		n, err := c.r.Read(c.buf)
+		c.err = err
+		dst := make([]byte, 0, n+1)
+		for _, b := range c.buf[:n] {
+			if c.pendingCR {
+				c.pendingCR = false
+				if b != '\n' {
+					dst = append(dst, '\r') // tek başına \r — korunur
+				}
+			}
+			if b == '\r' {
+				c.pendingCR = true
+				continue
+			}
+			dst = append(dst, b)
+		}
+		if err != nil && c.pendingCR {
+			c.pendingCR = false
+			dst = append(dst, '\r') // dosya \r ile bitiyor
+		}
+		c.out = dst
 	}
-	written := copy(p, dst)
-	if written < len(dst) {
-		c.out = dst[written:]
-	}
-	return written, err
+	n := copy(p, c.out)
+	c.out = c.out[n:]
+	return n, nil
 }
 
 // MakeDirAll uzak dizini (ara dizinlerle birlikte) oluşturur.
@@ -443,11 +469,15 @@ func (c *Client) UploadTo(localPath, remoteFull string) error {
 	if err := c.mkdirAllLocked(path.Dir(remoteFull)); err != nil {
 		return err
 	}
-	return c.storLocked(localPath, path.Base(remoteFull), remoteFull)
+	return c.storLocked(localPath, path.Base(remoteFull), remoteFull, false)
 }
 
-// mkdirAllLocked — mu alınmış durumda çağrılmalı.
+// mkdirAllLocked — mu alınmış durumda çağrılmalı. Bu bağlantıda daha önce MKD atılmış
+// dizinler atlanır (knownDirs); MKD hataları (zaten var vb.) yok sayılır.
 func (c *Client) mkdirAllLocked(remotePath string) error {
+	if c.knownDirs == nil {
+		c.knownDirs = make(map[string]bool)
+	}
 	parts := strings.Split(strings.TrimPrefix(remotePath, "/"), "/")
 	current := "/"
 	for _, part := range parts {
@@ -455,11 +485,15 @@ func (c *Client) mkdirAllLocked(remotePath string) error {
 			continue
 		}
 		current = path.Join(current, part)
+		if c.knownDirs[current] {
+			continue
+		}
 		if c.sftp != nil {
 			_ = c.sftp.Mkdir(current)
 		} else {
 			_ = c.conn.MakeDir(current)
 		}
+		c.knownDirs[current] = true
 	}
 	return nil
 }
@@ -474,16 +508,22 @@ func (c *Client) List(remotePath string) ([]*goftp.Entry, error) {
 	if err != nil {
 		// Bazı sunucular boş veya mevcut olmayan dizin için 550 döndürür.
 		// Bu durumda boş liste döndür, fatal hata değil.
-		if strings.Contains(err.Error(), "550") ||
-			strings.Contains(err.Error(), "No such file") ||
-			strings.Contains(err.Error(), "No such directory") ||
-			strings.Contains(err.Error(), "doesn't exist") ||
-			strings.Contains(err.Error(), "not found") {
+		if isListNotFound(err) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("listeleme başarısız (%s): %w", remotePath, err)
 	}
 	return entries, nil
+}
+
+// isListNotFound LIST hatası "dizin yok / boş" anlamında mı (550 vb.) — boş liste sayılır.
+func isListNotFound(err error) bool {
+	s := err.Error()
+	return strings.Contains(s, "550") ||
+		strings.Contains(s, "No such file") ||
+		strings.Contains(s, "No such directory") ||
+		strings.Contains(s, "doesn't exist") ||
+		strings.Contains(s, "not found")
 }
 
 // listLocked — mu alınmış durumda çağrılmalı. SFTP'de os.FileInfo → goftp.Entry çevrilir.
@@ -566,6 +606,7 @@ func (c *Client) DeleteFile(remotePath string) error {
 func (c *Client) DeleteDir(remotePath string, recursive bool) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.knownDirs = nil // silinen dizin önbellekte "var" kalmasın
 	if c.sftp != nil {
 		var err error
 		if recursive {
@@ -633,14 +674,23 @@ func (c *Client) ListRecursiveProgressPath(remotePath string, progress func(coun
 // ListRecursiveFiltered ListRecursiveProgressPath ile aynıdır; skipDir != nil ise
 // göreceli yolu için true dönen dizinlere HİÇ girilmez (ignore/exclude edilmiş vendor,
 // node_modules gibi dev ağaçlar için binlerce LIST komutu atılmaz).
+// 550 / "yok" hataları boş dizin sayılır; başka bir LIST hatası (bağlantı koptu, zaman aşımı…)
+// taramayı durdurur ve hata döner — eksik harita "dosya sunucuda yok" diye yorumlanmasın.
 func (c *Client) ListRecursiveFiltered(remotePath string, skipDir func(rel string) bool, progress func(count int, latest string)) (map[string]uint64, error) {
 	result := make(map[string]uint64)
+	var firstErr error
 	var walk func(dir, rel string)
 	walk = func(dir, rel string) {
+		if firstErr != nil {
+			return
+		}
 		c.mu.Lock()
 		entries, err := c.listLocked(dir)
 		c.mu.Unlock()
 		if err != nil {
+			if !isListNotFound(err) {
+				firstErr = fmt.Errorf("listeleme başarısız (%s): %w", dir, err)
+			}
 			return
 		}
 		for _, e := range entries {
@@ -665,6 +715,9 @@ func (c *Client) ListRecursiveFiltered(remotePath string, skipDir func(rel strin
 		}
 	}
 	walk(remotePath, "")
+	if firstErr != nil {
+		return nil, firstErr
+	}
 	return result, nil
 }
 
@@ -672,6 +725,7 @@ func (c *Client) ListRecursiveFiltered(remotePath string, skipDir func(rel strin
 func (c *Client) Rename(oldPath, newPath string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.knownDirs = nil // taşınan dizin eski yolunda önbellekte kalmasın
 	var err error
 	if c.sftp != nil {
 		err = c.sftp.Rename(oldPath, newPath)

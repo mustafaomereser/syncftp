@@ -11,10 +11,12 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 
 	"golang.org/x/crypto/ssh"
 
 	ftpclient "syncftp/internal/ftp"
+	"syncftp/internal/lang"
 	"syncftp/internal/projects"
 	"syncftp/internal/scanner"
 )
@@ -41,6 +43,9 @@ type knownHostEntry struct {
 }
 
 // readKnownHosts syncFTP'nin kendi known_hosts dosyasını satır numaralarıyla okur.
+// knownHostsMu panelden eş zamanlı silmeleri sıralar.
+var knownHostsMu sync.Mutex
+
 func readKnownHosts() []knownHostEntry {
 	out := []knownHostEntry{}
 	data, err := os.ReadFile(ftpclient.KnownHostsPath())
@@ -157,12 +162,17 @@ func (sv *guiServer) apiSettingsCacheClear(w http.ResponseWriter, r *http.Reques
 
 // apiSettingsKnownHostDel syncFTP known_hosts dosyasından bir satırı siler (sunucu anahtarı
 // değiştiyse bağlantı reddedilir; kayıt silinince bir sonraki bağlantıda yeniden öğrenilir).
+// Satır numarası liste çizildiğinden beri kaymış olabilir (yeni host öğrenildi, başka sekmede silindi)
+// → istemci satırın parmak izini de yollar (?fp=), satır hâlâ o anahtarsa silinir, değilse 409.
 func (sv *guiServer) apiSettingsKnownHostDel(w http.ResponseWriter, r *http.Request) {
 	n, err := strconv.Atoi(r.PathValue("line"))
-	if err != nil || n < 1 {
-		guiErr(w, 400, errors.New("line"))
+	fp := r.URL.Query().Get("fp")
+	if err != nil || n < 1 || fp == "" {
+		guiErr(w, 400, errors.New("line, fp"))
 		return
 	}
+	knownHostsMu.Lock()
+	defer knownHostsMu.Unlock()
 	p := ftpclient.KnownHostsPath()
 	data, err := os.ReadFile(p)
 	if err != nil {
@@ -172,6 +182,10 @@ func (sv *guiServer) apiSettingsKnownHostDel(w http.ResponseWriter, r *http.Requ
 	lines := strings.Split(string(data), "\n")
 	if n > len(lines) {
 		guiErr(w, 404, errors.New("line"))
+		return
+	}
+	if _, _, key, _, _, err := ssh.ParseKnownHosts([]byte(strings.TrimSpace(lines[n-1]))); err != nil || ssh.FingerprintSHA256(key) != fp {
+		guiErr(w, 409, errors.New(lang.L.GuiKnownHostChanged))
 		return
 	}
 	lines = append(lines[:n-1], lines[n:]...)

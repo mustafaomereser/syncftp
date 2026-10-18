@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"syncftp/internal/fsutil"
 )
 
 // Milestone per-server zaman işareti: "milestone sync" bu tarihten sonra
@@ -41,7 +43,7 @@ func Save(configDir, serverName string, date time.Time) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(msPath(configDir, serverName), data, 0644)
+	return fsutil.WriteFileAtomic(msPath(configDir, serverName), data, 0644)
 }
 
 // Clear sunucunun milestone'unu siler. Dosya yoksa hata dönmez.

@@ -332,6 +332,19 @@ type aiManager struct {
 
 func newAIManager() *aiManager { return &aiManager{sessions: map[string]*aiSession{}} }
 
+// closeAll panel kapanırken çalışan asistan süreçlerini öldürür.
+func (m *aiManager) closeAll() {
+	m.mu.Lock()
+	list := make([]*aiSession, 0, len(m.sessions))
+	for _, s := range m.sessions {
+		list = append(list, s)
+	}
+	m.mu.Unlock()
+	for _, s := range list {
+		s.stop()
+	}
+}
+
 func uuid4() string {
 	b := make([]byte, 16)
 	_, _ = rand.Read(b)

@@ -13,7 +13,7 @@ Object.assign(T.tr, {
   pkSelectThis: 'Bu klasörü seç', pkRemoteTitle: 'Sunucuda klasör seç', pkNoSubdirs: 'Alt klasör yok', pkSelect: 'Seç', pkGo: 'Git', pkEmpty: 'Klasör boş', pkProject: 'syncFTP projesi',
   pkExplorerHint: 'Klasöre tıklayınca içine girer, .. ile geri çıkar. Onay kutusuyla işaretleyin. Klavye: ↑↓ gez, Enter gir, Space işaretle, Backspace geri.', pkRoot: 'Proje kökü',
   pkHidden: 'Gizlileri göster', pkTreeTitle: 'Yerel dosyalardan seç', pkIgnored: 'ignore', pkSelected: '{0} seçili',
-  pkTreeHint: 'İşaretlediğiniz klasör ve dosyalar listeye eklenir; işareti kaldırılanlar çıkarılır. Listede olup burada görünmeyen kalıplar (glob vb.) korunur.',
+  
   pkFreezeHint: 'Klasör işaretlemek altındaki tüm dosyaları freeze listesine ekler.',
 });
 Object.assign(T.en, {
@@ -21,7 +21,7 @@ Object.assign(T.en, {
   pkSelectThis: 'Select this folder', pkRemoteTitle: 'Choose a server folder', pkNoSubdirs: 'No subfolders', pkSelect: 'Select', pkGo: 'Go', pkEmpty: 'Folder is empty', pkProject: 'syncFTP project',
   pkExplorerHint: 'Click a folder to open it, .. to go back. Tick checkboxes to select. Keys: ↑↓ move, Enter open, Space select, Backspace back.', pkRoot: 'Project root',
   pkHidden: 'Show hidden', pkTreeTitle: 'Pick from local files', pkIgnored: 'ignored', pkSelected: '{0} selected',
-  pkTreeHint: 'Checked folders and files are added to the list; unchecked ones are removed. Patterns that are not visible here (globs etc.) are kept.',
+  
   pkFreezeHint: 'Checking a folder adds every file inside it to the freeze list.',
 });
 
@@ -60,10 +60,17 @@ function pickPath({ mode = 'dir', initial = '', title } = {}) {
     const $p = (k) => $(`[data-pk="${k}"]`, m.root);
     const join = (a, b) => (a.endsWith(sep) ? a + b : a + sep + b);
 
-    async function load(path) {
+    // Klasör yoksa / okunamıyorsa üst klasörlere, en sonda sürücü listesine düşer (boş liste kalmasın).
+    // quiet: ilk açılışta kayıtlı yol silinmiş olabilir — sessizce en yakın var olan üst klasör açılır.
+    async function load(path, quiet = false) {
       let d;
       try { d = await GET(`/api/fs/list?path=${enc(path)}&files=${mode === 'file' ? 1 : 0}&hidden=${hidden ? 1 : 0}`); }
-      catch (e) { toast(e.message, 'bad'); return; }
+      catch (e) {
+        if (!path) { toast(e.message, 'bad'); return; }
+        if (!quiet) toast(e.message, 'bad');
+        const up = path.replace(/[\\/]+$/, '').replace(/[\\/][^\\/]*$/, '');
+        return load(up && up !== path ? up : '', true);
+      }
       cur = d.path; home = d.home || home; sep = d.sep || sep; chosenFile = '';
       $p('path').value = cur;
       $p('info').innerHTML = d.has_config ? `<span class="pill ok"><span class="nokta"></span>${t('pkProject')}</span>` : '';
@@ -92,7 +99,7 @@ function pickPath({ mode = 'dir', initial = '', title } = {}) {
     $p('go').onclick = () => load($p('path').value.trim());
     $p('path').onkeydown = (e) => { if (e.key === 'Enter') load($p('path').value.trim()); };
     $p('hidden').onchange = (e) => { hidden = e.target.checked; load(cur); };
-    load(cur).then(() => { if (!cur) GET('/api/fs/list?path=').then((d) => { home = d.home; }); });
+    load(cur, true).then(() => { if (!cur) GET('/api/fs/list?path=').then((d) => { home = d.home; }); });
   });
 }
 
@@ -243,10 +250,19 @@ function pickLocalTree({ P, root = '', server = '', current = [], title, mode = 
       drawCrumbs(); drawRows();
       list.focus();
     }
+    // Ok tuşları listeyi yeniden çizmez — yalnızca imleç sınıfı taşınır (büyük klasörde her tuşta tam çizim ağırdı)
+    function moveCursor(i) {
+      if (!rows.length) return;
+      cursor = Math.max(0, Math.min(rows.length - 1, i));
+      const old = $('.imlec', list);
+      if (old) old.classList.remove('imlec');
+      const el = $(`.gz-satir[data-i="${cursor}"]`, list);
+      if (el) { el.classList.add('imlec'); el.scrollIntoView({ block: 'nearest' }); }
+    }
     list.onkeydown = (e) => {
       const r = rows[cursor];
-      if (e.key === 'ArrowDown') { cursor = Math.min(rows.length - 1, cursor + 1); drawRows(); }
-      else if (e.key === 'ArrowUp') { cursor = Math.max(0, cursor - 1); drawRows(); }
+      if (e.key === 'ArrowDown') moveCursor(cursor + 1);
+      else if (e.key === 'ArrowUp') moveCursor(cursor - 1);
       else if (e.key === 'Enter' || e.key === 'ArrowRight') { if (r && r.up) open(parentOf(cwd)); else if (r && r.dir) open(r.path); else if (e.key === 'Enter') toggle(r); }
       else if (e.key === ' ') toggle(r);
       else if (e.key === 'Backspace' || e.key === 'ArrowLeft') { if (cwd) open(parentOf(cwd)); }

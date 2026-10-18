@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+
+	"syncftp/internal/fsutil"
 )
 
 // List holds the set of frozen relative paths for one server.
@@ -40,7 +42,7 @@ func Save(configDir, serverName string, paths []string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dir, serverName+".json"), data, 0600)
+	return fsutil.WriteFileAtomic(filepath.Join(dir, serverName+".json"), data, 0600)
 }
 
 func IsFrozen(l *List, relPath string) bool {

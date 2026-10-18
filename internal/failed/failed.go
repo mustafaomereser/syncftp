@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"syncftp/internal/fsutil"
 )
 
 type List struct {
@@ -34,7 +36,7 @@ func Save(configDir, serverName string, files []string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path(configDir, serverName), data, 0644)
+	return fsutil.WriteFileAtomic(path(configDir, serverName), data, 0644)
 }
 
 // Load reads the failed file list for a server.

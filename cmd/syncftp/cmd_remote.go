@@ -293,7 +293,7 @@ func connectRemote() (config.Server, *ftpclient.Client, error) {
 
 	servers := cfg.EnabledServers()
 	if len(servers) == 0 {
-		return config.Server{}, nil, fmt.Errorf("aktif sunucu yok")
+		return config.Server{}, nil, fmt.Errorf("%s", lang.L.NoActiveServer)
 	}
 
 	var srv config.Server

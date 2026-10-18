@@ -219,8 +219,6 @@ func runMilestoneSync(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// syncToServerResult dry-run kararını paket seviyesindeki flagDryRun'dan okur
-	flagDryRun = msFlagDry
 	if msFlagDry {
 		fmt.Println(lang.L.SyncDryRunNote)
 	}

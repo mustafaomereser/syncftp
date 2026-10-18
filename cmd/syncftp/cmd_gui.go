@@ -26,6 +26,7 @@ import (
 
 	"syncftp/internal/lang"
 	"syncftp/internal/projects"
+	"syncftp/internal/synclog"
 )
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -217,6 +218,7 @@ func runGUIForeground() error {
 	closeAppWindows(guiWindowTitle())
 	sv.watches.stopAll()
 	closeAllTerms()
+	sv.ai.closeAll() // `claude -p` / `opencode run` çocuk süreçleri panel kapanınca yaşamasın
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	return srv.Shutdown(ctx)
@@ -381,7 +383,7 @@ func (sv *guiServer) handler() http.Handler {
 			}
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprint(w, `<!doctype html><meta charset="utf-8"><title>syncFTP</title><body style="background:#111113;color:#edeef0;font:14px system-ui;display:grid;place-items:center;height:100vh;margin:0"><div>Oturum geçersiz — paneli <code>syncftp gui</code> ile yeniden açın.</div>`)
+			fmt.Fprintf(w, `<!doctype html><meta charset="utf-8"><title>syncFTP</title><body style="background:#111113;color:#edeef0;font:14px system-ui;display:grid;place-items:center;height:100vh;margin:0"><div>%s</div>`, lang.L.GuiSessionInvalidHTML)
 			return
 		}
 		if strings.HasPrefix(r.URL.Path, "/api/") {
@@ -453,7 +455,7 @@ func (j *job) Write(p []byte) (int, error) {
 		if i := strings.LastIndex(line, "\r"); i >= 0 {
 			line = line[i+1:]
 		}
-		j.emitLocked(stripANSI(line))
+		j.emitLocked(synclog.StripANSI(line))
 	}
 	return len(p), nil
 }
@@ -475,7 +477,7 @@ func (j *job) emitLocked(line string) {
 func (j *job) finish(result any, err error) {
 	j.mu.Lock()
 	if j.partial != "" {
-		j.emitLocked(stripANSI(j.partial))
+		j.emitLocked(synclog.StripANSI(j.partial))
 		j.partial = ""
 	}
 	now := time.Now()
@@ -489,6 +491,20 @@ func (j *job) finish(result any, err error) {
 	}
 	j.mu.Unlock()
 	close(j.done)
+}
+
+// isRunning Status'u j.mu altında okur (finish aynı kilitle yazar).
+func (j *job) isRunning() bool {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	return j.Status == "running"
+}
+
+// cancelFunc durdurulabilir işin durdurma fonksiyonu (yoksa nil).
+func (j *job) cancelFunc() func() {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	return j.cancel
 }
 
 func (j *job) snapshot() map[string]any {
@@ -513,6 +529,11 @@ func newJobManager() *jobManager { return &jobManager{locks: map[string]string{}
 // start işi arka planda çalıştırır. lockKey doluysa aynı anahtarda çalışan iş varken
 // reddedilir (aynı sunucunun state'ine iki iş birden yazmasın).
 func (m *jobManager) start(kind, project, server, title, lockKey string, fn func(j *job) (any, error)) (*job, error) {
+	return m.startCancelable(kind, project, server, title, lockKey, nil, fn)
+}
+
+// startCancelable start ile aynı; cancel iş goroutine'i başlamadan önce atanır (yarışsız durdurma).
+func (m *jobManager) startCancelable(kind, project, server, title, lockKey string, cancel func(), fn func(j *job) (any, error)) (*job, error) {
 	m.mu.Lock()
 	if lockKey != "" {
 		if id, busy := m.locks[lockKey]; busy {
@@ -523,7 +544,7 @@ func (m *jobManager) start(kind, project, server, title, lockKey string, fn func
 	m.seq++
 	j := &job{
 		ID: fmt.Sprintf("j%d", m.seq), Kind: kind, Project: project, Server: server, Title: title,
-		Status: "running", Started: time.Now(), subs: map[chan string]struct{}{}, done: make(chan struct{}), lockKey: lockKey,
+		Status: "running", Started: time.Now(), subs: map[chan string]struct{}{}, done: make(chan struct{}), lockKey: lockKey, cancel: cancel,
 	}
 	if lockKey != "" {
 		m.locks[lockKey] = j.ID
@@ -532,7 +553,7 @@ func (m *jobManager) start(kind, project, server, title, lockKey string, fn func
 	if len(m.jobs) > 200 { // eski bitmiş işleri unut
 		var keep []*job
 		for i, x := range m.jobs {
-			if x.Status == "running" || i >= len(m.jobs)-100 {
+			if x.isRunning() || i >= len(m.jobs)-100 {
 				keep = append(keep, x)
 			}
 		}
@@ -592,7 +613,7 @@ func (m *jobManager) running() int {
 	defer m.mu.Unlock()
 	n := 0
 	for _, j := range m.jobs {
-		if j.Status == "running" && j.Kind != "watch" {
+		if j.Kind != "watch" && j.isRunning() {
 			n++
 		}
 	}
@@ -643,12 +664,26 @@ func (wm *watchManager) count() int {
 
 func watchKey(project, server string) string { return project + "\x00" + server }
 
-// has sunucunun watch'ı açık mı.
-func (wm *watchManager) has(project, server string) bool {
+// reserve gw'nin anahtarını tek kilitte kontrol edip ayırır; zaten izleniyorsa false.
+func (wm *watchManager) reserve(gw *guiWatch) bool {
 	wm.mu.Lock()
 	defer wm.mu.Unlock()
-	_, ok := wm.m[watchKey(project, server)]
-	return ok
+	k := watchKey(gw.Project, gw.Server)
+	if _, ok := wm.m[k]; ok {
+		return false
+	}
+	wm.m[k] = gw
+	return true
+}
+
+// release başlatılamayan watch'ın ayrılmış anahtarını bırakır (yerine başkası konduysa dokunmaz).
+func (wm *watchManager) release(gw *guiWatch) {
+	wm.mu.Lock()
+	defer wm.mu.Unlock()
+	k := watchKey(gw.Project, gw.Server)
+	if wm.m[k] == gw {
+		delete(wm.m, k)
+	}
 }
 
 // forProject projenin açık watch'ları (sunucu adına göre).
@@ -703,26 +738,6 @@ func (wm *watchManager) stopAll() {
 	for _, w := range all {
 		close(w.stop)
 	}
-}
-
-// stripANSI log satırlarındaki renk kodlarını temizler.
-func stripANSI(s string) string {
-	if !strings.Contains(s, "\x1b") {
-		return s
-	}
-	var b strings.Builder
-	for i := 0; i < len(s); i++ {
-		if s[i] == 0x1b && i+1 < len(s) && s[i+1] == '[' {
-			j := i + 2
-			for j < len(s) && (s[j] < 0x40 || s[j] > 0x7e) {
-				j++
-			}
-			i = j
-			continue
-		}
-		b.WriteByte(s[i])
-	}
-	return b.String()
 }
 
 func fileExistsPlain(p string) bool {
