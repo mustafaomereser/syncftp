@@ -543,3 +543,10 @@ details.bolum.katlanir > summary h3 + .ok-ac { margin-left: auto; }
 .ed-secim span { display: grid; gap: 3px; }
 .ed-secim small { color: var(--muted); font-size: 12px; line-height: 1.45; }
 .ed-secim small .ikon, .ed-secim small svg { width: 13px; height: 13px; vertical-align: -2px; margin-right: 4px; }
+
+/* Tooltip (tooltip.js) — Bootstrap tarzı: açık balon, ok, solma */
+.tip { position: fixed; z-index: 200; max-width: 280px; padding: 6px 10px; border-radius: 8px; background: var(--text); color: #111113; font: 500 12px/1.45 var(--font); white-space: pre-line; pointer-events: none; opacity: 0; transform: translateY(2px); transition: opacity .12s, transform .12s; box-shadow: 0 8px 24px rgb(0 0 0 / .45); }
+.tip.acik { opacity: 1; transform: none; }
+.tip-ok { position: absolute; top: 100%; width: 0; height: 0; margin-left: -5px; border: 5px solid transparent; border-top-color: var(--text); }
+.tip.alt .tip-ok { top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: var(--text); }
+@media (prefers-reduced-motion: reduce) { .tip { transition: none; } }
