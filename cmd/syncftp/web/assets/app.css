@@ -578,3 +578,7 @@ details.bolum.katlanir > summary h3 + .ok-ac { margin-left: auto; }
 .konum-kat > summary .ok-ac { color: var(--faint); transition: transform .15s; flex: none; }
 .konum-kat[open] > summary .ok-ac { transform: rotate(90deg); }
 @media (max-width: 640px) { .konum-satir { grid-template-columns: minmax(0, 1fr) auto; } .konum-satir .konum-yol { grid-column: 1 / -1; grid-row: 2; } }
+
+/* Proje ayarları → Tehlikeli bölge */
+.bolum.tehlike-bolge { border-color: rgb(255 99 105 / .35); }
+.bolum.tehlike-bolge h3 { color: var(--bad); }

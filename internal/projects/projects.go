@@ -168,6 +168,22 @@ func Remove(nameOrPath string) error {
 	return fmt.Errorf("proje bulunamadı: %s", nameOrPath)
 }
 
+// Forget projeyi kayıt dosyasından sessizce çıkarır (klasör modunda da — proje syncFTP'den
+// tamamen çıkarılırken CLI kaydında da kalmasın) ve klasör taramasını tazeler.
+func Forget(dir string) {
+	mu.Lock()
+	r := load()
+	for i, p := range r.Projects {
+		if samePath(p.Path, dir) {
+			r.Projects = append(r.Projects[:i], r.Projects[i+1:]...)
+			_ = save(r)
+			break
+		}
+	}
+	mu.Unlock()
+	Invalidate()
+}
+
 // Rename projenin görünen adını değiştirir.
 func Rename(nameOrPath, newName string) error {
 	if base != "" {

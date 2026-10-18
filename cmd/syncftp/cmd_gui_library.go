@@ -35,6 +35,7 @@ func (sv *guiServer) registerLibraryAPI(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/p/{p}/connections/library", sv.apiConnLibraryStatus)
 	mux.HandleFunc("POST /api/p/{p}/connections/extract", sv.apiConnExtract)
 
+	mux.HandleFunc("POST /api/p/{p}/remove", sv.apiProjectRemove)
 	mux.HandleFunc("GET /api/p/{p}/serve", sv.apiServeGet)
 	mux.HandleFunc("POST /api/p/{p}/serve", sv.apiServeSet)
 }
@@ -479,6 +480,43 @@ func (sv *guiServer) apiConnExtract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	guiJSON(w, map[string]any{"name": name, "created": created})
+}
+
+// apiProjectRemove projeyi syncFTP'den çıkarır (CLI `project delete` ile aynı çekirdek):
+// önce panelin bu projedeki watch / terminal / HTTP API'si kapatılır; çalışan iş varsa reddedilir.
+func (sv *guiServer) apiProjectRemove(w http.ResponseWriter, r *http.Request) {
+	p, cfg, err := sv.project(r)
+	if err != nil {
+		guiErr(w, 404, err)
+		return
+	}
+	for srv, id := range sv.jobs.busyServers(p.Name) {
+		guiErr(w, 409, fmt.Errorf(lang.L.GuiBusyFmt, srv, id))
+		return
+	}
+	if sv.watches.stop(p.Name, "") > 0 {
+		sv.persistWatches()
+		for i := 0; i < 50 && sv.jobs.watchJobsRunning(p.Name) > 0; i++ { // watch kilit dosyasını bıraksın
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+	closeProjectTerms(p.Name)
+	guiServesMu.Lock()
+	if s := guiServes[p.Name]; s != nil {
+		_ = s.srv.Close()
+		delete(guiServes, p.Name)
+	}
+	guiServesMu.Unlock()
+	res, err := removeProject(p.Path)
+	if err != nil {
+		guiErr(w, 400, err)
+		return
+	}
+	name := cfg.Project.Name
+	if name == "" {
+		name = p.Name
+	}
+	guiJSON(w, map[string]any{"trashed": res.Trashed, "renamed": res.Renamed, "message": strings.TrimSpace(projectRemovalMsg(name, res))})
 }
 
 // ── proje başına HTTP API (syncftp serve) ─────────────────────────────────────

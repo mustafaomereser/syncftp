@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -36,12 +37,50 @@ func init() {
 		return nil
 	}
 
-	projectCmd.AddCommand(projectListCmd, projectAddCmd, projectRmCmd, projectRenameCmd)
+	projectCmd.AddCommand(projectListCmd, projectAddCmd, projectRmCmd, projectRenameCmd, projectDeleteCmd)
+	projectDeleteCmd.Flags().BoolVarP(&projectDeleteYes, "yes", "y", false, "Onay sormadan çıkar")
 	projectAddCmd.Flags().StringVar(&projectAddName, "name", "", "Görünen ad (varsayılan: klasör adı)")
 	rootCmd.AddCommand(projectCmd)
 }
 
-var projectAddName string
+var (
+	projectAddName   string
+	projectDeleteYes bool
+)
+
+// projectDeleteCmd projeyi syncFTP'den tamamen çıkarır (panel: Proje ayarları → Tehlikeli bölge).
+var projectDeleteCmd = &cobra.Command{
+	Use:   "delete [ad|yol]",
+	Short: "Projeyi syncFTP'den çıkarır: .syncftp çöp kutusuna taşınır (proje dosyalarına dokunmaz)",
+	Args:  cobra.MaximumNArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		dir, _ := os.Getwd()
+		if len(args) == 1 {
+			if p, ok := projects.Find(args[0]); ok {
+				dir = p.Path
+			} else if abs, err := filepath.Abs(args[0]); err == nil {
+				dir = abs
+			}
+		}
+		name := filepath.Base(dir)
+		if cfg, err := config.Load(dir); err == nil && cfg.Project.Name != "" {
+			name = cfg.Project.Name
+		}
+		if !projectDeleteYes {
+			ok, _ := RunConfirm(fmt.Sprintf(lang.L.ProjectDeleteConfirmFmt, name), lang.L.ProjectDeleteConfirmBody)
+			if !ok {
+				fmt.Println(lang.L.SyncCancelled)
+				return nil
+			}
+		}
+		res, err := removeProject(dir)
+		if err != nil {
+			return err
+		}
+		fmt.Print(projectRemovalMsg(name, res))
+		return nil
+	},
+}
 
 var projectCmd = &cobra.Command{
 	Use:   "project",

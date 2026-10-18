@@ -1646,6 +1646,7 @@ async function tabSettings(proj) {
       <label class="anahtar"><span class="metin"><b>${t('keyringTitle')}</b><small>${t('keyringHint')}</small></span><span class="switch"><input type="checkbox" id="kr" ${cfg.project.keyring ? 'checked' : ''}><i></i></span></label>`, { fold: true, summary: cfg.project.keyring ? 'keyring' : t('foldOff') })}
     ${projToolsHTML()}
     ${section('layers', t('secRegistry'), t('registryDesc'), `<div class="aksiyonlar"><button class="btn" id="b-rename">${icon('edit')}${t('renameProject')}</button></div>`, { fold: true })}
+    ${projRemoveHTML()}
   </div>
   <div class="form-alt"><button class="btn birincil" id="b-save">${icon('check')}${t('save')}</button></div>`;
 }

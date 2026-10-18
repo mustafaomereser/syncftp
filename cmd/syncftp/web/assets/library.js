@@ -24,6 +24,8 @@ Object.assign(T.tr, {
   ptPartSync: 'Global sync ayarları', ptPartServers: 'Sunucular', ptPartConns: 'Bağlantı profilleri', ptPartDeploy: 'CI/CD tetikleyicileri',
   ptModeMerge: 'Birleştir (aynı adlıyı güncelle, yenileri ekle)', ptModeReplace: 'Değiştir (bu projedekileri sil)', ptImported: 'İçe aktarıldı',
   ptServe: 'HTTP API (syncftp serve)', ptServeDesc: 'Bu proje için yerel REST API (127.0.0.1) — PHP/web panellerinden status/sync/remote uçlarını çağırmak için. Panel kapanınca durur.',
+  prDanger: 'Tehlikeli bölge', prRemove: 'Projeyi syncFTP\'den çıkar', prRemoveDesc: '.syncftp klasörü (config, state, release yedekleri, loglar) çöp kutusuna taşınır; oradan geri yüklersen proje geri gelir. Proje dosyalarına ve sunuculara dokunulmaz. (CLI: syncftp project delete)',
+  prRemoveTitle: '{0} syncFTP\'den çıkarılsın mı?', prRemoveBody: 'Bu projedeki watch\'lar, terminal ve HTTP API kapatılır, <b>.syncftp</b> klasörü çöp kutusuna taşınır.<br><br>Proje dosyalarına ve sunuculara dokunulmaz. Anahtarlıktaki şifreler silinmez — kütüphane ve diğer projeler aynı kaydı kullanıyor olabilir.', prRemoveGo: 'Çıkar',
   ptServeOn: 'API çalışıyor', ptServeStart: 'API\'yi başlat', ptServeStop: 'Durdur', ptServePort: 'Port',
   connFromLib: 'Kütüphaneden', connFromLibTitle: 'Kütüphaneden bağlantı ekle', connToLib: 'Kütüphaneye kaydet', connToLibDone: '{0} kütüphaneye kaydedildi', connAddedFromLib: '{0} bağlantı profili eklendi',
   connInLib: 'Kütüphanede', connInLibAs: 'Kütüphanede "{0}" adıyla kayıtlı', connLibOverwriteTitle: 'Aynı adlı bağlantı var', connLibOverwrite: 'Kütüphanede "{0}" adında başka bir hesaba ait bağlantı var. Üzerine yazılsın mı?', overwrite: 'Üzerine yaz',
@@ -49,6 +51,8 @@ Object.assign(T.en, {
   ptPartSync: 'Global sync settings', ptPartServers: 'Servers', ptPartConns: 'Connection profiles', ptPartDeploy: 'CI/CD triggers',
   ptModeMerge: 'Merge (update same names, add new ones)', ptModeReplace: 'Replace (remove this project\'s entries)', ptImported: 'Imported',
   ptServe: 'HTTP API (syncftp serve)', ptServeDesc: 'Local REST API (127.0.0.1) for this project — call status/sync/remote endpoints from PHP/web panels. Stops when the panel closes.',
+  prDanger: 'Danger zone', prRemove: 'Remove project from syncFTP', prRemoveDesc: 'The .syncftp folder (config, state, release backups, logs) is moved to the trash; restore it to bring the project back. Project files and servers are not touched. (CLI: syncftp project delete)',
+  prRemoveTitle: 'Remove {0} from syncFTP?', prRemoveBody: 'Watches, the terminal and the HTTP API of this project are stopped and the <b>.syncftp</b> folder is moved to the trash.<br><br>Project files and servers are not touched. Passwords in the keyring are kept — the library and other projects may use the same entry.', prRemoveGo: 'Remove',
   ptServeOn: 'API running', ptServeStart: 'Start API', ptServeStop: 'Stop', ptServePort: 'Port',
   connFromLib: 'From library', connFromLibTitle: 'Add connection from library', connToLib: 'Save to library', connToLibDone: '{0} saved to the library', connAddedFromLib: 'Connection profile {0} added',
   connInLib: 'In library', connInLibAs: 'Saved in the library as "{0}"', connLibOverwriteTitle: 'Name already taken', connLibOverwrite: 'The library already has a connection named "{0}" for a different account. Overwrite it?', overwrite: 'Overwrite',
@@ -196,7 +200,26 @@ function projToolsHTML() {
     + section('zap', t('ptServe'), t('ptServeDesc'), '<div id="pt-serve"></div>', { fold: true });
 }
 
+// Tehlikeli bölge: projeyi syncFTP'den çıkar (CLI: project delete) — sayfanın en sonunda
+function projRemoveHTML() {
+  return `<div class="bolum tehlike-bolge"><h3>${icon('alert')}${t('prDanger')}</h3>
+    <div class="aksiyonlar" style="align-items:flex-start"><div style="flex:1;min-width:0"><b>${t('prRemove')}</b><p class="aciklama" style="margin:4px 0 0">${t('prRemoveDesc')}</p></div>
+    <button class="btn tehlike" id="pt-remove">${icon('trash')}${t('prRemove')}</button></div></div>`;
+}
+
 function bindProjTools(root, P) {
+  const rm = $('#pt-remove', root);
+  if (rm) rm.onclick = async () => {
+    if (!(await confirmBox(t('prRemoveTitle', esc(P)), t('prRemoveBody'), t('prRemoveGo'), true))) return;
+    rm.disabled = true;
+    try {
+      const r = await api('POST', `/api/p/${enc(P)}/remove`);
+      toast(r.message);
+      if (typeof clearDirty === 'function') clearDirty();
+      await loadProjects();
+      go('#/');
+    } catch (e) { fail(e); rm.disabled = false; }
+  };
   $('#pt-export', root).onclick = () => { location.href = `/api/p/${enc(P)}/config/export`; };
   $('#pt-defaults', root).onclick = async () => {
     try { await api('POST', `/api/library/defaults-from/${enc(P)}`); toast(t('ptAsDefaultsDone')); } catch (e) { fail(e); }

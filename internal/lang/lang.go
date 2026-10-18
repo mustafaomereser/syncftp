@@ -694,37 +694,42 @@ type StringSet struct {
 	ConnExtractedFmt      string // "%q sunucusunun bilgileri %q profiline taşındı"
 	ConnExtractReusedFmt  string // "%q sunucusu aynı hesabı tutan %q profiline bağlandı"
 	// Sync çekirdeği düzeltmeleri (failsafe temizlik, calibrate, rollback zinciri)
-	NoActiveServer         string // "aktif sunucu yok"
-	SyncFrozenSkippedFmt   string // "  ❄ %d frozen (atlandı)\n"
-	SyncFailedListReadFmt  string // "failed listesi okunamadı: %w"
-	SyncCalibrateAbortFmt  string // "  ✗ calibrate başarısız, sync iptal edildi: %v\n"
-	SyncCleanupIncludeKept string // "  ⚠ include listesi boşalacağı için olmayan yollar listede bırakıldı\n"
-	RollbackStoppedFmt     string // "  ! %s tamamen geri alınamadı — daha eski release'lere dokunulmadı\n"
-	ReleaseFileNotFoundFmt string // "release'te böyle bir dosya yok: %s"
-	ReleaseDiffBinary      string
-	ReleaseDiffNoBefore    string
-	ReleaseDiffNoAfter     string
-	ReleaseDiffTooBigFmt   string // "  (çok büyük: %d / %d satır)\n"
-	ReleaseDiffSame        string
-	SyncServersFailedFmt   string // "%d / %d sunucuda sync başarısız"
-	GlobalLoadWarnFmt      string // "  ⚠ global ayarlar okunamadı: %v\n"
-	InitConnManual         string // "Elle gir"
-	InitConnPickTitle      string // "Bağlantı"
-	InitConnPickSub        string // "Kayıtlı bir bağlantı seçin ya da elle girin"
-	InitUsingConnFmt       string // "  ✓ Kayıtlı bağlantı: %s (%s@%s:%d)\n"
-	GlobalFileFmt          string // "  Global ayarlar: %s\n"
-	GlobalDefaultsHeader   string // "  Yeni proje varsayılanları"
-	GlobalSecretWarnFmt    string // "\n  ⚠ Anahtarlıktan okunamayan şifreler: %s\n"
-	GlobalConnHeaderFmt    string // "  Kayıtlı bağlantılar (%d)\n"
-	GlobalConnNone         string // "    — yok (syncftp global conn add <ad> --host …)"
-	GlobalConnAddedFmt     string // "  ✓ Bağlantı eklendi: %s\n"
-	GlobalConnUpdatedFmt   string // "  ✓ Bağlantı güncellendi: %s\n"
-	GlobalConnRemovedFmt   string // "  ✓ Bağlantı silindi: %s\n"
-	GlobalConnImportedFmt  string // "  ✓ %d bağlantı aktarıldı (%s)\n"
-	GlobalDefaultsFromFmt  string // "  ✓ Varsayılanlar %s projesinden alındı\n"
-	GlobalTemplateSetFmt   string // "  ✓ Varsayılan ignore şablonu: %s\n"
-	GlobalDefaultsReset    string // "  ✓ Varsayılanlar sıfırlandı"
-	PushFailedErrFmt       string // "%d dosya yüklenemedi"
+	NoActiveServer           string // "aktif sunucu yok"
+	SyncFrozenSkippedFmt     string // "  ❄ %d frozen (atlandı)\n"
+	SyncFailedListReadFmt    string // "failed listesi okunamadı: %w"
+	SyncCalibrateAbortFmt    string // "  ✗ calibrate başarısız, sync iptal edildi: %v\n"
+	SyncCleanupIncludeKept   string // "  ⚠ include listesi boşalacağı için olmayan yollar listede bırakıldı\n"
+	RollbackStoppedFmt       string // "  ! %s tamamen geri alınamadı — daha eski release'lere dokunulmadı\n"
+	ReleaseFileNotFoundFmt   string // "release'te böyle bir dosya yok: %s"
+	ReleaseDiffBinary        string
+	ReleaseDiffNoBefore      string
+	ReleaseDiffNoAfter       string
+	ReleaseDiffTooBigFmt     string // "  (çok büyük: %d / %d satır)\n"
+	ReleaseDiffSame          string
+	SyncServersFailedFmt     string // "%d / %d sunucuda sync başarısız"
+	ProjectNoConfigFmt       string // "%s bir syncFTP projesi değil (.syncftp/syncftp.json yok)"
+	ProjectRemovedTrashFmt   string // "%s syncFTP'den çıkarıldı — .syncftp çöp kutusunda\n"
+	ProjectRemovedRenamedFmt string // "%s syncFTP'den çıkarıldı — .syncftp şuraya taşındı: %s\n"
+	ProjectDeleteConfirmFmt  string // RunConfirm başlığı
+	ProjectDeleteConfirmBody string
+	GlobalLoadWarnFmt        string // "  ⚠ global ayarlar okunamadı: %v\n"
+	InitConnManual           string // "Elle gir"
+	InitConnPickTitle        string // "Bağlantı"
+	InitConnPickSub          string // "Kayıtlı bir bağlantı seçin ya da elle girin"
+	InitUsingConnFmt         string // "  ✓ Kayıtlı bağlantı: %s (%s@%s:%d)\n"
+	GlobalFileFmt            string // "  Global ayarlar: %s\n"
+	GlobalDefaultsHeader     string // "  Yeni proje varsayılanları"
+	GlobalSecretWarnFmt      string // "\n  ⚠ Anahtarlıktan okunamayan şifreler: %s\n"
+	GlobalConnHeaderFmt      string // "  Kayıtlı bağlantılar (%d)\n"
+	GlobalConnNone           string // "    — yok (syncftp global conn add <ad> --host …)"
+	GlobalConnAddedFmt       string // "  ✓ Bağlantı eklendi: %s\n"
+	GlobalConnUpdatedFmt     string // "  ✓ Bağlantı güncellendi: %s\n"
+	GlobalConnRemovedFmt     string // "  ✓ Bağlantı silindi: %s\n"
+	GlobalConnImportedFmt    string // "  ✓ %d bağlantı aktarıldı (%s)\n"
+	GlobalDefaultsFromFmt    string // "  ✓ Varsayılanlar %s projesinden alındı\n"
+	GlobalTemplateSetFmt     string // "  ✓ Varsayılan ignore şablonu: %s\n"
+	GlobalDefaultsReset      string // "  ✓ Varsayılanlar sıfırlandı"
+	PushFailedErrFmt         string // "%d dosya yüklenemedi"
 }
 
 // L is the active locale. Defaults to English.

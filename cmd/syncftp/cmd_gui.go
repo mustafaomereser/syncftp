@@ -620,6 +620,19 @@ func (m *jobManager) running() int {
 	return n
 }
 
+// watchJobsRunning projenin hâlâ bitmemiş watch işi sayısı (durdurma sonrası bekleme için).
+func (m *jobManager) watchJobsRunning(project string) int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	n := 0
+	for _, j := range m.jobs {
+		if j.Kind == "watch" && j.Project == project && j.isRunning() {
+			n++
+		}
+	}
+	return n
+}
+
 // busyServers projede şu an işi olan sunucular.
 func (m *jobManager) busyServers(project string) map[string]string {
 	m.mu.Lock()

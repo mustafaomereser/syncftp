@@ -324,6 +324,18 @@ func (sv *guiServer) apiTermClose(w http.ResponseWriter, r *http.Request) {
 }
 
 // closeAllTerms panel kapanırken çağrılır (süreçler yetim kalmasın).
+// closeProjectTerms projenin terminal oturumlarını kapatır (proje syncFTP'den çıkarılırken).
+func closeProjectTerms(project string) {
+	termsMu.Lock()
+	defer termsMu.Unlock()
+	for id, s := range terms {
+		if s.Project == project {
+			_ = s.pty.Close()
+			delete(terms, id)
+		}
+	}
+}
+
 func closeAllTerms() {
 	termsMu.Lock()
 	defer termsMu.Unlock()
