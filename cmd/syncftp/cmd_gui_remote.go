@@ -13,6 +13,7 @@ import (
 
 	"syncftp/internal/config"
 	ftpclient "syncftp/internal/ftp"
+	"syncftp/internal/ignore"
 )
 
 // GUI dosya tarayıcısı için bağlantı önbelleği: her klasör tıklamasında yeniden
@@ -122,6 +123,7 @@ type guiEntry struct {
 	Type string    `json:"type"`
 	Size uint64    `json:"size"`
 	Time time.Time `json:"time"`
+	Skip string    `json:"skip,omitempty"` // syncSkipReason
 }
 
 func (sv *guiServer) apiRemoteLs(w http.ResponseWriter, r *http.Request) {
@@ -140,9 +142,18 @@ func (sv *guiServer) apiRemoteLs(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 502, err)
 		return
 	}
+	// Sync'e hiç girmeyenler (ignore / exclude / include dışı) satırda rozetle gösterilir
+	skip := func(string, bool) string { return "" }
+	if p, cfg, err := sv.project(r); err == nil {
+		m, _ := ignore.Load(filepath.Join(p.Path, srv.EffectiveLocalPath(cfg.Project)), cfg.Sync.IgnoreFiles)
+		f := effectiveFilters(cfg, srv, nil, nil)
+		skip = func(rel string, dir bool) string { return syncSkipReason(rel, dir, m, f) }
+	}
+	base := editRel(r.URL.Query().Get("path"))
 	out := make([]guiEntry, 0, len(entries))
 	for _, e := range entries {
-		out = append(out, guiEntry{Name: e.Name, Type: entryKind(e), Size: e.Size, Time: e.Time})
+		kind := entryKind(e)
+		out = append(out, guiEntry{Name: e.Name, Type: kind, Size: e.Size, Time: e.Time, Skip: skip(path.Join(base, e.Name), kind == "dir")})
 	}
 	guiJSON(w, map[string]any{"path": full, "root": srv.RemotePath, "entries": out})
 }

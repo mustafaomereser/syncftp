@@ -9,7 +9,9 @@ import (
 	"syncftp/internal/config"
 	"syncftp/internal/frozen"
 	ftpclient "syncftp/internal/ftp"
+	"syncftp/internal/ignore"
 	"syncftp/internal/milestone"
+	"syncftp/internal/pattern"
 	"syncftp/internal/state"
 )
 
@@ -122,4 +124,33 @@ func pendingChanges(configDir string, cfg *config.Config, srv config.Server, cur
 	}
 	sort.Strings(info.deleted)
 	return info
+}
+
+// syncSkipReason bir dosyanın/klasörün sync'e neden hiç girmediğini söyler: "ignored" (ignore
+// dosyaları — tarama görmez), "excluded" (exclude listesi), "not_included" (include listesi
+// dışında) ya da "" (sync kapsamında). Panel dosya tarayıcısındaki rozetler bunu kullanır.
+func syncSkipReason(rel string, dir bool, m *ignore.Matcher, f syncFilters) string {
+	if m != nil {
+		if dir && m.MatchDir(rel) || !dir && (m.Match(rel) || watchUnderIgnoredDir(rel, m)) {
+			return "ignored"
+		}
+	}
+	if pattern.Any(rel, f.exclude) {
+		return "excluded"
+	}
+	if len(f.include) == 0 {
+		return ""
+	}
+	if dir {
+		for _, inc := range f.include {
+			if pattern.MayContain(rel, inc) {
+				return ""
+			}
+		}
+		return "not_included"
+	}
+	if !pattern.Any(rel, f.include) {
+		return "not_included"
+	}
+	return ""
 }

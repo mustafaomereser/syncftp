@@ -40,3 +40,20 @@ func TestEditPaths(t *testing.T) {
 		t.Fatal("root should be rejected")
 	}
 }
+
+func TestSyncSkipReason(t *testing.T) {
+	f := syncFilters{exclude: []string{"database/connections.php", "docs/"}}
+	cases := map[string]string{"database/connections.php": "excluded", "docs": "excluded", "docs/a.md": "excluded", "index.php": ""}
+	for rel, want := range cases {
+		if got := syncSkipReason(rel, rel == "docs", nil, f); got != want {
+			t.Errorf("%s: %q, want %q", rel, got, want)
+		}
+	}
+	inc := syncFilters{include: []string{"public/"}}
+	if got := syncSkipReason("src/a.php", false, nil, inc); got != "not_included" {
+		t.Errorf("include: %q", got)
+	}
+	if got := syncSkipReason("public", true, nil, inc); got != "" {
+		t.Errorf("include dir: %q", got)
+	}
+}
