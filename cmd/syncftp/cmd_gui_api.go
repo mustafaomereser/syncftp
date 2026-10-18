@@ -218,7 +218,8 @@ type guiProject struct {
 	Error    string     `json:"error,omitempty"`
 	Servers  int        `json:"servers"`
 	Enabled  int        `json:"enabled"`
-	Watching bool       `json:"watching"`
+	Watching bool       `json:"watching"`          // en az bir sunucusu izleniyor
+	Watched  []string   `json:"watched,omitempty"` // izlenen sunucular
 	LastUsed *time.Time `json:"last_used,omitempty"`
 	Keyring  bool       `json:"keyring"`
 }
@@ -226,7 +227,11 @@ type guiProject struct {
 func (sv *guiServer) apiProjects(w http.ResponseWriter, r *http.Request) {
 	out := []guiProject{}
 	for _, p := range projects.List() {
-		gp := guiProject{Name: p.Name, Path: p.Path, Watching: sv.watches.get(p.Name) != nil}
+		gp := guiProject{Name: p.Name, Path: p.Path}
+		for _, w := range sv.watches.forProject(p.Name) {
+			gp.Watched = append(gp.Watched, w.Server)
+		}
+		gp.Watching = len(gp.Watched) > 0
 		if !p.LastUsed.IsZero() {
 			t := p.LastUsed
 			gp.LastUsed = &t
@@ -322,7 +327,7 @@ func (sv *guiServer) apiProjectRename(w http.ResponseWriter, r *http.Request) {
 }
 
 func (sv *guiServer) apiProjectRemove(w http.ResponseWriter, r *http.Request) {
-	sv.watches.stop(r.PathValue("p"))
+	sv.watches.stop(r.PathValue("p"), "")
 	if err := projects.Remove(r.PathValue("p")); err != nil {
 		guiErr(w, 404, err)
 		return
@@ -436,7 +441,7 @@ func (sv *guiServer) apiOverview(w http.ResponseWriter, r *http.Request) {
 		"keyring":       cfg.Project.Keyring,
 		"secret_errors": cfg.SecretErrors,
 		"servers":       infos,
-		"watch":         sv.watches.get(p.Name),
+		"watches":       sv.watches.forProject(p.Name),
 	})
 }
 
@@ -1258,57 +1263,79 @@ func (sv *guiServer) apiFailed(w http.ResponseWriter, r *http.Request) {
 // ── watch ─────────────────────────────────────────────────────────────────────
 
 func (sv *guiServer) apiWatchGet(w http.ResponseWriter, r *http.Request) {
-	guiJSON(w, sv.watches.get(r.PathValue("p")))
+	guiJSON(w, sv.watches.forProject(r.PathValue("p")))
 }
 
+// apiWatchStart {servers: [...]} — her sunucu için ayrı watch; boşsa tüm aktif sunucular ("tümünü izle").
+// Zaten izlenen sunucular atlanır; başlatılamayanlar errors'ta döner.
 func (sv *guiServer) apiWatchStart(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Servers []string `json:"servers"`
 	}
 	_ = guiDecode(r, &req)
-	gw, err := sv.startWatch(r.PathValue("p"), req.Servers)
+	started, errs, err := sv.startWatch(r.PathValue("p"), req.Servers)
 	if err != nil {
 		guiErr(w, 400, err)
 		return
 	}
 	sv.persistWatches()
-	guiJSON(w, gw)
+	msgs := []string{}
+	for _, e := range errs {
+		msgs = append(msgs, e.Error())
+	}
+	guiJSON(w, map[string]any{"started": started, "errors": msgs})
 }
 
+// apiWatchStop ?server=X → yalnızca o sunucu; parametresizse projenin tüm watch'ları.
 func (sv *guiServer) apiWatchStop(w http.ResponseWriter, r *http.Request) {
-	ok := sv.watches.stop(r.PathValue("p"))
+	n := sv.watches.stop(r.PathValue("p"), r.URL.Query().Get("server"))
 	sv.persistWatches()
-	guiJSON(w, ok)
+	guiJSON(w, n)
 }
 
-// startWatch projede arka plan watch'ı başlatır (panel, tray ve açılışta geri yükleme ortak).
-// servers boşsa tüm aktif sunucular izlenir.
-func (sv *guiServer) startWatch(project string, serverNames []string) (*guiWatch, error) {
+// startWatch projenin sunucularını izlemeye başlar — her sunucu kendi watch'ında (CLI `watch -s`
+// gibi; panel, tray ve açılışta geri yükleme ortak). serverNames boşsa tüm aktif sunucular.
+// Zaten izlenen sunucu atlanır; başka süreçte izlenen sunucu hata listesine girer.
+func (sv *guiServer) startWatch(project string, serverNames []string) ([]guiWatch, []error, error) {
 	p, ok := projects.Find(project)
 	if !ok {
-		return nil, fmt.Errorf(lang.L.ProjectNotFoundFmt, project)
+		return nil, nil, fmt.Errorf(lang.L.ProjectNotFoundFmt, project)
 	}
 	cfg, err := config.Load(p.Path)
 	if err != nil {
-		return nil, err
-	}
-	if sv.watches.get(p.Name) != nil {
-		return nil, errors.New(lang.L.GuiWatchRunning)
-	}
-	if pid := watchLockOwner(p.Path); pid != 0 { // başka panel / CLI watch bu projeyi izliyor
-		return nil, fmt.Errorf(lang.L.WatchLockedFmt, pid)
+		return nil, nil, err
 	}
 	servers, err := selectServers(cfg, serverNames)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	names := make([]string, len(servers))
-	for i, s := range servers {
-		names[i] = s.Name
+	var started []guiWatch
+	var errs []error
+	for _, srv := range servers {
+		if sv.watches.has(p.Name, srv.Name) {
+			continue
+		}
+		if pid := watchLockOwner(p.Path, srv.Name); pid != 0 { // başka panel / CLI watch bu sunucuyu izliyor
+			errs = append(errs, fmt.Errorf("%s: "+lang.L.WatchLockedFmt, srv.Name, pid))
+			continue
+		}
+		gw, err := sv.startServerWatch(p, cfg, srv)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", srv.Name, err))
+			continue
+		}
+		started = append(started, *gw)
 	}
-	gw := &guiWatch{Project: p.Name, path: p.Path, Servers: names, Started: time.Now(), stop: make(chan struct{}), explicit: len(serverNames) > 0}
-	j, err := sv.jobs.start("watch", p.Name, strings.Join(names, ", "), lang.L.GuiJobWatch, "", func(j *job) (any, error) {
-		return nil, watchLoop(p.Path, cfg, servers, j, gw.stop, func(res serverSyncResult) {
+	if len(started) == 0 && len(errs) == 0 && len(servers) > 0 {
+		return nil, nil, errors.New(lang.L.GuiWatchRunning)
+	}
+	return started, errs, nil
+}
+
+func (sv *guiServer) startServerWatch(p projects.Project, cfg *config.Config, srv config.Server) (*guiWatch, error) {
+	gw := &guiWatch{Project: p.Name, Server: srv.Name, Servers: []string{srv.Name}, path: p.Path, Started: time.Now(), stop: make(chan struct{})}
+	j, err := sv.jobs.start("watch", p.Name, srv.Name, lang.L.GuiJobWatch, "", func(j *job) (any, error) {
+		return nil, watchLoop(p.Path, cfg, []config.Server{srv}, j, gw.stop, func(res serverSyncResult) {
 			sv.watches.mu.Lock()
 			gw.Syncs++
 			gw.LastSync = time.Now().Format("15:04:05")
@@ -1318,10 +1345,10 @@ func (sv *guiServer) startWatch(project string, serverNames []string) (*guiWatch
 	if err != nil {
 		return nil, err
 	}
-	j.cancel = func() { sv.watches.stop(p.Name); sv.persistWatches() }
+	j.cancel = func() { sv.watches.stop(p.Name, srv.Name); sv.persistWatches() }
 	gw.JobID = j.ID
 	sv.watches.mu.Lock()
-	sv.watches.m[p.Name] = gw
+	sv.watches.m[watchKey(p.Name, srv.Name)] = gw
 	sv.watches.mu.Unlock()
 	return gw, nil
 }

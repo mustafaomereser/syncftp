@@ -167,7 +167,7 @@ type winTray struct {
 	items []trayItem
 	fonts trayFonts
 
-	watchProjects []string
+	watchProjects [][2]string // proje, sunucu
 	projectNames  []string
 	once          sync.Once
 }
@@ -512,9 +512,9 @@ func (t *winTray) showMenu() {
 	if len(watches) > 0 {
 		sep(menu)
 		for i, w := range watches {
-			t.watchProjects = append(t.watchProjects, w.Project)
+			t.watchProjects = append(t.watchProjects, [2]string{w.Project, w.Server})
 			add(menu, trayItem{kind: kindItem, id: uintptr(idWatchBase + i), glyph: 0xE7B3,
-				text: w.Project + "  ·  " + strings.Join(w.Servers, ", "), hint: lang.L.TrayStop, dot: true})
+				text: w.Project + "  ·  " + w.Server, hint: lang.L.TrayStop, dot: true})
 		}
 	}
 
@@ -575,7 +575,8 @@ func (t *winTray) showMenu() {
 	case cmd >= idProjectBase && int(cmd-idProjectBase) < len(t.projectNames):
 		t.openAt("#/p/" + url.PathEscape(t.projectNames[cmd-idProjectBase]))
 	case cmd >= idWatchBase && cmd < idProjectBase && int(cmd-idWatchBase) < len(t.watchProjects):
-		t.sv.watches.stop(t.watchProjects[cmd-idWatchBase])
+		w := t.watchProjects[cmd-idWatchBase]
+		t.sv.watches.stop(w[0], w[1])
 		t.sv.persistWatches()
 		t.refreshIcon()
 	}

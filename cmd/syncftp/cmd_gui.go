@@ -614,15 +614,17 @@ func (m *jobManager) busyServers(project string) map[string]string {
 
 // ── Watch yöneticisi (proje başına bir arka plan watch) ──────────────────────
 
+// guiWatch tek sunucunun watch'ı. Eskiden proje başına tek watch vardı (tüm sunucular birlikte açılıp
+// kapanıyordu); CLI'daki gibi her sunucu ayrı izlenir.
 type guiWatch struct {
 	Project  string    `json:"project"`
-	Servers  []string  `json:"servers"`
+	Server   string    `json:"server"`
+	Servers  []string  `json:"servers"` // [Server] — eski istemciler için
 	Started  time.Time `json:"started"`
 	JobID    string    `json:"job_id"`
 	LastSync string    `json:"last_sync,omitempty"`
 	Syncs    int       `json:"syncs"`
 	stop     chan struct{}
-	explicit bool   // sunucular elle seçildi (kalıcı kayıtta listelenir; değilse "tüm aktifler")
 	path     string // proje dizini — kalıcı kayıt anahtarı
 }
 
@@ -639,14 +641,25 @@ func (wm *watchManager) count() int {
 	return len(wm.m)
 }
 
-func (wm *watchManager) get(project string) *guiWatch {
+func watchKey(project, server string) string { return project + "\x00" + server }
+
+// has sunucunun watch'ı açık mı.
+func (wm *watchManager) has(project, server string) bool {
 	wm.mu.Lock()
 	defer wm.mu.Unlock()
-	if w, ok := wm.m[project]; ok {
-		cp := *w
-		return &cp
+	_, ok := wm.m[watchKey(project, server)]
+	return ok
+}
+
+// forProject projenin açık watch'ları (sunucu adına göre).
+func (wm *watchManager) forProject(project string) []guiWatch {
+	out := []guiWatch{}
+	for _, w := range wm.all() {
+		if w.Project == project {
+			out = append(out, w)
+		}
 	}
-	return nil
+	return out
 }
 
 func (wm *watchManager) all() []guiWatch {
@@ -656,21 +669,30 @@ func (wm *watchManager) all() []guiWatch {
 	for _, w := range wm.m {
 		out = append(out, *w)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Project < out[j].Project })
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Project != out[j].Project {
+			return out[i].Project < out[j].Project
+		}
+		return out[i].Server < out[j].Server
+	})
 	return out
 }
 
-func (wm *watchManager) stop(project string) bool {
+// stop sunucunun watch'ını durdurur; server boşsa projenin tüm watch'ları. Durdurulan sayıyı döner.
+func (wm *watchManager) stop(project, server string) int {
 	wm.mu.Lock()
-	w, ok := wm.m[project]
-	if ok {
-		delete(wm.m, project)
+	var stopped []*guiWatch
+	for k, w := range wm.m {
+		if w.Project == project && (server == "" || w.Server == server) {
+			stopped = append(stopped, w)
+			delete(wm.m, k)
+		}
 	}
 	wm.mu.Unlock()
-	if ok {
+	for _, w := range stopped {
 		close(w.stop)
 	}
-	return ok
+	return len(stopped)
 }
 
 func (wm *watchManager) stopAll() {

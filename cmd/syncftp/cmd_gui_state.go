@@ -12,7 +12,7 @@ import (
 // guiPersist — panel süreci yeniden başladığında geri yüklenen durum.
 // <UserConfigDir>/syncftp/gui-state.json
 type guiPersist struct {
-	// Watches açık watch'lar: proje DİZİNİ → sunucular (boş liste = tüm aktif sunucular). Eskiden
+	// Watches açık watch'lar: proje DİZİNİ → izlenen sunucular (eski kayıtlarda boş liste = tüm aktifler). Eskiden
 	// anahtar proje adıydı ve her panel tüm haritayı kendi listesiyle eziyordu: farklı klasörlerde
 	// açılan iki panel birbirinin watch'larını siliyor ya da aynı projeyi ikisi birden izliyordu.
 	Watches map[string][]string `json:"watches"`
@@ -67,11 +67,7 @@ func updateGUIPersist(fn func(*guiPersist)) {
 func (sv *guiServer) persistWatches() {
 	cur := map[string][]string{}
 	for _, w := range sv.watches.all() {
-		if w.explicit {
-			cur[w.path] = w.Servers
-		} else {
-			cur[w.path] = []string{}
-		}
+		cur[w.path] = append(cur[w.path], w.Server)
 	}
 	updateGUIPersist(func(st *guiPersist) {
 		// Yalnızca bu panelin gördüğü projelerin kayıtları değişir; başka klasördeki panellerinkiler kalır
@@ -91,7 +87,7 @@ func (sv *guiServer) persistWatches() {
 func (sv *guiServer) restoreWatches() {
 	for key, servers := range loadGUIPersist().Watches {
 		if p, ok := projects.Find(key); ok {
-			_, _ = sv.startWatch(p.Path, servers)
+			_, _, _ = sv.startWatch(p.Path, servers)
 		}
 	}
 }

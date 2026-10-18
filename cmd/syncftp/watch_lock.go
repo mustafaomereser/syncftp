@@ -10,15 +10,24 @@ import (
 	"syncftp/internal/lang"
 )
 
-// Watch kilidi: aynı projeyi iki süreç (iki panel, panel + CLI `watch`) aynı anda izlerse her
-// değişiklik iki kez yüklenir ve yarışır. watchLoop başlarken .syncftp/watch.lock'a kendi PID'ini
-// yazar; dosyadaki PID canlı başka bir süreçse reddeder. Ölü süreçten kalan kilit devralınır.
+// Watch kilidi: aynı sunucuyu iki süreç (iki panel, panel + CLI `watch`) aynı anda izlerse her
+// değişiklik iki kez yüklenir ve yarışır. watchLoop başlarken her sunucu için
+// .syncftp/locks/watch-<sunucu>.lock'a kendi PID'ini yazar; dosyadaki PID canlı başka bir süreçse
+// reddeder. Ölü süreçten kalan kilit devralınır. Farklı sunucular ayrı süreçlerde izlenebilir.
 
-func watchLockPath(dir string) string { return filepath.Join(dir, ".syncftp", "watch.lock") }
+func watchLockPath(dir, server string) string {
+	safe := strings.Map(func(r rune) rune {
+		if r == '/' || r == '\\' || r == ':' || r == '*' || r == '?' || r == '"' || r == '<' || r == '>' || r == '|' {
+			return '_'
+		}
+		return r
+	}, server)
+	return filepath.Join(dir, ".syncftp", "locks", "watch-"+safe+".lock")
+}
 
-// watchLockOwner kilidi tutan canlı başka bir sürecin PID'i (yoksa 0).
-func watchLockOwner(dir string) int {
-	data, err := os.ReadFile(watchLockPath(dir))
+// watchLockOwner sunucunun kilidini tutan canlı başka bir sürecin PID'i (yoksa 0).
+func watchLockOwner(dir, server string) int {
+	data, err := os.ReadFile(watchLockPath(dir, server))
 	if err != nil {
 		return 0
 	}
@@ -29,18 +38,38 @@ func watchLockOwner(dir string) int {
 	return pid
 }
 
-func acquireWatchLock(dir string) (release func(), err error) {
-	if pid := watchLockOwner(dir); pid != 0 {
-		return nil, fmt.Errorf(lang.L.WatchLockedFmt, pid)
-	}
-	p := watchLockPath(dir)
-	_ = os.MkdirAll(filepath.Dir(p), 0700)
-	if err := os.WriteFile(p, []byte(strconv.Itoa(os.Getpid())), 0600); err != nil {
-		return nil, err
-	}
-	return func() {
-		if data, err := os.ReadFile(p); err == nil && strings.TrimSpace(string(data)) == strconv.Itoa(os.Getpid()) {
-			_ = os.Remove(p)
+// acquireWatchLock verilen sunucuların hepsini kilitler; biri başka süreçteyse hiçbirini almaz.
+func acquireWatchLock(dir string, servers []string) (release func(), err error) {
+	for _, s := range servers {
+		if pid := watchLockOwner(dir, s); pid != 0 {
+			return nil, fmt.Errorf("%s: "+lang.L.WatchLockedFmt, s, pid)
 		}
-	}, nil
+	}
+	me := strconv.Itoa(os.Getpid())
+	// Proje başına tek kilit kullanan önceki sürümün dosyası (sahibi ölmüşse) temizlenir
+	if old := filepath.Join(dir, ".syncftp", "watch.lock"); fileExistsPlain(old) {
+		if data, err := os.ReadFile(old); err == nil {
+			if pid, _ := strconv.Atoi(strings.TrimSpace(string(data))); pid <= 0 || !processAlive(pid) {
+				_ = os.Remove(old)
+			}
+		}
+	}
+	var held []string
+	release = func() {
+		for _, p := range held {
+			if data, err := os.ReadFile(p); err == nil && strings.TrimSpace(string(data)) == me {
+				_ = os.Remove(p)
+			}
+		}
+	}
+	for _, s := range servers {
+		p := watchLockPath(dir, s)
+		_ = os.MkdirAll(filepath.Dir(p), 0700)
+		if err := os.WriteFile(p, []byte(me), 0600); err != nil {
+			release()
+			return nil, err
+		}
+		held = append(held, p)
+	}
+	return release, nil
 }

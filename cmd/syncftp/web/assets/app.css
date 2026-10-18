@@ -514,3 +514,9 @@ details.bolum.katlanir > summary h3 + .ok-ac { margin-left: auto; }
 .dp-saat input { width: 58px; text-align: center; font-family: var(--mono); }
 .dp-hizli { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .dp-alt { display: flex; justify-content: space-between; margin-top: 12px; }
+
+/* Dosyalar: sunucu seçimi sekme gibi */
+.srv-seg { display: inline-flex; flex-wrap: wrap; }
+.srv-seg a { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; height: 30px; color: var(--muted); text-decoration: none; border-radius: 8px; font-size: 13px; }
+.srv-seg a.aktif { background: var(--surface-2); color: var(--text); }
+.srv-seg a:hover { color: var(--text); }

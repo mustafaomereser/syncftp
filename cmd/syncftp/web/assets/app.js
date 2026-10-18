@@ -10,7 +10,7 @@ const T = {
   tr: {
     brandSub: 'Dağıtım paneli', navAll: 'Tüm projeler', navJobs: 'İşler', navProjects: 'Projeler',
     addProject: 'Proje ekle', navNoProjects: 'Bu klasörde proje yok', watching: 'Watch', language: 'Dil', quit: 'Kapat',
-    loading: 'Yükleniyor…', mgSync: 'Sync', mgCheck: 'Kontrol', mgHistory: 'Zaman ve geri alma', mgServer: 'Sunucu', showMore: '{0} tane daha göster', foldAdvanced: 'Gelişmiş', foldMore: 'Diğer', foldDefault: 'varsayılan', foldOff: 'kapalı', foldConn: 'bağlantı', foldRetry: 'deneme', foldBlock: 'engelli uzantı', setTabGeneral: 'Genel', setTabLibrary: 'Bağlantı kütüphanesi', setTabDefaults: 'Yeni proje varsayılanları', setTabProjects: 'Projeler', setTabHooks: 'Webhook / CI', setTabSecurity: 'Host anahtarları', setTabSystem: 'Sistem', deleteRecursive: 'İçeriğiyle birlikte sil', deleteRecursiveHint: 'Kapalıyken yalnızca boş klasörler silinir (CLI: remote rm --recursive)', stFilter: 'Filtrele', stFilterHint: 'Tek seferlik include / exclude (virgülle ayırın) — CLI: status --include / --exclude', moreRows: '{0} öğe daha göster', stFrozen: 'Freeze', stProtected: 'Korunan', stBlocked: 'Engelli', stUploadSize: 'yüklenecek: {0}', treeView: 'Ağaç', treeHint: 'Bu klasörün altını ağaç olarak göster (shell tree)', treeAsk: 'Klasör başına en fazla kaç öğe gösterilsin?', treeAll: 'Tümü', ignoreNoFile: 'ignore_files listesinde syncFTP dosyası yok — yalnızca .gitignore okunuyor', viewCode: 'Kod', viewRendered: 'Önizleme', viewRenderedLocal: 'Önizleme (yerel)', viewRenderedRemote: 'Önizleme (sunucu)', scanningLocal: 'Taranıyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
+    loading: 'Yükleniyor…', watchAll: 'Tümünü izle', watchStopAll: 'Tüm watch\'ları durdur', watchAllHint: 'Projedeki her aktif sunucu için ayrı watch başlatır', watchServerHint: 'Bu sunucuyu izle: yerelde değişen dosyalar otomatik yüklenir (CLI: watch -s)', watchingTag: 'izleniyor', watchCount: '{0}/{1} sunucu', watchSyncs: '{0} otomatik sync', mgSync: 'Sync', mgCheck: 'Kontrol', mgHistory: 'Zaman ve geri alma', mgServer: 'Sunucu', showMore: '{0} tane daha göster', foldAdvanced: 'Gelişmiş', foldMore: 'Diğer', foldDefault: 'varsayılan', foldOff: 'kapalı', foldConn: 'bağlantı', foldRetry: 'deneme', foldBlock: 'engelli uzantı', setTabGeneral: 'Genel', setTabLibrary: 'Bağlantı kütüphanesi', setTabDefaults: 'Yeni proje varsayılanları', setTabProjects: 'Projeler', setTabHooks: 'Webhook / CI', setTabSecurity: 'Host anahtarları', setTabSystem: 'Sistem', deleteRecursive: 'İçeriğiyle birlikte sil', deleteRecursiveHint: 'Kapalıyken yalnızca boş klasörler silinir (CLI: remote rm --recursive)', stFilter: 'Filtrele', stFilterHint: 'Tek seferlik include / exclude (virgülle ayırın) — CLI: status --include / --exclude', moreRows: '{0} öğe daha göster', stFrozen: 'Freeze', stProtected: 'Korunan', stBlocked: 'Engelli', stUploadSize: 'yüklenecek: {0}', treeView: 'Ağaç', treeHint: 'Bu klasörün altını ağaç olarak göster (shell tree)', treeAsk: 'Klasör başına en fazla kaç öğe gösterilsin?', treeAll: 'Tümü', ignoreNoFile: 'ignore_files listesinde syncFTP dosyası yok — yalnızca .gitignore okunuyor', viewCode: 'Kod', viewRendered: 'Önizleme', viewRenderedLocal: 'Önizleme (yerel)', viewRenderedRemote: 'Önizleme (sunucu)', scanningLocal: 'Taranıyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
     edit: 'Düzenle', back: 'Geri', yes: 'Evet', confirm: 'Onayla', browse: 'Gözat', add: 'Ekle', open: 'Aç',
     saved: 'Kaydedildi', copied: 'Kopyalandı', never: 'hiç', none: 'yok', all: 'Tümü', manual: '(manuel giriş)',
     projectsTitle: 'Projeler', projectsSub: `{0} klasöründeki syncFTP projeleri (CLI gibi: panel açıldığı klasörü esas alır)`,
@@ -119,7 +119,7 @@ const T = {
   en: {
     brandSub: 'Deploy panel', navAll: 'All projects', navJobs: 'Jobs', navProjects: 'Projects',
     addProject: 'Add project', navNoProjects: 'No project in this folder', watching: 'Watch', language: 'Language', quit: 'Quit',
-    loading: 'Loading…', mgSync: 'Sync', mgCheck: 'Check', mgHistory: 'Time & rollback', mgServer: 'Server', showMore: 'Show {0} more', foldAdvanced: 'Advanced', foldMore: 'More', foldDefault: 'default', foldOff: 'off', foldConn: 'connections', foldRetry: 'retries', foldBlock: 'blocked ext', setTabGeneral: 'General', setTabLibrary: 'Connection library', setTabDefaults: 'New project defaults', setTabProjects: 'Projects', setTabHooks: 'Webhook / CI', setTabSecurity: 'Host keys', setTabSystem: 'System', deleteRecursive: 'Delete with contents', deleteRecursiveHint: 'When off, only empty folders are deleted (CLI: remote rm --recursive)', stFilter: 'Filter', stFilterHint: 'One-off include / exclude (comma separated) — CLI: status --include / --exclude', moreRows: 'Show {0} more', stFrozen: 'Frozen', stProtected: 'Protected', stBlocked: 'Blocked', stUploadSize: 'to upload: {0}', treeView: 'Tree', treeHint: 'Show everything below this folder as a tree (shell tree)', treeAsk: 'Show at most how many entries per folder?', treeAll: 'All', ignoreNoFile: 'ignore_files has no syncFTP file — only .gitignore is read', viewCode: 'Code', viewRendered: 'Preview', viewRenderedLocal: 'Preview (local)', viewRenderedRemote: 'Preview (server)', scanningLocal: 'Scanning…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
+    loading: 'Loading…', watchAll: 'Watch all', watchStopAll: 'Stop all watches', watchAllHint: 'Starts a separate watch for every enabled server', watchServerHint: 'Watch this server: locally changed files upload automatically (CLI: watch -s)', watchingTag: 'watching', watchCount: '{0}/{1} servers', watchSyncs: '{0} auto syncs', mgSync: 'Sync', mgCheck: 'Check', mgHistory: 'Time & rollback', mgServer: 'Server', showMore: 'Show {0} more', foldAdvanced: 'Advanced', foldMore: 'More', foldDefault: 'default', foldOff: 'off', foldConn: 'connections', foldRetry: 'retries', foldBlock: 'blocked ext', setTabGeneral: 'General', setTabLibrary: 'Connection library', setTabDefaults: 'New project defaults', setTabProjects: 'Projects', setTabHooks: 'Webhook / CI', setTabSecurity: 'Host keys', setTabSystem: 'System', deleteRecursive: 'Delete with contents', deleteRecursiveHint: 'When off, only empty folders are deleted (CLI: remote rm --recursive)', stFilter: 'Filter', stFilterHint: 'One-off include / exclude (comma separated) — CLI: status --include / --exclude', moreRows: 'Show {0} more', stFrozen: 'Frozen', stProtected: 'Protected', stBlocked: 'Blocked', stUploadSize: 'to upload: {0}', treeView: 'Tree', treeHint: 'Show everything below this folder as a tree (shell tree)', treeAsk: 'Show at most how many entries per folder?', treeAll: 'All', ignoreNoFile: 'ignore_files has no syncFTP file — only .gitignore is read', viewCode: 'Code', viewRendered: 'Preview', viewRenderedLocal: 'Preview (local)', viewRenderedRemote: 'Preview (server)', scanningLocal: 'Scanning…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
     edit: 'Edit', back: 'Back', yes: 'Yes', confirm: 'Confirm', browse: 'Browse', add: 'Add', open: 'Open',
     saved: 'Saved', copied: 'Copied', never: 'never', none: 'none', all: 'All', manual: '(manual entry)',
     projectsTitle: 'Projects', projectsSub: `syncFTP projects in {0} (like the CLI: the panel works on the folder it was opened in)`,
@@ -455,22 +455,36 @@ function renderDock() {
   $('#nav-jobs').textContent = running ? running : '';
   renderWatchRow();
 }
+// Watch aç/kapa — servers boşsa tüm aktif sunucular; server boşsa projenin tüm watch'ları
+async function watchStart(P, servers) {
+  try {
+    const res = await api('POST', `/api/p/${enc(P)}/watch`, { servers });
+    for (const w of res.started || []) trackJob(w.job_id, { kind: 'watch', project: P, server: w.server, title: 'Watch', quiet: true });
+    for (const e of res.errors || []) toast(e, 'bad');
+    if ((res.started || []).length) toast(t('watchStarted') + ': ' + res.started.map((w) => w.server).join(', '));
+  } catch (e) { fail(e); }
+  await loadProjects(); render(true);
+}
+async function watchStop(P, server = '') {
+  try { await api('DELETE', `/api/p/${enc(P)}/watch${server ? `?server=${enc(server)}` : ''}`); toast(t('watchStopped') + (server ? ': ' + server : '')); } catch (e) { fail(e); }
+  await loadProjects(); render(true);
+}
 function runningWatches() { return [...S.jobs.values()].filter((j) => isWatchJob(j) && j.status === 'running'); }
 function renderWatchRow() {
   const row = $('#sb-watch-row');
   if (!row) return;
   const ws = runningWatches();
-  const n = Math.max(ws.length, S.projects.filter((p) => p.watching).length);
+  const n = Math.max(ws.length, S.projects.reduce((a, p) => a + (p.watched || []).length, 0));
   $('#sb-watch').innerHTML = n ? `<span class="busy" style="display:inline-flex"><span class="nokta"></span></span>${n}` : '0';
   row.classList.toggle('aktif', n > 0);
-  row.title = ws.map((j) => `${j.project}: ${j.last || '…'}`).join('\n');
+  row.title = ws.map((j) => `${j.project} · ${j.server}: ${j.last || '…'}`).join('\n');
 }
 async function openWatches(anchor) {
   await refreshJobsMeta();
   const ws = runningWatches();
   if (!ws.length) return toast(t('noWatches'));
   if (ws.length === 1) return showJobLog(ws[0].id);
-  openMenu(anchor, ws.map((j) => ({ icon: 'eye', label: j.project || j.title, hint: j.last || '…', run: () => showJobLog(j.id) })));
+  openMenu(anchor, ws.map((j) => ({ icon: 'eye', label: `${j.project}${j.server ? ' · ' + j.server : ''}`, hint: j.last || '…', run: () => showJobLog(j.id) })));
 }
 setInterval(renderDock, 3000);
 
@@ -717,21 +731,21 @@ async function tabOverview(proj) {
   const pending = enabled.reduce((a, s) => a + s.new + s.changed, 0);
   const seq = S.renderSeq;
   const last = servers.map((s) => s.last_sync).filter(Boolean).sort().pop();
-  const w = ov.watch;
+  // Watch sunucu başına (CLI `watch -s` gibi): her kartın kendi aç/kapa düğmesi var
+  const ws = ov.watches || [];
+  const watched = new Set(ws.map((x) => x.server));
+  servers.forEach((s) => { s.watching = watched.has(s.name); });
+  const allWatched = enabled.length > 0 && enabled.every((s) => s.watching);
+  const syncs = ws.reduce((a, x) => a + (x.syncs || 0), 0);
 
   bind((root) => {
     const P = proj.name;
     const aks = $('#proj-aks', root);
-    aks.innerHTML = `<button class="btn ${w ? 'tehlike' : ''}" id="b-watch">${icon(w ? 'stop' : 'eye')}${w ? t('watchStop') : t('watchStart')}</button>
+    aks.innerHTML = `${enabled.length > 1 ? `<button class="btn ${allWatched ? 'tehlike' : ''}" id="b-watch" title="${t('watchAllHint')}">${icon(allWatched ? 'stop' : 'eye')}${allWatched ? t('watchStopAll') : t('watchAll')}</button>` : ''}
       <button class="ikon-btn" id="b-refresh" title="${t('refresh')}">${icon('refresh')}</button>`;
     $('#b-refresh', root).onclick = () => render();
-    $('#b-watch', root).onclick = async () => {
-      try {
-        if (w) { await api('DELETE', `/api/p/${enc(P)}/watch`); toast(t('watchStopped')); }
-        else { const gw = await api('POST', `/api/p/${enc(P)}/watch`, {}); trackJob(gw.job_id, { kind: 'watch', project: P, title: 'Watch', quiet: true }); toast(t('watchStarted')); }
-        await loadProjects(); render(true);
-      } catch (e) { fail(e); }
-    };
+    const bw = $('#b-watch', root);
+    if (bw) bw.onclick = () => (allWatched ? watchStop(P) : watchStart(P, []));
     const sa = $('#b-syncall', root);
     if (sa) sa.onclick = () => startJobs(P, { kind: 'sync' }, t('sync')).catch(fail);
     const dr = $('#b-dryall', root);
@@ -787,8 +801,8 @@ async function tabOverview(proj) {
       <div class="kutu"><span>${icon('server')}${t('sumServers')}</span><b>${enabled.length}<small> / ${servers.length}</small></b></div>
       <div class="kutu"><span>${icon('upload')}${t('sumPending')}</span><b id="ov-pending" class="${pending ? 'warn-t' : ''}">${pending}</b></div>
       <div class="kutu"><span>${icon('clock')}${t('sumLastSync')}</span><b style="font-size:20px">${last ? ago(last) : t('never')}</b></div>
-      <div class="kutu"><span>${icon('eye')}${t('sumWatch')}</span><b style="font-size:20px" class="${w ? 'acc-t' : ''}">${w ? t('watchOn') : t('watchOff')}</b>
-        ${w ? `<span style="margin-top:2px">${t('watchSince', fmtDate(w.started).slice(11), w.syncs)}</span>` : ''}</div>
+      <div class="kutu"><span>${icon('eye')}${t('sumWatch')}</span><b style="font-size:20px" class="${ws.length ? 'acc-t' : ''}">${ws.length ? t('watchCount', ws.length, enabled.length) : t('watchOff')}</b>
+        ${ws.length ? `<span style="margin-top:2px">${t('watchSyncs', syncs)}</span>` : ''}</div>
     </div>
     <div class="aksiyonlar" style="margin-bottom:14px">
       <button class="btn mavi" id="b-syncall">${icon('upload')}${t('syncAll')}</button>
@@ -808,7 +822,8 @@ function serverCard(s) {
       <div class="ust"><h3>${esc(s.name)}</h3><span class="pill mono ${s.protocol}">${s.protocol.toUpperCase()}</span>
         ${s.enabled ? '' : `<span class="pill">${t('disabled')}</span>`}${busy}
         ${s.tunnel ? `<span class="pill vio" title="${esc(s.tunnel)}">${icon('tunnel')}${t('tunnel')}</span>` : ''}
-        ${s.connection ? `<span class="pill">${icon('link')}${esc(s.connection)}</span>` : ''}</div>
+        ${s.connection ? `<span class="pill">${icon('link')}${esc(s.connection)}</span>` : ''}
+        ${s.watching ? `<span class="pill busy"><span class="nokta"></span>${t('watchingTag')}</span>` : ''}</div>
       <div class="meta">
         <span>${icon('server')}<span class="mono">${esc(s.user ? s.user + '@' : '')}${esc(s.host)}:${s.port}</span></span>
         <span>${icon('folder')}<span class="mono">${esc(s.local_path)}</span> <em>→</em> <span class="mono">${esc(s.remote_path)}</span></span>
@@ -818,6 +833,8 @@ function serverCard(s) {
     </div>
     <div class="butonlar">
       <button class="btn kucuk mavi" data-act="sync" ${s.busy ? 'disabled' : ''}>${icon('upload')}${t('sync')}</button>
+      ${s.enabled ? `<button class="btn kucuk ${s.watching ? 'tehlike' : ''}" data-act="watch" title="${t('watchServerHint')}">${icon(s.watching ? 'stop' : 'eye')}${s.watching ? t('watchStop') : t('watchStart')}</button>` : ''}
+      <button class="btn kucuk" data-act="files" title="${t('browseFiles')}">${icon('folder')}${t('tabFiles')}</button>
       <span class="menu-kap"><button class="ikon-btn" data-act="menu" data-menu>${icon('dots')}</button></span>
     </div>
     <div class="alt">
@@ -839,6 +856,8 @@ function bindServerCard(card, P, s) {
   const act = (sel, fn) => { const b = $(`[data-act="${sel}"]`, card); if (b) b.onclick = (e) => { e.stopPropagation(); fn(b); }; };
   const job = (req, label) => startJobs(P, { servers: [s.name], ...req }, label).catch(fail);
   act('sync', () => job({ kind: 'sync' }, t('sync')));
+  act('watch', () => (s.watching ? watchStop(P, s.name) : watchStart(P, [s.name])));
+  act('files', () => go(pHash(P, 'files', s.name)));
   act('status', () => statusModal(P, s));
   act('milestone', () => milestoneModal(P, s));
   act('freeze', () => freezeModal(P, s));
@@ -1651,7 +1670,8 @@ async function tabFiles(proj, srvName, relPath) {
   bind((root) => {
     $('#proj-aks', root).innerHTML = `<button class="ikon-btn" id="b-rf" title="${t('refresh')}">${icon('refresh')}</button>`;
     $('#b-rf', root).onclick = () => reload();
-    $('#f-srv', root).onchange = (e) => go(pHash(P, 'files', e.target.value));
+    const fs = $('#f-srv', root);
+    if (fs) fs.onchange = (e) => go(pHash(P, 'files', e.target.value));
     $$('[data-crumb]', root).forEach((b) => (b.onclick = () => go(b.dataset.crumb === '' ? pHash(P, 'files', srv) : hashFor(b.dataset.crumb))));
     const filter = $('#f-filter', root);
     filter.oninput = () => applyFilter(filter.value);
@@ -1793,7 +1813,8 @@ async function tabFiles(proj, srvName, relPath) {
         <button class="ikon-btn tehlike" data-act="rm" title="${t('delete')}">${icon('trash')}</button></td></tr>`;
   }
   return `<div class="arac-cubuk">
-      <select id="f-srv">${cfg.servers.map((s) => `<option value="${esc(s.name)}" ${s.name === srv ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>
+      ${cfg.servers.length > 1 && cfg.servers.length <= 6 ? `<span class="seg srv-seg">${cfg.servers.map((s) => `<a href="${pHash(P, 'files', s.name)}" class="${s.name === srv ? 'aktif' : ''}" title="${esc(s.remote_path)}">${icon('server')}${esc(s.name)}</a>`).join('')}</span>`
+        : `<select id="f-srv">${cfg.servers.map((s) => `<option value="${esc(s.name)}" ${s.name === srv ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>`}
       <div class="ara">${icon('search')}<input type="text" id="f-filter" placeholder="${t('filter')}"></div>
       <button class="btn" id="f-search" title="${t('searchAll')}">${icon('search')}${t('searchAll')}</button>
       <button class="btn" id="f-tree" title="${t('treeHint')}">${icon('layers')}${t('treeView')}</button>
@@ -1987,15 +2008,14 @@ async function pageJobs() {
     $$('[data-jid]', root).forEach((tr) => (tr.onclick = () => showJobLog(tr.dataset.jid)));
     $$('[data-wstop]', root).forEach((b) => (b.onclick = async (e) => {
       e.stopPropagation();
-      await api('DELETE', `/api/p/${enc(b.dataset.wstop)}/watch`).catch(fail);
-      toast(t('watchStopped')); await loadProjects(); render(true);
+      await watchStop(b.dataset.wstop, b.dataset.wsrv);
     }));
   });
   const st = (s) => s === 'running' ? `<span class="pill busy"><span class="nokta"></span>${t('stRunning')}</span>` : s === 'error' ? `<span class="pill bad"><span class="nokta"></span>${t('stError')}</span>` : `<span class="pill ok"><span class="nokta"></span>${t('stDone')}</span>`;
   return `<div class="sayfa"><div class="baslik-satir"><div><h1>${t('jobsTitle')}</h1><p>${t('jobsSub')}</p></div></div>
-    ${watches.length ? `<h2 style="margin-top:0">${icon('eye')}${t('activeWatches')}</h2><div class="kartlar" style="margin-bottom:24px">${watches.map((w) => `<div class="kart"><div><div class="ust"><h3>${esc(w.project)}</h3><span class="pill busy"><span class="nokta"></span>watch</span></div>
+    ${watches.length ? `<h2 style="margin-top:0">${icon('eye')}${t('activeWatches')}</h2><div class="kartlar" style="margin-bottom:24px">${watches.map((w) => `<div class="kart"><div><div class="ust"><h3>${esc(w.project)} · ${esc(w.server)}</h3><span class="pill busy"><span class="nokta"></span>watch</span></div>
       <div class="meta"><span>${icon('server')}${esc(w.servers.join(', '))}</span><span>${icon('clock')}${t('watchSince', fmtDate(w.started).slice(11), w.syncs)}</span>${w.last_sync ? `<span>${icon('upload')}${esc(w.last_sync)}</span>` : ''}</div></div>
-      <div class="butonlar"><button class="btn kucuk" data-jid="${esc(w.job_id)}">${icon('log')}${t('jobLog')}</button><button class="btn kucuk tehlike" data-wstop="${esc(w.project)}">${icon('stop')}${t('stop')}</button></div></div>`).join('')}</div>` : ''}
+      <div class="butonlar"><button class="btn kucuk" data-jid="${esc(w.job_id)}">${icon('log')}${t('jobLog')}</button><button class="btn kucuk tehlike" data-wstop="${esc(w.project)}" data-wsrv="${esc(w.server)}">${icon('stop')}${t('stop')}</button></div></div>`).join('')}</div>` : ''}
     ${(jobs = jobs.filter((j) => !(j.kind === 'watch' && j.status === 'running'))).length ? `<div class="tablo-kap"><table class="tablo"><thead><tr><th>${t('colJob')}</th><th>${t('colProject')}</th><th>${t('colServer')}</th><th>${t('colStatus')}</th><th>${t('colStarted')}</th><th class="sag">${t('colDuration')}</th></tr></thead><tbody>
       ${jobs.map((j) => `<tr class="tikla" data-jid="${esc(j.id)}"><td><b>${esc(j.title)}</b></td><td>${esc(j.project)}</td><td class="muted">${esc(j.server)}</td><td>${st(j.status)}${j.error ? ` <span class="bad-t" style="font-size:12px">${esc(j.error.slice(0, 80))}</span>` : ''}</td>
         <td class="mono faint">${fmtDate(j.started)}</td><td class="sag mono faint">${j.ended ? dur(new Date(j.ended) - new Date(j.started)) : ''}</td></tr>`).join('')}</tbody></table></div>`

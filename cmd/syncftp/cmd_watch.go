@@ -108,7 +108,11 @@ func runWatch(dir string, all bool, srvFilter string) error {
 // watchLoop izleme çekirdeği — CLI/shell watch ve GUI'nin arka plan watch'ları ortak kullanır.
 // stop kapanınca döner. onSync != nil ise her sync sonrası sonucu ile çağrılır (GUI durum).
 func watchLoop(dir string, cfg *config.Config, servers []config.Server, out io.Writer, stop <-chan struct{}, onSync func(serverSyncResult)) error {
-	release, err := acquireWatchLock(dir)
+	names := make([]string, len(servers))
+	for i, s := range servers {
+		names[i] = s.Name
+	}
+	release, err := acquireWatchLock(dir, names)
 	if err != nil {
 		return err
 	}
