@@ -566,6 +566,7 @@ Other:
 	RollbackTagNoBackup:        "[no backup]",
 	RollbackAlreadyFmt:         "release %s was already rolled back",
 	RollbackNoBackupFmt:        "release %s has no backup (backup disabled or purged) — cannot roll back past it",
+	RollbackNothingSelectedFmt: "nothing to roll back in release %s for the selected files (already rolled back or not in this release)",
 	RollbackNotFoundFmt:        "release not found: %s",
 	RollbackReleaseFmt:         "\n  ↺ %s  (%s)\n",
 	RollbackRestoredFmt:        "    ↺ restored  %s\n",

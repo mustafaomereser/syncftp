@@ -507,6 +507,7 @@ type StringSet struct {
 	RollbackTagNoBackup        string // "[yedek yok]"
 	RollbackAlreadyFmt         string // "%s zaten geri alınmış"
 	RollbackNoBackupFmt        string // "%s release'inin yedeği yok (yedek kapalı ya da silinmiş) — bu noktanın gerisine dönülemez"
+	RollbackNothingSelectedFmt string // "%s release'inde seçilen dosyalardan geri alınabilecek yok"
 	RollbackNotFoundFmt        string // "release bulunamadı: %s"
 	RollbackReleaseFmt         string // "\n  ↺ %s  (%s)\n"
 	RollbackRestoredFmt        string // "    ↺ geri yüklendi  %s\n"

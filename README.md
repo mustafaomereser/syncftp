@@ -127,7 +127,7 @@ The panel is a local web app served on `127.0.0.1` with a per-session token, sho
 | **Servers** | add / edit / duplicate / enable / delete servers; protocol, SSH key, tunnel, paths, performance, filters, hooks, remote SSH commands; *Test connection* without saving. A server that uses a connection profile shows a short summary of the profile (with *Edit profile*) instead of its credential fields; a server with hand-entered details can be turned into a profile with *Make it a profile* |
 | **Connections** | shared credential profiles; *From a server* moves a server's details into a profile (an existing profile for the same account is reused), *From library* / *Save to library* — entries already in the library show an *In library* badge, and saving over a same-named library entry for another account asks first |
 | **Files** | remote browser: preview with syntax highlighting (HTML files also rendered in a sandboxed frame), compare with local, **edit**, download, upload, new folder, rename / move (with a remote folder picker), multi-select, freeze toggle (files or whole folders), recursive search with live results, tree view. Badges show files that sync will never upload: *frozen*, *ignore*, *exclude*, *not included* (the filters apply to the local side; the server copy is left alone) |
-| **History** | releases with backup state; open a release to see its files and a **diff** of each file (previous server version → uploaded version), roll back to before any release, sync logs |
+| **History** | releases with backup state; open a release to see its changed files as a **folder tree** next to the **diff** of the selected file (previous server version → uploaded version), tick files and **roll back only those**, or roll back the whole release; sync logs |
 | **CI/CD** | deploy triggers, webhook listener, trycloudflare tunnel, recent deliveries |
 | **Settings** | global sync settings, ignore rules editor with templates (per local folder), OS keyring, config import / export, local HTTP API, and a **Danger zone** to remove the project from syncFTP |
 
@@ -328,6 +328,14 @@ syncftp rollback 20261016-063017 -s production -y
 
 Rolling back a release also rolls back every newer one (newest first): replaced files get their previous version back (byte for byte), new files are deleted, and the state returns to the old hashes so the next `sync` detects your local changes again. If a release can only be partly rolled back, older releases are left untouched. Only the last `sync.backup_keep` releases keep backup files.
 
+**Rolling back selected files** returns just those files to their version before the release (files the release added are deleted). Newer releases that changed the same files are rolled back for those files too; the releases are marked *partly rolled back*, and a later full rollback does not touch those files again:
+
+```bash
+syncftp rollback 20261016-063017 -s production --files css/app.css,js/app.js
+```
+
+In the panel: *History → Details* → tick files (or whole folders) in the tree → *Roll back selected*.
+
 Each release also keeps a copy of the **uploaded** version of every file up to 2 MB (`after/`), so you can see exactly what a deploy changed:
 
 ```bash
@@ -448,7 +456,7 @@ Run `syncftp <command> --help` for every flag. The panel's **Help** page shows t
 | `sync` | upload changes |
 | `calibrate` | match existing server files, initialise state |
 | `verify` | find drift on the server |
-| `rollback` | undo releases, `--diff` to see what a release changed |
+| `rollback` | undo releases or selected files (`--files`), `--diff` to see what a release changed |
 | `milestone` | time-based filter / sync |
 | `freeze` | per-server freeze list |
 | `watch` | upload on save |
@@ -526,6 +534,7 @@ Checks that every file the state considers up to date exists on the server with 
 ```bash
 syncftp rollback [RELEASE-ID] [-s NAME] [--list] [-y]
 syncftp rollback RELEASE-ID [-s NAME] --diff[=PATH]     # show what the release changed, no rollback
+syncftp rollback RELEASE-ID [-s NAME] --files A,B        # roll back only these files
 ```
 
 See [Backup, rollback & atomic uploads](#backup-rollback--atomic-uploads).

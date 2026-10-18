@@ -27,6 +27,37 @@ type Manifest struct {
 	BackupPurged bool              `json:"backup_purged,omitempty"`
 	RolledBack   bool              `json:"rolled_back,omitempty"`
 	RolledBackAt *time.Time        `json:"rolled_back_at,omitempty"`
+	// RolledBackFiles seçili dosya rollback'inde geri alınanlar (release'in tamamı geri alınınca
+	// RolledBack da işaretlenir). Tam rollback bu dosyaları yeniden işlemez.
+	RolledBackFiles []string `json:"rolled_back_files,omitempty"`
+}
+
+// FileRolledBack dosya bu release'te (tek tek ya da tamamıyla) geri alındı mı.
+func (m *Manifest) FileRolledBack(rel string) bool {
+	if m.RolledBack {
+		return true
+	}
+	for _, f := range m.RolledBackFiles {
+		if f == rel {
+			return true
+		}
+	}
+	return false
+}
+
+// Pending henüz geri alınmamış yedekli ve yeni dosyalar.
+func (m *Manifest) Pending() (backed, created []string) {
+	for _, f := range m.Backed {
+		if !m.FileRolledBack(f) {
+			backed = append(backed, f)
+		}
+	}
+	for _, f := range m.New {
+		if !m.FileRolledBack(f) {
+			created = append(created, f)
+		}
+	}
+	return backed, created
 }
 
 // HasBackup rollback mümkün mü (yedek var ve henüz silinmemiş).

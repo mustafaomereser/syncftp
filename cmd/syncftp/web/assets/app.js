@@ -94,8 +94,10 @@ const T = {
     rolledBack: 'geri alındı', noBackupTag: 'yedek yok', restorable: 'geri alınabilir', details: 'Ayrıntı', undo: 'Geri al',
     noReleases: 'Henüz release yok', rollbackTitle: 'Geri alma — {0}',
     rollbackBody: 'Aşağıdaki {0} release EN YENİDEN başlayarak geri alınacak: değişen dosyaların eski hali geri yüklenir, yeni eklenen dosyalar sunucudan silinir.',
-    rollbackBlocked: 'Bu noktaya dönülemez: aradaki "{0}" release\'inin yedeği yok.', rollbackGo: 'Geri al',
+    rollbackGo: 'Geri al',
     logs: 'Loglar', noLogs: 'Log yok', releaseTitle: 'Release {0}',
+    relPickFile: 'Farkını görmek için soldan bir dosya seçin', relSelected: '{0} dosya seçili', relNotRestorable: 'Bu release geri alınamaz (yedeği yok ya da geri alınmış)', relRollbackSel: 'Seçilenleri geri al ({0})', relRollbackAll: 'Tümünü geri al', relPartly: 'kısmen geri alındı ({0} dosya)', relRolledFile: 'Bu dosya geri alındı', relNoBackupFile: 'Yedek yok — geri alınamaz', noFiles: 'Dosya yok',
+    rbSelBody: '{0} dosya {1} release\'inden önceki hâline döner (yeni eklenmiş olanlar sunucudan silinir).', rbSelChain: 'Bu dosyalar daha yeni release\'lerde de değiştiği için onlarda da bu dosyalar geri alınır:',
     relBefore: 'Önceki hal', relAfter: 'Yüklenen hal', relDiffHint: 'Sunucudaki önceki hal → bu sync\'te yüklenen hal', relFileHint: 'Farkı görmek için dosyaya tıklayın',
     relNoBefore: 'Önceki hal yok — yedek alınamamış ya da eski olduğu için silinmiş.', relNoAfter: 'Yüklenen hal saklanmamış ve yerel dosya o zamandan beri değişmiş.', relNewFile: 'Bu sync\'te sunucuya yeni eklenen dosya', relAfterLocal: 'Yüklenen hal yerel dosyadan (hash aynı)',
     jobsTitle: 'İşler', jobsSub: 'Bu oturumda çalışan ve tamamlanan işler', noJobs: 'Henüz iş yok', activeWatches: 'Aktif watch\'lar',
@@ -207,8 +209,10 @@ const T = {
     rolledBack: 'rolled back', noBackupTag: 'no backup', restorable: 'restorable', details: 'Details', undo: 'Roll back',
     noReleases: 'No releases yet', rollbackTitle: 'Roll back — {0}',
     rollbackBody: 'The following {0} release(s) will be undone, NEWEST first: replaced files get their previous version back, newly added files are deleted from the server.',
-    rollbackBlocked: 'Cannot return here: release "{0}" in between has no backup.', rollbackGo: 'Roll back',
+    rollbackGo: 'Roll back',
     logs: 'Logs', noLogs: 'No logs', releaseTitle: 'Release {0}',
+    relPickFile: 'Pick a file on the left to see its diff', relSelected: '{0} file(s) selected', relNotRestorable: 'This release cannot be rolled back (no backup or already rolled back)', relRollbackSel: 'Roll back selected ({0})', relRollbackAll: 'Roll back all', relPartly: 'partly rolled back ({0} files)', relRolledFile: 'This file was rolled back', relNoBackupFile: 'No backup — cannot be rolled back', noFiles: 'No files',
+    rbSelBody: '{0} file(s) return to their version before release {1} (newly added ones are deleted from the server).', rbSelChain: 'These files also changed in newer releases, so they are rolled back there too:',
     relBefore: 'Before', relAfter: 'Uploaded', relDiffHint: 'Previous server version → version uploaded by this sync', relFileHint: 'Click a file to see its diff',
     relNoBefore: 'No previous version — the backup is missing or was purged as old.', relNoAfter: 'The uploaded version was not stored and the local file has changed since.', relNewFile: 'File newly added to the server by this sync', relAfterLocal: 'Uploaded version taken from the local file (same hash)',
     jobsTitle: 'Jobs', jobsSub: 'Jobs running and finished in this session', noJobs: 'No jobs yet', activeWatches: 'Active watches',
@@ -2114,7 +2118,7 @@ async function tabHistory(proj, srvFilter) {
   const LIM = 25;
   const more = (n, id) => (n > LIM ? `<div class="daha-fazla"><button class="btn kucuk" data-more="${id}">${icon('down2')}${t('showMore', n - LIM)}</button></div>` : '');
   const relRows = rels.map((r, i) => {
-    const status = r.rolled_back ? `<span class="pill">${t('rolledBack')}</span>` : r.has_backup ? `<span class="pill ok"><span class="nokta"></span>${t('restorable')}</span>` : `<span class="pill">${t('noBackupTag')}</span>`;
+    const status = r.rolled_back ? `<span class="pill">${t('rolledBack')}</span>` : r.partly_rolled_back ? `<span class="pill warn">${t('relPartly', r.partly_rolled_back)}</span>` : r.has_backup ? `<span class="pill ok"><span class="nokta"></span>${t('restorable')}</span>` : `<span class="pill">${t('noBackupTag')}</span>`;
     return `<tr ${i >= LIM ? 'hidden data-extra="rel"' : ''}><td class="mono">${fmtDate(r.created_at)}</td><td>${esc(r.server)}</td><td class="sag">${r.files}</td><td class="sag">${r.backed}</td><td class="sag">${r.new}</td><td>${status}</td>
       <td class="sag" style="white-space:nowrap"><button class="btn kucuk hayalet" data-rel="${esc(r.id)}" data-srv="${esc(r.server)}">${t('details')}</button>
       ${r.has_backup && !r.rolled_back ? `<button class="btn kucuk tehlike" data-undo="${esc(r.id)}" data-srv="${esc(r.server)}">${icon('undo')}${t('undo')}</button>` : ''}</td></tr>`;
@@ -2129,29 +2133,113 @@ async function tabHistory(proj, srvFilter) {
       : `<div class="bos" style="padding:30px">${t('noLogs')}</div>`}`;
 }
 
+// Release penceresi: solda değişen dosyalar klasör ağacında (onay kutulu), sağda seçili dosyanın
+// diff'i; seçilenleri ya da release'in tamamını geri al (CLI: rollback <id> [--files a,b] [--diff]).
 async function releaseDetail(P, srv, id) {
   const title = `${icon('history')}${t('releaseTitle', esc(id))} · ${esc(srv)}`;
-  const lm = await loadModal(title, 'orta', () => GET(`/api/p/${enc(P)}/releases/${enc(srv)}/${enc(id)}`));
+  const lm = await loadModal(title, 'genis', () => GET(`/api/p/${enc(P)}/releases/${enc(srv)}/${enc(id)}`));
   if (!lm) return;
-  const d = lm.d;
-  const m = d.manifest;
-  const sets = { backed: new Set(m.backed || []), nw: new Set(m.new || []) };
+  const d = lm.d, m = d.manifest;
+  const items = d.items || [];
+  const can = (it) => d.restorable && !it.rolled_back && it.status !== 'nobackup'; // seçilebilir mi
+  const nB = (m.backed || []).length, nN = (m.new || []).length;
+  const partly = (m.rolled_back_files || []).length;
+  const state = m.rolled_back ? `<span class="pill">${t('rolledBack')}</span>`
+    : partly ? `<span class="pill warn">${t('relPartly', partly)}</span>` : '';
+
   const rm = modal({
-    title, size: 'orta',
-    body: `<p class="mono faint">${fmtDate(m.created_at)} · ${t('colFiles')}: ${d.files.length} · ${t('colReplaced')}: ${sets.backed.size} · ${t('colNew')}: ${sets.nw.size}</p>
-      <p class="ipucu" style="margin:0 0 8px">${t('relFileHint')}</p>
-      <div class="liste-kutu">${d.files.map((f) => `<div class="tikla pk-satir" data-rf="${esc(f)}"><span class="${sets.nw.has(f) ? 'ok-t' : sets.backed.has(f) ? 'warn-t' : 'faint'}">${sets.nw.has(f) ? '+' : sets.backed.has(f) ? '~' : '·'}</span> ${esc(f)}</div>`).join('')}</div>`,
+    title: `${title} ${state}`, size: 'genis',
+    body: `<p class="mono faint" style="margin:0 0 10px">${fmtDate(m.created_at)} · ${t('colFiles')}: ${items.length} · ${t('colReplaced')}: ${nB} · ${t('colNew')}: ${nN}</p>
+      <div class="rt-grid"><div class="rt-agac" data-tree>${relTreeHTML(items, can)}</div>
+        <div class="rt-sag" data-pane><div class="bos" style="padding:40px">${t('relPickFile')}</div></div></div>
+      <div class="rt-alt"><span class="faint" data-selcount></span><span style="margin-left:auto"></span>
+        ${d.restorable ? `<button class="btn tehlike" data-rbsel disabled>${icon('undo')}<span></span></button>
+        <button class="btn hayalet" data-rball>${icon('undo')}${t('relRollbackAll')}</button>` : ''}</div>`,
     actions: [{ label: t('close'), cls: 'birincil' }],
   });
-  $$('[data-rf]', rm.root).forEach((el) => (el.onclick = () => releaseFileModal(P, srv, id, el.dataset.rf)));
+  const tree = $('[data-tree]', rm.root), pane = $('[data-pane]', rm.root);
+  const selected = () => $$('input[data-rsel]:checked', tree).map((c) => c.dataset.rsel);
+  const sync = () => {
+    // Klasör kutuları: altındaki seçilebilir dosyaların hepsi seçiliyse işaretli, bir kısmıysa belirsiz
+    $$('input[data-rdir]', tree).forEach((c) => {
+      const kids = $$('input[data-rsel]:not(:disabled)', c.closest('details'));
+      const on = kids.filter((k) => k.checked).length;
+      c.checked = kids.length > 0 && on === kids.length;
+      c.indeterminate = on > 0 && on < kids.length;
+      c.disabled = kids.length === 0;
+    });
+    const n = selected().length;
+    $('[data-selcount]', rm.root).textContent = d.restorable ? t('relSelected', n) : t('relNotRestorable');
+    const b = $('[data-rbsel]', rm.root);
+    if (b) { b.disabled = n === 0; $('span', b).textContent = t('relRollbackSel', n); }
+  };
+  tree.addEventListener('change', (e) => {
+    const c = e.target;
+    if (c.dataset.rdir !== undefined) $$('input[data-rsel]:not(:disabled)', c.closest('details')).forEach((k) => (k.checked = c.checked));
+    sync();
+  });
+  // Dosya satırına tıklayınca (kutu dışında) sağda diff
+  const show = async (row) => {
+    $$('.rt-dosya.aktif', tree).forEach((x) => x.classList.remove('aktif'));
+    row.classList.add('aktif');
+    const rel = row.dataset.rf;
+    pane.innerHTML = `<div class="bos" style="padding:40px">${icon('refresh', 'spin')}</div>`;
+    try {
+      const v = await GET(`/api/p/${enc(P)}/releases/${enc(srv)}/${enc(id)}/file?path=${enc(rel)}`);
+      if (!pane.isConnected || !row.classList.contains('aktif')) return;
+      const f = releaseFileHTML(v, rel);
+      pane.innerHTML = `<div class="rt-sag-bas"><span class="mono">${esc(rel)}</span>${f.summary}</div>${f.html}`;
+      bindViewTabs(pane);
+    } catch (e) { pane.innerHTML = `<p class="bad-t">${esc(e.message)}</p>`; }
+  };
+  tree.addEventListener('click', (e) => {
+    const row = e.target.closest('.rt-dosya');
+    if (row && !e.target.closest('input')) show(row);
+  });
+  const rb = $('[data-rbsel]', rm.root);
+  if (rb) rb.onclick = () => rollbackFlow(P, srv, id, selected(), () => rm.close());
+  const ra = $('[data-rball]', rm.root);
+  if (ra) ra.onclick = () => rollbackFlow(P, srv, id, [], () => rm.close());
+  sync();
+  const first = $('.rt-dosya', tree);
+  if (first) show(first);
 }
 
-// Release'teki dosyanın sunucudaki önceki hali ↔ yüklenen hali (CLI: rollback <id> --diff=yol)
-async function releaseFileModal(P, srv, id, rel) {
-  const title = `${icon('file')}<span class="mono" style="font-size:13px">${esc(rel)}</span>`;
-  const lm = await loadModal(title, 'genis', () => GET(`/api/p/${enc(P)}/releases/${enc(srv)}/${enc(id)}/file?path=${enc(rel)}`));
-  if (!lm) return;
-  const v = lm.d;
+// relTreeHTML dosya yollarından klasör ağacı; tek alt klasörlü zincirler birleştirilir (a/b/c).
+function relTreeHTML(items, can) {
+  const root = { dirs: {}, files: [] };
+  for (const it of items) {
+    const parts = it.path.split('/');
+    let n = root;
+    for (const p of parts.slice(0, -1)) n = n.dirs[p] || (n.dirs[p] = { dirs: {}, files: [] });
+    n.files.push({ ...it, name: parts[parts.length - 1] });
+  }
+  const mark = { changed: ['~', 'warn-t'], new: ['+', 'ok-t'], nobackup: ['·', 'faint'] };
+  const count = (n) => n.files.length + Object.values(n.dirs).reduce((a, x) => a + count(x), 0);
+  const draw = (n) => {
+    const dirs = Object.keys(n.dirs).sort().map((name) => {
+      let label = name, node = n.dirs[name];
+      while (!node.files.length && Object.keys(node.dirs).length === 1) { // a → b → c zinciri
+        const only = Object.keys(node.dirs)[0];
+        label += '/' + only;
+        node = node.dirs[only];
+      }
+      return `<details open><summary><input type="checkbox" data-rdir>${icon('folder', 'acc-t')}<span>${esc(label)}</span><span class="faint rt-say">${count(node)}</span></summary>
+        <div class="rt-ic">${draw(node)}</div></details>`;
+    }).join('');
+    const files = n.files.sort((a, b) => a.name.localeCompare(b.name)).map((f) => {
+      const [sym, cls] = mark[f.status] || mark.nobackup;
+      const tip = f.rolled_back ? t('relRolledFile') : f.status === 'nobackup' ? t('relNoBackupFile') : '';
+      return `<div class="rt-dosya${f.rolled_back ? ' geri' : ''}" data-rf="${esc(f.path)}" ${tip ? `title="${esc(tip)}"` : ''}>
+        <input type="checkbox" data-rsel="${esc(f.path)}" ${can(f) ? '' : 'disabled'}><span class="${cls} mono">${sym}</span><span class="rt-ad">${esc(f.name)}</span></div>`;
+    }).join('');
+    return dirs + files;
+  };
+  return items.length ? draw(root) : `<div class="bos">${t('noFiles')}</div>`;
+}
+
+// releaseFileHTML release dosyasının önceki ↔ yüklenen hâli (diff / önceki / yüklenen sekmeleri).
+function releaseFileHTML(v, rel) {
   let diff, summary = '';
   if (v.binary) diff = `<div class="bos">${t('binaryFile')}</div>`;
   else if (!v.before_ok) diff = `<p class="warn-t">${t('relNoBefore')}</p>${v.after_ok ? codeView(v.after, rel) : ''}`;
@@ -2166,32 +2254,28 @@ async function releaseFileModal(P, srv, id, rel) {
   const views = [['diff', t('diffTitle'), diff]];
   if (!v.binary && v.before_ok && v.status !== 'new') views.push(['before', t('relBefore'), codeView(v.before, rel)]);
   if (!v.binary && v.after_ok) views.push(['after', t('relAfter'), codeView(v.after, rel)]);
-  const m = modal({
-    title: title + summary, size: 'genis', body: viewTabs(views),
-    actions: [{ left: `<span class="mono">${esc(srv)} · ${esc(id)}</span>` }, { label: t('close'), cls: 'birincil' }],
-  });
-  bindViewTabs(m.root);
+  return { html: viewTabs(views), summary };
 }
 
-async function rollbackFlow(P, srv, id) {
+// rollbackFlow onay + iş: plan sunucudan (CLI ile aynı rollbackPlan / rollbackPlanFiles).
+// files boş → release ve ondan yeni her release; dolu → yalnızca o dosyalar, release'ten önceki hâline.
+async function rollbackFlow(P, srv, id, files = [], onStart) {
   const title = `${icon('undo')}${t('rollbackTitle', esc(srv))}`;
-  const lm = await loadModal(title, 'orta', () => GET(`/api/p/${enc(P)}/releases?server=${enc(srv)}`));
+  const lm = await loadModal(title, 'orta', () => GET(`/api/p/${enc(P)}/releases/${enc(srv)}/${enc(id)}/plan${files.length ? '?files=' + enc(files.join('\n')) : ''}`));
   if (!lm) return;
-  const rels = lm.d || [];
-  const plan = [];
-  let blocked = '';
-  for (const r of rels) { // en yeniden eskiye
-    if (r.rolled_back) continue;
-    if (!r.has_backup) { blocked = r.id; break; }
-    plan.push(r);
-    if (r.id === id) break;
-  }
-  if (blocked && !plan.some((r) => r.id === id)) return toast(t('rollbackBlocked', blocked), 'bad');
+  const plan = lm.d || [];
+  const others = plan.filter((r) => r.id !== id);
+  const body = files.length
+    ? `<p>${t('rbSelBody', files.length, esc(id))}</p><div class="liste-kutu" style="max-height:30vh">${files.map((f) => `<div class="mono">${esc(f)}</div>`).join('')}</div>
+      ${others.length ? `<p class="ipucu" style="margin-top:10px">${t('rbSelChain')}</p><div class="liste-kutu">${others.map((r) => `<div><b>${esc(r.id)}</b> <span class="faint">· ${fmtDate(r.created_at)}</span></div>`).join('')}</div>` : ''}`
+    : `<p>${t('rollbackBody', plan.length)}</p><div class="liste-kutu">${plan.map((r) => `<div><b>${esc(r.id)}</b> <span class="faint">· ${fmtDate(r.created_at)} · ~${r.backed} +${r.new}</span></div>`).join('')}</div>`;
   modal({
-    title, size: 'orta',
-    body: `<p>${t('rollbackBody', plan.length)}</p><div class="liste-kutu">${plan.map((r) => `<div><b>${esc(r.id)}</b> <span class="faint">· ${fmtDate(r.created_at)} · ~${r.backed} +${r.new}</span></div>`).join('')}</div>`,
-    actions: [{ label: t('cancel'), cls: 'hayalet' }, { label: icon('undo') + t('rollbackGo'), cls: 'tehlike', run: async () => {
-      const ids = await startJobs(P, { kind: 'rollback', servers: [srv], release: id }, t('rollback'));
+    title, size: 'orta', body,
+    actions: [{ label: t('cancel'), cls: 'hayalet' }, { label: icon('undo') + (files.length ? t('relRollbackSel', files.length) : t('rollbackGo')), cls: 'tehlike', run: async () => {
+      const ids = await startJobs(P, { kind: 'rollback', servers: [srv], release: id, files }, t('rollback'));
+      if (onStart) onStart();
+      const j = ids[0] && S.jobs.get(ids[0]);
+      if (j) j.doneCbs.push(() => { if (/\/history/.test(location.hash)) render(true); }); // Geçmiş durumları tazelensin
       if (ids[0]) showJobLog(ids[0]);
     } }],
   });

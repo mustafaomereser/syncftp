@@ -62,6 +62,7 @@ func (sv *guiServer) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/p/{p}/releases", sv.apiReleases)
 	mux.HandleFunc("GET /api/p/{p}/releases/{srv}/{id}", sv.apiReleaseDetail)
 	mux.HandleFunc("GET /api/p/{p}/releases/{srv}/{id}/file", sv.apiReleaseFile)
+	mux.HandleFunc("GET /api/p/{p}/releases/{srv}/{id}/plan", sv.apiReleasePlan)
 	mux.HandleFunc("GET /api/p/{p}/logs", sv.apiLogs)
 	mux.HandleFunc("GET /api/p/{p}/logs/{srv}/{file}", sv.apiLogFile)
 	mux.HandleFunc("PUT /api/p/{p}/milestones", sv.apiMilestoneSet)
@@ -714,6 +715,7 @@ type guiJobReq struct {
 	Path        string   `json:"path"`    // tree: RemotePath'e göreceli başlangıç
 	Include     []string `json:"include"` // tek seferlik (CLI sync --include gibi; config'teki include'u geçersiz kılar)
 	Exclude     []string `json:"exclude"` // tek seferlik (CLI sync --exclude gibi; ek)
+	Files       []string `json:"files"`   // rollback: yalnızca bu dosyalar (boş = release'in tamamı)
 }
 
 func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
@@ -804,10 +806,13 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 				return nil, err
 			}
 			plan, err := rollbackPlan(list, req.Release)
+			if len(req.Files) > 0 { // seçili dosyalar (CLI: rollback --files)
+				plan, err = rollbackPlanFiles(list, req.Release, req.Files)
+			}
 			if err != nil {
 				return nil, err
 			}
-			rep, _, err := rollbackLogged(j, dir, srv, plan)
+			rep, _, err := rollbackLogged(j, dir, srv, plan, req.Files)
 			return rep, err
 		}))
 	case "detect":
@@ -1036,6 +1041,7 @@ func (sv *guiServer) apiReleases(w http.ResponseWriter, r *http.Request) {
 		NoBackup   int       `json:"no_backup"`
 		HasBackup  bool      `json:"has_backup"`
 		RolledBack bool      `json:"rolled_back"`
+		Partly     int       `json:"partly_rolled_back"`
 	}
 	out := []relInfo{}
 	for _, srv := range cfg.Servers {
@@ -1045,7 +1051,7 @@ func (sv *guiServer) apiReleases(w http.ResponseWriter, r *http.Request) {
 		list, _ := release.Summaries(p.Path, srv.Name)
 		for _, m := range list {
 			out = append(out, relInfo{Server: srv.Name, ID: m.ID, CreatedAt: m.CreatedAt, Files: m.FileCount,
-				Backed: m.Backed, New: m.New, NoBackup: m.NoBackup, HasBackup: m.HasBackup, RolledBack: m.RolledBack})
+				Backed: m.Backed, New: m.New, NoBackup: m.NoBackup, HasBackup: m.HasBackup, RolledBack: m.RolledBack, Partly: m.PartlyRolledBack})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
@@ -1066,7 +1072,63 @@ func (sv *guiServer) apiReleaseDetail(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 404, err)
 		return
 	}
-	guiJSON(w, map[string]any{"manifest": m, "files": m.SortedFiles(), "has_backup": m.HasBackup()})
+	// items: ağaç için dosya başına durum (changed | new | nobackup) ve geri alınmış mı
+	type item struct {
+		Path       string `json:"path"`
+		Status     string `json:"status"`
+		RolledBack bool   `json:"rolled_back"`
+	}
+	kind := map[string]string{}
+	for _, f := range m.Backed {
+		kind[f] = "changed"
+	}
+	for _, f := range m.New {
+		kind[f] = "new"
+	}
+	files := m.SortedFiles()
+	items := make([]item, 0, len(files))
+	for _, f := range files {
+		st := kind[f]
+		if st == "" {
+			st = "nobackup"
+		}
+		items = append(items, item{Path: f, Status: st, RolledBack: m.FileRolledBack(f)})
+	}
+	guiJSON(w, map[string]any{"manifest": m, "files": files, "items": items, "has_backup": m.HasBackup(), "restorable": m.Restorable()})
+}
+
+// apiReleasePlan geri almanın etkileyeceği release'ler (onay penceresi için) — CLI ile aynı plan
+// (rollbackPlan / seçili dosyalarda rollbackPlanFiles). ?files=a,b boşsa release'in tamamı.
+func (sv *guiServer) apiReleasePlan(w http.ResponseWriter, r *http.Request) {
+	p, srv, ok := sv.projectServer(w, r, r.PathValue("srv"))
+	if !ok {
+		return
+	}
+	list, err := release.List(p.Path, srv.Name)
+	if err != nil {
+		guiErr(w, 500, err)
+		return
+	}
+	id := filepath.Base(r.PathValue("id"))
+	var files []string // satır başına bir yol (adında virgül olabilir)
+	for _, f := range strings.Split(r.URL.Query().Get("files"), "\n") {
+		if f = strings.TrimSpace(f); f != "" {
+			files = append(files, f)
+		}
+	}
+	plan, err := rollbackPlan(list, id)
+	if len(files) > 0 {
+		plan, err = rollbackPlanFiles(list, id, files)
+	}
+	if err != nil {
+		guiErr(w, 400, err)
+		return
+	}
+	out := make([]release.Summary, len(plan))
+	for i, m := range plan {
+		out[i] = m.Summary()
+	}
+	guiJSON(w, out)
 }
 
 // apiReleaseFile release'teki bir dosyanın eski (yedek) ve yüklenen halini döner — CLI

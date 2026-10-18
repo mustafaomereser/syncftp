@@ -582,3 +582,22 @@ details.bolum.katlanir > summary h3 + .ok-ac { margin-left: auto; }
 /* Proje ayarları → Tehlikeli bölge */
 .bolum.tehlike-bolge { border-color: rgb(255 99 105 / .35); }
 .bolum.tehlike-bolge h3 { color: var(--bad); }
+
+/* Release penceresi: ağaç + diff */
+.rt-grid { display: grid; grid-template-columns: minmax(240px, 32%) minmax(0, 1fr); gap: 12px; height: 60vh; }
+.rt-agac { overflow: auto; border: 1px solid var(--line); border-radius: 10px; padding: 6px; font-size: 13px; }
+.rt-agac details > summary { list-style: none; display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+.rt-agac details > summary::-webkit-details-marker { display: none; }
+.rt-agac details > summary:hover { background: var(--surface); }
+.rt-agac .rt-ic { padding-left: 16px; }
+.rt-say { margin-left: auto; font-size: 11px; }
+.rt-dosya { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+.rt-dosya:hover { background: var(--surface); }
+.rt-dosya.aktif { background: var(--surface-2); }
+.rt-dosya.geri .rt-ad { text-decoration: line-through; color: var(--faint); }
+.rt-ad { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.rt-agac input[type=checkbox] { accent-color: var(--accent); margin: 0; flex: none; }
+.rt-sag { overflow: auto; min-width: 0; }
+.rt-sag-bas { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 13px; }
+.rt-alt { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+@media (max-width: 760px) { .rt-grid { grid-template-columns: minmax(0, 1fr); height: auto; } .rt-agac { max-height: 40vh; } }

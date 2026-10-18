@@ -31,6 +31,8 @@ type Summary struct {
 	HasBackup    bool      `json:"has_backup"`
 	BackupPurged bool      `json:"backup_purged,omitempty"`
 	RolledBack   bool      `json:"rolled_back,omitempty"`
+	// PartlyRolledBack seçili dosya rollback'iyle geri alınan dosya sayısı
+	PartlyRolledBack int `json:"partly_rolled_back,omitempty"`
 }
 
 // Restorable Manifest.Restorable ile aynı.
@@ -40,7 +42,7 @@ func (s Summary) Restorable() bool { return s.HasBackup && !s.RolledBack }
 func (m *Manifest) Summary() Summary {
 	return Summary{ID: m.ID, CreatedAt: m.CreatedAt, Version: m.Version, FileCount: m.FileCount,
 		Backed: len(m.Backed), New: len(m.New), NoBackup: len(m.NoBackup), HasBackup: m.HasBackup(),
-		BackupPurged: m.BackupPurged, RolledBack: m.RolledBack}
+		BackupPurged: m.BackupPurged, RolledBack: m.RolledBack, PartlyRolledBack: len(m.RolledBackFiles)}
 }
 
 type indexFile struct {

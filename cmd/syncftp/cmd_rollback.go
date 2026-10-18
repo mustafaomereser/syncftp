@@ -25,6 +25,7 @@ var (
 	rbFlagList   bool
 	rbFlagYes    bool
 	rbFlagDiff   string
+	rbFlagFiles  []string
 )
 
 func init() {
@@ -33,6 +34,7 @@ func init() {
 	rollbackCmd.Flags().BoolVarP(&rbFlagYes, "yes", "y", false, "Onay sormadan geri al")
 	rollbackCmd.Flags().StringVar(&rbFlagDiff, "diff", "", "Geri almadan release'in dosya farklarını göster (tek dosya: --diff=yol)")
 	rollbackCmd.Flags().Lookup("diff").NoOptDefVal = "*" // --diff = tüm dosyalar
+	rollbackCmd.Flags().StringSliceVar(&rbFlagFiles, "files", nil, "Yalnızca bu dosyaları geri al (virgülle ya da tekrar ederek; release'ten önceki hâllerine döner)")
 	rootCmd.AddCommand(rollbackCmd)
 }
 
@@ -106,6 +108,9 @@ func runRollbackCmd(cmd *cobra.Command, args []string) error {
 	}
 
 	plan, err := rollbackPlan(list, target)
+	if len(rbFlagFiles) > 0 {
+		plan, err = rollbackPlanFiles(list, target, rbFlagFiles)
+	}
 	if err != nil {
 		return err
 	}
@@ -121,7 +126,7 @@ func runRollbackCmd(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	_, logPath, err := rollbackLogged(os.Stdout, dir, srv, plan)
+	_, logPath, err := rollbackLogged(os.Stdout, dir, srv, plan, rbFlagFiles)
 	if err != nil {
 		return err
 	}
@@ -196,6 +201,53 @@ func rollbackPlan(list []*release.Manifest, target string) ([]*release.Manifest,
 	return nil, fmt.Errorf(lang.L.RollbackNotFoundFmt, target)
 }
 
+// rollbackPlanFiles seçili dosya rollback'i: hedef release'ten en yenisine kadar bu dosyalardan
+// birine (henüz geri alınmamış hâliyle) dokunan release'ler, en yeniden eskiye. Sonuç: dosyalar
+// hedef release'ten ÖNCEKİ hâline döner. Seçili dosyayı içeren bir release'te o dosyanın yedeği
+// yoksa reddedilir; dosyalara dokunmayan yedeksiz release'ler engel olmaz.
+func rollbackPlanFiles(list []*release.Manifest, target string, files []string) ([]*release.Manifest, error) {
+	only := map[string]bool{}
+	for _, f := range files {
+		only[f] = true
+	}
+	touches := func(m *release.Manifest) (bool, string) {
+		backed, created := m.Pending()
+		hit := false
+		for _, f := range append(backed, created...) {
+			if only[f] {
+				hit = true
+			}
+		}
+		for _, f := range m.NoBackup {
+			if only[f] && !m.FileRolledBack(f) {
+				return true, f
+			}
+		}
+		return hit, ""
+	}
+	var plan []*release.Manifest
+	for _, m := range list { // en yeniden eskiye
+		if m.RolledBack && m.ID != target {
+			continue
+		}
+		hit, noBackup := touches(m)
+		if m.ID == target && !hit {
+			return nil, fmt.Errorf(lang.L.RollbackNothingSelectedFmt, target)
+		}
+		if !hit {
+			continue
+		}
+		if noBackup != "" || !m.HasBackup() {
+			return nil, fmt.Errorf(lang.L.RollbackNoBackupFmt, m.ID)
+		}
+		plan = append(plan, m)
+		if m.ID == target {
+			return plan, nil
+		}
+	}
+	return nil, fmt.Errorf(lang.L.RollbackNotFoundFmt, target)
+}
+
 type rollbackReport struct {
 	Restored int      `json:"restored"`
 	Deleted  int      `json:"deleted"`
@@ -205,14 +257,15 @@ type rollbackReport struct {
 
 // performRollback plan'daki release'leri sırayla (en yeni önce) geri alır.
 // Yedeklenen dosyalar geri yüklenir, yeni dosyalar silinir, state eski hash'lere döner.
+// only boş değilse yalnızca o dosyalar (seçili dosya rollback'i — plan rollbackPlanFiles'tan).
 // Ortak çekirdek: CLI, shell ve GUI aynı fonksiyonu kullanır.
-func performRollback(w io.Writer, configDir string, srv config.Server, plan []*release.Manifest) (rollbackReport, error) {
+func performRollback(w io.Writer, configDir string, srv config.Server, plan []*release.Manifest, only []string) (rollbackReport, error) {
 	client, err := ftpclient.Connect(srv)
 	if err != nil {
 		return rollbackReport{}, err
 	}
 	defer client.Close()
-	return applyRollback(w, configDir, srv, plan, client)
+	return applyRollback(w, configDir, srv, plan, client, only)
 }
 
 // rollbackRemote performRollback'in kullandığı uzak işlemler (testte sahte istemci).
@@ -224,18 +277,37 @@ type rollbackRemote interface {
 // applyRollback plan'ı verilen bağlantı üzerinden uygular. Bir release'te hata olursa
 // DURULUR: daha eski release'ler geri alınmaz — yoksa yeni release yarım kalırken eskiler
 // "geri alındı" işaretlenir, zincir tutarsızlaşırdı (tekrar denemede kaldığı yerden sürer).
-func applyRollback(w io.Writer, configDir string, srv config.Server, plan []*release.Manifest, client rollbackRemote) (rollbackReport, error) {
+func applyRollback(w io.Writer, configDir string, srv config.Server, plan []*release.Manifest, client rollbackRemote, only []string) (rollbackReport, error) {
 	var rep rollbackReport
 	st, err := state.Load(configDir, srv.Name)
 	if err != nil {
 		return rep, err
+	}
+	sel := map[string]bool{}
+	for _, f := range only {
+		sel[f] = true
+	}
+	pick := func(list []string) []string {
+		if len(sel) == 0 {
+			return list
+		}
+		var out []string
+		for _, f := range list {
+			if sel[f] {
+				out = append(out, f)
+			}
+		}
+		return out
 	}
 
 	for _, m := range plan {
 		fmt.Fprintf(w, lang.L.RollbackReleaseFmt, m.ID, m.CreatedAt.Format("2006-01-02 15:04:05"))
 		filesDir := release.FilesDir(configDir, srv.Name, m.ID)
 		failedHere := 0
-		for _, rel := range m.Backed {
+		pendBacked, pendNew := m.Pending() // daha önce tek tek geri alınanlar atlanır
+		backed, created := pick(pendBacked), pick(pendNew)
+		var done []string
+		for _, rel := range backed {
 			src := filepath.Join(filesDir, filepath.FromSlash(rel))
 			// Yedek sunucudaki ham baytlardır → CRLF normalizasyonu yapılmadan geri yüklenir
 			if err := client.UploadRaw(src, rel); err != nil {
@@ -245,6 +317,7 @@ func applyRollback(w io.Writer, configDir string, srv config.Server, plan []*rel
 				continue
 			}
 			fmt.Fprintf(w, lang.L.RollbackRestoredFmt, rel)
+			done = append(done, rel)
 			rep.Restored++
 			if h, ok := m.PrevHashes[rel]; ok {
 				st.Files[rel] = h
@@ -252,7 +325,7 @@ func applyRollback(w io.Writer, configDir string, srv config.Server, plan []*rel
 				delete(st.Files, rel)
 			}
 		}
-		for _, rel := range m.New {
+		for _, rel := range created {
 			// Zaten yoksa (sonraki bir release'in rollback'i sildiyse) başarı say
 			if err := client.DeleteFile(path.Join(srv.RemotePath, rel)); err != nil && !ftpclient.IsNotFound(err) {
 				fmt.Fprintf(w, lang.L.RollbackFileErrFmt, rel, err)
@@ -261,22 +334,30 @@ func applyRollback(w io.Writer, configDir string, srv config.Server, plan []*rel
 				continue
 			}
 			fmt.Fprintf(w, lang.L.RollbackDeletedFmt, rel)
+			done = append(done, rel)
 			rep.Deleted++
 			delete(st.Files, rel)
 		}
-		if len(m.NoBackup) > 0 {
+		if len(m.NoBackup) > 0 && len(sel) == 0 {
 			fmt.Fprintf(w, lang.L.RollbackSkippedNoBackupFmt, len(m.NoBackup))
 		}
 		_ = state.Save(configDir, st)
-		// Kısmi hata: release geri alınmış sayılmaz (tekrar denenebilir) ve zincir burada durur
+		// Başarıyla geri alınanlar release'e işlenir; hepsi geri alındıysa release geri alınmış sayılır
+		now := time.Now()
+		if len(sel) > 0 || failedHere > 0 {
+			m.RolledBackFiles = append(m.RolledBackFiles, done...)
+		}
+		if b, c := m.Pending(); failedHere == 0 && (len(sel) == 0 || len(b)+len(c) == 0) {
+			m.RolledBack = true
+			m.RolledBackAt = &now
+			m.RolledBackFiles = nil
+		}
+		_, _ = release.Write(configDir, srv.Name, m.ID, m)
+		// Kısmi hata: zincir burada durur (tekrar denenince kalanlarla sürer)
 		if failedHere > 0 {
 			fmt.Fprintf(w, lang.L.RollbackStoppedFmt, m.ID)
 			break
 		}
-		now := time.Now()
-		m.RolledBack = true
-		m.RolledBackAt = &now
-		_, _ = release.Write(configDir, srv.Name, m.ID, m)
 		rep.Releases = append(rep.Releases, m.ID)
 	}
 	fmt.Fprintf(w, lang.L.RollbackDoneFmt, rep.Restored, rep.Deleted, len(rep.Failed))
@@ -295,9 +376,9 @@ func rollbackPickerItems(list []*release.Manifest) []PickerItem {
 }
 
 // rollbackLogged geri alır ve çıktıyı sync log'una kaydeder (CLI, shell, panel ortak).
-func rollbackLogged(w io.Writer, configDir string, srv config.Server, plan []*release.Manifest) (rollbackReport, string, error) {
+func rollbackLogged(w io.Writer, configDir string, srv config.Server, plan []*release.Manifest, only []string) (rollbackReport, string, error) {
 	var buf strings.Builder
-	rep, err := performRollback(io.MultiWriter(w, &buf), configDir, srv, plan)
+	rep, err := performRollback(io.MultiWriter(w, &buf), configDir, srv, plan, only)
 	if err != nil {
 		return rep, "", err
 	}

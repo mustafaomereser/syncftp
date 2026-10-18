@@ -101,7 +101,7 @@ func (sh *shellState) cmdRollback(args []string) {
 		fmt.Println(lang.L.ShellSyncCancelled)
 		return
 	}
-	_, logPath, err := rollbackLogged(os.Stdout, sh.configDir, srv, plan)
+	_, logPath, err := rollbackLogged(os.Stdout, sh.configDir, srv, plan, nil)
 	if err != nil {
 		fmt.Printf(lang.L.ShellErrFmt, err)
 		return

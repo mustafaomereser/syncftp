@@ -566,6 +566,7 @@ Diğer:
 	RollbackTagNoBackup:        "[yedek yok]",
 	RollbackAlreadyFmt:         "%s zaten geri alınmış",
 	RollbackNoBackupFmt:        "%s release'inin yedeği yok (yedek kapalı ya da silinmiş) — bu noktanın gerisine dönülemez",
+	RollbackNothingSelectedFmt: "%s release'inde seçilen dosyalardan geri alınabilecek yok (zaten geri alınmış ya da bu release'te değil)",
 	RollbackNotFoundFmt:        "release bulunamadı: %s",
 	RollbackReleaseFmt:         "\n  ↺ %s  (%s)\n",
 	RollbackRestoredFmt:        "    ↺ geri yüklendi  %s\n",
