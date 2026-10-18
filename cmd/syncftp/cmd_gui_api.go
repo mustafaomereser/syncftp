@@ -60,6 +60,7 @@ func (sv *guiServer) routes(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /api/p/{p}/releases", sv.apiReleases)
 	mux.HandleFunc("GET /api/p/{p}/releases/{srv}/{id}", sv.apiReleaseDetail)
+	mux.HandleFunc("GET /api/p/{p}/releases/{srv}/{id}/file", sv.apiReleaseFile)
 	mux.HandleFunc("GET /api/p/{p}/logs", sv.apiLogs)
 	mux.HandleFunc("GET /api/p/{p}/logs/{srv}/{file}", sv.apiLogFile)
 	mux.HandleFunc("PUT /api/p/{p}/milestones", sv.apiMilestoneSet)
@@ -1057,12 +1058,33 @@ func (sv *guiServer) apiReleaseDetail(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 404, err)
 		return
 	}
-	files := make([]string, 0, len(m.Files))
-	for f := range m.Files {
-		files = append(files, f)
+	guiJSON(w, map[string]any{"manifest": m, "files": m.SortedFiles(), "has_backup": m.HasBackup()})
+}
+
+// apiReleaseFile release'teki bir dosyanın eski (yedek) ve yüklenen halini döner — CLI
+// `rollback <id> --diff` ile aynı çekirdek (releaseFileVersions).
+func (sv *guiServer) apiReleaseFile(w http.ResponseWriter, r *http.Request) {
+	p, cfg, err := sv.project(r)
+	if err != nil {
+		guiErr(w, 404, err)
+		return
 	}
-	sort.Strings(files)
-	guiJSON(w, map[string]any{"manifest": m, "files": files, "has_backup": m.HasBackup()})
+	srv, ok := findServer(cfg, r.PathValue("srv"))
+	if !ok {
+		guiErr(w, 404, fmt.Errorf(lang.L.ServerNotFoundFmt, r.PathValue("srv")))
+		return
+	}
+	m, err := release.Load(p.Path, srv.Name, filepath.Base(r.PathValue("id")))
+	if err != nil {
+		guiErr(w, 404, err)
+		return
+	}
+	v, err := releaseFileVersions(p.Path, cfg, srv, m, r.URL.Query().Get("path"))
+	if err != nil {
+		guiErr(w, 404, err)
+		return
+	}
+	guiJSON(w, v)
 }
 
 func (sv *guiServer) apiLogs(w http.ResponseWriter, r *http.Request) {

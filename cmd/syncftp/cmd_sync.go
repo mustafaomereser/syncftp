@@ -130,6 +130,17 @@ func runSync(cmd *cobra.Command, args []string) error {
 	// Birden fazla sunucu varsa özet TUI göster
 	showSyncSummary(allResults)
 
+	// Hata alan sunucu varsa çıkış kodu 1 (CI/script'ler başarısızlığı görebilsin)
+	failedSrv := 0
+	for _, r := range allResults {
+		if r.err != nil {
+			failedSrv++
+		}
+	}
+	if failedSrv > 0 {
+		cmd.SilenceUsage = true
+		return fmt.Errorf(lang.L.SyncServersFailedFmt, failedSrv, len(allResults))
+	}
 	return nil
 }
 
@@ -189,6 +200,7 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 
 	st, err := state.Load(configDir, srv.Name)
 	if err != nil {
+		fmt.Fprintf(w, lang.L.SyncServerErrFmt, err)
 		result.err = err
 		return result
 	}
@@ -211,6 +223,7 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 		fl, err := failed.Load(configDir, srv.Name)
 		if err != nil {
 			result.err = fmt.Errorf(lang.L.SyncFailedListReadFmt, err)
+			fmt.Fprintf(w, lang.L.SyncServerErrFmt, result.err)
 			return result
 		}
 		if fl == nil || len(fl.Files) == 0 {
@@ -371,7 +384,8 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 		}
 		printUploadResult(w, r)
 	})
-	if sessErr != nil {
+	if sessErr != nil { // bağlantı kurulamadı vb. — eskiden tek sunucuda hiçbir yere yazılmıyordu
+		fmt.Fprintf(w, lang.L.SyncServerErrFmt, sessErr)
 		result.err = sessErr
 		return result
 	}

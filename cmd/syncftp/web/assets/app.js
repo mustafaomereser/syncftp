@@ -96,6 +96,8 @@ const T = {
     rollbackBody: 'Aşağıdaki {0} release EN YENİDEN başlayarak geri alınacak: değişen dosyaların eski hali geri yüklenir, yeni eklenen dosyalar sunucudan silinir.',
     rollbackBlocked: 'Bu noktaya dönülemez: aradaki "{0}" release\'inin yedeği yok.', rollbackGo: 'Geri al',
     logs: 'Loglar', noLogs: 'Log yok', releaseTitle: 'Release {0}',
+    relBefore: 'Önceki hal', relAfter: 'Yüklenen hal', relDiffHint: 'Sunucudaki önceki hal → bu sync\'te yüklenen hal', relFileHint: 'Farkı görmek için dosyaya tıklayın',
+    relNoBefore: 'Önceki hal yok — yedek alınamamış ya da eski olduğu için silinmiş.', relNoAfter: 'Yüklenen hal saklanmamış ve yerel dosya o zamandan beri değişmiş.', relNewFile: 'Bu sync\'te sunucuya yeni eklenen dosya', relAfterLocal: 'Yüklenen hal yerel dosyadan (hash aynı)',
     jobsTitle: 'İşler', jobsSub: 'Bu oturumda çalışan ve tamamlanan işler', noJobs: 'Henüz iş yok', activeWatches: 'Aktif watch\'lar',
     colJob: 'İş', colProject: 'Proje', colStarted: 'Başladı', colDuration: 'Süre',
     stRunning: 'çalışıyor', stDone: 'tamam', stError: 'hata', stop: 'Durdur',
@@ -207,6 +209,8 @@ const T = {
     rollbackBody: 'The following {0} release(s) will be undone, NEWEST first: replaced files get their previous version back, newly added files are deleted from the server.',
     rollbackBlocked: 'Cannot return here: release "{0}" in between has no backup.', rollbackGo: 'Roll back',
     logs: 'Logs', noLogs: 'No logs', releaseTitle: 'Release {0}',
+    relBefore: 'Before', relAfter: 'Uploaded', relDiffHint: 'Previous server version → version uploaded by this sync', relFileHint: 'Click a file to see its diff',
+    relNoBefore: 'No previous version — the backup is missing or was purged as old.', relNoAfter: 'The uploaded version was not stored and the local file has changed since.', relNewFile: 'File newly added to the server by this sync', relAfterLocal: 'Uploaded version taken from the local file (same hash)',
     jobsTitle: 'Jobs', jobsSub: 'Jobs running and finished in this session', noJobs: 'No jobs yet', activeWatches: 'Active watches',
     colJob: 'Job', colProject: 'Project', colStarted: 'Started', colDuration: 'Duration',
     stRunning: 'running', stDone: 'done', stError: 'error', stop: 'Stop',
@@ -2117,12 +2121,41 @@ async function releaseDetail(P, srv, id) {
   const d = lm.d;
   const m = d.manifest;
   const sets = { backed: new Set(m.backed || []), nw: new Set(m.new || []) };
-  modal({
+  const rm = modal({
     title, size: 'orta',
     body: `<p class="mono faint">${fmtDate(m.created_at)} · ${t('colFiles')}: ${d.files.length} · ${t('colReplaced')}: ${sets.backed.size} · ${t('colNew')}: ${sets.nw.size}</p>
-      <div class="liste-kutu">${d.files.map((f) => `<div><span class="${sets.nw.has(f) ? 'ok-t' : sets.backed.has(f) ? 'warn-t' : 'faint'}">${sets.nw.has(f) ? '+' : sets.backed.has(f) ? '~' : '·'}</span> ${esc(f)}</div>`).join('')}</div>`,
+      <p class="ipucu" style="margin:0 0 8px">${t('relFileHint')}</p>
+      <div class="liste-kutu">${d.files.map((f) => `<div class="tikla pk-satir" data-rf="${esc(f)}"><span class="${sets.nw.has(f) ? 'ok-t' : sets.backed.has(f) ? 'warn-t' : 'faint'}">${sets.nw.has(f) ? '+' : sets.backed.has(f) ? '~' : '·'}</span> ${esc(f)}</div>`).join('')}</div>`,
     actions: [{ label: t('close'), cls: 'birincil' }],
   });
+  $$('[data-rf]', rm.root).forEach((el) => (el.onclick = () => releaseFileModal(P, srv, id, el.dataset.rf)));
+}
+
+// Release'teki dosyanın sunucudaki önceki hali ↔ yüklenen hali (CLI: rollback <id> --diff=yol)
+async function releaseFileModal(P, srv, id, rel) {
+  const title = `${icon('file')}<span class="mono" style="font-size:13px">${esc(rel)}</span>`;
+  const lm = await loadModal(title, 'genis', () => GET(`/api/p/${enc(P)}/releases/${enc(srv)}/${enc(id)}/file?path=${enc(rel)}`));
+  if (!lm) return;
+  const v = lm.d;
+  let diff, summary = '';
+  if (v.binary) diff = `<div class="bos">${t('binaryFile')}</div>`;
+  else if (!v.before_ok) diff = `<p class="warn-t">${t('relNoBefore')}</p>${v.after_ok ? codeView(v.after, rel) : ''}`;
+  else if (!v.after_ok) diff = `<p class="warn-t">${t('relNoAfter')}</p>`;
+  else if (v.status === 'new') diff = `<p class="ok-t">${t('relNewFile')}</p>${codeView(v.after, rel)}`;
+  else if (v.before === v.after) diff = `<div class="bos" style="padding:28px">${icon('check')} ${t('diffSame')}</div>`;
+  else {
+    const d = diffView(v.before, v.after, rel);
+    diff = `<p class="ipucu" style="margin:0 0 10px">${t('relDiffHint')}${v.after_source === 'local' ? ' · ' + t('relAfterLocal') : ''}</p>${d.html}`;
+    summary = ` <span class="fark-ozet"><span class="ok-t">+${d.add}</span><span class="bad-t">−${d.del}</span></span>`;
+  }
+  const views = [['diff', t('diffTitle'), diff]];
+  if (!v.binary && v.before_ok && v.status !== 'new') views.push(['before', t('relBefore'), codeView(v.before, rel)]);
+  if (!v.binary && v.after_ok) views.push(['after', t('relAfter'), codeView(v.after, rel)]);
+  const m = modal({
+    title: title + summary, size: 'genis', body: viewTabs(views),
+    actions: [{ left: `<span class="mono">${esc(srv)} · ${esc(id)}</span>` }, { label: t('close'), cls: 'birincil' }],
+  });
+  bindViewTabs(m.root);
 }
 
 async function rollbackFlow(P, srv, id) {

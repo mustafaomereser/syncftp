@@ -24,12 +24,15 @@ var (
 	rbFlagServer string
 	rbFlagList   bool
 	rbFlagYes    bool
+	rbFlagDiff   string
 )
 
 func init() {
 	rollbackCmd.Flags().StringVarP(&rbFlagServer, "server", "s", "", "Sunucu adı")
 	rollbackCmd.Flags().BoolVar(&rbFlagList, "list", false, "Release geçmişini listele, geri alma yapma")
 	rollbackCmd.Flags().BoolVarP(&rbFlagYes, "yes", "y", false, "Onay sormadan geri al")
+	rollbackCmd.Flags().StringVar(&rbFlagDiff, "diff", "", "Geri almadan release'in dosya farklarını göster (tek dosya: --diff=yol)")
+	rollbackCmd.Flags().Lookup("diff").NoOptDefVal = "*" // --diff = tüm dosyalar
 	rootCmd.AddCommand(rollbackCmd)
 }
 
@@ -88,6 +91,18 @@ func runRollbackCmd(cmd *cobra.Command, args []string) error {
 			fmt.Println(lang.L.SyncCancelled)
 			return nil
 		}
+	}
+
+	if rbFlagDiff != "" { // yalnızca göster — geri alma yok (panel: Geçmiş → release → dosya)
+		m, err := release.Load(dir, srv.Name, target)
+		if err != nil {
+			return err
+		}
+		only := rbFlagDiff
+		if only == "*" {
+			only = ""
+		}
+		return writeReleaseDiff(os.Stdout, dir, cfg, srv, m, only)
 	}
 
 	plan, err := rollbackPlan(list, target)

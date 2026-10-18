@@ -75,6 +75,12 @@ func runUploadSession(w io.Writer, configDir string, cfg *config.Config, srv con
 		}
 	}
 
+	// Yüklenen sürümün kopyası release'e (yedekle birlikte) → Geçmiş'te dosya diff'i
+	srcOf := make(map[string]string, len(tasks))
+	for _, t := range tasks {
+		srcOf[t.RelPath] = t.LocalPath
+	}
+
 	m := &release.Manifest{Files: map[string]string{}, PrevHashes: map[string]string{}}
 	sinceCheckpoint := 0
 	for r := range pool.UploadCh(tasks) {
@@ -91,6 +97,9 @@ func runUploadSession(w io.Writer, configDir string, cfg *config.Config, srv con
 		m.Files[r.RelPath] = r.Hash
 		if h, ok := prev[r.RelPath]; ok {
 			m.PrevHashes[r.RelPath] = h
+		}
+		if backup {
+			_ = release.SaveAfter(configDir, srv.Name, out.releaseID, r.RelPath, srcOf[r.RelPath])
 		}
 		switch {
 		case r.BackedUp:

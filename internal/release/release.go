@@ -48,6 +48,31 @@ func FilesDir(configDir, serverName, id string) string {
 	return filepath.Join(Dir(configDir, serverName, id), "files")
 }
 
+// AfterDir yüklenen (yeni) sürümlerin kopyası — release diff'i (eski yedek ↔ yüklenen) için.
+func AfterDir(configDir, serverName, id string) string {
+	return filepath.Join(Dir(configDir, serverName, id), "after")
+}
+
+// AfterMaxBytes bundan büyük dosyaların yeni sürümü saklanmaz (diff zaten metin dosyaları için).
+const AfterMaxBytes = 2 << 20
+
+// SaveAfter yüklenen dosyanın kopyasını after/ altına yazar; büyük dosyaları sessizce atlar.
+func SaveAfter(configDir, serverName, id, rel, src string) error {
+	info, err := os.Stat(src)
+	if err != nil || info.Size() > AfterMaxBytes {
+		return err
+	}
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	dst := filepath.Join(AfterDir(configDir, serverName, id), filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return err
+	}
+	return os.WriteFile(dst, data, 0644)
+}
+
 // NewID zaman damgalı benzersiz release kimliği.
 func NewID(configDir, serverName string) string {
 	base := time.Now().Format("20060102-150405")
@@ -217,6 +242,7 @@ func Prune(configDir, serverName string, keep int) int {
 			continue
 		}
 		_ = os.RemoveAll(FilesDir(configDir, serverName, m.ID))
+		_ = os.RemoveAll(AfterDir(configDir, serverName, m.ID))
 		m.BackupPurged = true
 		if _, err := Write(configDir, serverName, m.ID, m); err == nil {
 			n++
@@ -227,3 +253,13 @@ func Prune(configDir, serverName string, keep int) int {
 
 // Restorable release hâlâ geri alınabilir mi (yedeği var ve daha önce geri alınmamış).
 func (m *Manifest) Restorable() bool { return m.HasBackup() && !m.RolledBack }
+
+// SortedFiles yüklenen dosyalar, sıralı.
+func (m *Manifest) SortedFiles() []string {
+	out := make([]string, 0, len(m.Files))
+	for f := range m.Files {
+		out = append(out, f)
+	}
+	sort.Strings(out)
+	return out
+}

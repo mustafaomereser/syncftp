@@ -43,6 +43,7 @@ func main() {
 		return
 	}
 
+	rootCmd.SilenceErrors = true // hata aşağıda tek kez yazılır (cobra'nın "Error:" satırıyla çift çıkıyordu)
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

@@ -700,6 +700,13 @@ type StringSet struct {
 	SyncCalibrateAbortFmt  string // "  ✗ calibrate başarısız, sync iptal edildi: %v\n"
 	SyncCleanupIncludeKept string // "  ⚠ include listesi boşalacağı için olmayan yollar listede bırakıldı\n"
 	RollbackStoppedFmt     string // "  ! %s tamamen geri alınamadı — daha eski release'lere dokunulmadı\n"
+	ReleaseFileNotFoundFmt string // "release'te böyle bir dosya yok: %s"
+	ReleaseDiffBinary      string
+	ReleaseDiffNoBefore    string
+	ReleaseDiffNoAfter     string
+	ReleaseDiffTooBigFmt   string // "  (çok büyük: %d / %d satır)\n"
+	ReleaseDiffSame        string
+	SyncServersFailedFmt   string // "%d / %d sunucuda sync başarısız"
 	GlobalLoadWarnFmt      string // "  ⚠ global ayarlar okunamadı: %v\n"
 	InitConnManual         string // "Elle gir"
 	InitConnPickTitle      string // "Bağlantı"
