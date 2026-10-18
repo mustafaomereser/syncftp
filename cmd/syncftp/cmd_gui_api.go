@@ -77,6 +77,8 @@ func (sv *guiServer) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/p/{p}/remote/get", sv.apiRemoteGet)
 	mux.HandleFunc("DELETE /api/p/{p}/remote/rm", sv.apiRemoteRm)
 	mux.HandleFunc("GET /api/p/{p}/local/cat", sv.apiLocalCat)
+	mux.HandleFunc("GET /api/p/{p}/remote/edit", sv.apiRemoteEditOpen) // cmd_gui_edit.go
+	mux.HandleFunc("PUT /api/p/{p}/remote/edit", sv.apiRemoteEditSave)
 
 	mux.HandleFunc("GET /api/p/{p}/watch", sv.apiWatchGet)
 	mux.HandleFunc("POST /api/p/{p}/watch", sv.apiWatchStart)

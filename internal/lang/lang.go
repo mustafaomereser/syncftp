@@ -588,6 +588,9 @@ type StringSet struct {
 	GuiJobMilestoneSync  string // "Milestone sync"
 	GuiJobCalibrate      string // "Calibrate"
 	GuiJobVerify         string // "Doğrula"
+	GuiJobEdit           string // "Düzenle"
+	EditConflict         string // sunucudaki dosya açıldıktan sonra değişti
+	EditSavedLocalFmt    string // yerel dosya yazıldı
 	GuiJobRollback       string // "Rollback"
 	GuiJobDetect         string // "Bağlantı limiti ölç"
 	GuiJobWatch          string // "Watch"

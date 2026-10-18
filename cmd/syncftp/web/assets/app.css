@@ -520,3 +520,26 @@ details.bolum.katlanir > summary h3 + .ok-ac { margin-left: auto; }
 .srv-seg a { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; height: 30px; color: var(--muted); text-decoration: none; border-radius: 8px; font-size: 13px; }
 .srv-seg a.aktif { background: var(--surface-2); color: var(--text); }
 .srv-seg a:hover { color: var(--text); }
+
+/* Uzak dosya düzenleyici (editor.js): şeffaf textarea + altında renklendirilmiş pre */
+.modal.ed-modal { width: min(1240px, 100%); }
+.ed { display: flex; height: min(66vh, calc(100vh - 230px)); background: #0d0d0f; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; font: 12.5px/1.6 var(--mono); }
+.ed:focus-within { border-color: var(--line-2); }
+.ed-no { flex: none; overflow: hidden; border-right: 1px solid var(--line); color: #4b4f57; text-align: right; user-select: none; font-variant-numeric: tabular-nums; }
+.ed pre { margin: 0; font: inherit; white-space: pre; tab-size: 4; }
+.ed-no pre { padding: 8px 10px; will-change: transform; }
+.ed-alan { position: relative; flex: 1; min-width: 0; overflow: hidden; }
+.ed-hl { position: absolute; top: 0; left: 0; padding: 8px 14px 8px 10px; color: #c9ccd1; pointer-events: none; will-change: transform; }
+.ed-alan textarea { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; margin: 0; padding: 8px 14px 8px 10px; border: 0; border-radius: 0; background: transparent; color: transparent; caret-color: var(--text); font: inherit; line-height: inherit; white-space: pre; overflow: auto; resize: none; tab-size: 4; outline: none; box-shadow: none; }
+.ed-alan textarea:focus-visible { box-shadow: none; }
+.ed-alan textarea::selection { background: rgb(59 158 255 / .32); color: transparent; }
+.ed-durum { display: flex; gap: 14px; align-items: center; margin-top: 8px; font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.ed-durum [data-local] { margin-left: auto; }
+.ed-nokta { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--warn); margin-left: 8px; vertical-align: middle; }
+.ed-secim { display: grid; gap: 8px; margin-top: 14px; }
+.ed-secim label { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; }
+.ed-secim label:has(input:checked) { border-color: var(--accent); background: rgb(59 158 255 / .06); }
+.ed-secim input { margin-top: 3px; accent-color: var(--accent); }
+.ed-secim span { display: grid; gap: 3px; }
+.ed-secim small { color: var(--muted); font-size: 12px; line-height: 1.45; }
+.ed-secim small .ikon, .ed-secim small svg { width: 13px; height: 13px; vertical-align: -2px; margin-right: 4px; }

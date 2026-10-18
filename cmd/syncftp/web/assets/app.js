@@ -274,7 +274,7 @@ async function api(method, url, body) {
   try { r = await fetch(url, opt); } catch (e) { throw new Error(t('sessionLost')); }
   let j = null;
   try { j = await r.json(); } catch { /* boş */ }
-  if (!r.ok || !j || j.ok === false) throw new Error((j && j.error) || `HTTP ${r.status}`);
+  if (!r.ok || !j || j.ok === false) throw Object.assign(new Error((j && j.error) || `HTTP ${r.status}`), { status: r.status, body: j });
   return j.data;
 }
 const GET = (u) => api('GET', u);
@@ -297,7 +297,8 @@ function toast(msg, kind = 'ok') {
 const fail = (e) => toast(e.message || String(e), 'bad');
 
 // ── modal ────────────────────────────────────────────────────────────────────
-function modal({ title, body, size = '', actions = [], onClose }) {
+// guard: kullanıcı kapatmak istediğinde (Esc / ✕ / dışarı tık) çağrılır; false dönerse modal açık kalır
+function modal({ title, body, size = '', actions = [], onClose, guard }) {
   const root = document.createElement('div');
   root.className = 'modal-arka';
   root.innerHTML = `<div class="modal ${size}" role="dialog"><div class="modal-bas"><h3>${title}</h3>
@@ -308,11 +309,12 @@ function modal({ title, body, size = '', actions = [], onClose }) {
     root.remove(); document.removeEventListener('keydown', onKey); if (typeof dpClose === 'function') dpClose(); onClose && onClose();
   };
   S.modals.add(close);
+  const tryClose = async () => { if (!guard || (await guard()) !== false) close(); };
   // Esc yalnızca en üstteki modalı kapatır
-  const onKey = (e) => { if (e.key === 'Escape' && $('#modal-kok').lastElementChild === root) close(); };
+  const onKey = (e) => { if (e.key === 'Escape' && $('#modal-kok').lastElementChild === root) tryClose(); };
   document.addEventListener('keydown', onKey);
-  root.addEventListener('mousedown', (e) => { if (e.target === root) close(); });
-  $('[data-x]', root).onclick = close;
+  root.addEventListener('mousedown', (e) => { if (e.target === root) tryClose(); });
+  $('[data-x]', root).onclick = tryClose;
   const alt = $('.modal-alt', root);
   for (const a of actions) {
     if (a.left) { const s = document.createElement('div'); s.className = 'sol'; s.innerHTML = a.left; alt.appendChild(s); continue; }
@@ -1778,6 +1780,7 @@ async function tabFiles(proj, srvName, relPath) {
         if (btn) {
           const act = btn.dataset.act;
           if (act === 'pv') previewFile(P, srv, p);
+          else if (act === 'ed') editFile(P, srv, p);
           else if (act === 'cmp') compareModal(P, srv, p);
           else if (act === 'dl') location.href = `/api/p/${enc(P)}/remote/get?${q}&path=${enc(p)}`;
           else if (act === 'ren') renameItem(it);
@@ -1807,7 +1810,7 @@ async function tabFiles(proj, srvName, relPath) {
     return `<tr data-entry="${esc(e.name)}" data-type="${e.type}" class="tikla"><td class="sec-hucre"><label><input type="checkbox" ${checked ? 'checked' : ''}></label></td>
       <td><div class="ad-hucre">${icon(e.type === 'dir' ? 'folder' : 'file', e.type === 'dir' ? 'acc-t' : 'faint')}<span>${esc(e.name)}</span>${fz ? `<span class="pill" style="height:18px;font-size:11px">${icon('snow')}${t('frozenBadge')}</span>` : ''}</div></td>
       <td class="sag mono faint">${e.type === 'dir' ? '' : bytes(e.size)}</td><td class="mono faint">${e.time && !e.time.startsWith('0001') ? fmtDate(e.time) : ''}</td>
-      <td class="sag satir-aks" style="white-space:nowrap">${e.type === 'dir' ? '' : `<button class="ikon-btn" data-act="pv" title="${t('preview')}">${icon('eye')}</button><button class="ikon-btn" data-act="cmp" title="${t('compare')}">${icon('layers')}</button><button class="ikon-btn" data-act="dl" title="${t('download')}">${icon('download')}</button>`}
+      <td class="sag satir-aks" style="white-space:nowrap">${e.type === 'dir' ? '' : `<button class="ikon-btn" data-act="pv" title="${t('preview')}">${icon('eye')}</button><button class="ikon-btn" data-act="ed" title="${t('edEdit')}">${icon('code')}</button><button class="ikon-btn" data-act="cmp" title="${t('compare')}">${icon('layers')}</button><button class="ikon-btn" data-act="dl" title="${t('download')}">${icon('download')}</button>`}
         <button class="ikon-btn ${fz ? 'acc-t' : ''}" data-act="fz" title="${t('freezeToggle')}">${icon('snow')}</button>
         <button class="ikon-btn" data-act="ren" title="${t('rename')}">${icon('edit')}</button>
         <button class="ikon-btn tehlike" data-act="rm" title="${t('delete')}">${icon('trash')}</button></td></tr>`;
@@ -1922,7 +1925,7 @@ async function previewFile(P, srv, p) {
     body: d.binary ? `<div class="bos">${t('binaryFile')}</div>`
       : viewTabs([['code', t('viewCode'), codeView(d.content, p)], ...(isHTMLFile(p) ? [['html', t('viewRendered'), htmlFrame(d.content)]] : [])]),
     actions: [{ left: `${bytes(d.size)} ${d.truncated ? t('truncated') : ''}` },
-      ...(d.binary ? [] : [{ label: icon('layers') + t('compare'), cls: '', run: () => { compareModal(P, srv, p); } }]),
+      ...(d.binary ? [] : [{ label: icon('layers') + t('compare'), cls: '', run: () => { compareModal(P, srv, p); } }, { label: icon('code') + t('edEdit'), cls: '', run: () => { editFile(P, srv, p); } }]),
       { label: icon('download') + t('download'), cls: '', run: () => { location.href = `/api/p/${enc(P)}/remote/get?server=${enc(srv)}&path=${enc(p)}`; } },
       { label: t('close'), cls: 'birincil' }],
   });
