@@ -1978,7 +1978,7 @@ async function tabFiles(proj, srvName, relPath) {
         <button class="ikon-btn tehlike" data-act="rm" title="${t('delete')}">${icon('trash')}</button></td></tr>`;
   }
   return `<div class="arac-cubuk">
-      ${cfg.servers.length > 1 && cfg.servers.length <= 6 ? `<span class="seg srv-seg">${cfg.servers.map((s) => `<a href="${pHash(P, 'files', s.name)}" class="${s.name === srv ? 'aktif' : ''}" title="${esc(s.remote_path)}">${icon('server')}${esc(s.name)}</a>`).join('')}</span>`
+      ${cfg.servers.length <= 6 ? `<span class="seg srv-seg">${cfg.servers.map((s) => `<a href="${pHash(P, 'files', s.name)}" class="${s.name === srv ? 'aktif' : ''}" title="${esc(s.remote_path)}">${icon('server')}${esc(s.name)}</a>`).join('')}</span>`
         : `<select id="f-srv">${cfg.servers.map((s) => `<option value="${esc(s.name)}" ${s.name === srv ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>`}
       <div class="ara">${icon('search')}<input type="text" id="f-filter" placeholder="${t('filter')}"></div>
       <button class="btn" id="f-search" title="${t('searchAll')}">${icon('search')}${t('searchAll')}</button>
@@ -2103,7 +2103,8 @@ async function tabHistory(proj, srvFilter) {
   const [rels, logs, cfg] = await Promise.all([GET(`/api/p/${enc(P)}/releases${q}`), GET(`/api/p/${enc(P)}/logs${q}`), getConfig(P)]);
   bind((root) => {
     $('#proj-aks', root).innerHTML = '';
-    $('#h-srv', root).onchange = (e) => go(e.target.value ? pHash(P, 'history', e.target.value) : pHash(P, 'history'));
+    const hs = $('#h-srv', root); // tek sunucuda filtre çizilmez
+    if (hs) hs.onchange = (e) => go(e.target.value ? pHash(P, 'history', e.target.value) : pHash(P, 'history'));
     $$('[data-rel]', root).forEach((b) => (b.onclick = () => releaseDetail(P, b.dataset.srv, b.dataset.rel)));
     $$('[data-more]', root).forEach((b) => (b.onclick = () => { $$(`[data-extra="${b.dataset.more}"]`, root).forEach((tr) => (tr.hidden = false)); b.parentElement.remove(); }));
     $$('[data-undo]', root).forEach((b) => (b.onclick = () => rollbackFlow(P, b.dataset.srv, b.dataset.undo)));
@@ -2123,7 +2124,7 @@ async function tabHistory(proj, srvFilter) {
       <td class="sag" style="white-space:nowrap"><button class="btn kucuk hayalet" data-rel="${esc(r.id)}" data-srv="${esc(r.server)}">${t('details')}</button>
       ${r.has_backup && !r.rolled_back ? `<button class="btn kucuk tehlike" data-undo="${esc(r.id)}" data-srv="${esc(r.server)}">${icon('undo')}${t('undo')}</button>` : ''}</td></tr>`;
   }).join('');
-  return `<div class="arac-cubuk"><select id="h-srv"><option value="">${t('all')}</option>${cfg.servers.map((s) => `<option value="${esc(s.name)}" ${s.name === srvFilter ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></div>
+  return `${cfg.servers.length > 1 ? `<div class="arac-cubuk"><select id="h-srv"><option value="">${t('all')}</option>${cfg.servers.map((s) => `<option value="${esc(s.name)}" ${s.name === srvFilter ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></div>` : ''}
     <h2 style="margin-top:6px">${icon('undo')}${t('releases')}</h2><p class="muted" style="margin-top:-6px">${t('releasesSub')}</p>
     ${rels.length ? `<div class="tablo-kap"><table class="tablo"><thead><tr><th>${t('colWhen')}</th><th>${t('colServer')}</th><th class="sag">${t('colFiles')}</th><th class="sag">${t('colReplaced')}</th><th class="sag">${t('colNew')}</th><th>${t('colStatus')}</th><th></th></tr></thead><tbody>${relRows}</tbody></table></div>${more(rels.length, 'rel')}`
       : `<div class="bos" style="padding:30px">${t('noReleases')}</div>`}
