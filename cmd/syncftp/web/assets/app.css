@@ -488,3 +488,29 @@ details.bolum.katlanir > .katlanir-ic { padding: 14px 20px 18px; }
 .ara-baslik { font: 600 11px var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--faint); margin: 8px 2px -4px; }
 [hidden] { display: none !important; }
 details.bolum.katlanir > summary h3 + .ok-ac { margin-left: auto; }
+
+/* Dosya satırı eylemleri yalnızca üzerine gelince (dokunmatikte ve klavye odağında daima) */
+.tablo tr .satir-aks .ikon-btn { opacity: 0; transition: opacity .1s; }
+.tablo tr:hover .satir-aks .ikon-btn, .tablo tr:focus-within .satir-aks .ikon-btn, .tablo tr .satir-aks .ikon-btn.acc-t { opacity: 1; }
+@media (hover: none) { .tablo tr .satir-aks .ikon-btn { opacity: 1; } }
+.daha-fazla { display: flex; justify-content: center; margin: 10px 0 4px; }
+.menu .menu-baslik:first-child { padding-top: 4px; }
+.menu .menu-baslik:not(:first-child) { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 10px; }
+
+/* Tarih seçici */
+.dp { position: fixed; z-index: 130; width: 292px; background: var(--surface); border: 1px solid var(--line-2); border-radius: 14px; padding: 12px; box-shadow: 0 18px 48px rgb(0 0 0 / .55); animation: belir .1s ease-out; }
+.dp-bas { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.dp-bas b { font-size: 14px; font-weight: 600; text-transform: capitalize; }
+.dp-hafta, .dp-izgara { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.dp-hafta span { text-align: center; font: 600 11px var(--mono); color: var(--faint); padding: 4px 0; }
+.dp-gun { height: 34px; border: 0; border-radius: 9px; background: transparent; color: var(--text); font-size: 13px; cursor: pointer; }
+.dp-gun:hover { background: var(--surface-2); }
+.dp-gun.disari { color: var(--faint); opacity: .55; }
+.dp-gun.gelecek { color: var(--faint); }
+.dp-gun.bugun { box-shadow: inset 0 0 0 1px var(--accent); }
+.dp-gun.secili { background: var(--accent); color: #fff; font-weight: 600; }
+.dp-saat { display: flex; align-items: center; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.dp-saat > span { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; margin-right: auto; }
+.dp-saat input { width: 58px; text-align: center; font-family: var(--mono); }
+.dp-hizli { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.dp-alt { display: flex; justify-content: space-between; margin-top: 12px; }

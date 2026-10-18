@@ -595,6 +595,7 @@ type StringSet struct {
 	GuiNoMilestoneFmt    string // "%s için milestone yok"
 	GuiJobNotCancelable  string // "bu iş iptal edilemez"
 	GuiWatchRunning      string // "bu projede watch zaten çalışıyor"
+	WatchLockedFmt       string // başka bir süreç bu projeyi izliyor (%d = PID)
 
 	// ── Tray / CI-CD deploy ─────────────────────────────────────────
 	TrayOpen             string // "Paneli aç"

@@ -622,7 +622,8 @@ type guiWatch struct {
 	LastSync string    `json:"last_sync,omitempty"`
 	Syncs    int       `json:"syncs"`
 	stop     chan struct{}
-	explicit bool // sunucular elle seçildi (kalıcı kayıtta listelenir; değilse "tüm aktifler")
+	explicit bool   // sunucular elle seçildi (kalıcı kayıtta listelenir; değilse "tüm aktifler")
+	path     string // proje dizini — kalıcı kayıt anahtarı
 }
 
 type watchManager struct {

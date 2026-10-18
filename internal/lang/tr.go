@@ -655,6 +655,7 @@ Diğer:
 	GuiNoMilestoneFmt:    "%s için milestone yok",
 	GuiJobNotCancelable:  "bu iş iptal edilemez",
 	GuiWatchRunning:      "bu projede watch zaten çalışıyor",
+	WatchLockedFmt:       "bu proje başka bir syncftp sürecinde zaten izleniyor (PID %d)",
 
 	// Tray / CI-CD deploy
 	TrayOpen:             "Paneli aç",

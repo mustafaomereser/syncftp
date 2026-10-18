@@ -10,7 +10,7 @@ const T = {
   tr: {
     brandSub: 'Dağıtım paneli', navAll: 'Tüm projeler', navJobs: 'İşler', navProjects: 'Projeler',
     addProject: 'Proje ekle', navNoProjects: 'Bu klasörde proje yok', watching: 'Watch', language: 'Dil', quit: 'Kapat',
-    loading: 'Yükleniyor…', foldAdvanced: 'Gelişmiş', foldMore: 'Diğer', foldDefault: 'varsayılan', foldOff: 'kapalı', foldConn: 'bağlantı', foldRetry: 'deneme', foldBlock: 'engelli uzantı', setTabGeneral: 'Genel', setTabLibrary: 'Bağlantı kütüphanesi', setTabDefaults: 'Yeni proje varsayılanları', setTabProjects: 'Projeler', setTabHooks: 'Webhook / CI', setTabSecurity: 'Host anahtarları', setTabSystem: 'Sistem', deleteRecursive: 'İçeriğiyle birlikte sil', deleteRecursiveHint: 'Kapalıyken yalnızca boş klasörler silinir (CLI: remote rm --recursive)', stFilter: 'Filtrele', stFilterHint: 'Tek seferlik include / exclude (virgülle ayırın) — CLI: status --include / --exclude', moreRows: '{0} öğe daha göster', stFrozen: 'Freeze', stProtected: 'Korunan', stBlocked: 'Engelli', stUploadSize: 'yüklenecek: {0}', treeView: 'Ağaç', treeHint: 'Bu klasörün altını ağaç olarak göster (shell tree)', treeAsk: 'Klasör başına en fazla kaç öğe gösterilsin?', treeAll: 'Tümü', ignoreNoFile: 'ignore_files listesinde syncFTP dosyası yok — yalnızca .gitignore okunuyor', viewCode: 'Kod', viewRendered: 'Önizleme', viewRenderedLocal: 'Önizleme (yerel)', viewRenderedRemote: 'Önizleme (sunucu)', scanningLocal: 'Taranıyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
+    loading: 'Yükleniyor…', mgSync: 'Sync', mgCheck: 'Kontrol', mgHistory: 'Zaman ve geri alma', mgServer: 'Sunucu', showMore: '{0} tane daha göster', foldAdvanced: 'Gelişmiş', foldMore: 'Diğer', foldDefault: 'varsayılan', foldOff: 'kapalı', foldConn: 'bağlantı', foldRetry: 'deneme', foldBlock: 'engelli uzantı', setTabGeneral: 'Genel', setTabLibrary: 'Bağlantı kütüphanesi', setTabDefaults: 'Yeni proje varsayılanları', setTabProjects: 'Projeler', setTabHooks: 'Webhook / CI', setTabSecurity: 'Host anahtarları', setTabSystem: 'Sistem', deleteRecursive: 'İçeriğiyle birlikte sil', deleteRecursiveHint: 'Kapalıyken yalnızca boş klasörler silinir (CLI: remote rm --recursive)', stFilter: 'Filtrele', stFilterHint: 'Tek seferlik include / exclude (virgülle ayırın) — CLI: status --include / --exclude', moreRows: '{0} öğe daha göster', stFrozen: 'Freeze', stProtected: 'Korunan', stBlocked: 'Engelli', stUploadSize: 'yüklenecek: {0}', treeView: 'Ağaç', treeHint: 'Bu klasörün altını ağaç olarak göster (shell tree)', treeAsk: 'Klasör başına en fazla kaç öğe gösterilsin?', treeAll: 'Tümü', ignoreNoFile: 'ignore_files listesinde syncFTP dosyası yok — yalnızca .gitignore okunuyor', viewCode: 'Kod', viewRendered: 'Önizleme', viewRenderedLocal: 'Önizleme (yerel)', viewRenderedRemote: 'Önizleme (sunucu)', scanningLocal: 'Taranıyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
     edit: 'Düzenle', back: 'Geri', yes: 'Evet', confirm: 'Onayla', browse: 'Gözat', add: 'Ekle', open: 'Aç',
     saved: 'Kaydedildi', copied: 'Kopyalandı', never: 'hiç', none: 'yok', all: 'Tümü', manual: '(manuel giriş)',
     projectsTitle: 'Projeler', projectsSub: `{0} klasöründeki syncFTP projeleri (CLI gibi: panel açıldığı klasörü esas alır)`,
@@ -119,7 +119,7 @@ const T = {
   en: {
     brandSub: 'Deploy panel', navAll: 'All projects', navJobs: 'Jobs', navProjects: 'Projects',
     addProject: 'Add project', navNoProjects: 'No project in this folder', watching: 'Watch', language: 'Language', quit: 'Quit',
-    loading: 'Loading…', foldAdvanced: 'Advanced', foldMore: 'More', foldDefault: 'default', foldOff: 'off', foldConn: 'connections', foldRetry: 'retries', foldBlock: 'blocked ext', setTabGeneral: 'General', setTabLibrary: 'Connection library', setTabDefaults: 'New project defaults', setTabProjects: 'Projects', setTabHooks: 'Webhook / CI', setTabSecurity: 'Host keys', setTabSystem: 'System', deleteRecursive: 'Delete with contents', deleteRecursiveHint: 'When off, only empty folders are deleted (CLI: remote rm --recursive)', stFilter: 'Filter', stFilterHint: 'One-off include / exclude (comma separated) — CLI: status --include / --exclude', moreRows: 'Show {0} more', stFrozen: 'Frozen', stProtected: 'Protected', stBlocked: 'Blocked', stUploadSize: 'to upload: {0}', treeView: 'Tree', treeHint: 'Show everything below this folder as a tree (shell tree)', treeAsk: 'Show at most how many entries per folder?', treeAll: 'All', ignoreNoFile: 'ignore_files has no syncFTP file — only .gitignore is read', viewCode: 'Code', viewRendered: 'Preview', viewRenderedLocal: 'Preview (local)', viewRenderedRemote: 'Preview (server)', scanningLocal: 'Scanning…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
+    loading: 'Loading…', mgSync: 'Sync', mgCheck: 'Check', mgHistory: 'Time & rollback', mgServer: 'Server', showMore: 'Show {0} more', foldAdvanced: 'Advanced', foldMore: 'More', foldDefault: 'default', foldOff: 'off', foldConn: 'connections', foldRetry: 'retries', foldBlock: 'blocked ext', setTabGeneral: 'General', setTabLibrary: 'Connection library', setTabDefaults: 'New project defaults', setTabProjects: 'Projects', setTabHooks: 'Webhook / CI', setTabSecurity: 'Host keys', setTabSystem: 'System', deleteRecursive: 'Delete with contents', deleteRecursiveHint: 'When off, only empty folders are deleted (CLI: remote rm --recursive)', stFilter: 'Filter', stFilterHint: 'One-off include / exclude (comma separated) — CLI: status --include / --exclude', moreRows: 'Show {0} more', stFrozen: 'Frozen', stProtected: 'Protected', stBlocked: 'Blocked', stUploadSize: 'to upload: {0}', treeView: 'Tree', treeHint: 'Show everything below this folder as a tree (shell tree)', treeAsk: 'Show at most how many entries per folder?', treeAll: 'All', ignoreNoFile: 'ignore_files has no syncFTP file — only .gitignore is read', viewCode: 'Code', viewRendered: 'Preview', viewRenderedLocal: 'Preview (local)', viewRenderedRemote: 'Preview (server)', scanningLocal: 'Scanning…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
     edit: 'Edit', back: 'Back', yes: 'Yes', confirm: 'Confirm', browse: 'Browse', add: 'Add', open: 'Open',
     saved: 'Saved', copied: 'Copied', never: 'never', none: 'none', all: 'All', manual: '(manual entry)',
     projectsTitle: 'Projects', projectsSub: `syncFTP projects in {0} (like the CLI: the panel works on the folder it was opened in)`,
@@ -305,7 +305,7 @@ function modal({ title, body, size = '', actions = [], onClose }) {
     ${actions.length ? '<div class="modal-alt"></div>' : ''}</div>`;
   const close = () => {
     if (!S.modals.delete(close)) return; // iki kez kapanmasın
-    root.remove(); document.removeEventListener('keydown', onKey); onClose && onClose();
+    root.remove(); document.removeEventListener('keydown', onKey); if (typeof dpClose === 'function') dpClose(); onClose && onClose();
   };
   S.modals.add(close);
   // Esc yalnızca en üstteki modalı kapatır
@@ -686,7 +686,6 @@ async function pageProject(r) {
   const head = `<div class="baslik-satir"><div><h1>${esc(proj.name)}</h1>
       <div class="yol">${icon('folder')}<span>${esc(proj.path)}</span><button class="ikon-btn" style="width:24px;height:24px" data-copy="${esc(proj.path)}" title="${t('copyPath')}">${icon('copy')}</button></div></div>
       <div class="aksiyonlar"><span id="proj-aks" class="aksiyonlar"></span>
-        <button class="btn kucuk ai-btn" onclick="aiToggle(true)">${icon('spark')}${t('aiNav')}</button>
         <a class="ikon-btn" href="#/help/${({ overview: 'sync', servers: 'start', server: 'start', connections: 'ssh', connection: 'ssh', files: 'filters', history: 'rollback', cicd: 'cicd', settings: 'filters' })[r.tab] || 'start'}" title="${t('navHelp')}">${icon('help')}</a></div></div>
     <div class="tabs">${tabs.map(([k, ic, l]) => `<a href="${pHash(proj.name, k)}" class="${activeTab === k ? 'aktif' : ''}">${icon(ic)}${l}</a>`).join('')}</div>`;
   let body;
@@ -846,21 +845,22 @@ function bindServerCard(card, P, s) {
   act('retry', () => failedModal(P, s));
   act('history', () => go(pHash(P, 'history', s.name)));
   act('menu', (b) => openMenu(b, [
+    { title: t('mgSync') },
     { icon: 'eye', label: t('dryRun'), hint: t('dryRunHint'), run: () => job({ kind: 'sync', dry_run: true }, t('dryRun')) },
     { icon: 'upload', label: t('fullSync'), hint: t('fullSyncHint'), run: async () => { if (await confirmBox(t('fullSync'), esc(t('fullSyncConfirm', s.name)), t('fullSync'), true)) job({ kind: 'sync', full: true }, t('fullSync')); } },
     s.failed ? { icon: 'refresh', label: t('retryFailed'), hint: t('retryFailedHint', s.failed), run: () => job({ kind: 'sync', retry_failed: true }, t('retryFailed')) } : null,
     { icon: 'sliders', label: t('syncOnce'), hint: 'include / exclude', run: () => filteredSyncModal(P, s) },
-    'hr',
+    { title: t('mgCheck') },
     { icon: 'scan', label: t('calibrate'), hint: t('calibrateHint'), run: () => job({ kind: 'calibrate' }, t('calibrate')) },
     { icon: 'shield', label: t('verify'), hint: t('verifyHint'), run: () => job({ kind: 'verify' }, t('verify')) },
     { icon: 'shield', label: t('verifyFix'), hint: t('verifyFixHint'), run: () => job({ kind: 'verify', fix: true }, t('verifyFix')) },
     { icon: 'gauge', label: t('detect'), hint: t('detectHint'), run: () => job({ kind: 'detect' }, t('detect')) },
-    'hr',
+    { title: t('mgHistory') },
     { icon: 'clock', label: t('milestone') + '…', hint: s.milestone || '', run: () => milestoneModal(P, s) },
     s.milestone ? { icon: 'upload', label: t('milestoneSync'), hint: t('milestoneSyncHint'), run: () => job({ kind: 'milestone-sync' }, t('milestoneSync')) } : null,
     { icon: 'snow', label: t('freeze') + '…', hint: t('freezeHint'), run: () => freezeModal(P, s) },
     { icon: 'undo', label: t('rollback') + '…', hint: t('rollbackHint'), run: () => go(pHash(P, 'history', s.name)) },
-    'hr',
+    { title: t('mgServer') },
     s.protocol === 'sftp' ? { icon: 'terminal', label: t('runCmd') + '…', hint: t('runCmdHint'), run: () => execModal(P, s) } : null,
     { icon: 'folder', label: t('browseFiles'), run: () => go(pHash(P, 'files', s.name)) },
     { icon: 'edit', label: t('edit'), run: () => go(pHash(P, 'server', s.name)) },
@@ -902,7 +902,7 @@ function milestoneModal(P, s) {
   modal({
     title: t('milestoneTitle', esc(s.name)),
     body: `<p>${t('milestoneBody')}</p>${s.milestone ? `<p><b>${t('milestoneCurrent', esc(s.milestone))}</b></p>` : ''}
-      <div class="alan"><label>${t('milestoneDate')}</label><input type="text" id="ms-date" placeholder="${LANG === 'tr' ? 'bugün' : 'today'}"><small>${t('milestoneDateHint')}</small></div>`,
+      <div class="alan"><label>${t('milestoneDate')}</label><input type="text" id="ms-date" data-date placeholder="${LANG === 'tr' ? 'bugün' : 'today'}"><small>${t('milestoneDateHint')}</small></div>`,
     actions: [
       ...(s.milestone ? [{ label: t('milestoneClear'), cls: 'tehlike', run: async () => { await api('DELETE', `/api/p/${enc(P)}/milestones?server=${enc(s.name)}`); toast(t('milestoneCleared')); render(true); } }] : []),
       { label: t('cancel'), cls: 'hayalet' },
@@ -912,6 +912,7 @@ function milestoneModal(P, s) {
       } },
     ],
   });
+  initDatePickers(document.getElementById('modal-kok').lastElementChild);
 }
 
 function execModal(P, s) {
@@ -1786,7 +1787,7 @@ async function tabFiles(proj, srvName, relPath) {
     return `<tr data-entry="${esc(e.name)}" data-type="${e.type}" class="tikla"><td class="sec-hucre"><label><input type="checkbox" ${checked ? 'checked' : ''}></label></td>
       <td><div class="ad-hucre">${icon(e.type === 'dir' ? 'folder' : 'file', e.type === 'dir' ? 'acc-t' : 'faint')}<span>${esc(e.name)}</span>${fz ? `<span class="pill" style="height:18px;font-size:11px">${icon('snow')}${t('frozenBadge')}</span>` : ''}</div></td>
       <td class="sag mono faint">${e.type === 'dir' ? '' : bytes(e.size)}</td><td class="mono faint">${e.time && !e.time.startsWith('0001') ? fmtDate(e.time) : ''}</td>
-      <td class="sag" style="white-space:nowrap">${e.type === 'dir' ? '' : `<button class="ikon-btn" data-act="pv" title="${t('preview')}">${icon('eye')}</button><button class="ikon-btn" data-act="cmp" title="${t('compare')}">${icon('layers')}</button><button class="ikon-btn" data-act="dl" title="${t('download')}">${icon('download')}</button>`}
+      <td class="sag satir-aks" style="white-space:nowrap">${e.type === 'dir' ? '' : `<button class="ikon-btn" data-act="pv" title="${t('preview')}">${icon('eye')}</button><button class="ikon-btn" data-act="cmp" title="${t('compare')}">${icon('layers')}</button><button class="ikon-btn" data-act="dl" title="${t('download')}">${icon('download')}</button>`}
         <button class="ikon-btn ${fz ? 'acc-t' : ''}" data-act="fz" title="${t('freezeToggle')}">${icon('snow')}</button>
         <button class="ikon-btn" data-act="ren" title="${t('rename')}">${icon('edit')}</button>
         <button class="ikon-btn tehlike" data-act="rm" title="${t('delete')}">${icon('trash')}</button></td></tr>`;
@@ -1916,6 +1917,7 @@ async function tabHistory(proj, srvFilter) {
     $('#proj-aks', root).innerHTML = '';
     $('#h-srv', root).onchange = (e) => go(e.target.value ? pHash(P, 'history', e.target.value) : pHash(P, 'history'));
     $$('[data-rel]', root).forEach((b) => (b.onclick = () => releaseDetail(P, b.dataset.srv, b.dataset.rel)));
+    $$('[data-more]', root).forEach((b) => (b.onclick = () => { $$(`[data-extra="${b.dataset.more}"]`, root).forEach((tr) => (tr.hidden = false)); b.parentElement.remove(); }));
     $$('[data-undo]', root).forEach((b) => (b.onclick = () => rollbackFlow(P, b.dataset.srv, b.dataset.undo)));
     $$('[data-log]', root).forEach((tr) => (tr.onclick = async () => {
       const lm = await loadModal(`${icon('log')}<span class="mono" style="font-size:13px">${esc(tr.dataset.srv)} / ${esc(tr.dataset.log)}</span>`, 'genis', () => GET(`/api/p/${enc(P)}/logs/${enc(tr.dataset.srv)}/${enc(tr.dataset.log)}`));
@@ -1925,19 +1927,21 @@ async function tabHistory(proj, srvFilter) {
         body: `<div class="log">${txt.split('\n').map(logLine).join('')}</div>`, actions: [{ label: t('close'), cls: 'birincil' }] });
     }));
   });
-  const relRows = rels.map((r) => {
+  const LIM = 25;
+  const more = (n, id) => (n > LIM ? `<div class="daha-fazla"><button class="btn kucuk" data-more="${id}">${icon('down2')}${t('showMore', n - LIM)}</button></div>` : '');
+  const relRows = rels.map((r, i) => {
     const status = r.rolled_back ? `<span class="pill">${t('rolledBack')}</span>` : r.has_backup ? `<span class="pill ok"><span class="nokta"></span>${t('restorable')}</span>` : `<span class="pill">${t('noBackupTag')}</span>`;
-    return `<tr><td class="mono">${fmtDate(r.created_at)}</td><td>${esc(r.server)}</td><td class="sag">${r.files}</td><td class="sag">${r.backed}</td><td class="sag">${r.new}</td><td>${status}</td>
+    return `<tr ${i >= LIM ? 'hidden data-extra="rel"' : ''}><td class="mono">${fmtDate(r.created_at)}</td><td>${esc(r.server)}</td><td class="sag">${r.files}</td><td class="sag">${r.backed}</td><td class="sag">${r.new}</td><td>${status}</td>
       <td class="sag" style="white-space:nowrap"><button class="btn kucuk hayalet" data-rel="${esc(r.id)}" data-srv="${esc(r.server)}">${t('details')}</button>
       ${r.has_backup && !r.rolled_back ? `<button class="btn kucuk tehlike" data-undo="${esc(r.id)}" data-srv="${esc(r.server)}">${icon('undo')}${t('undo')}</button>` : ''}</td></tr>`;
   }).join('');
   return `<div class="arac-cubuk"><select id="h-srv"><option value="">${t('all')}</option>${cfg.servers.map((s) => `<option value="${esc(s.name)}" ${s.name === srvFilter ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></div>
     <h2 style="margin-top:6px">${icon('undo')}${t('releases')}</h2><p class="muted" style="margin-top:-6px">${t('releasesSub')}</p>
-    ${rels.length ? `<div class="tablo-kap"><table class="tablo"><thead><tr><th>${t('colWhen')}</th><th>${t('colServer')}</th><th class="sag">${t('colFiles')}</th><th class="sag">${t('colReplaced')}</th><th class="sag">${t('colNew')}</th><th>${t('colStatus')}</th><th></th></tr></thead><tbody>${relRows}</tbody></table></div>`
+    ${rels.length ? `<div class="tablo-kap"><table class="tablo"><thead><tr><th>${t('colWhen')}</th><th>${t('colServer')}</th><th class="sag">${t('colFiles')}</th><th class="sag">${t('colReplaced')}</th><th class="sag">${t('colNew')}</th><th>${t('colStatus')}</th><th></th></tr></thead><tbody>${relRows}</tbody></table></div>${more(rels.length, 'rel')}`
       : `<div class="bos" style="padding:30px">${t('noReleases')}</div>`}
     <h2>${icon('log')}${t('logs')}</h2>
     ${logs.length ? `<div class="tablo-kap"><table class="tablo"><thead><tr><th>${t('colWhen')}</th><th>${t('colServer')}</th><th>${t('colName')}</th><th class="sag">${t('colSize')}</th></tr></thead><tbody>
-      ${logs.map((l) => `<tr class="tikla" data-log="${esc(l.file)}" data-srv="${esc(l.server)}"><td class="mono">${fmtDate(l.time)}</td><td>${esc(l.server)}</td><td class="mono faint">${esc(l.file)}</td><td class="sag mono faint">${bytes(l.size)}</td></tr>`).join('')}</tbody></table></div>`
+      ${logs.map((l, i) => `<tr class="tikla" ${i >= LIM ? 'hidden data-extra="log"' : ''} data-log="${esc(l.file)}" data-srv="${esc(l.server)}"><td class="mono">${fmtDate(l.time)}</td><td>${esc(l.server)}</td><td class="mono faint">${esc(l.file)}</td><td class="sag mono faint">${bytes(l.size)}</td></tr>`).join('')}</tbody></table></div>${more(logs.length, 'log')}`
       : `<div class="bos" style="padding:30px">${t('noLogs')}</div>`}`;
 }
 
@@ -1978,7 +1982,7 @@ async function rollbackFlow(P, srv, id) {
 
 // ═══ Sayfa: işler ═════════════════════════════════════════════════════════════
 async function pageJobs() {
-  const [jobs, watches] = await Promise.all([GET('/api/jobs'), GET('/api/watches')]);
+  let [jobs, watches] = await Promise.all([GET('/api/jobs'), GET('/api/watches')]);
   bind((root) => {
     $$('[data-jid]', root).forEach((tr) => (tr.onclick = () => showJobLog(tr.dataset.jid)));
     $$('[data-wstop]', root).forEach((b) => (b.onclick = async (e) => {
@@ -1992,7 +1996,7 @@ async function pageJobs() {
     ${watches.length ? `<h2 style="margin-top:0">${icon('eye')}${t('activeWatches')}</h2><div class="kartlar" style="margin-bottom:24px">${watches.map((w) => `<div class="kart"><div><div class="ust"><h3>${esc(w.project)}</h3><span class="pill busy"><span class="nokta"></span>watch</span></div>
       <div class="meta"><span>${icon('server')}${esc(w.servers.join(', '))}</span><span>${icon('clock')}${t('watchSince', fmtDate(w.started).slice(11), w.syncs)}</span>${w.last_sync ? `<span>${icon('upload')}${esc(w.last_sync)}</span>` : ''}</div></div>
       <div class="butonlar"><button class="btn kucuk" data-jid="${esc(w.job_id)}">${icon('log')}${t('jobLog')}</button><button class="btn kucuk tehlike" data-wstop="${esc(w.project)}">${icon('stop')}${t('stop')}</button></div></div>`).join('')}</div>` : ''}
-    ${jobs.length ? `<div class="tablo-kap"><table class="tablo"><thead><tr><th>${t('colJob')}</th><th>${t('colProject')}</th><th>${t('colServer')}</th><th>${t('colStatus')}</th><th>${t('colStarted')}</th><th class="sag">${t('colDuration')}</th></tr></thead><tbody>
+    ${(jobs = jobs.filter((j) => !(j.kind === 'watch' && j.status === 'running'))).length ? `<div class="tablo-kap"><table class="tablo"><thead><tr><th>${t('colJob')}</th><th>${t('colProject')}</th><th>${t('colServer')}</th><th>${t('colStatus')}</th><th>${t('colStarted')}</th><th class="sag">${t('colDuration')}</th></tr></thead><tbody>
       ${jobs.map((j) => `<tr class="tikla" data-jid="${esc(j.id)}"><td><b>${esc(j.title)}</b></td><td>${esc(j.project)}</td><td class="muted">${esc(j.server)}</td><td>${st(j.status)}${j.error ? ` <span class="bad-t" style="font-size:12px">${esc(j.error.slice(0, 80))}</span>` : ''}</td>
         <td class="mono faint">${fmtDate(j.started)}</td><td class="sag mono faint">${j.ended ? dur(new Date(j.ended) - new Date(j.started)) : ''}</td></tr>`).join('')}</tbody></table></div>`
       : `<div class="bos">${t('noJobs')}</div>`}</div>`;

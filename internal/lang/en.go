@@ -655,6 +655,7 @@ Other:
 	GuiNoMilestoneFmt:    "%s has no milestone",
 	GuiJobNotCancelable:  "this job cannot be cancelled",
 	GuiWatchRunning:      "watch is already running for this project",
+	WatchLockedFmt:       "this project is already being watched by another syncftp process (PID %d)",
 
 	// Tray / CI-CD deploy
 	TrayOpen:             "Open panel",

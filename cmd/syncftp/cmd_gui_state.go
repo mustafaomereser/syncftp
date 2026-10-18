@@ -5,12 +5,16 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"syncftp/internal/projects"
 )
 
 // guiPersist — panel süreci yeniden başladığında geri yüklenen durum.
 // <UserConfigDir>/syncftp/gui-state.json
 type guiPersist struct {
-	// Watches açık watch'lar: proje → sunucular (boş liste = tüm aktif sunucular)
+	// Watches açık watch'lar: proje DİZİNİ → sunucular (boş liste = tüm aktif sunucular). Eskiden
+	// anahtar proje adıydı ve her panel tüm haritayı kendi listesiyle eziyordu: farklı klasörlerde
+	// açılan iki panel birbirinin watch'larını siliyor ya da aynı projeyi ikisi birden izliyordu.
 	Watches map[string][]string `json:"watches"`
 	// HookTunnel açılışta trycloudflare tünelini otomatik başlat
 	HookTunnel bool `json:"hook_tunnel,omitempty"`
@@ -64,17 +68,30 @@ func (sv *guiServer) persistWatches() {
 	cur := map[string][]string{}
 	for _, w := range sv.watches.all() {
 		if w.explicit {
-			cur[w.Project] = w.Servers
+			cur[w.path] = w.Servers
 		} else {
-			cur[w.Project] = []string{}
+			cur[w.path] = []string{}
 		}
 	}
-	updateGUIPersist(func(st *guiPersist) { st.Watches = cur })
+	updateGUIPersist(func(st *guiPersist) {
+		// Yalnızca bu panelin gördüğü projelerin kayıtları değişir; başka klasördeki panellerinkiler kalır
+		for k := range st.Watches {
+			if _, ok := projects.Find(k); ok {
+				delete(st.Watches, k)
+			}
+		}
+		for k, v := range cur {
+			st.Watches[k] = v
+		}
+	})
 }
 
-// restoreWatches önceki oturumdan kalan watch'ları başlatır (proje silinmişse atlanır).
+// restoreWatches önceki oturumdan kalan watch'ları başlatır — yalnızca bu panelin klasöründeki
+// projeler (Find taban klasörle sınırlı); proje silinmişse ya da başka süreç izliyorsa atlanır.
 func (sv *guiServer) restoreWatches() {
-	for project, servers := range loadGUIPersist().Watches {
-		_, _ = sv.startWatch(project, servers)
+	for key, servers := range loadGUIPersist().Watches {
+		if p, ok := projects.Find(key); ok {
+			_, _ = sv.startWatch(p.Path, servers)
+		}
 	}
 }

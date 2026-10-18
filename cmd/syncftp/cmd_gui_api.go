@@ -1295,6 +1295,9 @@ func (sv *guiServer) startWatch(project string, serverNames []string) (*guiWatch
 	if sv.watches.get(p.Name) != nil {
 		return nil, errors.New(lang.L.GuiWatchRunning)
 	}
+	if pid := watchLockOwner(p.Path); pid != 0 { // başka panel / CLI watch bu projeyi izliyor
+		return nil, fmt.Errorf(lang.L.WatchLockedFmt, pid)
+	}
 	servers, err := selectServers(cfg, serverNames)
 	if err != nil {
 		return nil, err
@@ -1303,7 +1306,7 @@ func (sv *guiServer) startWatch(project string, serverNames []string) (*guiWatch
 	for i, s := range servers {
 		names[i] = s.Name
 	}
-	gw := &guiWatch{Project: p.Name, Servers: names, Started: time.Now(), stop: make(chan struct{}), explicit: len(serverNames) > 0}
+	gw := &guiWatch{Project: p.Name, path: p.Path, Servers: names, Started: time.Now(), stop: make(chan struct{}), explicit: len(serverNames) > 0}
 	j, err := sv.jobs.start("watch", p.Name, strings.Join(names, ", "), lang.L.GuiJobWatch, "", func(j *job) (any, error) {
 		return nil, watchLoop(p.Path, cfg, servers, j, gw.stop, func(res serverSyncResult) {
 			sv.watches.mu.Lock()
