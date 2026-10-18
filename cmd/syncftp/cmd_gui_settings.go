@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -15,6 +14,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
+	"syncftp/internal/config"
 	ftpclient "syncftp/internal/ftp"
 	"syncftp/internal/lang"
 	"syncftp/internal/projects"
@@ -113,6 +113,7 @@ func (sv *guiServer) apiSettings(w http.ResponseWriter, r *http.Request) {
 		"hook_port_active":    sv.hooks.activePort(),
 		"hook_default_port":   defaultHookPort,
 		"edit_save_target":    st.EditSaveTarget,
+		"locations":           dataLocations(),
 	})
 }
 
@@ -196,7 +197,44 @@ func (sv *guiServer) apiSettingsKnownHostDel(w http.ResponseWriter, r *http.Requ
 	guiJSON(w, readKnownHosts())
 }
 
-// apiSettingsOpen bilinen veri klasörlerinden birini dosya yöneticisinde açar (yalnızca beyaz liste).
+// dataLocation syncFTP'nin diske yazdığı yerlerden biri (Ayarlar → Sistem → Veri konumları).
+type dataLocation struct {
+	Key     string `json:"key"`
+	Group   string `json:"group"` // app | cache | temp | project
+	Path    string `json:"path"`
+	File    bool   `json:"file"`
+	Exists  bool   `json:"exists"`
+	Project string `json:"project,omitempty"`
+}
+
+// dataLocations uygulama geneli dosyalar + bu panelin projelerinin .syncftp klasörleri.
+// "Klasörü aç" da YALNIZCA bu listedeki yolları açar (beyaz liste).
+func dataLocations() []dataLocation {
+	cacheRoot := filepath.Dir(scanner.CacheDir())
+	list := []dataLocation{
+		{Key: "config_dir", Group: "app", Path: guiStateDir()},
+		{Key: "library", Group: "app", Path: config.LibraryPath(), File: true},
+		{Key: "gui_state", Group: "app", Path: guiPersistPath(), File: true},
+		{Key: "gui_lang", Group: "app", Path: lang.UserLangPath(), File: true},
+		{Key: "registry", Group: "app", Path: projects.Path(), File: true},
+		{Key: "known_hosts", Group: "app", Path: ftpclient.KnownHostsPath(), File: true},
+		{Key: "cloudflared", Group: "app", Path: cloudflaredLocalPath(), File: true},
+		{Key: "hashcache", Group: "cache", Path: scanner.CacheDir()},
+		{Key: "panel_profile", Group: "cache", Path: filepath.Join(cacheRoot, "panel-profile")},
+		{Key: "temp", Group: "temp", Path: os.TempDir()},
+	}
+	for _, p := range projects.List() {
+		list = append(list, dataLocation{Key: "project:" + p.Name, Group: "project", Project: p.Name, Path: filepath.Join(p.Path, ".syncftp")})
+	}
+	for i := range list {
+		_, err := os.Stat(list[i].Path)
+		list[i].Exists = err == nil
+	}
+	return list
+}
+
+// apiSettingsOpen veri konumlarından birini dosya yöneticisinde açar (dosyaysa seçili olarak)
+// ve pencereyi öne getirir.
 func (sv *guiServer) apiSettingsOpen(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		What string `json:"what"`
@@ -205,27 +243,25 @@ func (sv *guiServer) apiSettingsOpen(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 400, err)
 		return
 	}
-	dirs := map[string]string{
-		"config":      guiStateDir(),
-		"cache":       filepath.Dir(scanner.CacheDir()),
-		"known_hosts": filepath.Dir(ftpclient.KnownHostsPath()),
-	}
-	dir, ok := dirs[req.What]
-	if !ok {
-		guiErr(w, 400, errors.New("what"))
+	for _, loc := range dataLocations() {
+		if loc.Key != req.What {
+			continue
+		}
+		path, sel := loc.Path, loc.File
+		if !loc.Exists {
+			if loc.File {
+				path, sel = filepath.Dir(loc.Path), false // dosya henüz yok → klasörü
+			}
+			if loc.Group != "project" {
+				_ = os.MkdirAll(path, 0700)
+			}
+		}
+		if err := revealInFileManager(path, sel); err != nil {
+			guiErr(w, 500, err)
+			return
+		}
+		guiJSON(w, true)
 		return
 	}
-	_ = os.MkdirAll(dir, 0700)
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "windows":
-		cmd = exec.Command("explorer", dir)
-	case "darwin":
-		cmd = exec.Command("open", dir)
-	default:
-		cmd = exec.Command("xdg-open", dir)
-	}
-	_ = cmd.Start()
-	go func() { _ = cmd.Wait() }()
-	guiJSON(w, true)
+	guiErr(w, 400, errors.New("what"))
 }

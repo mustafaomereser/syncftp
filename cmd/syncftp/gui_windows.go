@@ -6,8 +6,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -28,6 +30,11 @@ var (
 	procIsIconic                 = user32.NewProc("IsIconic")
 	procAllowSetForegroundWindow = user32.NewProc("AllowSetForegroundWindow")
 	procPostMessageW             = user32.NewProc("PostMessageW")
+	procGetClassNameW            = user32.NewProc("GetClassNameW")
+	procGetForegroundWindow      = user32.NewProc("GetForegroundWindow")
+	procGetWindowThreadProcessId = user32.NewProc("GetWindowThreadProcessId")
+	procAttachThreadInput        = user32.NewProc("AttachThreadInput")
+	procBringWindowToTop         = user32.NewProc("BringWindowToTop")
 )
 
 // ownsConsole süreç kendi konsolunun tek sahibi mi → Explorer'dan çift tıkla açılmış demektir.
@@ -159,6 +166,91 @@ func bringWindowToFront(suffix string) bool {
 	procAllowSetForegroundWindow.Call(^uintptr(0)) // ASFW_ANY
 	procSetForegroundWindow.Call(found)
 	return true
+}
+
+// forceForeground pencereyi öne alır. Arka plandaki süreç (panel sunucusu) SetForegroundWindow'u
+// tek başına çağırınca Windows yalnızca görev çubuğunu yakıp söndürür; ön plandaki pencerenin
+// iş parçacığına girdi bağlanınca (AttachThreadInput) izin verilir.
+func forceForeground(hwnd uintptr) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	if ic, _, _ := procIsIconic.Call(hwnd); ic != 0 {
+		procShowWindow.Call(hwnd, 9) // SW_RESTORE
+	}
+	fg, _, _ := procGetForegroundWindow.Call()
+	fgThread, _, _ := procGetWindowThreadProcessId.Call(fg, 0)
+	me := uintptr(windows.GetCurrentThreadId())
+	if fgThread != 0 && fgThread != me {
+		procAttachThreadInput.Call(me, fgThread, 1)
+		defer procAttachThreadInput.Call(me, fgThread, 0)
+	}
+	procAllowSetForegroundWindow.Call(^uintptr(0)) // ASFW_ANY
+	procBringWindowToTop.Call(hwnd)
+	procSetForegroundWindow.Call(hwnd)
+}
+
+// explorerWindows görünür Explorer klasör pencereleri (CabinetWClass) → başlık.
+func explorerWindows() map[uintptr]string {
+	out := map[uintptr]string{}
+	cb := syscall.NewCallback(func(hwnd, _ uintptr) uintptr {
+		if v, _, _ := procIsWindowVisible.Call(hwnd); v == 0 {
+			return 1
+		}
+		cls := make([]uint16, 64)
+		n, _, _ := procGetClassNameW.Call(hwnd, uintptr(unsafe.Pointer(&cls[0])), 64)
+		if windows.UTF16ToString(cls[:n]) != "CabinetWClass" {
+			return 1
+		}
+		buf := make([]uint16, 512)
+		n, _, _ = procGetWindowTextW.Call(hwnd, uintptr(unsafe.Pointer(&buf[0])), 512)
+		out[hwnd] = windows.UTF16ToString(buf[:n])
+		return 1
+	})
+	procEnumWindows.Call(cb, 0)
+	return out
+}
+
+// revealInFileManager klasörü (ya da dosyayı seçili olarak) Explorer'da açar ve pencereyi ÖNE alır —
+// panel penceresinin arkasında açılıp "açılmadı" sanılıyordu. Explorer pencereyi kendi sürecinde
+// açtığı için yeni CabinetWClass penceresi beklenir; aynı klasör zaten açıksa başlığından bulunur.
+func revealInFileManager(path string, selectFile bool) error {
+	before := explorerWindows()
+	cmd := exec.Command("explorer")
+	arg := `"` + path + `"`
+	if selectFile {
+		arg = `/select,"` + path + `"`
+	}
+	cmd.SysProcAttr = &syscall.SysProcAttr{CmdLine: `explorer ` + arg} // /select,"…" Go'nun tırnaklamasıyla bozuluyor
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	go func() {
+		_ = cmd.Wait() // explorer.exe pencereyi açan sürece devredip hemen çıkar
+		want := filepath.Base(path)
+		if selectFile {
+			want = filepath.Base(filepath.Dir(path))
+		}
+		for i := 0; i < 80; i++ { // ~8 sn (soğuk açılışta Explorer geç gelebiliyor)
+			time.Sleep(100 * time.Millisecond)
+			var match uintptr
+			for h, title := range explorerWindows() {
+				if _, old := before[h]; !old {
+					match = h
+					break
+				}
+				lt, lw := strings.ToLower(title), strings.ToLower(want)
+				// yeni pencere çıkmadıysa mevcut pencere yeniden kullanılmıştır; Win11 başlığı "klasör - Dosya Gezgini"
+				if i >= 15 && (lt == lw || strings.HasPrefix(lt, lw+" - ")) {
+					match = h
+				}
+			}
+			if match != 0 {
+				forceForeground(match)
+				return
+			}
+		}
+	}()
+	return nil
 }
 
 // hideCmdWindow alt sürecin (git, cloudflared) konsol penceresi açmasını engeller.

@@ -5,6 +5,7 @@ package main
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 )
 
@@ -46,6 +47,20 @@ func openDefaultBrowser(url string) error {
 }
 
 func bringWindowToFront(string) bool { return false }
+
+// revealInFileManager klasörü dosya yöneticisinde açar (dosyaysa bulunduğu klasörü).
+func revealInFileManager(path string, selectFile bool) error {
+	if selectFile {
+		if runtime.GOOS == "darwin" {
+			return exec.Command("open", "-R", path).Start()
+		}
+		path = filepath.Dir(path)
+	}
+	if runtime.GOOS == "darwin" {
+		return exec.Command("open", path).Start()
+	}
+	return exec.Command("xdg-open", path).Start()
+}
 
 func closeAppWindows(string) {}
 

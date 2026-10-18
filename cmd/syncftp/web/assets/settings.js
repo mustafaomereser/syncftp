@@ -21,8 +21,22 @@ Object.assign(T.tr, {
   colHost: 'Host', colKeyType: 'Tür', colFingerprint: 'Parmak izi',
   setCache: 'Hash önbelleği', setCacheDesc: 'Değişmeyen dosyaları yeniden hash\'lememek için boyut + değişiklik zamanı saklanır. Temizlerseniz ilk tarama biraz uzun sürer, sonuç değişmez.',
   setCacheSize: '{0} · {1} proje dizini', setCacheClear: 'Önbelleği temizle', setCacheCleared: 'Önbellek temizlendi',
-  setAbout: 'Hakkında', setVersion: 'Sürüm', setExe: 'Program', setPlatform: 'Platform', setConfigDir: 'Veri klasörü', setRegistry: 'Proje kaydı',
+  setAbout: 'Hakkında', setVersion: 'Sürüm', setExe: 'Program', setPlatform: 'Platform',
   setOpenFolder: 'Klasörü aç',
+  setLocs: "Veri konumları", setLocsDesc: "syncFTP'nin diske yazdığı her şey. Anahtarlık modu açıksa şifreler bu dosyalarda değil, Windows Kimlik Bilgisi Yöneticisi'nde durur.",
+  setLocApp: 'Uygulama ayarları', setLocCache: 'Önbellek — silinebilir, gerekince yeniden oluşur', setLocTemp: 'Geçici dosyalar', setLocProjects: 'Projeler',
+  setLocMissing: 'henüz yok', setLocReveal: 'Dosyayı klasöründe göster',
+  loc_config_dir: 'Ayar klasörü', locHint_config_dir: 'Aşağıdaki uygulama dosyalarının hepsi burada',
+  loc_library: 'Bağlantı kütüphanesi', locHint_library: 'Kayıtlı bağlantılar ve yeni proje varsayılanları',
+  loc_gui_state: 'Panel durumu', locHint_gui_state: 'Açık watch\'lar (panel açılınca geri gelir), webhook portu / tüneli, editör tercihi',
+  loc_gui_lang: 'Dil tercihi', locHint_gui_lang: 'Panelin ve CLI\'ın dili',
+  loc_registry: 'CLI proje kaydı', locHint_registry: 'syncftp project / --project için kayıtlı projeler',
+  loc_known_hosts: 'SFTP host anahtarları', locHint_known_hosts: 'İlk bağlantıda öğrenilen sunucu anahtarları (~/.ssh/known_hosts da okunur)',
+  loc_cloudflared: 'cloudflared', locHint_cloudflared: 'Webhook tüneli için indirilen program',
+  loc_hashcache: 'Hash önbelleği', locHint_hashcache: 'Değişmeyen dosyalar yeniden okunmasın diye boyut + tarih + hash',
+  loc_panel_profile: 'Panel penceresi profili', locHint_panel_profile: 'Panelin açıldığı tarayıcı penceresinin profili',
+  loc_temp: 'Sistem Temp klasörü', locHint_temp: 'İndirme / yükleme / düzenleme sırasında syncftp-dl-*, syncftp-up-*, syncftp-edit-* açılır, iş bitince silinir',
+  locHint_project: 'Config, state, release yedekleri (rollback), loglar, freeze / failed / milestone, watch kilidi, AI dokümanları — .gitignore\'da',
 });
 Object.assign(T.en, {
   navSettings: 'Settings', setTitle: 'Settings', setSub: 'App-wide settings — per-project sync settings live in each project\'s Project settings tab',
@@ -41,8 +55,22 @@ Object.assign(T.en, {
   colHost: 'Host', colKeyType: 'Type', colFingerprint: 'Fingerprint',
   setCache: 'Hash cache', setCacheDesc: 'Size + modification time are stored so unchanged files are not hashed again. Clearing it only makes the next scan slower.',
   setCacheSize: '{0} · {1} project folders', setCacheClear: 'Clear cache', setCacheCleared: 'Cache cleared',
-  setAbout: 'About', setVersion: 'Version', setExe: 'Program', setPlatform: 'Platform', setConfigDir: 'Data folder', setRegistry: 'Project registry',
+  setAbout: 'About', setVersion: 'Version', setExe: 'Program', setPlatform: 'Platform',
   setOpenFolder: 'Open folder',
+  setLocs: 'Data locations', setLocsDesc: 'Everything syncFTP writes to disk. With keyring mode on, passwords are kept in the OS credential store, not in these files.',
+  setLocApp: 'App settings', setLocCache: 'Cache — safe to delete, rebuilt when needed', setLocTemp: 'Temporary files', setLocProjects: 'Projects',
+  setLocMissing: 'not created yet', setLocReveal: 'Show the file in its folder',
+  loc_config_dir: 'Settings folder', locHint_config_dir: 'All the app files below live here',
+  loc_library: 'Connection library', locHint_library: 'Saved connections and new-project defaults',
+  loc_gui_state: 'Panel state', locHint_gui_state: 'Open watches (restored on start), webhook port / tunnel, editor preference',
+  loc_gui_lang: 'Language', locHint_gui_lang: 'Language of the panel and the CLI',
+  loc_registry: 'CLI project registry', locHint_registry: 'Projects registered for syncftp project / --project',
+  loc_known_hosts: 'SFTP host keys', locHint_known_hosts: 'Server keys learned on first connect (~/.ssh/known_hosts is read too)',
+  loc_cloudflared: 'cloudflared', locHint_cloudflared: 'Program downloaded for the webhook tunnel',
+  loc_hashcache: 'Hash cache', locHint_hashcache: 'Size + time + hash so unchanged files are not read again',
+  loc_panel_profile: 'Panel window profile', locHint_panel_profile: 'Browser profile of the panel window',
+  loc_temp: 'System temp folder', locHint_temp: 'syncftp-dl-*, syncftp-up-*, syncftp-edit-* are created during downloads / uploads / edits and removed afterwards',
+  locHint_project: 'Config, state, release backups (rollback), logs, freeze / failed / milestone, watch lock, AI docs — in .gitignore',
 });
 
 async function pageSettings(sub = "general") {
@@ -124,12 +152,25 @@ async function pageSettings(sub = "general") {
 
   const cacheSec = section('gauge', t('setCache'), t('setCacheDesc'), `
     <div class="aksiyonlar"><span class="pill mono">${t('setCacheSize', bytes(s.cache_bytes), s.cache_files)}</span><span style="margin-left:auto"></span>
-      <button class="btn" data-open="cache">${icon('folder')}${t('setOpenFolder')}</button><button class="btn tehlike" id="set-cache-clear" ${s.cache_files ? '' : 'disabled'}>${icon('trash')}${t('setCacheClear')}</button></div>`);
+      <button class="btn" data-open="hashcache">${icon('folder')}${t('setOpenFolder')}</button><button class="btn tehlike" id="set-cache-clear" ${s.cache_files ? '' : 'disabled'}>${icon('trash')}${t('setCacheClear')}</button></div>`);
 
   const about = section('help', t('setAbout'), '', `<div class="alanlar">
     <div class="alan"><label>${t('setVersion')}</label><input type="text" class="mono" value="v${esc(s.version)}" readonly></div>
     <div class="alan"><label>${t('setPlatform')}</label><input type="text" class="mono" value="${esc(s.os)} · ${esc(s.go)}" readonly></div>
-    ${pathRow(t('setExe'), s.exe, '')}${pathRow(t('setConfigDir'), s.config_dir, 'config')}${pathRow(t('setRegistry'), s.registry, '')}</div>`);
+    ${pathRow(t('setExe'), s.exe, '')}</div>`);
+
+  // Veri konumları: Go'daki dataLocations listesi (Klasörü aç da yalnızca bunları açar)
+  const locs = s.locations || [];
+  const locRow = (l) => `<tr><td><b>${esc(l.project || t('loc_' + l.key))}</b>${l.exists ? '' : ` <span class="pill">${t('setLocMissing')}</span>`}
+      <div class="faint" style="font-size:12px;margin-top:2px">${t(l.project ? 'locHint_project' : 'locHint_' + l.key)}</div>
+      <div class="mono" style="font-size:12px;margin-top:4px;word-break:break-all">${esc(l.path)}</div></td>
+    <td class="sag" style="white-space:nowrap;vertical-align:top"><button class="ikon-btn" data-copy="${esc(l.path)}" title="${t('copyPath')}">${icon('copy')}</button><button class="ikon-btn" data-open="${esc(l.key)}" title="${t(l.file && l.exists ? 'setLocReveal' : 'setOpenFolder')}">${icon('folder')}</button></td></tr>`;
+  const locGroup = (g, title) => {
+    const rows = locs.filter((l) => l.group === g);
+    return rows.length ? `<div class="ara-baslik" style="margin-top:14px">${title}</div><div class="tablo-kap"><table class="tablo"><tbody>${rows.map(locRow).join('')}</tbody></table></div>` : '';
+  };
+  const locSec = section('folder', t('setLocs'), t('setLocsDesc'),
+    locGroup('app', t('setLocApp')) + locGroup('project', t('setLocProjects')) + locGroup('cache', t('setLocCache')) + locGroup('temp', t('setLocTemp')));
 
   // Tek sayfada 8 bölüm alt alta kafa karıştırıyordu → her iş kendi alt sayfasında
   const tabs = [
@@ -139,7 +180,7 @@ async function pageSettings(sub = "general") {
     ['projects', 'folder', t('setTabProjects'), projSec],
     ['hooks', 'zap', t('setTabHooks'), hooksSec],
     ['security', 'shield', t('setTabSecurity'), hostSec],
-    ['system', 'gauge', t('setTabSystem'), cacheSec + about],
+    ['system', 'gauge', t('setTabSystem'), locSec + cacheSec + about],
   ];
   const cur = tabs.find((x) => x[0] === sub) || tabs[0];
   return `<div class="sayfa"><div class="baslik-satir"><div><h1>${t('setTitle')}</h1><div class="yol">${esc(t('setSub'))}</div></div></div>
