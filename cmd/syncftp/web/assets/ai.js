@@ -7,7 +7,7 @@ Object.assign(T.tr, {
   aiTitle: 'Yapay zekâ asistanı', aiNav: 'AI asistan', aiPick: 'Hangi araçla açalım?', aiPickSub: 'Bu bilgisayarda yüklü yapay zekâ araçları. Asistan syncFTP dokümanlarını ve projenin şifresiz özetini okuyarak yardım eder; isterseniz sizin yerinize ayar yapar.',
   aiChat: 'Panel içi sohbet', aiTerminal: 'Terminalde aç', aiTerminalOnly: 'terminalde açılır', aiNotInstalled: 'yüklü değil', aiProject: 'Proje',
   aiNew: 'Yeni sohbet', aiStop: 'Durdur', aiSend: 'Gönder', aiPlaceholder: 'Sorun ya da yaptırın… (Enter gönderir, Shift+Enter yeni satır)',
-  aiThinking: 'düşünüyor…', aiTerminalOpened: '{0} terminalde açıldı', aiNoProject: 'Önce bir proje ekleyin', aiNoAgents: 'Yüklü yapay zekâ aracı bulunamadı. Claude Code, Codex, OpenCode ya da Gemini CLI kurun.',
+  aiThinking: 'düşünüyor…', aiTerminalOpened: '{0} terminalde açıldı', aiNoProject: 'Önce bir proje ekleyin', aiNoAgents: 'Yüklü yapay zekâ aracı bulunamadı. Claude Code ya da OpenCode kurun.',
   aiPerms: 'İzinler: dosya düzenleme + yalnızca syncftp komutları. Gerçek sync, rollback ve silme gibi işlemlerden önce size sorar.',
   aiS1: 'Bu projede neler var, özetler misin?', aiS2: 'Yeni bir SFTP sunucusu eklemek istiyorum, adım adım sorarak ekle', aiS3: 'GitHub\'a push yapınca otomatik deploy olsun, kur', aiS4: 'Neden bu dosyalar yükleniyor? Bekleyen değişiklikleri açıkla',
   aiS5: 'vendor ve node_modules\'ü sync dışında bırak, .env\'yi koru', aiS6: 'Deploy sonrası sunucuda php artisan migrate çalışsın',
@@ -21,7 +21,7 @@ Object.assign(T.en, {
   aiTitle: 'AI assistant', aiNav: 'AI assistant', aiPick: 'Which tool should we use?', aiPickSub: 'AI tools installed on this computer. The assistant reads the syncFTP docs and a secret-free summary of the project; it can also change settings for you.',
   aiChat: 'In-panel chat', aiTerminal: 'Open in terminal', aiTerminalOnly: 'opens in a terminal', aiNotInstalled: 'not installed', aiProject: 'Project',
   aiNew: 'New chat', aiStop: 'Stop', aiSend: 'Send', aiPlaceholder: 'Ask or ask it to do something… (Enter sends, Shift+Enter new line)',
-  aiThinking: 'thinking…', aiTerminalOpened: '{0} opened in a terminal', aiNoProject: 'Add a project first', aiNoAgents: 'No AI tool found. Install Claude Code, Codex, OpenCode or Gemini CLI.',
+  aiThinking: 'thinking…', aiTerminalOpened: '{0} opened in a terminal', aiNoProject: 'Add a project first', aiNoAgents: 'No AI tool found. Install Claude Code or OpenCode.',
   aiPerms: 'Permissions: file edits + syncftp commands only. It asks you before real syncs, rollbacks and deletions.',
   aiS1: 'What is in this project? Give me a summary', aiS2: 'I want to add a new SFTP server — ask me step by step and add it', aiS3: 'Deploy automatically when I push to GitHub — set it up', aiS4: 'Why are these files being uploaded? Explain the pending changes',
   aiS5: 'Keep vendor and node_modules out of sync and protect .env', aiS6: 'Run php artisan migrate on the server after each deploy',
@@ -73,7 +73,8 @@ async function aiRenderPicker(setup = false) {
     <div class="ai-govde"><div class="yukleniyor">${icon('refresh', 'spin')} ${t('loading')}</div></div>`;
   $('[data-ai-close]', el).onclick = () => aiToggle(false);
   if (!S.projects.length) await loadProjects();
-  const agents = await GET('/api/ai/agents').catch(() => []);
+  // Yalnızca panel içinde sohbet edilebilen araçlar (terminalde açma kaldırıldı)
+  const agents = (await GET('/api/ai/agents').catch(() => [])).filter((a) => a.chat);
   AI.agents = agents;
   const found = agents.filter((a) => a.found);
   const body = $('.ai-govde', el);
@@ -89,10 +90,10 @@ async function aiRenderPicker(setup = false) {
     <h4 class="ai-h4">${t('aiPick')}</h4><p class="ipucu" style="margin:0 0 12px">${setup ? '' : t('aiPickSub')}</p>
     ${found.length ? '' : `<div class="bos" style="padding:20px">${t('aiNoAgents')}</div>`}
     <div class="ai-araclar">${agents.map((a) => `<div class="ai-arac ${a.found ? '' : 'yok'}" data-agent="${esc(a.id)}">
-        <div class="ai-arac-ust"><b>${esc(a.name)}</b>${a.found ? (a.chat ? `<span class="pill ok"><span class="nokta"></span>${t('aiChat')}</span>` : `<span class="pill">${t('aiTerminalOnly')}</span>`) : `<span class="pill">${t('aiNotInstalled')}</span>`}</div>
+        <div class="ai-arac-ust"><b>${esc(a.name)}</b>${a.found ? `<span class="pill ok"><span class="nokta"></span>${t('aiChat')}</span>` : `<span class="pill">${t('aiNotInstalled')}</span>`}</div>
         ${a.found ? `<div class="mono faint ai-yol">${esc(a.path)}</div><div class="aksiyonlar" style="margin-top:8px">
-          ${a.chat ? `<button class="btn kucuk mavi" data-ai-chat>${icon('spark')}${t('aiChat')}</button>` : ''}
-          ${setup ? '' : `<button class="btn kucuk" data-ai-term>${icon('terminal')}${t('aiTerminal')}</button>`}</div>` : ''}
+          <button class="btn kucuk mavi" data-ai-chat>${icon('spark')}${t('aiChat')}</button>
+</div>` : ''}
       </div>`).join('')}</div>
     <p class="ipucu" style="margin-top:14px">${icon('shield')} ${t(setup ? 'aiPermsSetup' : 'aiPerms')}</p>`;
   const ps = $('#ai-proj', body); if (ps) ps.onchange = (e) => { AI.project = e.target.value; };
@@ -102,7 +103,7 @@ async function aiRenderPicker(setup = false) {
   if (fp) fp.onclick = async () => { const v = await pickPath({ mode: 'dir', initial: $('#ai-folder', body).value.trim() }); if (v) { $('#ai-folder', body).value = v; AI.setupPath = v; } };
   $$('[data-agent]', body).forEach((card) => {
     const id = card.dataset.agent;
-    const chat = $('[data-ai-chat]', card), term = $('[data-ai-term]', card);
+    const chat = $('[data-ai-chat]', card);
     if (chat) chat.onclick = async () => {
       chat.disabled = true;
       try {
@@ -115,10 +116,6 @@ async function aiRenderPicker(setup = false) {
         AI.lastId = 0; aiRenderChat();
       }
       catch (e) { fail(e); chat.disabled = false; }
-    };
-    if (term) term.onclick = async () => {
-      try { await api('POST', `/api/p/${enc(AI.project)}/ai/terminal`, { agent: id }); toast(t('aiTerminalOpened', (agents.find((a) => a.id === id) || {}).name || id)); }
-      catch (e) { fail(e); }
     };
   });
 }
