@@ -7,6 +7,7 @@
 Object.assign(T.tr, {
   navSettings: 'Ayarlar', setTitle: 'Ayarlar', setSub: 'Uygulama geneli ayarlar — proje bazlı sync ayarları her projenin Proje ayarları sekmesinde',
   setGeneral: 'Genel', setLang: 'Dil', setLangHint: 'Panel ve log mesajlarının dili',
+  setEditSave: 'Dosya düzenleyicide kaydet', setEditSaveHint: 'Ctrl+S basınca nereye kaydedilsin. "Her seferinde sor" değişiklik farkını ve seçenekleri gösterir.', setEditAsk: 'Her seferinde sor', setEditBoth: 'Sunucuya ve yerele', setEditRemote: 'Yalnızca sunucuya',
   setAutostart: 'Windows açılışında başlat', setAutostartHint: 'Oturum açılınca syncFTP pencere açmadan tepside başlar; açık watch\'lar ve webhook dinleyicisi kaldığı yerden devam eder.',
   setAutostartOn: 'Windows açılışında başlayacak', setAutostartOff: 'Otomatik başlatma kapatıldı',
   setTrayOn: 'Tepsi simgesi açık — pencereyi kapatsanız da syncFTP tepside çalışmaya devam eder.',
@@ -26,6 +27,7 @@ Object.assign(T.tr, {
 Object.assign(T.en, {
   navSettings: 'Settings', setTitle: 'Settings', setSub: 'App-wide settings — per-project sync settings live in each project\'s Project settings tab',
   setGeneral: 'General', setLang: 'Language', setLangHint: 'Language of the panel and log messages',
+  setEditSave: 'Saving in the file editor', setEditSaveHint: 'Where Ctrl+S saves. "Ask every time" shows the diff and the options.', setEditAsk: 'Ask every time', setEditBoth: 'Server and local', setEditRemote: 'Server only',
   setAutostart: 'Start with Windows', setAutostartHint: 'When you sign in, syncFTP starts in the tray without opening a window; open watches and the webhook listener resume.',
   setAutostartOn: 'Will start with Windows', setAutostartOff: 'Autostart disabled',
   setTrayOn: 'Tray icon is on — closing the window keeps syncFTP running in the tray.',
@@ -54,6 +56,9 @@ async function pageSettings(sub = "general") {
     $$('#set-lang button', root).forEach((b) => (b.onclick = async () => {
       try { await api('PUT', '/api/lang', { lang: b.dataset.l }); LANG = b.dataset.l; applyLang(); render(true); } catch (e) { fail(e); }
     }));
+    $('#set-editsave', root).onchange = async (e) => {
+      try { await api('PUT', '/api/settings', { edit_save_target: e.target.value }); toast(t('saved')); } catch (err) { fail(err); }
+    };
     const as = $('#set-autostart', root);
     if (as) as.onchange = async () => {
       try { await api('PUT', '/api/settings', { autostart: as.checked }); toast(as.checked ? t('setAutostartOn') : t('setAutostartOff')); }
@@ -96,6 +101,8 @@ async function pageSettings(sub = "general") {
       <span class="seg" id="set-lang"><button data-l="tr" class="${LANG === 'tr' ? 'aktif' : ''}">Türkçe</button><button data-l="en" class="${LANG === 'en' ? 'aktif' : ''}">English</button></span></label>
     ${s.autostart_supported ? `<label class="anahtar"><span class="metin"><b>${t('setAutostart')}</b><small>${t('setAutostartHint')}</small></span>
       <span class="switch"><input type="checkbox" id="set-autostart" ${s.autostart ? 'checked' : ''}><i></i></span></label>` : ''}
+    <label class="anahtar"><span class="metin"><b>${t('setEditSave')}</b><small>${t('setEditSaveHint')}</small></span>
+      <select id="set-editsave" style="width:auto">${[['', 'setEditAsk'], ['both', 'setEditBoth'], ['remote', 'setEditRemote']].map(([v, k]) => `<option value="${v}" ${(s.edit_save_target || '') === v ? 'selected' : ''}>${t(k)}</option>`).join('')}</select></label>
     ${s.tray ? `<p class="ipucu">${icon('check', 'ok-t')} ${t('setTrayOn')}</p>` : ''}`);
 
   const tunnelPill = tun.active && tun.url ? `<span class="pill ok"><span class="nokta"></span>${t('ciTunnelOn')}</span>`

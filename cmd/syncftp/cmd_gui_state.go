@@ -22,6 +22,9 @@ type guiPersist struct {
 	HookPort int `json:"hook_port,omitempty"`
 	// HookPublicURL kendi domain'i / named tunnel kullananlar için sabit public adres
 	HookPublicURL string `json:"hook_public_url,omitempty"`
+	// EditSaveTarget dosya düzenleyicide Ctrl+S'in hedefi: "" = her seferinde sor, "both" = sunucu +
+	// yerel, "remote" = yalnızca sunucu (kaydetme penceresindeki "bir daha sorma")
+	EditSaveTarget string `json:"edit_save_target,omitempty"`
 }
 
 var guiPersistMu sync.Mutex

@@ -550,3 +550,7 @@ details.bolum.katlanir > summary h3 + .ok-ac { margin-left: auto; }
 .tip-ok { position: absolute; top: 100%; width: 0; height: 0; margin-left: -5px; border: 5px solid transparent; border-top-color: var(--text); }
 .tip.alt .tip-ok { top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: var(--text); }
 @media (prefers-reduced-motion: reduce) { .tip { transition: none; } }
+
+.ed-hatirla { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.ed-hatirla input { accent-color: var(--accent); }
+.modal-alt .sol .ed-hedef { display: inline-flex; align-items: center; gap: 4px; margin-left: 12px; color: var(--muted); }

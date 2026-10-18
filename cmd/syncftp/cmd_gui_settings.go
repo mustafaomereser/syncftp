@@ -107,6 +107,7 @@ func (sv *guiServer) apiSettings(w http.ResponseWriter, r *http.Request) {
 		"hook_port":           port,
 		"hook_port_active":    sv.hooks.activePort(),
 		"hook_default_port":   defaultHookPort,
+		"edit_save_target":    st.EditSaveTarget,
 	})
 }
 
@@ -114,6 +115,8 @@ func (sv *guiServer) apiSettingsPut(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Autostart *bool `json:"autostart"`
 		HookPort  *int  `json:"hook_port"`
+		// EditSaveTarget "" | "both" | "remote"
+		EditSaveTarget *string `json:"edit_save_target"`
 	}
 	if err := guiDecode(r, &req); err != nil {
 		guiErr(w, 400, err)
@@ -132,6 +135,14 @@ func (sv *guiServer) apiSettingsPut(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		updateGUIPersist(func(st *guiPersist) { st.HookPort = p })
+	}
+	if req.EditSaveTarget != nil {
+		v := *req.EditSaveTarget
+		if v != "" && v != "both" && v != "remote" {
+			guiErr(w, 400, errors.New("edit_save_target: \"\" | both | remote"))
+			return
+		}
+		updateGUIPersist(func(st *guiPersist) { st.EditSaveTarget = v })
 	}
 	guiJSON(w, true)
 }

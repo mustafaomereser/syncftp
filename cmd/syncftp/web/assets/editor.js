@@ -22,6 +22,8 @@ Object.assign(T.tr, {
   edBothLocalDiff: 'Yereldeki dosya sunucudakinden farklıydı — yerelde senkronize edilmemiş değişiklikler varsa kaybolur.',
   edRemoteOnly: 'Yalnızca sunucuya kaydet', edRemoteOnlyHint: 'Acil düzeltmeler için. Yereldeki dosya değişmez; yerelde bu dosyayı değiştirip sync edersen sunucudaki düzenleme ezilir.',
   edBackupNote: 'Sunucudaki eski hal yedeklenir, Geçmiş\'ten geri alabilirsin.',
+  edRemember: 'Bir daha sorma, bu seçim hep geçerli olsun', edTargetBoth: 'Ctrl+S: sunucu + yerel', edTargetRemote: 'Ctrl+S: yalnızca sunucu',
+  edTargetReset: 'Tekrar sor', edTargetResetHint: 'Kaydederken yine sorulsun (Ayarlar → Genel\'den de değişir)', edTargetResetDone: 'Kaydederken yine sorulacak',
   edDiscardTitle: 'Kaydedilmemiş değişiklikler', edDiscardText: 'Değişiklikler kaydedilmedi. Yine de kapatılsın mı?', edDiscard: 'Kaydetmeden kapat',
   edConflictTitle: 'Sunucudaki dosya değişmiş', edConflictText: 'Sen açtıktan sonra dosya sunucuda değişti (başka biri ya da bir sync). Aşağıda sunucudaki güncel hal → senin sürümün farkı var.',
   edOverwrite: 'Benimkini yine de kaydet', edReload: 'Sunucudakini aç (değişikliklerim gider)',
@@ -37,6 +39,8 @@ Object.assign(T.en, {
   edBothLocalDiff: 'The local file differed from the server — unsynced local changes will be lost.',
   edRemoteOnly: 'Save to server only', edRemoteOnlyHint: 'For quick fixes. The local file stays as is; if you change it locally and sync, the edit on the server is overwritten.',
   edBackupNote: 'The old version on the server is backed up; you can undo it from History.',
+  edRemember: 'Don’t ask again, always use this choice', edTargetBoth: 'Ctrl+S: server + local', edTargetRemote: 'Ctrl+S: server only',
+  edTargetReset: 'Ask again', edTargetResetHint: 'Ask on every save again (also in Settings → General)', edTargetResetDone: 'You’ll be asked on save again',
   edDiscardTitle: 'Unsaved changes', edDiscardText: 'Your changes aren\'t saved. Close anyway?', edDiscard: 'Close without saving',
   edConflictTitle: 'The file changed on the server', edConflictText: 'The file changed on the server after you opened it (someone else or a sync). Below: the current server version → your version.',
   edOverwrite: 'Save mine anyway', edReload: 'Open the server version (discard mine)',
@@ -65,12 +69,23 @@ async function editFile(P, srv, rel) {
     body: `<div class="ed"><div class="ed-no"><pre></pre></div><div class="ed-alan"><pre class="ed-hl"></pre>
         <textarea spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off"></textarea></div></div>
       <div class="ed-durum"><span data-pos></span><span data-info></span><span data-local>${localPill()}</span></div>`,
-    actions: [{ left: `<span class="mono">${esc(srv)}</span>` },
+    actions: [{ left: '<span></span>' }, // drawLeft doldurur
       { label: t('close'), cls: 'hayalet', run: async () => (dirty() ? confirmDiscard() : true) },
       { label: icon('check') + t('edSave'), cls: 'birincil', run: () => { save(); return false; } }],
     guard: async () => (dirty() ? confirmDiscard() : true),
   });
   const ta = $('textarea', m.root), hl = $('.ed-hl', m.root), gut = $('.ed-no pre', m.root);
+  // Hatırlanan kaydetme hedefi ("bir daha sorma"): '' = sor, 'both' | 'remote'
+  let target = doc.save_target || '';
+  const setTarget = async (v) => { await api('PUT', '/api/settings', { edit_save_target: v }); target = v; drawLeft(); };
+  function drawLeft() {
+    const sol = $('.modal-alt .sol', m.root);
+    sol.innerHTML = `<span class="mono">${esc(srv)}</span>${target ? `<span class="ed-hedef">${t(target === 'both' ? 'edTargetBoth' : 'edTargetRemote')}
+      <button class="btn kucuk hayalet" data-reask title="${t('edTargetResetHint')}">${t('edTargetReset')}</button></span>` : ''}`;
+    const b = $('[data-reask]', sol);
+    if (b) b.onclick = async () => { try { await setTarget(''); toast(t('edTargetResetDone')); ta.focus(); } catch (e) { fail(e); } };
+  }
+  drawLeft();
   const titleEl = $('.modal-bas h3', m.root);
   ta.value = orig;
   const dirty = () => ta.value !== orig;
@@ -146,8 +161,10 @@ async function editFile(P, srv, rel) {
     if (saving) return;
     if (!dirty()) { toast(t('edNoChanges')); return; }
     const content = ta.value;
+    if (target) return put(content, target === 'both', false);
     const choice = await saveDialog(content);
     if (!choice) return ta.focus();
+    if (choice.remember) await setTarget(choice.local ? 'both' : 'remote').catch(fail);
     await put(content, choice.local, false);
   }
 
@@ -188,10 +205,11 @@ async function editFile(P, srv, rel) {
             <label><input type="radio" name="ed-hedef" value="both" checked><span><b>${t('edBoth')}</b><small>${t('edBothHint')}</small>
               ${warnLocal ? `<small class="warn-t">${icon('alert')}${t('edBothLocalDiff')}</small>` : ''}</span></label>
             <label><input type="radio" name="ed-hedef" value="remote"><span><b>${t('edRemoteOnly')}</b><small>${t('edRemoteOnlyHint')}</small></span></label>
-          </div>`,
+          </div>
+          <label class="ed-hatirla"><input type="checkbox" data-remember><span>${t('edRemember')}</span></label>`,
         actions: [{ left: `<span class="faint">${t('edBackupNote')}</span>` },
           { label: t('cancel'), cls: 'hayalet', run: () => { done = true; res(null); } },
-          { label: icon('check') + t('edSave'), cls: 'birincil', run: (root) => { done = true; res({ local: $('input[name=ed-hedef]:checked', root).value === 'both' }); } }],
+          { label: icon('check') + t('edSave'), cls: 'birincil', run: (root) => { done = true; res({ local: $('input[name=ed-hedef]:checked', root).value === 'both', remember: $('[data-remember]', root).checked }); } }],
         onClose: () => { if (!done) res(null); },
       });
       // Enter = Kaydet (modal ilk input'a, yani seçeneğe odaklanır)

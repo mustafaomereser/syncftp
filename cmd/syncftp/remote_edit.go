@@ -32,6 +32,7 @@ type editDoc struct {
 	Reason      string `json:"reason,omitempty"` // binary | large | encoding
 	LocalExists bool   `json:"local_exists"`
 	LocalSame   bool   `json:"local_same"`
+	SaveTarget  string `json:"save_target,omitempty"` // panel tercihi (gui-state edit_save_target)
 }
 
 func contentHash(data []byte) string {

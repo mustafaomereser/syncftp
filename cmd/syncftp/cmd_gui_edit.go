@@ -43,7 +43,9 @@ func (sv *guiServer) apiRemoteEditOpen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	local, lerr := os.ReadFile(localFile)
-	guiJSON(w, openEditDoc(data, local, lerr == nil))
+	doc := openEditDoc(data, local, lerr == nil)
+	doc.SaveTarget = loadGUIPersist().EditSaveTarget
+	guiJSON(w, doc)
 }
 
 // PUT /api/p/{p}/remote/edit — kaydet. Sunucudaki dosya açıldıktan sonra değiştiyse (base_hash
