@@ -1,4 +1,4 @@
-# syncFTP
+﻿# syncFTP
 
 ![syncFTP](cover.png)
 
@@ -139,10 +139,9 @@ Folder and file pickers run **inside the panel** (no native dialogs); include / 
 
 ### AI assistant (panel only)
 
-Click **AI assistant** in the sidebar or on a project. The panel lists the AI coding tools installed on your machine:
+Click **AI assistant** in the sidebar. The panel lists the supported AI coding tools installed on your machine:
 
 - **Claude Code** and **OpenCode** run as an **in-panel chat** — ask questions or say "add an SFTP server for …", "deploy on push to main", "protect .env and skip vendor"; it edits the config and runs `syncftp` commands for you.
-- **Codex, Gemini CLI, Qwen Code, Cursor Agent, Aider** open in a terminal window with a starter prompt.
 
 For each session syncFTP writes `.syncftp/ai/` — `README.md` (rules), `CLI.md` (command reference), `CONFIG.md` (schema) and `PROJECT.md` (a secret-free snapshot of the project) — and the assistant reads them. It may only edit project files and run `syncftp` commands; it is told never to reveal passwords and to ask before real syncs, rollbacks, deletions or remote commands.
 

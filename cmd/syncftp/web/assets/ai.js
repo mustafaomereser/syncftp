@@ -1,13 +1,13 @@
 'use strict';
 
-/* Yapay zekâ asistanı çekmecesi — yüklü AI araçlarından biriyle (Claude Code, OpenCode…)
-   panel içinde sohbet; desteklenmeyen araçlar terminalde açılır. */
+/* Yapay zekâ asistanı çekmecesi — yüklü AI araçlarından biriyle (Claude Code, OpenCode)
+   panel içinde sohbet. */
 
 Object.assign(T.tr, {
   aiTitle: 'Yapay zekâ asistanı', aiNav: 'AI asistan', aiPick: 'Hangi araçla açalım?', aiPickSub: 'Bu bilgisayarda yüklü yapay zekâ araçları. Asistan syncFTP dokümanlarını ve projenin şifresiz özetini okuyarak yardım eder; isterseniz sizin yerinize ayar yapar.',
-  aiChat: 'Panel içi sohbet', aiTerminal: 'Terminalde aç', aiTerminalOnly: 'terminalde açılır', aiNotInstalled: 'yüklü değil', aiProject: 'Proje',
+  aiChat: 'Panel içi sohbet', aiNotInstalled: 'yüklü değil', aiProject: 'Proje',
   aiNew: 'Yeni sohbet', aiStop: 'Durdur', aiSend: 'Gönder', aiPlaceholder: 'Sorun ya da yaptırın… (Enter gönderir, Shift+Enter yeni satır)',
-  aiThinking: 'düşünüyor…', aiTerminalOpened: '{0} terminalde açıldı', aiNoProject: 'Önce bir proje ekleyin', aiNoAgents: 'Yüklü yapay zekâ aracı bulunamadı. Claude Code ya da OpenCode kurun.',
+  aiThinking: 'düşünüyor…', aiNoProject: 'Önce bir proje ekleyin', aiNoAgents: 'Yüklü yapay zekâ aracı bulunamadı. Claude Code ya da OpenCode kurun.',
   aiPerms: 'İzinler: dosya düzenleme + yalnızca syncftp komutları. Gerçek sync, rollback ve silme gibi işlemlerden önce size sorar.',
   aiS1: 'Bu projede neler var, özetler misin?', aiS2: 'Yeni bir SFTP sunucusu eklemek istiyorum, adım adım sorarak ekle', aiS3: 'GitHub\'a push yapınca otomatik deploy olsun, kur', aiS4: 'Neden bu dosyalar yükleniyor? Bekleyen değişiklikleri açıkla',
   aiS5: 'vendor ve node_modules\'ü sync dışında bırak, .env\'yi koru', aiS6: 'Deploy sonrası sunucuda php artisan migrate çalışsın',
@@ -19,9 +19,9 @@ Object.assign(T.tr, {
 });
 Object.assign(T.en, {
   aiTitle: 'AI assistant', aiNav: 'AI assistant', aiPick: 'Which tool should we use?', aiPickSub: 'AI tools installed on this computer. The assistant reads the syncFTP docs and a secret-free summary of the project; it can also change settings for you.',
-  aiChat: 'In-panel chat', aiTerminal: 'Open in terminal', aiTerminalOnly: 'opens in a terminal', aiNotInstalled: 'not installed', aiProject: 'Project',
+  aiChat: 'In-panel chat', aiNotInstalled: 'not installed', aiProject: 'Project',
   aiNew: 'New chat', aiStop: 'Stop', aiSend: 'Send', aiPlaceholder: 'Ask or ask it to do something… (Enter sends, Shift+Enter new line)',
-  aiThinking: 'thinking…', aiTerminalOpened: '{0} opened in a terminal', aiNoProject: 'Add a project first', aiNoAgents: 'No AI tool found. Install Claude Code or OpenCode.',
+  aiThinking: 'thinking…', aiNoProject: 'Add a project first', aiNoAgents: 'No AI tool found. Install Claude Code or OpenCode.',
   aiPerms: 'Permissions: file edits + syncftp commands only. It asks you before real syncs, rollbacks and deletions.',
   aiS1: 'What is in this project? Give me a summary', aiS2: 'I want to add a new SFTP server — ask me step by step and add it', aiS3: 'Deploy automatically when I push to GitHub — set it up', aiS4: 'Why are these files being uploaded? Explain the pending changes',
   aiS5: 'Keep vendor and node_modules out of sync and protect .env', aiS6: 'Run php artisan migrate on the server after each deploy',
@@ -73,7 +73,7 @@ async function aiRenderPicker(setup = false) {
     <div class="ai-govde"><div class="yukleniyor">${icon('refresh', 'spin')} ${t('loading')}</div></div>`;
   $('[data-ai-close]', el).onclick = () => aiToggle(false);
   if (!S.projects.length) await loadProjects();
-  // Yalnızca panel içinde sohbet edilebilen araçlar (terminalde açma kaldırıldı)
+  // Yalnızca panel içinde sohbet edilebilen araçlar
   const agents = (await GET('/api/ai/agents').catch(() => [])).filter((a) => a.chat);
   AI.agents = agents;
   const found = agents.filter((a) => a.found);

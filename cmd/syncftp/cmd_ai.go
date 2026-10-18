@@ -12,7 +12,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -54,11 +53,6 @@ func aiAgentCatalog() []aiAgent {
 	return []aiAgent{
 		{ID: "claude", Name: "Claude Code", Bins: []string{"claude"}, Chat: true},
 		{ID: "opencode", Name: "OpenCode", Bins: []string{"opencode.cmd", "opencode"}, Chat: true},
-		{ID: "codex", Name: "Codex CLI", Bins: []string{"codex.cmd", "codex"}},
-		{ID: "gemini", Name: "Gemini CLI", Bins: []string{"gemini.cmd", "gemini"}},
-		{ID: "qwen", Name: "Qwen Code", Bins: []string{"qwen.cmd", "qwen"}},
-		{ID: "cursor-agent", Name: "Cursor Agent", Bins: []string{"cursor-agent.cmd", "cursor-agent"}},
-		{ID: "aider", Name: "Aider", Bins: []string{"aider"}},
 	}
 }
 
@@ -639,46 +633,12 @@ func (s *aiSession) handleOpenCodeEvent(line string) {
 	}
 }
 
-// ── Terminalde aç (headless desteklenmeyen araçlar ya da tercih) ─────────────
-
-func openAgentTerminal(a aiAgent, dir, readme string) error {
-	prompt := "Read " + filepath.ToSlash(readme) + " and the files it lists, then help me manage syncFTP for this project. Ask me what I want to do."
-	var argLine string
-	switch a.ID {
-	case "opencode":
-		argLine = `--prompt "` + prompt + `"`
-	case "gemini", "qwen":
-		argLine = `-i "` + prompt + `"`
-	case "aider":
-		argLine = `--read .syncftp/ai/README.md --read .syncftp/ai/CLI.md --read .syncftp/ai/CONFIG.md --read .syncftp/ai/PROJECT.md`
-	default:
-		argLine = `"` + prompt + `"`
-	}
-	if runtime.GOOS != "windows" {
-		return errors.New("terminal launch is only implemented on Windows; run the agent in the project folder")
-	}
-	// .cmd başlatıcı: tırnak/özel karakter sorunlarını önler, pencere açık kalır
-	launcher := filepath.Join(dir, ".syncftp", "ai", "start-"+a.ID+".cmd")
-	exeDir := ""
-	if exe, err := os.Executable(); err == nil {
-		exeDir = filepath.Dir(exe)
-	}
-	content := "@echo off\r\ntitle syncFTP AI - " + a.Name + "\r\ncd /d \"" + dir + "\"\r\nset \"PATH=" + exeDir + ";%PATH%\"\r\n\"" + a.Path + "\" " + argLine + "\r\n"
-	if err := os.WriteFile(launcher, []byte(content), 0600); err != nil {
-		return err
-	}
-	c := exec.Command("cmd", "/c", "start", "", "cmd", "/k", launcher)
-	c.Dir = dir
-	return c.Start()
-}
-
 // ── HTTP uçları ───────────────────────────────────────────────────────────────
 
 func (sv *guiServer) routesAI(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/ai/agents", func(w http.ResponseWriter, r *http.Request) { guiJSON(w, detectAIAgents()) })
 	mux.HandleFunc("GET /api/ai/sessions", sv.apiAISessions)
 	mux.HandleFunc("POST /api/p/{p}/ai/sessions", sv.apiAINew)
-	mux.HandleFunc("POST /api/p/{p}/ai/terminal", sv.apiAITerminal)
 	mux.HandleFunc("POST /api/ai/setup", sv.apiAISetup)
 	mux.HandleFunc("GET /api/ai/sessions/{id}", sv.apiAIGet)
 	mux.HandleFunc("POST /api/ai/sessions/{id}/send", sv.apiAISend)
@@ -741,36 +701,6 @@ func (sv *guiServer) apiAINew(w http.ResponseWriter, r *http.Request) {
 	sv.ai.sessions[s.ID] = s
 	sv.ai.mu.Unlock()
 	guiJSON(w, s.snapshot())
-}
-
-func (sv *guiServer) apiAITerminal(w http.ResponseWriter, r *http.Request) {
-	p, ok := projects.Find(r.PathValue("p"))
-	if !ok {
-		guiErr(w, 404, errors.New("project"))
-		return
-	}
-	var req struct {
-		Agent string `json:"agent"`
-	}
-	if err := guiDecode(r, &req); err != nil {
-		guiErr(w, 400, err)
-		return
-	}
-	a, ok := findAgent(req.Agent)
-	if !ok {
-		guiErr(w, 404, errors.New("agent"))
-		return
-	}
-	readme, err := writeAIDocs(p)
-	if err != nil {
-		guiErr(w, 500, err)
-		return
-	}
-	if err := openAgentTerminal(a, p.Path, readme); err != nil {
-		guiErr(w, 500, err)
-		return
-	}
-	guiJSON(w, true)
 }
 
 func (sv *guiServer) apiAIGet(w http.ResponseWriter, r *http.Request) {
