@@ -203,6 +203,8 @@ textarea { font-family: var(--mono); font-size: 12.5px; min-height: 84px; resize
 .girdi-grup input { flex: 1; min-width: 0; }
 .anahtar { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; }
 .anahtar:hover { border-color: var(--line-2); }
+/* Kart içinde alt alta gelen anahtar satırları (ızgarada .alanlar gap zaten var) */
+.bolum > .anahtar + .anahtar, .katlanir-ic > .anahtar + .anahtar, .bolum > .anahtar + .ipucu { margin-top: 8px; }
 .anahtar .metin { flex: 1; min-width: 0; }
 .anahtar .metin b { display: block; font-weight: 500; font-size: 13.5px; }
 .anahtar .metin small { color: var(--faint); font-size: 12px; }
