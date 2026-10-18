@@ -79,3 +79,29 @@ func TestRedactedMasksAllSecrets(t *testing.T) {
 		t.Fatalf("deploySecrets=false: %+v", k)
 	}
 }
+
+func TestExtractConnection(t *testing.T) {
+	cfg := &Config{Servers: []Server{
+		{Name: "prod", Host: "h", Port: 21, User: "u", Password: "p", RemotePath: "/a"},
+		{Name: "stage", Host: "h", Port: 21, User: "u", Password: "p", RemotePath: "/b"},
+		{Name: "other", Host: "x", User: "u", Password: "p"},
+	}, Connections: []Connection{{Name: "other", Host: "y"}}}
+	name, created, err := cfg.ExtractConnection("prod", "")
+	if err != nil || !created || name != "prod" || cfg.Servers[0].Connection != "prod" {
+		t.Fatalf("prod: %q %v %v", name, created, err)
+	}
+	// Aynı hesap → mevcut profile bağlanır
+	if name, created, _ = cfg.ExtractConnection("stage", ""); created || name != "prod" {
+		t.Fatalf("stage: %q %v", name, created)
+	}
+	// Ad çakışması → -2
+	if name, _, _ = cfg.ExtractConnection("other", ""); name != "other-2" {
+		t.Fatalf("other: %q", name)
+	}
+	if _, _, err = cfg.ExtractConnection("prod", ""); err == nil {
+		t.Fatal("zaten profilli sunucu hata vermeli")
+	}
+	if len(cfg.Connections) != 3 {
+		t.Fatalf("profil sayısı %d", len(cfg.Connections))
+	}
+}

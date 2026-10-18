@@ -669,6 +669,9 @@ type StringSet struct {
 	// ── Global ayarlar / init / push ────────────────────────────────
 	InitExistsFmt         string // "burada zaten bir syncFTP projesi var: %s"
 	GlobalConnNotFoundFmt string // "kayıtlı bağlantı bulunamadı: %q (syncftp global conn list)"
+	ConnHasProfileFmt     string // "%q zaten %q bağlantı profilini kullanıyor"
+	ConnExtractedFmt      string // "%q sunucusunun bilgileri %q profiline taşındı"
+	ConnExtractReusedFmt  string // "%q sunucusu aynı hesabı tutan %q profiline bağlandı"
 	GlobalLoadWarnFmt     string // "  ⚠ global ayarlar okunamadı: %v\n"
 	InitConnManual        string // "Elle gir"
 	InitConnPickTitle     string // "Bağlantı"

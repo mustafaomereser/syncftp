@@ -219,9 +219,7 @@ func loadProjectArg(args []string) (string, *config.Config, error) {
 // importConnections projedeki bağlantı profillerini ve profil kullanmayan sunucuların
 // kimlik bilgilerini kütüphaneye ekler (aynı host+user+port zaten varsa atlanır). Eklenen sayısı.
 func importConnections(lib *config.Library, cfg *config.Config) int {
-	key := func(c config.Connection) string {
-		return strings.ToLower(orDefault(c.Protocol, "ftp") + "://" + c.User + "@" + c.Host + fmt.Sprintf(":%d", c.Port))
-	}
+	key := config.Connection.AccountKey
 	have := map[string]bool{}
 	names := map[string]bool{}
 	for _, c := range lib.Connections {

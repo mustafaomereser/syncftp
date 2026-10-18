@@ -19,7 +19,38 @@ import (
 
 func init() {
 	configCmd.Flags().Bool("export", false, "Config'i şifresiz JSON olarak stdout'a yaz")
+	configExtractConnCmd.Flags().String("name", "", "Profil adı (boşsa sunucu adı)")
+	configCmd.AddCommand(configExtractConnCmd)
 	rootCmd.AddCommand(configCmd)
+}
+
+// configExtractConnCmd profilsiz sunucunun bilgilerini bağlantı profiline taşır (panelde
+// Bağlantılar → "Sunucudan al" ve sunucu formundaki düğme aynı çekirdeği kullanır).
+var configExtractConnCmd = &cobra.Command{
+	Use:   "extract-conn <sunucu>",
+	Short: "Sunucunun bağlantı bilgilerini projede bağlantı profiline taşı",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		dir, _ := os.Getwd()
+		cfg, err := config.Load(dir)
+		if err != nil {
+			return err
+		}
+		name, _ := cmd.Flags().GetString("name")
+		prof, created, err := cfg.ExtractConnection(args[0], name)
+		if err != nil {
+			return err
+		}
+		if err := saveCfgValidated(dir, cfg); err != nil {
+			return err
+		}
+		if created {
+			fmt.Printf(lang.L.ConnExtractedFmt, args[0], prof)
+		} else {
+			fmt.Printf(lang.L.ConnExtractReusedFmt, args[0], prof)
+		}
+		return nil
+	},
 }
 
 var configCmd = &cobra.Command{

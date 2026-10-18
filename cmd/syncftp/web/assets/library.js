@@ -26,6 +26,8 @@ Object.assign(T.tr, {
   ptServe: 'HTTP API (syncftp serve)', ptServeDesc: 'Bu proje için yerel REST API (127.0.0.1) — PHP/web panellerinden status/sync/remote uçlarını çağırmak için. Panel kapanınca durur.',
   ptServeOn: 'API çalışıyor', ptServeStart: 'API\'yi başlat', ptServeStop: 'Durdur', ptServePort: 'Port',
   connFromLib: 'Kütüphaneden', connFromLibTitle: 'Kütüphaneden bağlantı ekle', connToLib: 'Kütüphaneye kaydet', connToLibDone: '{0} kütüphaneye kaydedildi', connAddedFromLib: '{0} bağlantı profili eklendi',
+  connInLib: 'Kütüphanede', connInLibAs: 'Kütüphanede "{0}" adıyla kayıtlı', connLibOverwriteTitle: 'Aynı adlı bağlantı var', connLibOverwrite: 'Kütüphanede "{0}" adında başka bir hesaba ait bağlantı var. Üzerine yazılsın mı?', overwrite: 'Üzerine yaz',
+  connFromServer: 'Sunucudan al', connFromServerTitle: 'Sunucunun bilgilerinden profil oluştur', connFromServerDesc: 'Seçtiğin sunucunun bağlantı bilgileri profile taşınır ve sunucu artık bu profili kullanır. Aynı hesap zaten profil olarak varsa yenisi açılmaz, sunucu ona bağlanır.', connNoManual: 'Bilgileri elle girilmiş sunucu yok — hepsi bir profil kullanıyor.', connExtracted: '{0} profili oluşturuldu', connExtractReused: 'Sunucu mevcut {0} profiline bağlandı', connToProfile: 'Profile çevir', connToProfileHint: 'Kayıtlı bağlantı bilgileri bir bağlantı profiline taşınır; diğer sunucular da aynı profili seçebilir',
   apTemplate: 'Ignore şablonu', apTemplateDefault: 'Varsayılan ({0})', apFirstServer: 'İlk sunucu (opsiyonel)', apNoServer: 'Sunucusuz — sonra eklerim', apRemote: 'Uzak dizin',
   syncOnce: 'Tek seferlik filtreli sync…', syncOnceTitle: 'Filtreli sync', syncOnceDesc: 'Yalnızca bu çalıştırma için — config değişmez (CLI: sync --include / --exclude).', syncOnceInc: 'Sadece bunlar (include)', syncOnceExc: 'Bunları hariç tut (exclude)',
 });
@@ -49,6 +51,8 @@ Object.assign(T.en, {
   ptServe: 'HTTP API (syncftp serve)', ptServeDesc: 'Local REST API (127.0.0.1) for this project — call status/sync/remote endpoints from PHP/web panels. Stops when the panel closes.',
   ptServeOn: 'API running', ptServeStart: 'Start API', ptServeStop: 'Stop', ptServePort: 'Port',
   connFromLib: 'From library', connFromLibTitle: 'Add connection from library', connToLib: 'Save to library', connToLibDone: '{0} saved to the library', connAddedFromLib: 'Connection profile {0} added',
+  connInLib: 'In library', connInLibAs: 'Saved in the library as "{0}"', connLibOverwriteTitle: 'Name already taken', connLibOverwrite: 'The library already has a connection named "{0}" for a different account. Overwrite it?', overwrite: 'Overwrite',
+  connFromServer: 'From a server', connFromServerTitle: 'Create a profile from a server', connFromServerDesc: 'The server’s connection details move into a profile and the server uses that profile from now on. If a profile for the same account already exists, the server is linked to it instead.', connNoManual: 'No server has hand-entered details — they all use a profile.', connExtracted: 'Profile {0} created', connExtractReused: 'Server linked to the existing profile {0}', connToProfile: 'Make it a profile', connToProfileHint: 'Moves the saved connection details into a connection profile that other servers can pick too',
   apTemplate: 'Ignore template', apTemplateDefault: 'Default ({0})', apFirstServer: 'First server (optional)', apNoServer: 'No server — add later', apRemote: 'Remote folder',
   syncOnce: 'One-off filtered sync…', syncOnceTitle: 'Filtered sync', syncOnceDesc: 'Only for this run — config is not changed (CLI: sync --include / --exclude).', syncOnceInc: 'Only these (include)', syncOnceExc: 'Exclude these',
 });
@@ -248,6 +252,25 @@ async function connFromLibraryModal(P) {
   });
   $$('[data-n]', m.root).forEach((el) => (el.onclick = async () => {
     try { const r = await api('POST', `/api/p/${enc(P)}/connections/from-library`, { name: el.dataset.n }); toast(t('connAddedFromLib', r.name)); m.close(); render(true); } catch (e) { fail(e); }
+  }));
+}
+
+// Profilsiz sunucunun bilgilerini bağlantı profiline taşı (CLI: config extract-conn)
+async function extractConn(P, server) {
+  const r = await api('POST', `/api/p/${enc(P)}/connections/extract`, { server });
+  toast(t(r.created ? 'connExtracted' : 'connExtractReused', r.name));
+  return r;
+}
+function connFromServerModal(P, servers) {
+  const m = modal({
+    title: `${icon('server')}${t('connFromServerTitle')}`,
+    body: `<p class="aciklama">${t('connFromServerDesc')}</p>` + (servers.length
+      ? `<div class="liste-kutu">${servers.map((s) => `<div class="tikla pk-satir" data-s="${esc(s.name)}">${icon('server', 'acc-t')} <b>${esc(s.name)}</b> <span class="faint mono" style="font-size:12px">${esc(connURL(s))}</span></div>`).join('')}</div>`
+      : `<p class="faint">${t('connNoManual')}</p>`),
+    actions: [{ label: t('close'), cls: 'hayalet' }],
+  });
+  $$('[data-s]', m.root).forEach((el) => (el.onclick = async () => {
+    try { await extractConn(P, el.dataset.s); m.close(); render(true); } catch (e) { fail(e); }
   }));
 }
 

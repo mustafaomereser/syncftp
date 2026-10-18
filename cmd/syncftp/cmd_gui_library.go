@@ -32,6 +32,8 @@ func (sv *guiServer) registerLibraryAPI(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/p/{p}/config/import", sv.apiConfigImport)
 	mux.HandleFunc("POST /api/p/{p}/connections/from-library", sv.apiConnFromLibrary)
 	mux.HandleFunc("POST /api/p/{p}/connections/to-library", sv.apiConnToLibrary)
+	mux.HandleFunc("GET /api/p/{p}/connections/library", sv.apiConnLibraryStatus)
+	mux.HandleFunc("POST /api/p/{p}/connections/extract", sv.apiConnExtract)
 
 	mux.HandleFunc("GET /api/p/{p}/serve", sv.apiServeGet)
 	mux.HandleFunc("POST /api/p/{p}/serve", sv.apiServeSet)
@@ -382,6 +384,69 @@ func (sv *guiServer) apiConnToLibrary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	guiJSON(w, map[string]any{"name": c.Name, "replaced": replaced})
+}
+
+// apiConnLibraryStatus projedeki her bağlantı profilinin kütüphanedeki karşılığı: aynı hesap
+// (AccountKey) kayıtlıysa o kaydın adı, yoksa "". name_taken: aynı adla FARKLI hesap var (kaydetmek ezer).
+func (sv *guiServer) apiConnLibraryStatus(w http.ResponseWriter, r *http.Request) {
+	_, cfg, err := sv.project(r)
+	if err != nil {
+		guiErr(w, 404, err)
+		return
+	}
+	lib, _ := config.LoadLibrary()
+	type st struct {
+		Library   string `json:"library"`
+		NameTaken bool   `json:"name_taken"`
+	}
+	out := map[string]st{}
+	for _, c := range cfg.Connections {
+		var s st
+		for _, l := range lib.Connections {
+			if l.AccountKey() == c.AccountKey() {
+				s.Library = l.Name
+				break
+			}
+		}
+		if s.Library == "" {
+			if l, ok := lib.FindConnection(c.Name); ok && l.AccountKey() != c.AccountKey() {
+				s.NameTaken = true
+			}
+		}
+		out[c.Name] = s
+	}
+	guiJSON(w, out)
+}
+
+// apiConnExtract profilsiz sunucunun bilgilerini bağlantı profiline taşır (CLI `config extract-conn` ile aynı çekirdek).
+func (sv *guiServer) apiConnExtract(w http.ResponseWriter, r *http.Request) {
+	p, cfg, err := sv.project(r)
+	if err != nil {
+		guiErr(w, 404, err)
+		return
+	}
+	var req struct {
+		Server string `json:"server"`
+		Name   string `json:"name"`
+	}
+	if err := guiDecode(r, &req); err != nil {
+		guiErr(w, 400, err)
+		return
+	}
+	name, created, err := cfg.ExtractConnection(req.Server, req.Name)
+	if err != nil {
+		guiErr(w, 400, err)
+		return
+	}
+	if err := cfg.Validate(); err != nil {
+		guiErr(w, 400, err)
+		return
+	}
+	if err := config.Save(p.Path, cfg); err != nil {
+		guiErr(w, 500, err)
+		return
+	}
+	guiJSON(w, map[string]any{"name": name, "created": created})
 }
 
 // ── proje başına HTTP API (syncftp serve) ─────────────────────────────────────

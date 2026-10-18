@@ -1271,6 +1271,7 @@ async function tabServerEdit(proj, name) {
   if (!isNew && idx < 0) throw new Error(t('notFound') + ': ' + name);
   const s = isNew ? { name: '', enabled: true, passive: true, max_connections: 4, max_retries: 2, remote_path: '/' } : cfg.servers[idx];
   const conn = s.connection ? cfg.connections.find((c) => c.name === s.connection) : null;
+  const savedManual = !isNew && !s.connection && !!s.host; // kayıtlı hali profilsiz → "Profile çevir"
   const defPath = cfg.project.default_path || '.';
   const globalBw = cfg.sync.bandwidth_limit ? cfg.sync.bandwidth_limit + ' KB/s' : '∞';
 
@@ -1278,6 +1279,13 @@ async function tabServerEdit(proj, name) {
     $('#proj-aks', root).innerHTML = '';
     bindProtoPort(root);
     bindFormTools($('#srv-form', root));
+    // Kayıtlı bilgiler profile taşınır (formdaki kaydedilmemiş değişiklikler değil) → sayfa yeniden yüklenir
+    $('#srv-form', root).addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-toprofile]');
+      if (!b) return;
+      b.disabled = true;
+      try { await extractConn(P, name); render(true); } catch (err) { fail(err); b.disabled = false; }
+    });
     $('[data-k="connection"]', root).onchange = (e) => {
       // Profil değişince credential alanlarını yeniden çiz
       const c = cfg.connections.find((x) => x.name === e.target.value);
@@ -1332,7 +1340,7 @@ async function tabServerEdit(proj, name) {
 
   function connBox(c) {
     // Profil seçiliyse alanlar hiç çizilmez (collect zaten profilden gelenleri siler) — yalnızca özet
-    if (!c) return connFields(s, false);
+    if (!c) return connFields(s, false) + (savedManual ? `<div class="aksiyonlar" style="margin-top:12px"><button class="btn kucuk" data-toprofile title="${esc(t('connToProfileHint'))}">${icon('link')}${t('connToProfile')}</button></div>` : '');
     const proto = (c.protocol || 'ftp').toLowerCase();
     return `<div class="kilit">${icon('lock')}<span style="flex:1">${esc(t('lockedByProfile', c.name))}
       <span class="mono" style="display:block;color:var(--muted);margin-top:2px">${proto}://${esc(c.user ? c.user + '@' : '')}${esc(c.host)}:${c.port || (proto === 'sftp' ? 22 : 21)}</span></span>
@@ -1381,21 +1389,26 @@ async function tabServerEdit(proj, name) {
 // ── Bağlantı profilleri ──────────────────────────────────────────────────────
 async function tabConnections(proj) {
   const P = proj.name;
-  const cfg = await getConfig(P);
+  const [cfg, libSt] = await Promise.all([getConfig(P), GET(`/api/p/${enc(P)}/connections/library`).catch(() => ({}))]);
+  const manual = cfg.servers.filter((s) => !s.connection && s.host);
   bind((root) => {
-    $('#proj-aks', root).innerHTML = `<button class="btn" id="b-lib">${icon('link')}${t('connFromLib')}</button><button class="btn birincil" id="b-add">${icon('plus')}${t('addConnection')}</button>`;
-    $('#b-add', root).onclick = () => go(pHash(P, 'connection', 'new'));
-    $('#b-lib', root).onclick = () => connFromLibraryModal(P).catch(fail);
+    // Boş durumda aynı düğmeler ortadaki kartta — üstte tekrarlanmaz
+    $('#proj-aks', root).innerHTML = !cfg.connections.length ? '' : `${manual.length ? `<button class="btn" data-fromsrv>${icon('server')}${t('connFromServer')}</button>` : ''}<button class="btn" data-fromlib>${icon('link')}${t('connFromLib')}</button><button class="btn birincil" data-addconn>${icon('plus')}${t('addConnection')}</button>`;
+    $$('[data-addconn]', root).forEach((b) => (b.onclick = () => go(pHash(P, 'connection', 'new'))));
+    $$('[data-fromlib]', root).forEach((b) => (b.onclick = () => connFromLibraryModal(P).catch(fail)));
+    $$('[data-fromsrv]', root).forEach((b) => (b.onclick = () => connFromServerModal(P, manual)));
     $$('[data-row]', root).forEach((tr) => (tr.onclick = () => go(pHash(P, 'connection', tr.dataset.row))));
     $$('[data-tolib]', root).forEach((b) => (b.onclick = async (e) => {
       e.stopPropagation();
-      try { const r = await api('POST', `/api/p/${enc(P)}/connections/to-library`, { connection: b.dataset.tolib }); toast(t('connToLibDone', r.name)); } catch (err) { fail(err); }
+      const name = b.dataset.tolib;
+      if ((libSt[name] || {}).name_taken && !(await confirmBox(t('connLibOverwriteTitle'), esc(t('connLibOverwrite', name)), t('overwrite'), true))) return;
+      try { const r = await api('POST', `/api/p/${enc(P)}/connections/to-library`, { connection: name }); toast(t('connToLibDone', r.name)); render(true); } catch (err) { fail(err); }
     }));
   });
   if (!cfg.connections.length) {
     return `<p class="muted" style="margin-top:-6px">${t('connectionsSub')}</p><div class="bos"><div class="buyuk">${icon('link', 'lg')}</div><h3>${t('noConnections')}</h3><p>${t('noConnectionsSub')}</p>
-      <div class="aksiyonlar" style="justify-content:center"><button class="btn" onclick="connFromLibraryModal('${esc(P)}').catch(fail)">${icon('link')}${t('connFromLib')}</button>
-      <button class="btn birincil" onclick="location.hash='${pHash(P, 'connection', 'new')}'">${icon('plus')}${t('addConnection')}</button></div></div>`;
+      <div class="aksiyonlar" style="justify-content:center">${manual.length ? `<button class="btn" data-fromsrv>${icon('server')}${t('connFromServer')}</button>` : ''}<button class="btn" data-fromlib>${icon('link')}${t('connFromLib')}</button>
+      <button class="btn birincil" data-addconn>${icon('plus')}${t('addConnection')}</button></div></div>`;
   }
   return `<p class="muted" style="margin-top:-6px">${t('connectionsSub')}</p><div class="tablo-kap"><table class="tablo"><thead><tr><th>${t('colName')}</th><th>${t('colProtocol')}</th><th>${t('colHost')}</th><th>${t('usedBy')}</th><th></th></tr></thead><tbody>
     ${cfg.connections.map((c) => {
@@ -1403,7 +1416,11 @@ async function tabConnections(proj) {
       const proto = (c.protocol || 'ftp').toLowerCase();
       return `<tr data-row="${esc(c.name)}" class="tikla"><td><div class="ad-hucre">${icon('link')}<b>${esc(c.name)}</b></div></td><td><span class="pill mono ${proto}">${proto.toUpperCase()}</span></td>
         <td class="mono">${esc(c.user ? c.user + '@' : '')}${esc(c.host)}:${c.port}${c.tunnel_host ? ` <span class="pill vio">${icon('tunnel')}${t('tunnel')}</span>` : ''}</td><td class="muted">${esc(used.join(', ') || '—')}</td>
-        <td class="sag"><button class="btn kucuk hayalet" data-tolib="${esc(c.name)}" title="${t('connToLib')}">${icon('download')}${t('connToLib')}</button></td></tr>`;
+        <td class="sag">${(() => {
+          const lib = (libSt[c.name] || {}).library;
+          return lib ? `<span class="pill ok" ${lib !== c.name ? `title="${esc(t('connInLibAs', lib))}"` : ''}>${icon('check')}${t('connInLib')}</span>`
+            : `<button class="btn kucuk hayalet" data-tolib="${esc(c.name)}">${icon('download')}${t('connToLib')}</button>`;
+        })()}</td></tr>`;
     }).join('')}</tbody></table></div>`;
 }
 

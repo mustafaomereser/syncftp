@@ -125,6 +125,7 @@ h2 small { font-weight: 400; color: var(--faint); font-size: 13px; }
 .pill.ftps { background: rgb(59 158 255 / .12); color: var(--accent); }
 .pill.ftp { background: rgb(255 202 22 / .1); color: var(--warn); }
 .pill.vio { background: rgb(177 151 252 / .12); color: var(--violet); }
+.pill.ok { background: rgb(61 214 140 / .12); color: var(--ok); }
 .nokta { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
 .ok .nokta { background: var(--ok); box-shadow: 0 0 0 3px rgb(61 214 140 / .15); }
 .ok { color: var(--ok); }

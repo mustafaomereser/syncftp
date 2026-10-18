@@ -729,6 +729,9 @@ Other:
 	// Global ayarlar / init / push
 	InitExistsFmt:         "a syncFTP project already exists here: %s",
 	GlobalConnNotFoundFmt: "saved connection not found: %q (syncftp global conn list)",
+	ConnHasProfileFmt:     "%q already uses the %q connection profile",
+	ConnExtractedFmt:      "Moved the details of server %q to connection profile %q\n",
+	ConnExtractReusedFmt:  "Linked server %q to profile %q, which holds the same account\n",
 	GlobalLoadWarnFmt:     "  ⚠ global settings could not be read: %v\n",
 	InitConnManual:        "Enter manually",
 	InitConnPickTitle:     "Connection",

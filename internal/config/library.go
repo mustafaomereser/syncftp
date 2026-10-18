@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"syncftp/internal/lang"
 )
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -208,4 +210,67 @@ func ConnectionFromServer(name string, s Server) Connection {
 	return Connection{Name: name, Host: s.Host, Port: s.Port, User: s.User, Password: s.Password,
 		Passive: s.Passive, DisableEPSV: s.DisableEPSV, NATWorkaround: s.NATWorkaround, Protocol: s.Protocol,
 		KeyFile: s.KeyFile, TLSSkipVerify: s.TLSSkipVerify, SSHTunnel: s.SSHTunnel}
+}
+
+// AccountKey bağlantının hesap kimliği (protokol://user@host:port, küçük harf) — aynı hesabı
+// farklı adlarla tutan kayıtları eşlemek için (kütüphaneye aktarma, profile taşıma, panel rozeti).
+func (c Connection) AccountKey() string {
+	proto := strings.ToLower(c.Protocol)
+	if proto == "" {
+		proto = "ftp"
+	}
+	port := c.Port
+	if port == 0 {
+		port = defaultPort(c.Protocol)
+	}
+	return strings.ToLower(fmt.Sprintf("%s://%s@%s:%d", proto, c.User, c.Host, port))
+}
+
+// ExtractConnection profilsiz sunucunun kimlik bilgilerini projenin bağlantı profiline taşır ve
+// sunucuyu o profile bağlar (CLI `config extract-conn` + panel). Aynı hesabı tutan profil zaten
+// varsa yenisi açılmaz, sunucu ona bağlanır. name boşsa sunucu adı; çakışırsa -2, -3… eklenir.
+// Dönüş: profil adı ve yeni profil açılıp açılmadığı. Kaydetmek çağıranın işi.
+func (cfg *Config) ExtractConnection(server, name string) (string, bool, error) {
+	idx := -1
+	for i := range cfg.Servers {
+		if cfg.Servers[i].Name == server {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return "", false, fmt.Errorf(lang.L.ServerNotFoundFmt, server)
+	}
+	s := &cfg.Servers[idx]
+	if s.Connection != "" {
+		return "", false, fmt.Errorf(lang.L.ConnHasProfileFmt, s.Name, s.Connection)
+	}
+	c := ConnectionFromServer(s.Name, *s)
+	for _, e := range cfg.Connections {
+		if e.AccountKey() == c.AccountKey() && e.Password == c.Password && e.KeyFile == c.KeyFile && e.SSHTunnel == c.SSHTunnel {
+			s.Connection = e.Name
+			return e.Name, false, nil
+		}
+	}
+	base := strings.TrimSpace(name)
+	if base == "" {
+		base = s.Name
+	}
+	c.Name = base
+	for i := 2; ; i++ {
+		taken := false
+		for _, e := range cfg.Connections {
+			if strings.EqualFold(e.Name, c.Name) {
+				taken = true
+				break
+			}
+		}
+		if !taken {
+			break
+		}
+		c.Name = fmt.Sprintf("%s-%d", base, i)
+	}
+	cfg.Connections = append(cfg.Connections, c)
+	s.Connection = c.Name
+	return c.Name, true, nil
 }

@@ -729,6 +729,9 @@ Diğer:
 	// Global ayarlar / init / push
 	InitExistsFmt:         "burada zaten bir syncFTP projesi var: %s",
 	GlobalConnNotFoundFmt: "kayıtlı bağlantı bulunamadı: %q (syncftp global conn list)",
+	ConnHasProfileFmt:     "%q zaten %q bağlantı profilini kullanıyor",
+	ConnExtractedFmt:      "%q sunucusunun bilgileri %q bağlantı profiline taşındı\n",
+	ConnExtractReusedFmt:  "%q sunucusu aynı hesabı tutan %q profiline bağlandı\n",
 	GlobalLoadWarnFmt:     "  ⚠ global ayarlar okunamadı: %v\n",
 	InitConnManual:        "Elle gir",
 	InitConnPickTitle:     "Bağlantı",
