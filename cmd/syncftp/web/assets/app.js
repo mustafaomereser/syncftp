@@ -71,7 +71,8 @@ const T = {
     fWebhook: 'Webhook URL', fWebhookHint: 'Her sync sonrası özet POST edilir; boş = global',
     fPre: 'pre_sync', fPost: 'post_sync',
     testConn: 'Bağlantıyı test et', testOk: 'Bağlantı başarılı — {0} ms, {1} öğe', testing: 'Test ediliyor…',
-    lockedByProfile: 'Bağlantı bilgileri "{0}" profilinden geliyor. Değiştirmek için Bağlantılar sekmesini kullanın.',
+    lockedByProfile: 'Bağlantı bilgileri "{0}" profilinden geliyor.', editProfile: 'Profili düzenle',
+    tunnelByProfile: 'Tünel ayarı da "{0}" profilinden geliyor.',
     connectionsTitle: 'Bağlantı profilleri', connectionsSub: 'Aynı FTP/SFTP hesabını kullanan sunucular bilgileri tek yerden paylaşır.',
     noConnections: 'Bağlantı profili yok', noConnectionsSub: 'Birden fazla sunucu aynı hesaba bağlanıyorsa bilgileri bir profilde toplayın.',
     addConnection: 'Profil ekle', connNew: 'Yeni bağlantı profili', connEdit: 'Profili düzenle', usedBy: 'Kullanan',
@@ -180,7 +181,8 @@ const T = {
     fWebhook: 'Webhook URL', fWebhookHint: 'A summary is POSTed after each sync; empty = global',
     fPre: 'pre_sync', fPost: 'post_sync',
     testConn: 'Test connection', testOk: 'Connected — {0} ms, {1} entries', testing: 'Testing…',
-    lockedByProfile: 'Connection details come from the "{0}" profile. Use the Connections tab to change them.',
+    lockedByProfile: 'Connection details come from the "{0}" profile.', editProfile: 'Edit profile',
+    tunnelByProfile: 'The tunnel setting also comes from the "{0}" profile.',
     connectionsTitle: 'Connection profiles', connectionsSub: 'Servers that use the same FTP/SFTP account share the details from one place.',
     noConnections: 'No connection profiles', noConnectionsSub: 'If several servers connect to the same account, keep the details in a profile.',
     addConnection: 'Add profile', connNew: 'New connection profile', connEdit: 'Edit profile', usedBy: 'Used by',
@@ -1282,7 +1284,7 @@ async function tabServerEdit(proj, name) {
       readForm($('#srv-form', root), s);
       s.connection = e.target.value;
       $('#conn-box', root).innerHTML = connBox(c);
-      $('#tunnel-box', root).innerHTML = tunnelFields(c || s, !!c);
+      $('#tunnel-box', root).innerHTML = tunnelBox(c);
       bindProtoPort(root);
       bindFormTools($('#srv-form', root));
     };
@@ -1329,7 +1331,15 @@ async function tabServerEdit(proj, name) {
   });
 
   function connBox(c) {
-    return c ? `<div class="kilit" style="margin-bottom:14px">${icon('lock')}${esc(t('lockedByProfile', c.name))}</div>${connFields(c, true)}` : connFields(s, false);
+    // Profil seçiliyse alanlar hiç çizilmez (collect zaten profilden gelenleri siler) — yalnızca özet
+    if (!c) return connFields(s, false);
+    const proto = (c.protocol || 'ftp').toLowerCase();
+    return `<div class="kilit">${icon('lock')}<span style="flex:1">${esc(t('lockedByProfile', c.name))}
+      <span class="mono" style="display:block;color:var(--muted);margin-top:2px">${proto}://${esc(c.user ? c.user + '@' : '')}${esc(c.host)}:${c.port || (proto === 'sftp' ? 22 : 21)}</span></span>
+      <a class="btn kucuk" href="${pHash(P, 'connection', c.name)}">${icon('edit')}${t('editProfile')}</a></div>`;
+  }
+  function tunnelBox(c) {
+    return c ? `<div class="kilit">${icon('lock')}${esc(t('tunnelByProfile', c.name))}${c.tunnel_host ? ` <span class="mono">${esc(c.tunnel_host)}</span>` : ''}</div>` : tunnelFields(s, false);
   }
 
   const n = (a) => (a || []).filter(Boolean).length;
@@ -1347,7 +1357,7 @@ async function tabServerEdit(proj, name) {
     ${section('link', t('secConnection'), t('secConnectionDesc'), `<div class="alanlar" style="margin-bottom:14px">${fSelect('connection', t('fConnection'), s.connection || '', [['', t('manual')], ...cfg.connections.map((c) => [c.name, `${c.name} — ${c.host}`])])}</div><div id="conn-box">${connBox(conn)}</div>`)}
     ${section('folder', t('secPaths'), '', `<div class="alanlar">${fText('remote_path', t('fRemote'), s.remote_path, { mono: true, hint: t('fRemoteHint'), browse: 'remote' })}${fText('local_path', t('fLocal'), s.local_path, { mono: true, ph: defPath, hint: t('fLocalHint', esc(defPath)), browse: 'reldir' })}</div>`)}
     <div class="ara-baslik">${t('foldAdvanced')}</div>
-    ${section('tunnel', t('secTunnel'), t('secTunnelDesc'), `<div id="tunnel-box">${tunnelFields(conn || s, !!conn)}</div>`, { fold: true, open: !!tun, summary: tun ? esc(tun) : t('foldOff') })}
+    ${section('tunnel', t('secTunnel'), t('secTunnelDesc'), `<div id="tunnel-box">${tunnelBox(conn)}</div>`, { fold: true, open: !!tun, summary: tun ? esc(tun) : t('foldOff') })}
     ${section('zap', t('secPerf'), '', `<div class="alanlar uc">
         <div class="alan"><label>${t('fMaxConn')}</label><div class="girdi-grup"><input type="number" data-k="max_connections" data-ty="int" value="${s.max_connections || 1}" min="1">${isNew ? '' : `<button class="btn" id="b-detect">${icon('gauge')}${t('measure')}</button>`}</div><small>${t('fMaxConnHint')}</small></div>
         ${fNum('max_retries', t('fRetries'), s.max_retries)}
