@@ -117,7 +117,7 @@ syncftp gui --foreground --no-window   # don't open a window, print the login UR
 syncftp gui --foreground --background  # tray only (used by "Start with Windows")
 ```
 
-The panel is a local web app served on `127.0.0.1` with a per-session token, shown in an Edge/Chrome app window. Like the CLI it works on the folder it was started in: it shows the syncFTP project in that folder and in its subfolders (two levels). One panel runs per folder — launching again from the same folder brings its window to front; *Quit* also closes the window.
+The panel is a local web app served on `127.0.0.1` with a per-session token, shown in an Edge/Chrome app window. Like the CLI it works on the folder it was started in: it shows the syncFTP projects in that folder and its subfolders up to six levels deep (hidden folders and `node_modules`, `vendor`, `venv` … are skipped); a project added from the panel deeper than that is remembered and listed too. The folder is rescanned in the background at most once a minute, and immediately after adding, renaming or removing a project. One panel runs per folder — launching again from the same folder brings its window to front; *Quit* also closes the window.
 
 **Tabs per project**
 

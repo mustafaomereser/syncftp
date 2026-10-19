@@ -776,6 +776,7 @@ Other:
 	ReleaseDiffSame:          "  (content identical)",
 	SyncServersFailedFmt:     "sync failed on %d of %d servers",
 	ProjectNoConfigFmt:       "%s is not a syncFTP project (no .syncftp/syncftp.json)",
+	ProjectNotListedFmt:      "a project was created in %s but could not be added to the list — the folder may not be readable; reopen the panel and try again",
 	ProjectRemovedTrashFmt:   "%s removed from syncFTP — the .syncftp folder is in the trash (restore it to bring the project back)\n",
 	ProjectRemovedRenamedFmt: "%s removed from syncFTP — trash unavailable, .syncftp was renamed to: %s\n",
 	ProjectDeleteConfirmFmt:  "Remove %s from syncFTP?",

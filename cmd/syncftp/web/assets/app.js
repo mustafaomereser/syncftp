@@ -682,8 +682,9 @@ async function render(soft = false) {
 const bind = (fn) => { $('#sayfa')._bind = fn; };
 
 // ── sidebar ──────────────────────────────────────────────────────────────────
-async function loadProjects() {
-  try { S.projects = await GET('/api/projects'); } catch (e) { S.projects = []; }
+// fresh: sunucu proje taramasını hemen tazelesin (normalde önbellekli, tam tarama dakikada bir)
+async function loadProjects(fresh = false) {
+  try { S.projects = await GET('/api/projects' + (fresh ? '?fresh=1' : '')); } catch (e) { S.projects = []; }
   const el = $('#proje-listesi');
   const r = parseRoute();
   el.innerHTML = S.projects.map((p) => `<a href="${pHash(p.name)}" data-proj="${esc(p.name)}" class="${r.project === p.name ? 'aktif' : ''}">
@@ -740,7 +741,8 @@ async function addProjectFlow() {
       <div class="alan"><label>${t('displayName')}</label><input type="text" id="ap-name"><small>${t('displayNameHint')}</small></div>
       <div class="alanlar"><div class="alan"><label>${t('apTemplate')}</label><select id="ap-tmpl">${tmplOpts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</select></div>
         <div class="alan"><label>${t('apFirstServer')}</label><select id="ap-conn"><option value="">${t('apNoServer')}</option>${conns.map((c) => `<option value="${esc(c.name)}">${esc(c.name)} — ${esc(connURL(c))}</option>`).join('')}</select></div></div>
-      <div class="alan gizli" id="ap-remote-box"><label>${t('apRemote')}</label><input type="text" id="ap-remote" class="mono" value="/public_html" spellcheck="false"></div></div>`,
+      <div class="alan gizli" id="ap-remote-box"><label>${t('apRemote')}</label><div class="girdi-grup"><input type="text" id="ap-remote" class="mono" value="/public_html" spellcheck="false">
+        <button class="btn" id="ap-remote-pick" type="button">${icon('folder')}${t('browse')}</button></div></div></div>`,
     actions: [
       { label: icon('spark') + t('aiSetupNav'), cls: 'hayalet ai-btn', run: (root) => { aiSetupStart($('#ap-path', root).value.trim()); } },
       { label: t('cancel'), cls: 'hayalet' },
@@ -762,6 +764,13 @@ async function addProjectFlow() {
   });
   const cs = $('#ap-conn', m.root);
   cs.onchange = () => $('#ap-remote-box', m.root).classList.toggle('gizli', !cs.value);
+  // Uzak dizin → Gözat: seçili kütüphane bağlantısında gezinir (proje henüz yok — sunucu formundaki seçiciyle aynı)
+  $('#ap-remote-pick', m.root).onclick = async () => {
+    if (!cs.value) return;
+    const inp = $('#ap-remote', m.root);
+    const picked = await pickRemoteDir({ initial: inp.value.trim() || '/', list: (path) => api('POST', '/api/library/browse-dirs', { name: cs.value, path }) });
+    if (picked) inp.value = picked;
+  };
   $('#ap-browse', m.root).onclick = async () => {
     const picked = await pickPath({ mode: 'dir', initial: $('#ap-path', m.root).value.trim() });
     if (picked) $('#ap-path', m.root).value = picked;

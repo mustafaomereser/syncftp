@@ -59,3 +59,48 @@ func TestRegistry(t *testing.T) {
 		t.Fatalf("touch: %+v %v", p, ok)
 	}
 }
+
+// Klasör modunda tarama 6 seviyeye iner; daha derindeki proje panelden eklenince kayda yazılır ve
+// listede kalır (eskiden 2 seviyeydi, "proje bulunamadı (çok derinde…)" hatası veriyordu).
+func TestBaseDeepProject(t *testing.T) {
+	pathOverride = filepath.Join(t.TempDir(), "projects.json")
+	root := t.TempDir()
+	SetBase(root)
+	t.Cleanup(func() { pathOverride = ""; SetBase("") })
+	mid := filepath.Join(root, "a", "b", "dist") // 3. seviye → taramayla bulunur
+	if err := os.MkdirAll(filepath.Join(mid, ".syncftp"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(mid, ".syncftp", "syncftp.json"), []byte(`{"project":{"name":"orta"}}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := Find("orta"); !ok {
+		t.Fatal("3. seviyedeki proje taramayla bulunmalı")
+	}
+	deep := filepath.Join(root, "a", "b", "c", "d", "e", "f", "dist") // 7. seviye
+	Invalidate()
+	if err := os.MkdirAll(filepath.Join(deep, ".syncftp"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(deep, ".syncftp", "syncftp.json"), []byte(`{"project":{"name":"derin"}}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := Find(deep); ok {
+		t.Fatal("tarama 7. seviyeyi görmemeli (test varsayımı)")
+	}
+	p, err := Add(deep, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Name != "derin" {
+		t.Fatalf("ad = %q", p.Name)
+	}
+	Invalidate()
+	if _, ok := Find("derin"); !ok {
+		t.Fatal("eklenen derin proje listede kalmalı")
+	}
+	Forget(deep)
+	if _, ok := Find("derin"); ok {
+		t.Fatal("Forget sonrası listeden düşmeli")
+	}
+}

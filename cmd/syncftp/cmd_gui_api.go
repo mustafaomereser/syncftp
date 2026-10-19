@@ -227,6 +227,9 @@ type guiProject struct {
 }
 
 func (sv *guiServer) apiProjects(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Query().Get("fresh") == "1" { // panel dışından (AI / CLI) proje değişmiş olabilir → taze tara
+		projects.Invalidate()
+	}
 	out := []guiProject{}
 	for _, p := range projects.List() {
 		gp := guiProject{Name: p.Name, Path: p.Path}
@@ -587,6 +590,7 @@ func (sv *guiServer) apiConfigPut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Connection profilini kullanan sunucularda credential'lar profilden gelir (Save sıfırlar)
+	defer projects.Invalidate() // project.name değişmiş olabilir — liste hemen tazelensin
 	if err := config.Save(p.Path, &in); err != nil {
 		guiErr(w, 500, err)
 		return
@@ -640,8 +644,13 @@ func (sv *guiServer) apiBrowseDirs(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 400, err)
 		return
 	}
-	srv := req.resolve(old)
-	dir := path.Clean("/" + strings.TrimSpace(req.Path))
+	listRemoteDirs(w, req.resolve(old), req.Path)
+}
+
+// listRemoteDirs uzak klasör seçicisinin bir adımı: p altındaki klasörler — sunucu formu ve
+// proje ekleme penceresi (kütüphane bağlantısı) ortak.
+func listRemoteDirs(w http.ResponseWriter, srv config.Server, p string) {
+	dir := path.Clean("/" + strings.TrimSpace(p))
 	c, err := ftpclient.Connect(srv)
 	if err != nil {
 		guiErr(w, 400, err)

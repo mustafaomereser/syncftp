@@ -776,6 +776,7 @@ Diğer:
 	ReleaseDiffSame:          "  (içerik aynı)",
 	SyncServersFailedFmt:     "%d / %d sunucuda sync başarısız",
 	ProjectNoConfigFmt:       "%s bir syncFTP projesi değil (.syncftp/syncftp.json yok)",
+	ProjectNotListedFmt:      "%s klasöründe proje oluşturuldu ama listeye eklenemedi — klasöre erişim izni olmayabilir; paneli yeniden açıp tekrar deneyin",
 	ProjectRemovedTrashFmt:   "%s syncFTP'den çıkarıldı — .syncftp klasörü çöp kutusunda (geri yüklersen proje geri gelir)\n",
 	ProjectRemovedRenamedFmt: "%s syncFTP'den çıkarıldı — çöp kutusu kullanılamadı, .syncftp yeniden adlandırıldı: %s\n",
 	ProjectDeleteConfirmFmt:  "%s syncFTP'den çıkarılsın mı?",

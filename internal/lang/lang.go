@@ -718,6 +718,7 @@ type StringSet struct {
 	ReleaseDiffSame          string
 	SyncServersFailedFmt     string // "%d / %d sunucuda sync başarısız"
 	ProjectNoConfigFmt       string // "%s bir syncFTP projesi değil (.syncftp/syncftp.json yok)"
+	ProjectNotListedFmt      string // proje eklendi ama listede yok (beklenmeyen durum)
 	ProjectRemovedTrashFmt   string // "%s syncFTP'den çıkarıldı — .syncftp çöp kutusunda\n"
 	ProjectRemovedRenamedFmt string // "%s syncFTP'den çıkarıldı — .syncftp şuraya taşındı: %s\n"
 	ProjectDeleteConfirmFmt  string // RunConfirm başlığı

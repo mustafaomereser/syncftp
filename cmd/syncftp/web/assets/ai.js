@@ -196,7 +196,7 @@ function aiOnMsg(m) {
       if (!AI.busy) {
         if (ty) ty.remove();
         // Asistan ayar/komut çalıştırdıysa açık sayfayı ve proje listesini tazele
-        if (AI.changed) { AI.changed = false; loadProjects(); render(true); toast(t('aiChanged')); }
+        if (AI.changed) { AI.changed = false; loadProjects(true); render(true); toast(t('aiChanged')); }
       }
       break;
     }

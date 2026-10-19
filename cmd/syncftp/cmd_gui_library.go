@@ -25,6 +25,7 @@ func (sv *guiServer) registerLibraryAPI(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/library", sv.apiLibraryGet)
 	mux.HandleFunc("PUT /api/library", sv.apiLibraryPut)
 	mux.HandleFunc("POST /api/library/test", sv.apiLibraryTest)
+	mux.HandleFunc("POST /api/library/browse-dirs", sv.apiLibraryBrowseDirs)
 	mux.HandleFunc("POST /api/library/import/{p}", sv.apiLibraryImport)
 	mux.HandleFunc("POST /api/library/defaults-from/{p}", sv.apiLibraryDefaultsFrom)
 
@@ -146,6 +147,29 @@ func (sv *guiServer) apiLibraryTest(w http.ResponseWriter, r *http.Request) {
 	srv.ApplyConnection(one[0])
 	srv.Normalize()
 	testConnection(w, srv)
+}
+
+// apiLibraryBrowseDirs kayıtlı bir kütüphane bağlantısında uzak klasörleri listeler (proje ekleme
+// penceresinde "Uzak dizin → Gözat"; proje henüz yok).
+func (sv *guiServer) apiLibraryBrowseDirs(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name string `json:"name"`
+		Path string `json:"path"`
+	}
+	if err := guiDecode(r, &req); err != nil {
+		guiErr(w, 400, err)
+		return
+	}
+	lib, _ := config.LoadLibrary()
+	c, ok := lib.FindConnection(req.Name)
+	if !ok {
+		guiErr(w, 404, fmt.Errorf(lang.L.GlobalConnNotFoundFmt, req.Name))
+		return
+	}
+	var srv config.Server
+	srv.ApplyConnection(c)
+	srv.Normalize()
+	listRemoteDirs(w, srv, req.Path)
 }
 
 func (sv *guiServer) apiLibraryImport(w http.ResponseWriter, r *http.Request) {

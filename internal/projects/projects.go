@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"syncftp/internal/lang"
 )
 
 type Project struct {
@@ -99,11 +101,11 @@ func Add(dir, name string) (Project, error) {
 		return Project{}, err
 	}
 	if !HasConfig(abs) {
-		return Project{}, fmt.Errorf("%s: .syncftp/syncftp.json yok (önce `syncftp init`)", abs)
+		return Project{}, fmt.Errorf(lang.L.ProjectNoConfigFmt, abs)
 	}
 	if base != "" {
 		if !InBase(abs) {
-			return Project{}, fmt.Errorf("%s: panelin açıldığı klasörün (%s) dışında", abs, base)
+			return Project{}, fmt.Errorf(lang.L.GuiOutsideBaseFmt, abs, base)
 		}
 		Invalidate()
 		for _, p := range scanBase() {
@@ -111,7 +113,32 @@ func Add(dir, name string) (Project, error) {
 				return p, nil
 			}
 		}
-		return Project{}, fmt.Errorf("%s: proje bulunamadı (çok derinde ya da gizli klasörde olabilir)", abs)
+		// Tarama derinliğinin (2 seviye) altında ya da gizli/atlanan klasörde: kayda yazılır,
+		// scanBase panel klasörünün içindeki kayıtlı projeleri de listeler → kalıcı olarak görünür
+		mu.Lock()
+		r := load()
+		known := false
+		for _, p := range r.Projects {
+			if samePath(p.Path, abs) {
+				known = true
+				break
+			}
+		}
+		if !known {
+			r.Projects = append(r.Projects, Project{Name: filepath.Base(abs), Path: abs, AddedAt: time.Now()})
+			if err := save(r); err != nil {
+				mu.Unlock()
+				return Project{}, err
+			}
+		}
+		mu.Unlock()
+		Invalidate()
+		for _, p := range scanBase() {
+			if samePath(p.Path, abs) {
+				return p, nil
+			}
+		}
+		return Project{}, fmt.Errorf(lang.L.ProjectNotListedFmt, abs)
 	}
 	if name == "" {
 		name = configProjectName(abs)
@@ -272,6 +299,8 @@ var (
 	scanMu   sync.Mutex
 	scanAt   time.Time
 	scanList []Project
+	scanGen  int  // Invalidate sayacı
+	scanBusy bool // arka planda tarama sürüyor
 )
 
 // SetBase klasör modunu açar ("" kapatır).
@@ -304,24 +333,70 @@ func InBase(dir string) bool {
 func Invalidate() {
 	scanMu.Lock()
 	scanAt = time.Time{}
+	scanGen++ // sürmekte olan arka plan taramasının (eski) sonucu yazılmasın
 	scanMu.Unlock()
 }
 
-var scanSkip = map[string]bool{"node_modules": true, "vendor": true, "bower_components": true, "__pycache__": true}
+// scanDepth panel klasörünün kaç seviye altına kadar proje aranır (kullanıcı 2'yi az buldu).
+const scanDepth = 6
 
+// scanSkip içine hiç girilmeyen (büyük ve proje barındırmayan) klasörler.
+var scanSkip = map[string]bool{"node_modules": true, "vendor": true, "bower_components": true, "__pycache__": true,
+	"venv": true, ".venv": true, "target": true, "obj": true, "packages": true, "jspm_packages": true, "site-packages": true}
+
+// scanRefresh tam taramanın (6 seviye, büyük klasörde ~1 sn) en fazla ne sıklıkla tekrarlanacağı.
+const scanRefresh = 60 * time.Second
+
+// scanBase klasör modunun proje listesi. Panel neredeyse her istekte listeye baktığı için önbellek
+// ANINDA döner; aradaki çağrılarda yalnızca bilinen projelerin config'i hâlâ var mı diye bakılır (ucuz
+// stat — silinen proje hemen düşer). Tam tarama en fazla scanRefresh'te bir, arka planda yapılır
+// (dışarıdan `syncftp init` ile açılan proje en geç o kadar sonra görünür). Invalidate (proje
+// ekle/sil/adlandır, AI kurulumu) sonrası ilk çağrı taze tarar.
 func scanBase() []Project {
 	scanMu.Lock()
-	defer scanMu.Unlock()
-	if !scanAt.IsZero() && time.Since(scanAt) < 2*time.Second {
-		return append([]Project(nil), scanList...)
+	if !scanAt.IsZero() {
+		out := make([]Project, 0, len(scanList))
+		for _, p := range scanList {
+			if HasConfig(p.Path) {
+				out = append(out, p)
+			}
+		}
+		if time.Since(scanAt) >= scanRefresh && !scanBusy {
+			scanBusy = true
+			gen := scanGen
+			go func() {
+				list := doScanBase()
+				scanMu.Lock()
+				if gen == scanGen {
+					scanList, scanAt = list, time.Now()
+				}
+				scanBusy = false
+				scanMu.Unlock()
+			}()
+		}
+		scanMu.Unlock()
+		return out
 	}
+	gen := scanGen
+	scanMu.Unlock()
+	list := doScanBase()
+	scanMu.Lock()
+	if gen == scanGen {
+		scanList, scanAt = list, time.Now()
+	}
+	scanMu.Unlock()
+	return append([]Project(nil), list...)
+}
+
+// doScanBase panel klasörünü scanDepth seviyeye kadar tarar + kayıtlı (daha derin) projeleri ekler.
+func doScanBase() []Project {
 	var dirs []string
 	var walk func(dir string, depth int)
 	walk = func(dir string, depth int) {
 		if HasConfig(dir) {
 			dirs = append(dirs, dir)
 		}
-		if depth == 2 {
+		if depth == scanDepth {
 			return
 		}
 		ents, err := os.ReadDir(dir)
@@ -337,6 +412,25 @@ func scanBase() []Project {
 		}
 	}
 	walk(base, 0)
+	// Taramanın göremediği (daha derin / gizli klasördeki) ama panelden eklenmiş projeler
+	mu.Lock()
+	reg := load()
+	mu.Unlock()
+	for _, p := range reg.Projects {
+		if !InBase(p.Path) || !HasConfig(p.Path) {
+			continue
+		}
+		dup := false
+		for _, d := range dirs {
+			if samePath(d, p.Path) {
+				dup = true
+				break
+			}
+		}
+		if !dup {
+			dirs = append(dirs, p.Path)
+		}
+	}
 	var r registry
 	for _, d := range dirs {
 		name := configProjectName(d)
@@ -345,6 +439,5 @@ func scanBase() []Project {
 		}
 		r.Projects = append(r.Projects, Project{Name: uniqueName(r, name, -1), Path: d})
 	}
-	scanList, scanAt = r.Projects, time.Now()
-	return append([]Project(nil), scanList...)
+	return r.Projects
 }
