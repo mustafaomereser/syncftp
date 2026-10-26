@@ -2,8 +2,10 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"path"
 	"path/filepath"
 	"strings"
@@ -203,7 +205,14 @@ var remoteRmCmd = &cobra.Command{
 			}
 		}
 
-		if _, err := remoteDelete(client, remotePath, remoteRmRecursive); err != nil {
+		// Klasörde silinen her öğe canlı yazılır (panelin silme işiyle aynı çekirdek); Ctrl+C kalanları bırakır
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+		defer stop()
+		if _, err := remoteDeleteCtx(ctx, client, remotePath, remoteRmRecursive, func(p string, _ bool) {
+			if p != remotePath {
+				fmt.Printf(lang.L.RemoteDelItemFmt, p)
+			}
+		}); err != nil {
 			return err
 		}
 

@@ -638,3 +638,7 @@ details.bolum.katlanir > summary h3 + .ok-ac { margin-left: auto; }
 .watch-gecis .pill .nokta { background: var(--ok); }
 .watch-gecis .pill:hover { color: var(--text); border-color: var(--faint); }
 .watch-gecis .pill.aktif { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
+
+/* Dosyalar: silme işi süren satırlar */
+.tablo tr.siliniyor { opacity: .4; pointer-events: none; }
+.tablo tr.siliniyor .ad-hucre span { text-decoration: line-through; }

@@ -579,6 +579,10 @@ type StringSet struct {
 	LocalDirMissingFmt     string // "yerel klasör yok: %s (%s) — sunucunun yerel dizinini düzeltin"
 	GuiIgnoreNoFile        string
 	GuiJobTree             string
+	GuiJobDelete           string // "Silme"
+	RemoteDelItemFmt       string // "  ✗ %s\n" (silinen her öğe)
+	RemoteDelDoneFmt       string // "\n  ✓ %d dosya, %d klasör silindi\n"
+	RemoteDelStoppedFmt    string // "\n  ! Durduruldu — %d dosya, %d klasör silindi, kalanlara dokunulmadı\n"
 	TreeMoreFmt            string
 	LangSavedUserFmt       string
 	LogsNone               string

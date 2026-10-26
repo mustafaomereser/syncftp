@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -76,10 +77,63 @@ func remoteIsDir(c *ftpclient.Client, p string) bool {
 
 // remoteDelete dosya ya da klasör siler (türü kendisi bulur). recursive=false iken dolu klasör silinmez.
 func remoteDelete(c *ftpclient.Client, p string, recursive bool) (isDir bool, err error) {
-	if remoteIsDir(c, p) {
-		return true, c.DeleteDir(p, recursive)
+	return remoteDeleteCtx(context.Background(), c, p, recursive, nil)
+}
+
+// remoteDeleteCtx remoteDelete'in iptal edilebilir, ilerleme bildiren hâli (panel silme işi). Dolu
+// klasör tek "recursive sil" komutuyla değil, dolaşılarak dosya dosya silinir: her silinen öğe
+// report'a gider, ctx iptal edilince kalanlara dokunulmaz ve bağlantı kilidi yalnızca tek komut
+// süresince tutulur (eskiden büyük klasör silinirken aynı bağlantıdaki listeleme dakikalarca bekliyordu).
+func remoteDeleteCtx(ctx context.Context, c *ftpclient.Client, p string, recursive bool, report func(p string, dir bool)) (isDir bool, err error) {
+	if report == nil {
+		report = func(string, bool) {}
 	}
-	return false, c.DeleteFile(p)
+	if !remoteIsDir(c, p) {
+		if err := c.DeleteFile(p); err != nil {
+			return false, err
+		}
+		report(p, false)
+		return false, nil
+	}
+	if !recursive {
+		if err := c.DeleteDir(p, false); err != nil {
+			return true, err
+		}
+		report(p, true)
+		return true, nil
+	}
+	return true, remoteDeleteTree(ctx, c, p, report)
+}
+
+func remoteDeleteTree(ctx context.Context, c *ftpclient.Client, dir string, report func(string, bool)) error {
+	entries, err := remoteEntries(c, dir)
+	if err != nil && !ftpclient.IsNotFound(err) {
+		return err
+	}
+	for _, e := range entries {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		full := path.Join(dir, e.Name)
+		if e.Type == goftp.EntryTypeFolder {
+			if err := remoteDeleteTree(ctx, c, full, report); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := c.DeleteFile(full); err != nil && !ftpclient.IsNotFound(err) {
+			return err
+		}
+		report(full, false)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := c.DeleteDir(dir, false); err != nil && !ftpclient.IsNotFound(err) {
+		return err
+	}
+	report(dir, true)
+	return nil
 }
 
 // remoteMove taşır/yeniden adlandırır; hedefin üst klasörü yoksa oluşturulur (panel + shell taşıma).

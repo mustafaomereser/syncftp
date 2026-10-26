@@ -1756,11 +1756,15 @@ async function tabFiles(proj, srvName, relPath) {
       return m;
     });
     if (recursive === null) return;
+    // Silme bir iş: kendi bağlantısında çalışır (liste donmaz), sağ altta canlı görünür, Durdur ile
+    // kesilir; bitince bu klasör tazelenir (onJobFinished). Silinmekte olan satırlar soluklaşır.
     try {
-      for (const it of items) await api('DELETE', `/api/p/${enc(P)}/remote/rm?${q}&path=${enc(it.path)}&recursive=${recursive}`);
-      toast(t('deleted'));
+      const label = items.length === 1 ? `${t('delete')}: ${items[0].path}` : `${t('delete')}: ${t('selectedN', items.length)}`;
+      await startJobs(P, { kind: 'rm', servers: [srv], paths: items.map((it) => it.path), recursive }, label);
+      const names = new Set(items.map((it) => it.path.split('/').pop()));
+      $$('#f-body tr[data-entry]').forEach((tr) => { if (names.has(tr.dataset.entry)) tr.classList.add('siliniyor'); });
+      S.lsCache.delete(`${P}|${srv}|${rel}`);
     } catch (err) { fail(err); }
-    reload();
   }
   // Taşı: sunucudaki klasörlerden gezerek seç (pickRemoteDir; yol kutusu elle yazmaya da izin verir).
   // Seçicide "/" = sunucunun uzak dizini; liste dosya tarayıcısının remote/ls ucundan gelir.

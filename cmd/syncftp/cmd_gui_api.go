@@ -78,7 +78,6 @@ func (sv *guiServer) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/p/{p}/remote/ls", sv.apiRemoteLs)
 	mux.HandleFunc("GET /api/p/{p}/remote/cat", sv.apiRemoteCat)
 	mux.HandleFunc("GET /api/p/{p}/remote/get", sv.apiRemoteGet)
-	mux.HandleFunc("DELETE /api/p/{p}/remote/rm", sv.apiRemoteRm)
 	mux.HandleFunc("GET /api/p/{p}/local/cat", sv.apiLocalCat)
 	mux.HandleFunc("GET /api/p/{p}/remote/media", sv.apiRemoteMedia) // cmd_gui_media.go
 	mux.HandleFunc("GET /api/p/{p}/local/media", sv.apiLocalMedia)
@@ -730,6 +729,8 @@ type guiJobReq struct {
 	Exclude     []string `json:"exclude"`    // tek seferlik (CLI sync --exclude gibi; ek)
 	Files       []string `json:"files"`      // rollback: yalnızca bu dosyalar (boş = release'in tamamı)
 	DeleteNew   bool     `json:"delete_new"` // rollback: release'in yeni eklediği dosyaları da sil
+	Paths       []string `json:"paths"`      // rm: RemotePath'e göreceli silinecek yollar
+	Recursive   bool     `json:"recursive"`  // rm: dolu klasörleri de sil (CLI remote rm --recursive)
 }
 
 func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
@@ -761,7 +762,7 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 	dir := p.Path
 
 	switch req.Kind {
-	case "rollback", "exec", "tree": // tek sunuculuk işler — boş liste "tüm aktif sunucular" demek, ilkini seçme
+	case "rollback", "exec", "tree", "rm": // tek sunuculuk işler — boş liste "tüm aktif sunucular" demek, ilkini seçme
 		if len(req.Servers) != 1 {
 			guiErr(w, 400, errors.New(lang.L.GuiNeedOneServer))
 			return
@@ -884,6 +885,68 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintln(j, root)
 			writeFTPTree(j, c, root, "", req.Max, func(p ...string) string { return strings.Join(p, "") }) // shell `tree` ile aynı çekirdek
 			return nil, nil
+		}))
+	case "rm":
+		// Uzak silme iş olarak: dosya tarayıcısının önbellekli bağlantısını DEĞİL kendi bağlantısını
+		// kullanır (büyük klasör silinirken listeleme donmasın), silinen her öğe canlı akar, Durdur
+		// kalanlara dokunmadan keser. Çekirdek CLI `remote rm` ile aynı (remoteDeleteCtx).
+		srv := servers[0]
+		var targets []string
+		for _, rp := range req.Paths {
+			full := guiRemotePath(srv, rp)
+			if path.Clean(full) == path.Clean(srv.RemotePath) {
+				guiErr(w, 400, errors.New("root"))
+				return
+			}
+			targets = append(targets, full)
+		}
+		if len(targets) == 0 {
+			guiErr(w, 400, errors.New("paths"))
+			return
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		var cur *ftpclient.Client
+		var curMu sync.Mutex
+		stop := func() { // ctx + o an süren komut (büyük dosyada DELE uzun sürebilir)
+			cancel()
+			curMu.Lock()
+			if cur != nil {
+				cur.Abort()
+			}
+			curMu.Unlock()
+		}
+		add(sv.jobs.startCancelable("rm", p.Name, srv.Name, lang.L.GuiJobDelete, "", stop, func(j *job) (any, error) {
+			defer cancel()
+			c, err := ftpclient.Connect(srv)
+			if err != nil {
+				return nil, err
+			}
+			defer c.Close()
+			curMu.Lock()
+			cur = c
+			curMu.Unlock()
+			files, dirs := 0, 0
+			report := func(full string, dir bool) {
+				if dir {
+					dirs++
+				} else {
+					files++
+				}
+				fmt.Fprintf(j, lang.L.RemoteDelItemFmt, strings.TrimPrefix(strings.TrimPrefix(full, srv.RemotePath), "/"))
+			}
+			for _, t := range targets {
+				if _, err := remoteDeleteCtx(ctx, c, t, req.Recursive, report); err != nil {
+					if ctx.Err() != nil { // hata dönmeli → iş "durduruldu" (sarı) görünür, "tamam" değil
+						msg := fmt.Sprintf(lang.L.RemoteDelStoppedFmt, files, dirs)
+						fmt.Fprint(j, msg)
+						return nil, errors.New(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(msg), "!")))
+					}
+					fmt.Fprintf(j, lang.L.RemoteDelDoneFmt, files, dirs)
+					return nil, err
+				}
+			}
+			fmt.Fprintf(j, lang.L.RemoteDelDoneFmt, files, dirs)
+			return map[string]int{"files": files, "dirs": dirs}, nil
 		}))
 	case "diff":
 		if len(servers) != 2 {

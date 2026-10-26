@@ -220,30 +220,6 @@ func (sv *guiServer) apiRemoteGet(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (sv *guiServer) apiRemoteRm(w http.ResponseWriter, r *http.Request) {
-	pname, srv, ok := sv.remoteServer(w, r)
-	if !ok {
-		return
-	}
-	rel := r.URL.Query().Get("path")
-	full := guiRemotePath(srv, rel)
-	if path.Clean(full) == path.Clean(srv.RemotePath) {
-		guiErr(w, 400, errors.New("root"))
-		return
-	}
-	// CLI `remote rm` ile aynı: recursive=false iken dolu klasör silinmez (varsayılan true — panel onay sorar)
-	recursive := r.URL.Query().Get("recursive") != "false"
-	err := withRemote(pname, srv, func(c *ftpclient.Client) error {
-		_, e := remoteDelete(c, full, recursive)
-		return e
-	})
-	if err != nil {
-		guiErr(w, 502, err)
-		return
-	}
-	guiJSON(w, true)
-}
-
 // apiLocalCat sunucunun yerel dizinindeki dosyayı okur (diff görünümü için).
 // Yol yerel dizinin dışına çıkamaz.
 func (sv *guiServer) apiLocalCat(w http.ResponseWriter, r *http.Request) {
