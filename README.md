@@ -34,7 +34,7 @@ local project ──▶ change detection (SHA256 + cache) ──▶ filters ─�
 - **Webhooks out** — Slack / Discord / any URL after each sync
 
 **Interfaces**
-- **Desktop panel** with **system tray**, live job logs (stoppable), remote file browser with diff and an **in-place editor** for server files, help page and an **AI assistant** (Claude Code / OpenCode)
+- **Desktop panel** with **system tray**, live job logs (stoppable), remote file browser with diff, image / video / audio / PDF preview, drag-and-drop upload and an **in-place editor** for server files, help page and an **AI assistant** (Claude Code / OpenCode)
 - **Interactive shell** with an arrow-key file browser, TUIs for status / sync / config
 - **CLI** for scripts, plus a **local HTTP API** (`syncftp serve`)
 
@@ -338,6 +338,13 @@ syncftp rollback 20261016-063017 -s production --files css/app.css,js/app.js
 
 In the panel: *History → Details* → tick files (or whole folders) in the tree → *Roll back selected*.
 
+**Deleting backups.** Delete a release (its record and backup files) or all releases of a server; with `--keep-history` only the backup files go and the release stays in history (no longer restorable). Files on the server are never touched, and nothing is deleted while a job runs on that server. In the panel: the trash button on a *History* row, *Delete* in the release window, or *Delete all backups*.
+
+```bash
+syncftp rollback 20261016-063017 -s production --delete
+syncftp rollback -s production --delete --all --keep-history
+```
+
 Each release also keeps a copy of the **uploaded** version of every file up to 2 MB (`after/`), so you can see exactly what a deploy changed:
 
 ```bash
@@ -538,6 +545,7 @@ syncftp rollback [RELEASE-ID] [-s NAME] [--list] [-y]
 syncftp rollback RELEASE-ID [-s NAME] --diff[=PATH]     # show what the release changed, no rollback
 syncftp rollback RELEASE-ID [-s NAME] --files A,B        # roll back only these files
 syncftp rollback RELEASE-ID [-s NAME] --delete-new       # also delete files the release(s) added
+syncftp rollback [RELEASE-ID] [-s NAME] --delete [--all] [--keep-history] [-y]   # delete releases / backups
 ```
 
 See [Backup, rollback & atomic uploads](#backup-rollback--atomic-uploads).

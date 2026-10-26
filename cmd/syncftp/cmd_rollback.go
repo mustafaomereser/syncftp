@@ -28,6 +28,9 @@ var (
 	rbFlagDiff   string
 	rbFlagFiles  []string
 	rbFlagDelNew bool
+	rbFlagDelete bool
+	rbFlagAll    bool
+	rbFlagKeepH  bool
 )
 
 func init() {
@@ -38,6 +41,9 @@ func init() {
 	rollbackCmd.Flags().Lookup("diff").NoOptDefVal = "*" // --diff = tüm dosyalar
 	rollbackCmd.Flags().BoolVar(&rbFlagDelNew, "delete-new", false, "Release'in sunucuya yeni eklediği dosyaları da sil (varsayılan: bırakılır)")
 	rollbackCmd.Flags().StringSliceVar(&rbFlagFiles, "files", nil, "Yalnızca bu dosyaları geri al (virgülle ya da tekrar ederek; release'ten önceki hâllerine döner)")
+	rollbackCmd.Flags().BoolVar(&rbFlagDelete, "delete", false, "Geri alma yapma; release'i ve yedeklerini sil (--all: hepsi)")
+	rollbackCmd.Flags().BoolVar(&rbFlagAll, "all", false, "--delete ile: sunucunun tüm release'leri")
+	rollbackCmd.Flags().BoolVar(&rbFlagKeepH, "keep-history", false, "--delete ile: yalnızca yedek dosyalarını sil, release geçmişte kalsın")
 	rootCmd.AddCommand(rollbackCmd)
 }
 
@@ -52,7 +58,10 @@ altına yedekler; sunucuda olmayan dosyaları "yeni" olarak kaydeder. Rollback y
 yükler, yeni dosyaları siler ve state'i eski hash'lere çeker — sonraki sync yerel değişiklikleri
 tekrar tespit eder.
 
-Yedeklemeyi kapatmak: sync.no_backup / server.no_backup. Tutulacak yedek sayısı: sync.backup_keep (varsayılan 10).`,
+Yedeklemeyi kapatmak: sync.no_backup / server.no_backup. Tutulacak yedek sayısı: sync.backup_keep (varsayılan 10).
+
+Yedekleri silmek: rollback <id> --delete (birden fazla değil, tek release), rollback --delete --all
+(tümü). --keep-history yalnızca yedek dosyalarını siler, release geçmişte kalır. Sunucuya dokunulmaz.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runRollbackCmd,
 }
@@ -80,6 +89,14 @@ func runRollbackCmd(cmd *cobra.Command, args []string) error {
 	if rbFlagList {
 		printReleaseList(os.Stdout, list)
 		return nil
+	}
+
+	if rbFlagDelete { // yedek / release silme — geri alma yok
+		target := ""
+		if len(args) == 1 {
+			target = args[0]
+		}
+		return releaseDeleteFlow(os.Stdout, dir, srv, list, target, rbFlagAll, rbFlagKeepH, rbFlagYes)
 	}
 
 	target := ""
@@ -426,4 +443,81 @@ func rollbackLogged(w io.Writer, configDir string, srv config.Server, plan []*re
 	}
 	p, _ := synclog.Save(configDir, srv.Name, buf.String())
 	return rep, p, nil
+}
+
+// removeReleases release'leri siler; keepHistory=true yalnızca yedek dosyalarını siler (manifest
+// geçmişte kalır, geri alınamaz). CLI `rollback --delete` ve panel Geçmiş ortak. Sunucuda iş
+// (sync, rollback…) sürerken çalışmaz — o iş release yazıyor olabilir.
+func removeReleases(dir string, srv config.Server, ids []string, keepHistory bool) (int, error) {
+	unlock, ok := tryLockServer(dir, srv.Name)
+	if !ok {
+		return 0, fmt.Errorf(lang.L.ReleaseBusyFmt, srv.Name)
+	}
+	defer unlock()
+	n := 0
+	for _, id := range ids {
+		var err error
+		if keepHistory {
+			err = release.Purge(dir, srv.Name, id)
+		} else {
+			err = release.Delete(dir, srv.Name, id)
+		}
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				err = fmt.Errorf(lang.L.RollbackNotFoundFmt, id)
+			}
+			return n, err
+		}
+		n++
+	}
+	return n, nil
+}
+
+// releaseDeleteFlow CLI `rollback --delete` ve shell `rollback --delete` ortak: hedef yoksa (ve
+// all değilse) picker'dan seçilir, onay sorulur (yes hariç), silinir.
+func releaseDeleteFlow(w io.Writer, dir string, srv config.Server, list []*release.Manifest, target string, all, keepHistory, yes bool) error {
+	var ids []string
+	switch {
+	case all:
+		for _, m := range list {
+			ids = append(ids, m.ID)
+		}
+	case target != "":
+		ids = []string{target}
+	default:
+		items := make([]PickerItem, 0, len(list))
+		for _, m := range list {
+			items = append(items, PickerItem{Icon: "✗", Label: m.ID, Desc: releaseDesc(m), Value: m.ID})
+		}
+		id, err := RunPicker(fmt.Sprintf(lang.L.RollbackPickTitleFmt, srv.Name), lang.L.ReleaseDeleteNeedID, items)
+		if err != nil || id == "" {
+			fmt.Fprintln(w, lang.L.SyncCancelled)
+			return nil
+		}
+		ids = []string{id}
+	}
+	body := lang.L.ReleaseDeleteBodyFull
+	if keepHistory {
+		body = lang.L.ReleaseDeleteBodyPurge
+	}
+	if !yes {
+		if ok, _ := RunConfirm(fmt.Sprintf(lang.L.ReleaseDeleteConfirmFmt, len(ids), srv.Name), body); !ok {
+			fmt.Fprintln(w, lang.L.SyncCancelled)
+			return nil
+		}
+	}
+	n, err := removeReleases(dir, srv, ids, keepHistory)
+	printReleasesRemoved(w, n, keepHistory)
+	return err
+}
+
+func printReleasesRemoved(w io.Writer, n int, keepHistory bool) {
+	if n == 0 {
+		return
+	}
+	if keepHistory {
+		fmt.Fprintf(w, lang.L.ReleasePurgedFmt, n)
+	} else {
+		fmt.Fprintf(w, lang.L.ReleaseDeletedFmt, n)
+	}
 }

@@ -714,6 +714,13 @@ type StringSet struct {
 	RollbackWillKeepFmt      string // onay: "\n%d yeni eklenen dosya sunucuda bırakılacak (silmek için --delete-new)\n"
 	ReleaseFileNotFoundFmt   string // "release'te böyle bir dosya yok: %s"
 	ReleaseDiffBinary        string
+	ReleaseDeletedFmt        string // "  ✓ %d release silindi\n"
+	ReleasePurgedFmt         string // "  ✓ %d release'in yedeği silindi — geçmişte durur, geri alınamaz\n"
+	ReleaseBusyFmt           string // "%s üzerinde şu an bir işlem sürüyor — bitince tekrar dene"
+	ReleaseDeleteConfirmFmt  string // "%[2]s üzerinde %[1]d release silinsin mi?"
+	ReleaseDeleteBodyFull    string // onay gövdesi (tamamen)
+	ReleaseDeleteBodyPurge   string // onay gövdesi (--keep-history)
+	ReleaseDeleteNeedID      string // "silinecek release'i ver (ya da --all)"
 	ReleaseDiffNoBefore      string
 	ReleaseDiffNoAfter       string
 	ReleaseDiffTooBigFmt     string // "  (çok büyük: %d / %d satır)\n"

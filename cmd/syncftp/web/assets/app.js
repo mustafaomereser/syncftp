@@ -88,7 +88,7 @@ const T = {
     renameProject: 'Yeniden adlandır', 
     filter: 'Bu klasörde filtrele…', colSize: 'Boyut', colDate: 'Tarih',
     emptyDir: 'Klasör boş', preview: 'Önizle', download: 'İndir', deleteRemoteConfirm: '"{0}" sunucudan KALICI olarak silinsin mi?', deleteDirConfirm: '"{0}" klasörü ve İÇİNDEKİ HER ŞEY sunucudan kalıcı olarak silinsin mi?',
-    deleted: 'Silindi', binaryFile: 'Binary dosya — önizleme yok', truncated: '(ilk 256 KB)',
+    deleted: 'Silindi', binaryFile: 'Binary dosya — önizleme yok', viewMedia: 'Görüntü', mediaFailed: 'Bu dosya tarayıcıda gösterilemiyor', mediaSameSize: 'Yerel ve sunucudaki dosyanın boyutu aynı', mediaNoLocal: 'Yerelde yok', mediaNoRemote: 'Sunucuda yok', dropHere: 'Yüklemek için bırak', dropInto: '{0} klasörüne yüklemek için bırak', dropHint: 'Dosya / klasörleri sürükleyip buraya bırakabilirsin', truncated: '(ilk 256 KB)',
     releases: 'Sync geçmişi (release)', releasesSub: 'Her sync, değiştirdiği dosyaların eski halini yedekler. Bir release\'i geri almak onu ve ondan sonrakileri geri alır.',
     colWhen: 'Zaman', colServer: 'Sunucu', colFiles: 'Dosya', colReplaced: 'Değişen', colNew: 'Yeni', colStatus: 'Durum',
     rolledBack: 'geri alındı', noBackupTag: 'yedek yok', restorable: 'geri alınabilir', details: 'Ayrıntı', undo: 'Geri al',
@@ -96,7 +96,7 @@ const T = {
     rollbackBody: 'Aşağıdaki {0} release EN YENİDEN başlayarak geri alınacak: değişen dosyaların eski hali geri yüklenir. Yeni eklenen dosyalar, aşağıdaki kutuyu işaretlemezseniz sunucuda kalır.',
     rollbackGo: 'Geri al',
     logs: 'Loglar', noLogs: 'Log yok', releaseTitle: 'Release {0}',
-    relPickFile: 'Farkını görmek için soldan bir dosya seçin', relSelected: '{0} dosya seçili', relNotRestorable: 'Bu release geri alınamaz (yedeği yok ya da geri alınmış)', relRollbackSel: 'Seçilenleri geri al ({0})', relRollbackAll: 'Tümünü geri al', relPartly: 'kısmen geri alındı ({0} dosya)', relRolledFile: 'Bu dosya geri alındı', relNoBackupFile: 'Yedek yok — geri alınamaz', noFiles: 'Dosya yok',
+    relPickFile: 'Farkını görmek için soldan bir dosya seçin', relSelected: '{0} dosya seçili', relNotRestorable: 'Bu release geri alınamaz (yedeği yok ya da geri alınmış)', relRollbackSel: 'Seçilenleri geri al ({0})', relRollbackAll: 'Tümünü geri al', relDelete: 'Sil', relDeleteAll: 'Tüm yedekleri sil', relDeleteTitle: '{0} release silinsin mi?', relDeleteTitleAll: '{0} — tüm release\'ler silinsin mi?', relDeleteBody: 'Kayıt ve yedek dosyaları silinir; bu release\'ler geçmişten düşer ve geri alınamaz. <b>Sunucudaki dosyalara dokunulmaz.</b>', relDeleteKeep: 'Yalnızca yedek dosyalarını sil — release geçmişte kalsın', relDeletedN: '{0} release silindi', relPurgedN: '{0} release\'in yedeği silindi', relPartly: 'kısmen geri alındı ({0} dosya)', relRolledFile: 'Bu dosya geri alındı', relNoBackupFile: 'Yedek yok — geri alınamaz', noFiles: 'Dosya yok',
     rbSelBody: '{0} dosya {1} release\'inden önceki hâline döner.', rbDeleteNew: 'Sonradan eklenen {0} dosyayı da sunucudan sil', rbDeleteNewHint: 'Kapalıyken bu release\'lerin yeni eklediği dosyalar sunucuda kalır; sonra ağaçtan seçip silebilirsiniz.', rbSelChain: 'Bu dosyalar daha yeni release\'lerde de değiştiği için onlarda da bu dosyalar geri alınır:',
     relBefore: 'Önceki hal', relAfter: 'Yüklenen hal', relDiffHint: 'Sunucudaki önceki hal → bu sync\'te yüklenen hal', relFileHint: 'Farkı görmek için dosyaya tıklayın',
     relNoBefore: 'Önceki hal yok — yedek alınamamış ya da eski olduğu için silinmiş.', relNoAfter: 'Yüklenen hal saklanmamış ve yerel dosya o zamandan beri değişmiş.', relNewFile: 'Bu sync\'te sunucuya yeni eklenen dosya', relAfterLocal: 'Yüklenen hal yerel dosyadan (hash aynı)',
@@ -203,7 +203,7 @@ const T = {
     renameProject: 'Rename', 
     filter: 'Filter this folder…', colSize: 'Size', colDate: 'Date',
     emptyDir: 'Folder is empty', preview: 'Preview', download: 'Download', deleteRemoteConfirm: 'PERMANENTLY delete "{0}" from the server?', deleteDirConfirm: 'PERMANENTLY delete folder "{0}" and EVERYTHING inside it from the server?',
-    deleted: 'Deleted', binaryFile: 'Binary file — no preview', truncated: '(first 256 KB)',
+    deleted: 'Deleted', binaryFile: 'Binary file — no preview', viewMedia: 'View', mediaFailed: 'This file cannot be shown in the browser', mediaSameSize: 'Local and server files have the same size', mediaNoLocal: 'Not on local', mediaNoRemote: 'Not on server', dropHere: 'Drop to upload', dropInto: 'Drop to upload into {0}', dropHint: 'You can drag and drop files / folders here', truncated: '(first 256 KB)',
     releases: 'Sync history (releases)', releasesSub: 'Every sync backs up the previous version of the files it changes. Rolling back a release also rolls back every newer one.',
     colWhen: 'When', colServer: 'Server', colFiles: 'Files', colReplaced: 'Replaced', colNew: 'New', colStatus: 'Status',
     rolledBack: 'rolled back', noBackupTag: 'no backup', restorable: 'restorable', details: 'Details', undo: 'Roll back',
@@ -211,7 +211,7 @@ const T = {
     rollbackBody: 'The following {0} release(s) will be undone, NEWEST first: replaced files get their previous version back. Newly added files stay on the server unless you tick the box below.',
     rollbackGo: 'Roll back',
     logs: 'Logs', noLogs: 'No logs', releaseTitle: 'Release {0}',
-    relPickFile: 'Pick a file on the left to see its diff', relSelected: '{0} file(s) selected', relNotRestorable: 'This release cannot be rolled back (no backup or already rolled back)', relRollbackSel: 'Roll back selected ({0})', relRollbackAll: 'Roll back all', relPartly: 'partly rolled back ({0} files)', relRolledFile: 'This file was rolled back', relNoBackupFile: 'No backup — cannot be rolled back', noFiles: 'No files',
+    relPickFile: 'Pick a file on the left to see its diff', relSelected: '{0} file(s) selected', relNotRestorable: 'This release cannot be rolled back (no backup or already rolled back)', relRollbackSel: 'Roll back selected ({0})', relRollbackAll: 'Roll back all', relDelete: 'Delete', relDeleteAll: 'Delete all backups', relDeleteTitle: 'Delete {0} release(s)?', relDeleteTitleAll: '{0} — delete all releases?', relDeleteBody: 'The records and their backup files are deleted; these releases leave the history and cannot be rolled back. <b>Files on the server are not touched.</b>', relDeleteKeep: 'Only delete the backup files — keep the releases in history', relDeletedN: '{0} release(s) deleted', relPurgedN: 'Backups of {0} release(s) deleted', relPartly: 'partly rolled back ({0} files)', relRolledFile: 'This file was rolled back', relNoBackupFile: 'No backup — cannot be rolled back', noFiles: 'No files',
     rbSelBody: '{0} file(s) return to their version before release {1}.', rbDeleteNew: 'Also delete the {0} newly added file(s) from the server', rbDeleteNewHint: 'When off, files these releases added stay on the server; you can select and delete them later from the tree.', rbSelChain: 'These files also changed in newer releases, so they are rolled back there too:',
     relBefore: 'Before', relAfter: 'Uploaded', relDiffHint: 'Previous server version → version uploaded by this sync', relFileHint: 'Click a file to see its diff',
     relNoBefore: 'No previous version — the backup is missing or was purged as old.', relNoAfter: 'The uploaded version was not stored and the local file has changed since.', relNewFile: 'File newly added to the server by this sync', relAfterLocal: 'Uploaded version taken from the local file (same hash)',
@@ -558,9 +558,10 @@ async function openWatches(anchor) {
   await refreshJobsMeta();
   const ws = runningWatches();
   if (!ws.length) return toast(t('noWatches'));
-  if (ws.length === 1) return showJobLog(ws[0].id);
-  openMenu(anchor, ws.map((j) => ({ icon: 'eye', label: `${j.project}${j.server ? ' · ' + j.server : ''}`, hint: j.last || '…', run: () => showJobLog(j.id) })));
+  // Birden fazlaysa ilki açılır; pencerenin üstündeki pill'lerle diğerlerine geçilir
+  showJobLog(ws[0].id);
 }
+const watchLabel = (j) => `${j.project}${j.server ? ' · ' + j.server : ''}`;
 setInterval(() => { pruneJobs(); renderDock(); }, 3000);
 
 function logClass(l) {
@@ -587,9 +588,12 @@ async function showJobLog(id) {
     const [st, txt] = jobPill(j.status);
     return `<span class="pill ${st}"><span class="nokta"></span>${txt}</span> ${esc(snap.title)}${snap.server ? ' · ' + esc(snap.server) : ''}`;
   };
+  // Watch penceresi: açık watch'lar arasında geçiş pill'leri (tıkla → o watch'ın konsolu)
+  const others = snap.kind === 'watch' ? runningWatches() : [];
+  const switcher = others.length > 1 ? `<div class="watch-gecis">${others.map((w) => `<button class="pill${w.id === id ? ' aktif' : ''}" data-wsw="${esc(w.id)}" title="${esc(w.last || '…')}"><span class="nokta"></span>${esc(watchLabel(w))}</button>`).join('')}</div>` : '';
   const m = modal({
     title: header(), size: 'genis',
-    body: `<div class="log" id="joblog">${(fresh ? [] : j.lines).map(logLine).join('')}</div>`,
+    body: `${switcher}<div class="log" id="joblog">${(fresh ? [] : j.lines).map(logLine).join('')}</div>`,
     actions: [
       { left: `<span class="mono">${esc(snap.project || '')} · ${fmtDate(snap.started)}</span>` },
       // Durdurulabilen her iş (watch, calibrate…) — pencere açık kalır, durma satırı log'a düşer
@@ -602,6 +606,7 @@ async function showJobLog(id) {
     ],
     onClose: () => { j.onLine = null; j.onDone = null; },
   });
+  $$('[data-wsw]', m.root).forEach((b) => (b.onclick = () => { if (b.dataset.wsw !== id) { m.close(); showJobLog(b.dataset.wsw); } }));
   const box = $('#joblog', m.root);
   box.scrollTop = box.scrollHeight;
   j.onLine = (l) => {
@@ -697,6 +702,7 @@ async function render(soft = false) {
     else html = await pageProject(r);
     if (seq !== S.renderSeq) return;
     if (typeof html === 'string') root.innerHTML = html;
+    root.classList.remove('surukle'); // sürükle-bırak katmanı yarıda kaldıysa yeni sayfaya taşınmasın
     root.dataset.proj = r.page === 'project' ? r.project : '';
     if (root._bind) { const b = root._bind; root._bind = null; b(root); }
     // Sayfa değişimiyle birlikte açılacak modal (ör. arama sonucundan önizleme): hashchange'in
@@ -1866,22 +1872,35 @@ async function tabFiles(proj, srvName, relPath) {
     $('#f-search', root).onclick = () => { if (filter.value.trim()) searchAll(filter.value.trim()); else filter.focus(); };
     const up = $('#f-upload-input', root);
     $('#f-upload', root).onclick = () => up.click();
-    up.onchange = async () => {
-      if (!up.files.length) return;
+    // items: [{file, path}] — path hedef klasöre göreceli (sürüklenen klasörlerde alt yol); dir: hedef klasör
+    const uploadItems = async (items, dir) => {
+      if (!items.length) return;
       const fd = new FormData();
-      [...up.files].forEach((f) => fd.append('files', f, f.name));
-      const b = $('#f-upload', root); b.disabled = true; b.innerHTML = icon('refresh', 'spin') + t('upload');
+      items.forEach((it) => { fd.append('files', it.file, it.file.name); fd.append('paths', it.path); });
+      const b = $('#f-upload', root);
+      const label = (pct) => { b.innerHTML = icon('refresh', 'spin') + t('upload') + (pct != null ? ` ${pct}%` : ''); };
+      b.disabled = true; label();
       try {
-        // api() JSON gövde gönderir; dosya için FormData — hata işleme api() ile aynı (HTTP durumu + hata gövdesi)
-        let res;
-        try { res = await fetch(`/api/p/${enc(P)}/remote/upload?${q}&path=${enc(rel)}`, { method: 'POST', body: fd }); } catch { throw new Error(t('sessionLost')); }
-        let r = null;
-        try { r = await res.json(); } catch { /* boş / JSON değil */ }
-        if (!res.ok || !r || r.ok === false) throw new Error((r && r.error) || `HTTP ${res.status}`);
+        // api() JSON gövde gönderir; dosya için FormData + XHR (yükleme yüzdesi) — hata işleme api() ile aynı
+        const r = await new Promise((res, rej) => {
+          const x = new XMLHttpRequest();
+          x.open('POST', `/api/p/${enc(P)}/remote/upload?${q}&path=${enc(dir)}`);
+          x.upload.onprogress = (e) => { if (e.lengthComputable && b.isConnected) label(Math.floor((e.loaded / e.total) * 100)); };
+          x.onerror = () => rej(new Error(t('sessionLost')));
+          x.onload = () => {
+            let d = null;
+            try { d = JSON.parse(x.responseText); } catch { /* boş / JSON değil */ }
+            if (x.status >= 400 || !d || d.ok === false) rej(new Error((d && d.error) || `HTTP ${x.status}`)); else res(d);
+          };
+          x.send(fd);
+        });
         toast(t('uploaded', (r.data || []).length));
       } catch (err) { fail(err); }
+      if (dir !== rel) S.lsCache.delete(`${P}|${srv}|${dir}`);
       reload();
     };
+    up.onchange = () => uploadItems([...up.files].map((f) => ({ file: f, path: f.name })), rel);
+    bindDropUpload(root, (items, dirName) => uploadItems(items, dirName ? full(dirName) : rel));
     // Ağaç: shell `tree` ile aynı çekirdek (iş olarak çalışır, çıktı canlı akar)
     $('#f-tree', root).onclick = () => {
       const m = modal({
@@ -2022,7 +2041,7 @@ async function tabFiles(proj, srvName, relPath) {
       <button class="btn" id="f-search" title="${t('searchAll')}">${icon('search')}${t('searchAll')}</button>
       <button class="btn" id="f-tree" title="${t('treeHint')}">${icon('layers')}${t('treeView')}</button>
       <button class="btn" id="f-mkdir">${icon('folder')}${t('newFolder')}</button>
-      <button class="btn mavi" id="f-upload">${icon('upload')}${t('upload')}</button><input type="file" id="f-upload-input" multiple hidden></div>
+      <button class="btn mavi" id="f-upload" title="${t('dropHint')}">${icon('upload')}${t('upload')}</button><input type="file" id="f-upload-input" multiple hidden></div>
     <div class="yol-cubuk"><button data-crumb="">${esc(data.root || '/')}</button>${crumbs.map((c, i) => `<span>/</span><button data-crumb="${esc(crumbs.slice(0, i + 1).join('/'))}">${esc(c)}</button>`).join('')}</div>
     <div class="secim-cubuk" id="f-selbar" hidden><b data-selcount></b>
       <button class="btn kucuk" data-sel="move">${icon('folder')}${t('moveTo')}</button>
@@ -2033,6 +2052,88 @@ async function tabFiles(proj, srvName, relPath) {
     `<div class="tablo-kap"><table class="tablo"><thead><tr><th class="sec-hucre"><label><input type="checkbox" id="f-all"></label></th><th>${t('colName')}</th><th class="sag">${t('colSize')}</th><th>${t('colDate')}</th><th></th></tr></thead><tbody id="f-body">
       </tbody></table></div><button class="btn hayalet tam-gen" id="f-more" hidden></button>`}`;
 }
+
+// Dosyalar sekmesine sürükle-bırak yükleme: dosyalar ve klasörler (alt yapısıyla) bulunulan klasöre,
+// bir klasör satırının üstüne bırakılırsa o klasöre. onDrop(items [{file, path}], dirName|'').
+// Kök (#sayfa) sayfalar arasında aynı öğe → olaylar özellik olarak atanır (birikmez), dosyalar sayfası
+// değilse hiçbir şey yapmaz.
+function bindDropUpload(root, onDrop) {
+  const active = () => !!$('#f-upload', root);
+  const hasFiles = (e) => [...(e.dataTransfer?.types || [])].includes('Files');
+  let depth = 0;
+  const clear = () => { depth = 0; root.classList.remove('surukle'); $$('tr.surukle-hedef', root).forEach((x) => x.classList.remove('surukle-hedef')); };
+  const readEntry = async (entry, prefix, out) => {
+    if (entry.isFile) {
+      const file = await new Promise((res, rej) => entry.file(res, rej));
+      out.push({ file, path: prefix + file.name });
+    } else if (entry.isDirectory) {
+      const reader = entry.createReader();
+      // readEntries her çağrıda en fazla ~100 girdi döner — boş gelene kadar oku
+      for (;;) {
+        const batch = await new Promise((res, rej) => reader.readEntries(res, rej));
+        if (!batch.length) break;
+        for (const ch of batch) await readEntry(ch, prefix + entry.name + '/', out);
+      }
+    }
+  };
+  root.ondragenter = (e) => {
+    if (!active() || !hasFiles(e)) return;
+    e.preventDefault();
+    depth++;
+    root.dataset.drop = t('dropHere');
+    root.classList.add('surukle');
+  };
+  root.ondragover = (e) => {
+    if (!active() || !hasFiles(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    const row = e.target.closest && e.target.closest('tr[data-type="dir"]');
+    $$('tr.surukle-hedef', root).forEach((x) => { if (x !== row) x.classList.remove('surukle-hedef'); });
+    if (row) row.classList.add('surukle-hedef');
+    root.dataset.drop = row ? t('dropInto', row.dataset.entry) : t('dropHere');
+  };
+  root.ondragleave = (e) => {
+    if (!active() || !hasFiles(e)) return;
+    if (--depth <= 0) clear();
+  };
+  root.ondrop = async (e) => {
+    if (!active() || !hasFiles(e)) { clear(); return; }
+    e.preventDefault();
+    const row = e.target.closest && e.target.closest('tr[data-type="dir"]');
+    const dirName = row ? row.dataset.entry : '';
+    clear();
+    // Girdiler olay sırasında alınmalı (await sonrası DataTransfer boşalır)
+    const entries = [...e.dataTransfer.items].map((it) => it.webkitGetAsEntry && it.webkitGetAsEntry()).filter(Boolean);
+    const plain = [...e.dataTransfer.files];
+    let items = [];
+    try {
+      if (entries.length) for (const en of entries) await readEntry(en, '', items);
+      else items = plain.map((f) => ({ file: f, path: f.name }));
+    } catch (err) { fail(err); return; }
+    onDrop(items, dirName);
+  };
+}
+
+// Medya önizlemesi (resim / video / ses / PDF) — sunucu satır içi, sandbox CSP ile sunar (cmd_gui_media.go)
+const MEDIA_EXT = {
+  image: /\.(png|jpe?g|gif|webp|svg|bmp|ico|avif)$/i,
+  video: /\.(mp4|webm|ogv|m4v|mov)$/i,
+  audio: /\.(mp3|wav|ogg|oga|m4a|flac|aac|opus)$/i,
+  pdf: /\.pdf$/i,
+};
+const mediaKind = (name) => Object.keys(MEDIA_EXT).find((k) => MEDIA_EXT[k].test(name || '')) || '';
+function mediaView(kind, url) {
+  const u = esc(url);
+  switch (kind) {
+    case 'image': return `<div class="medya medya-resim"><img src="${u}" alt="" onerror="this.parentElement.classList.add('hata')"><span class="medya-hata">${t('mediaFailed')}</span></div>`;
+    case 'video': return `<div class="medya"><video src="${u}" controls preload="metadata"></video></div>`;
+    case 'audio': return `<div class="medya medya-ses"><audio src="${u}" controls preload="metadata"></audio></div>`;
+    case 'pdf': return `<div class="medya"><iframe class="medya-pdf" src="${u}"></iframe></div>`;
+  }
+  return `<div class="bos">${t('binaryFile')}</div>`;
+}
+// Pencere kapanınca oynayan video/ses dursun (öğe DOM'dan kalkınca tarayıcı bazen çalmaya devam ediyor)
+function stopMedia(root) { $$('video,audio', root).forEach((m) => { try { m.pause(); m.removeAttribute('src'); m.load(); } catch { /* */ } }); }
 
 // Satır numaralı, renklendirilmiş kod görünümü
 const isHTMLFile = (name) => /\.(html?|xhtml|svg)$/i.test(name || '');
@@ -2151,8 +2252,19 @@ async function compareModal(P, srv, rel) {
   const [loc, rem] = lm.d;
   const binary = loc.binary || rem.binary;
   let views = {}, summary = '';
+  const kind = mediaKind(rel);
+  if (kind && (loc.exists || rem.exists)) {
+    // Medya: yan yana yerel ↔ sunucu (boyut farkı başlıkta)
+    const v = Date.now();
+    const side = (label, d, url, missing) => `<div class="medya-yan"><div class="medya-bas"><b>${label}</b><span class="faint mono">${d.exists ? bytes(d.size) : ''}</span></div>
+      ${d.exists ? mediaView(kind, url) : `<div class="bos">${t(missing)}</div>`}</div>`;
+    const same = loc.exists && rem.exists && loc.size === rem.size;
+    views.media = `${same ? `<p class="ipucu" style="margin:0 0 10px">${icon('check')} ${t('mediaSameSize')}</p>` : ''}<div class="medya-ikili">
+      ${side(t('diffLocal'), loc, `/api/p/${enc(P)}/local/media?${q}&v=${v}`, 'mediaNoLocal')}
+      ${side(t('diffRemote'), rem, `/api/p/${enc(P)}/remote/media?${q}&v=${v}`, 'mediaNoRemote')}</div>`;
+  }
   if (binary) {
-    views.diff = `<div class="bos">${t('binaryFile')}</div>`;
+    if (!views.media) views.diff = `<div class="bos">${t('binaryFile')}</div>`;
   } else if (!rem.exists && loc.exists) {
     views.diff = `<p class="ok-t">${t('diffRemoteMissing')}</p>${codeView(loc.content, rel)}`;
   } else if (!loc.exists) {
@@ -2170,13 +2282,14 @@ async function compareModal(P, srv, rel) {
     if (loc.exists && !loc.binary) views.localHtml = htmlFrame(loc.content);
     if (rem.exists && !rem.binary) views.remoteHtml = htmlFrame(rem.content);
   }
-  const tabs = [['diff', t('diffTitle')], ['local', t('diffLocal')], ['remote', t('diffRemote')],
+  const tabs = [['media', t('viewMedia')], ['diff', t('diffTitle')], ['local', t('diffLocal')], ['remote', t('diffRemote')],
     ['localHtml', t('viewRenderedLocal')], ['remoteHtml', t('viewRenderedRemote')]].filter(([k]) => views[k]);
   const m = modal({
     title: `${icon('file')}<span class="mono" style="font-size:13px">${esc(rel)}</span> ${summary}`, size: 'genis',
     body: `<div class="tabs" style="margin-bottom:12px">${tabs.map(([k, l], i) => `<a href="javascript:void 0" data-cv="${k}" class="${i ? '' : 'aktif'}">${l}</a>`).join('')}</div>
       ${tabs.map(([k], i) => `<div data-cvp="${k}" ${i ? 'hidden' : ''}>${views[k]}</div>`).join('')}`,
     actions: [{ left: `<span class="mono">${esc(srv)}</span>` }, { label: t('close'), cls: 'birincil' }],
+    onClose: () => stopMedia(m.root),
   });
   $$('[data-cv]', m.root).forEach((a) => (a.onclick = () => {
     $$('[data-cv]', m.root).forEach((x) => x.classList.toggle('aktif', x === a));
@@ -2189,12 +2302,18 @@ async function previewFile(P, srv, p) {
   const lm = await loadModal(`${icon('file')}<span class="mono" style="font-size:13px">${esc(p)}</span>`, 'genis', () => GET(`/api/p/${enc(P)}/remote/cat?server=${enc(srv)}&path=${enc(p)}`));
   if (!lm) return;
   const d = lm.d;
+  const kind = mediaKind(p);
+  const media = kind ? mediaView(kind, `/api/p/${enc(P)}/remote/media?server=${enc(srv)}&path=${enc(p)}&v=${Date.now()}`) : '';
+  let body;
+  if (d.binary) body = media || `<div class="bos">${t('binaryFile')}</div>`;
+  else body = viewTabs([...(media ? [['media', t('viewMedia'), media]] : []), ['code', t('viewCode'), fmtCodeView(d.content, p)],
+    ...(isHTMLFile(p) && kind !== 'image' ? [['html', t('viewRendered'), htmlFrame(d.content)]] : [])]);
   const pm = modal({
     title: `${icon('file')}<span class="mono" style="font-size:13px">${esc(p)}</span>`, size: 'genis',
-    body: d.binary ? `<div class="bos">${t('binaryFile')}</div>`
-      : viewTabs([['code', t('viewCode'), fmtCodeView(d.content, p)], ...(isHTMLFile(p) ? [['html', t('viewRendered'), htmlFrame(d.content)]] : [])]),
-    actions: [{ left: `${bytes(d.size)} ${d.truncated ? t('truncated') : ''}` },
-      ...(d.binary ? [] : [{ label: icon('layers') + t('compare'), cls: '', key: 'r', run: () => { compareModal(P, srv, p); return false; } },
+    body, onClose: () => stopMedia(pm.root),
+    actions: [{ left: `${bytes(d.size)} ${d.truncated && !d.binary ? t('truncated') : ''}` },
+      ...(d.binary && !kind ? [] : [{ label: icon('layers') + t('compare'), cls: '', key: 'r', run: () => { compareModal(P, srv, p); return false; } }]),
+      ...(d.binary ? [] : [
         // Önizleme altta açık kalır (false) → Esc üstteki pencereyi kapatıp buraya döner; kaydedildiyse tazelenir
         { label: icon('code') + t('edEdit'), cls: '', key: 's', run: () => { editFile(P, srv, p, { onClose: (saved) => { if (saved && pm.root.isConnected) { pm.close(); previewFile(P, srv, p); } } }); return false; } }]),
       { label: icon('download') + t('download'), cls: '', key: 'd', run: () => { location.href = `/api/p/${enc(P)}/remote/get?server=${enc(srv)}&path=${enc(p)}`; } },
@@ -2216,6 +2335,13 @@ async function tabHistory(proj, srvFilter) {
     $$('[data-rel]', root).forEach((b) => (b.onclick = () => releaseDetail(P, b.dataset.srv, b.dataset.rel)));
     $$('[data-more]', root).forEach((b) => (b.onclick = () => { $$(`[data-extra="${b.dataset.more}"]`, root).forEach((tr) => (tr.hidden = false)); b.parentElement.remove(); }));
     $$('[data-undo]', root).forEach((b) => (b.onclick = () => rollbackFlow(P, b.dataset.srv, b.dataset.undo)));
+    $$('[data-reldel]', root).forEach((b) => (b.onclick = () => deleteReleasesFlow(P, b.dataset.srv, [b.dataset.reldel])));
+    const da = $('#h-delall', root);
+    if (da) da.onclick = async () => {
+      // Filtre yoksa release'i olan her sunucu için ayrı onay (CLI: rollback --delete --all -s <sunucu>)
+      const servers = srvFilter ? [srvFilter] : [...new Set(rels.map((r) => r.server))];
+      for (const s of servers) if (!(await deleteReleasesFlow(P, s, null))) break;
+    };
     $$('[data-log]', root).forEach((tr) => (tr.onclick = async () => {
       const lm = await loadModal(`${icon('log')}<span class="mono" style="font-size:13px">${esc(tr.dataset.srv)} / ${esc(tr.dataset.log)}</span>`, 'genis', () => GET(`/api/p/${enc(P)}/logs/${enc(tr.dataset.srv)}/${enc(tr.dataset.log)}`));
       if (!lm || lm.d == null) return;
@@ -2230,10 +2356,12 @@ async function tabHistory(proj, srvFilter) {
     const status = r.rolled_back ? `<span class="pill">${t('rolledBack')}</span>` : r.partly_rolled_back ? `<span class="pill warn">${t('relPartly', r.partly_rolled_back)}</span>` : r.has_backup ? `<span class="pill ok"><span class="nokta"></span>${t('restorable')}</span>` : `<span class="pill">${t('noBackupTag')}</span>`;
     return `<tr ${i >= LIM ? 'hidden data-extra="rel"' : ''}><td class="mono">${fmtDate(r.created_at)}</td><td>${esc(r.server)}</td><td class="sag">${r.files}</td><td class="sag">${r.backed}</td><td class="sag">${r.new}</td><td>${status}</td>
       <td class="sag" style="white-space:nowrap"><button class="btn kucuk hayalet" data-rel="${esc(r.id)}" data-srv="${esc(r.server)}">${t('details')}</button>
-      ${r.has_backup && !r.rolled_back ? `<button class="btn kucuk tehlike" data-undo="${esc(r.id)}" data-srv="${esc(r.server)}">${icon('undo')}${t('undo')}</button>` : ''}</td></tr>`;
+      ${r.has_backup && !r.rolled_back ? `<button class="btn kucuk tehlike" data-undo="${esc(r.id)}" data-srv="${esc(r.server)}">${icon('undo')}${t('undo')}</button>` : ''}
+      <button class="ikon-btn tehlike" data-reldel="${esc(r.id)}" data-srv="${esc(r.server)}" title="${t('relDelete')}">${icon('trash')}</button></td></tr>`;
   }).join('');
   return `${cfg.servers.length > 1 ? `<div class="arac-cubuk"><select id="h-srv"><option value="">${t('all')}</option>${cfg.servers.map((s) => `<option value="${esc(s.name)}" ${s.name === srvFilter ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></div>` : ''}
-    <h2 style="margin-top:6px">${icon('undo')}${t('releases')}</h2><p class="muted" style="margin-top:-6px">${t('releasesSub')}</p>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="margin-top:6px">${icon('undo')}${t('releases')}</h2>${rels.length ? `<button class="btn kucuk tehlike" id="h-delall" style="margin-left:auto">${icon('trash')}${t('relDeleteAll')}</button>` : ''}</div>
+    <p class="muted" style="margin-top:-6px">${t('releasesSub')}</p>
     ${rels.length ? `<div class="tablo-kap"><table class="tablo"><thead><tr><th>${t('colWhen')}</th><th>${t('colServer')}</th><th class="sag">${t('colFiles')}</th><th class="sag">${t('colReplaced')}</th><th class="sag">${t('colNew')}</th><th>${t('colStatus')}</th><th></th></tr></thead><tbody>${relRows}</tbody></table></div>${more(rels.length, 'rel')}`
       : `<div class="bos" style="padding:30px">${t('noReleases')}</div>`}
     <h2>${icon('log')}${t('logs')}</h2>
@@ -2264,7 +2392,9 @@ async function releaseDetail(P, srv, id) {
       <div class="rt-alt"><span class="faint" data-selcount></span><span style="margin-left:auto"></span>
         ${d.restorable ? `<button class="btn tehlike" data-rbsel disabled>${icon('undo')}<span></span></button>
         <button class="btn hayalet" data-rball>${icon('undo')}${t('relRollbackAll')}</button>` : ''}</div>`,
-    actions: [{ label: t('close'), cls: 'birincil' }],
+    actions: [{ label: icon('trash') + t('relDelete'), cls: 'tehlike', run: () => { deleteReleasesFlow(P, srv, [id], () => rm.close()); return false; } },
+      { label: t('close'), cls: 'birincil' }],
+    onClose: () => stopMedia(rm.root),
   });
   const tree = $('[data-tree]', rm.root), pane = $('[data-pane]', rm.root);
   const selected = () => $$('input[data-rsel]:checked', tree).map((c) => c.dataset.rsel);
@@ -2296,7 +2426,7 @@ async function releaseDetail(P, srv, id) {
     try {
       const v = await GET(`/api/p/${enc(P)}/releases/${enc(srv)}/${enc(id)}/file?path=${enc(rel)}`);
       if (!pane.isConnected || !row.classList.contains('aktif')) return;
-      const f = releaseFileHTML(v, rel);
+      const f = releaseFileHTML(v, rel, `/api/p/${enc(P)}/releases/${enc(srv)}/${enc(id)}/media?path=${enc(rel)}`);
       pane.innerHTML = `<div class="rt-sag-bas"><span class="mono">${esc(rel)}</span>${f.summary}</div>${f.html}`;
       bindViewTabs(pane);
     } catch (e) { pane.innerHTML = `<p class="bad-t">${esc(e.message)}</p>`; }
@@ -2312,6 +2442,31 @@ async function releaseDetail(P, srv, id) {
   sync();
   const first = $('.rt-dosya', tree);
   if (first) show(first);
+}
+
+// deleteReleasesFlow release'leri (ids=null → sunucunun hepsini) ya da yalnızca yedeklerini siler —
+// CLI `rollback --delete [--all] [--keep-history]` ile aynı çekirdek. Onaylanıp silindiyse true.
+function deleteReleasesFlow(P, srv, ids, onDone) {
+  return new Promise((res) => {
+    let ok = false;
+    const m = modal({
+      title: `${icon('trash')}${ids ? t('relDeleteTitle', ids.length) : t('relDeleteTitleAll', esc(srv))}`, size: 'orta',
+      body: `<p>${t('relDeleteBody')}</p>${ids && ids.length === 1 ? `<p class="mono faint">${esc(srv)} · ${esc(ids[0])}</p>` : ''}
+        <label class="anahtar"><span class="metin"><b>${t('relDeleteKeep')}</b></span><span class="switch"><input type="checkbox" data-keep><i></i></span></label>`,
+      onClose: () => res(ok),
+      actions: [{ label: t('cancel'), cls: 'hayalet' },
+        { label: icon('trash') + t('delete'), cls: 'tehlike', run: async () => {
+          const keep = $('[data-keep]', m.root).checked;
+          try {
+            const r = await api('POST', `/api/p/${enc(P)}/releases/${enc(srv)}/delete`, { ids: ids || [], all: !ids, keep_history: keep });
+            ok = true;
+            toast(t(keep ? 'relPurgedN' : 'relDeletedN', r.n));
+            onDone && onDone();
+            render(true);
+          } catch (e) { fail(e); }
+        } }],
+    });
+  });
 }
 
 // relTreeHTML dosya yollarından klasör ağacı; tek alt klasörlü zincirler birleştirilir (a/b/c).
@@ -2348,9 +2503,18 @@ function relTreeHTML(items, can) {
 }
 
 // releaseFileHTML release dosyasının önceki ↔ yüklenen hâli (diff / önceki / yüklenen sekmeleri).
-function releaseFileHTML(v, rel) {
+function releaseFileHTML(v, rel, mediaURL) {
   let diff, summary = '';
-  if (v.binary) diff = `<div class="bos">${t('binaryFile')}</div>`;
+  const kind = mediaURL && mediaKind(rel);
+  if (kind) {
+    // Medya: önceki ↔ yüklenen hâl yan yana
+    const side = (label, ok, sideName, missing) => `<div class="medya-yan"><div class="medya-bas"><b>${label}</b></div>
+      ${ok ? mediaView(kind, `${mediaURL}&side=${sideName}`) : `<div class="bos">${t(missing)}</div>`}</div>`;
+    const media = `<div class="medya-ikili">${v.status === 'new' ? `<div class="medya-yan"><div class="medya-bas"><b>${t('relBefore')}</b></div><div class="bos ok-t">${t('relNewFile')}</div></div>`
+      : side(t('relBefore'), v.before_ok, 'before', 'relNoBefore')}${side(t('relAfter'), v.after_ok, 'after', 'relNoAfter')}</div>`;
+    if (v.binary || kind !== 'image') return { html: media, summary };
+    diff = media;
+  } else if (v.binary) diff = `<div class="bos">${t('binaryFile')}</div>`;
   else if (!v.before_ok) diff = `<p class="warn-t">${t('relNoBefore')}</p>${v.after_ok ? codeView(v.after, rel) : ''}`;
   else if (!v.after_ok) diff = `<p class="warn-t">${t('relNoAfter')}</p>`;
   else if (v.status === 'new') diff = `<p class="ok-t">${t('relNewFile')}</p>${codeView(v.after, rel)}`;

@@ -218,6 +218,7 @@ func runGUIForeground() error {
 	closeAppWindows(guiWindowTitle())
 	sv.watches.stopAll()
 	closeAllTerms()
+	clearMediaCache()
 	sv.ai.closeAll() // `claude -p` / `opencode run` çocuk süreçleri panel kapanınca yaşamasın
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()

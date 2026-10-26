@@ -62,6 +62,8 @@ func (sv *guiServer) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/p/{p}/releases", sv.apiReleases)
 	mux.HandleFunc("GET /api/p/{p}/releases/{srv}/{id}", sv.apiReleaseDetail)
 	mux.HandleFunc("GET /api/p/{p}/releases/{srv}/{id}/file", sv.apiReleaseFile)
+	mux.HandleFunc("GET /api/p/{p}/releases/{srv}/{id}/media", sv.apiReleaseMedia)
+	mux.HandleFunc("POST /api/p/{p}/releases/{srv}/delete", sv.apiReleaseDelete)
 	mux.HandleFunc("GET /api/p/{p}/releases/{srv}/{id}/plan", sv.apiReleasePlan)
 	mux.HandleFunc("GET /api/p/{p}/logs", sv.apiLogs)
 	mux.HandleFunc("GET /api/p/{p}/logs/{srv}/{file}", sv.apiLogFile)
@@ -78,6 +80,8 @@ func (sv *guiServer) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/p/{p}/remote/get", sv.apiRemoteGet)
 	mux.HandleFunc("DELETE /api/p/{p}/remote/rm", sv.apiRemoteRm)
 	mux.HandleFunc("GET /api/p/{p}/local/cat", sv.apiLocalCat)
+	mux.HandleFunc("GET /api/p/{p}/remote/media", sv.apiRemoteMedia) // cmd_gui_media.go
+	mux.HandleFunc("GET /api/p/{p}/local/media", sv.apiLocalMedia)
 	mux.HandleFunc("GET /api/p/{p}/remote/edit", sv.apiRemoteEditOpen) // cmd_gui_edit.go
 	mux.HandleFunc("PUT /api/p/{p}/remote/edit", sv.apiRemoteEditSave)
 
@@ -1171,6 +1175,53 @@ func (sv *guiServer) apiReleaseFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	guiJSON(w, v)
+}
+
+// apiReleaseDelete release'leri ya da yalnızca yedeklerini siler — CLI `rollback --delete` ile aynı
+// çekirdek (removeReleases). Gövde: {ids, all, keep_history}.
+func (sv *guiServer) apiReleaseDelete(w http.ResponseWriter, r *http.Request) {
+	p, cfg, err := sv.project(r)
+	if err != nil {
+		guiErr(w, 404, err)
+		return
+	}
+	srv, ok := findServer(cfg, r.PathValue("srv"))
+	if !ok {
+		guiErr(w, 404, fmt.Errorf(lang.L.ServerNotFoundFmt, r.PathValue("srv")))
+		return
+	}
+	var req struct {
+		IDs         []string `json:"ids"`
+		All         bool     `json:"all"`
+		KeepHistory bool     `json:"keep_history"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		guiErr(w, 400, err)
+		return
+	}
+	// Panel işi (rollback, sync…) bu sunucuda sürüyorsa release yazıyor olabilir
+	if _, busy := sv.jobs.busyServers(p.Name)[srv.Name]; busy {
+		guiErr(w, 409, fmt.Errorf(lang.L.ReleaseBusyFmt, srv.Name))
+		return
+	}
+	ids := req.IDs
+	if req.All {
+		sums, err := release.Summaries(p.Path, srv.Name)
+		if err != nil {
+			guiErr(w, 500, err)
+			return
+		}
+		ids = ids[:0]
+		for _, s := range sums {
+			ids = append(ids, s.ID)
+		}
+	}
+	n, err := removeReleases(p.Path, srv, ids, req.KeepHistory)
+	if err != nil {
+		guiErr(w, 409, err)
+		return
+	}
+	guiJSON(w, map[string]any{"n": n})
 }
 
 func (sv *guiServer) apiLogs(w http.ResponseWriter, r *http.Request) {

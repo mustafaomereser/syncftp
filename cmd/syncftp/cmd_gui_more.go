@@ -224,13 +224,22 @@ func (sv *guiServer) apiRemoteUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.MultipartForm.RemoveAll() // diske taşan parçalar (multipart-*) temp'te kalmasın
 	var done []string
-	for _, fh := range r.MultipartForm.File["files"] {
+	// Sürükle-bırakla klasör yüklemede her dosyanın göreceli yolu "paths" alanında aynı sırayla gelir
+	// (multipart dosya adı yalnızca taban adı taşır); yol hedef klasörün dışına çıkamaz.
+	rels := r.MultipartForm.Value["paths"]
+	files := r.MultipartForm.File["files"]
+	for i, fh := range files {
 		local, cleanup, err := multipartLocalFile(fh)
 		if err != nil {
 			guiErr(w, 500, err)
 			return
 		}
 		name := path.Base(strings.ReplaceAll(fh.Filename, `\`, "/"))
+		if len(rels) == len(files) {
+			if rp := strings.TrimPrefix(path.Clean("/"+strings.ReplaceAll(rels[i], `\`, "/")), "/"); rp != "" {
+				name = rp
+			}
+		}
 		target := path.Join(dir, name)
 		err = withRemote(pname, srv, func(c *ftpclient.Client) error { return c.UploadTo(local, target) })
 		cleanup()

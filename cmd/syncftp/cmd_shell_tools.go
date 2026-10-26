@@ -75,6 +75,12 @@ func (sh *shellState) cmdRollback(args []string) {
 		printReleaseList(os.Stdout, list)
 		return
 	}
+	if hasFlag(args, "--delete") { // CLI `rollback --delete [--all] [--keep-history]` ile aynı
+		if err := releaseDeleteFlow(os.Stdout, sh.configDir, srv, list, firstPositional(args), hasFlag(args, "--all"), hasFlag(args, "--keep-history"), false); err != nil {
+			fmt.Printf(lang.L.ShellErrFmt, err)
+		}
+		return
+	}
 	target := firstPositional(args)
 	if target == "" {
 		items := rollbackPickerItems(list)

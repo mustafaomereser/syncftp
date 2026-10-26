@@ -279,18 +279,43 @@ func Prune(configDir, serverName string, keep int) int {
 		if withBackup <= keep {
 			continue
 		}
-		m, err := Load(configDir, serverName, sum.ID)
-		if err != nil {
-			continue
-		}
-		_ = os.RemoveAll(FilesDir(configDir, serverName, m.ID))
-		_ = os.RemoveAll(AfterDir(configDir, serverName, m.ID))
-		m.BackupPurged = true
-		if _, err := Write(configDir, serverName, m.ID, m); err == nil {
+		if Purge(configDir, serverName, sum.ID) == nil {
 			n++
 		}
 	}
 	return n
+}
+
+// Purge release'in yedek dosyalarını (files/ + after/) siler; manifest kalır — geçmişte görünür
+// ama geri alınamaz (BackupPurged). Prune ve elle yedek silme ortak.
+func Purge(configDir, serverName, id string) error {
+	m, err := Load(configDir, serverName, id)
+	if err != nil {
+		return err
+	}
+	if err := os.RemoveAll(FilesDir(configDir, serverName, m.ID)); err != nil {
+		return err
+	}
+	_ = os.RemoveAll(AfterDir(configDir, serverName, m.ID))
+	m.BackupPurged = true
+	_, err = Write(configDir, serverName, m.ID, m)
+	return err
+}
+
+// Delete release'i (manifest + yedekler) tamamen siler; geçmişten de düşer.
+func Delete(configDir, serverName, id string) error {
+	if id == "" || id != filepath.Base(id) || id == "." || id == ".." {
+		return os.ErrNotExist
+	}
+	d := Dir(configDir, serverName, id)
+	if _, err := os.Stat(d); err != nil {
+		return err
+	}
+	if err := os.RemoveAll(d); err != nil {
+		return err
+	}
+	updateIndex(configDir, serverName, id, nil)
+	return nil
 }
 
 // Restorable release hâlâ geri alınabilir mi (yedeği var ve daha önce geri alınmamış).

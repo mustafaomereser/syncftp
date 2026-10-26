@@ -841,6 +841,17 @@ func lockServer(dir, server string) func() {
 	return unlock
 }
 
+// tryLockServer kilidi beklemeden almayı dener (sunucuda iş sürerken yedek silme gibi yerel işlemler).
+func tryLockServer(dir, server string) (func(), bool) {
+	ch := serverLockChan(dir, server)
+	select {
+	case ch <- struct{}{}:
+		return func() { <-ch }, true
+	default:
+		return func() {}, false
+	}
+}
+
 // lockServerCtx lockServer gibidir; kilit beklenirken ctx iptal edilirse hata döner
 // (panelde başka bir sync/watch turu sürerken "Durdur" da çalışsın).
 func lockServerCtx(ctx context.Context, dir, server string) (func(), error) {
