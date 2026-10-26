@@ -440,6 +440,7 @@ type job struct {
 	done    chan struct{}
 	lockKey string
 	cancel  func() // watch gibi durdurulabilir job'lar için
+	stopped bool   // kullanıcı durdurdu → hatayla biterse durum "stopped" (kırmızı hata değil)
 }
 
 const jobMaxLines = 20000
@@ -483,10 +484,14 @@ func (j *job) finish(result any, err error) {
 	now := time.Now()
 	j.Ended = &now
 	j.Result = result
-	if err != nil {
+	switch {
+	case err != nil && j.stopped:
+		j.Status = "stopped"
+		j.Error = err.Error()
+	case err != nil:
 		j.Status = "error"
 		j.Error = err.Error()
-	} else {
+	default:
 		j.Status = "done"
 	}
 	j.mu.Unlock()
@@ -505,6 +510,20 @@ func (j *job) cancelFunc() func() {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	return j.cancel
+}
+
+// stop kullanıcı isteğiyle durdurur; durdurulamazsa false.
+func (j *job) stop() bool {
+	j.mu.Lock()
+	cancel := j.cancel
+	if cancel != nil {
+		j.stopped = true
+	}
+	j.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+	return cancel != nil
 }
 
 func (j *job) snapshot() map[string]any {

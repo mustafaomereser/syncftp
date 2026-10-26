@@ -102,7 +102,7 @@ const T = {
     relNoBefore: 'Önceki hal yok — yedek alınamamış ya da eski olduğu için silinmiş.', relNoAfter: 'Yüklenen hal saklanmamış ve yerel dosya o zamandan beri değişmiş.', relNewFile: 'Bu sync\'te sunucuya yeni eklenen dosya', relAfterLocal: 'Yüklenen hal yerel dosyadan (hash aynı)',
     jobsTitle: 'İşler', jobsSub: 'Bu oturumda çalışan ve tamamlanan işler', noJobs: 'Henüz iş yok', activeWatches: 'Aktif watch\'lar',
     colJob: 'İş', colProject: 'Proje', colStarted: 'Başladı', colDuration: 'Süre',
-    stRunning: 'çalışıyor', stDone: 'tamam', stError: 'hata', stop: 'Durdur', jobStopping: 'Durduruluyor…',
+    stRunning: 'çalışıyor', stDone: 'tamam', stStopped: 'durduruldu', stError: 'hata', stop: 'Durdur', jobStopping: 'Durduruluyor…',
     jobDone: '{0} tamamlandı', jobFailed: '{0}: {1}', jobLog: 'İş günlüğü', resultLine: '↑ {0} yüklendi · {1} hata · {2}',
     quitConfirm: 'syncFTP tamamen kapatılsın mı? Çalışan watch\'lar ve webhook dinleyicisi de durur. (Pencereyi kapatırsanız tray\'de çalışmaya devam eder.)', quitDone: 'Panel kapandı — bu pencereyi kapatabilirsiniz.',
     sessionLost: 'Panel bağlantısı koptu', ago: '{0} önce', justNow: 'az önce', min: 'dk', hour: 'sa', day: 'gün',
@@ -217,7 +217,7 @@ const T = {
     relNoBefore: 'No previous version — the backup is missing or was purged as old.', relNoAfter: 'The uploaded version was not stored and the local file has changed since.', relNewFile: 'File newly added to the server by this sync', relAfterLocal: 'Uploaded version taken from the local file (same hash)',
     jobsTitle: 'Jobs', jobsSub: 'Jobs running and finished in this session', noJobs: 'No jobs yet', activeWatches: 'Active watches',
     colJob: 'Job', colProject: 'Project', colStarted: 'Started', colDuration: 'Duration',
-    stRunning: 'running', stDone: 'done', stError: 'error', stop: 'Stop', jobStopping: 'Stopping…',
+    stRunning: 'running', stDone: 'done', stStopped: 'stopped', stError: 'error', stop: 'Stop', jobStopping: 'Stopping…',
     jobDone: '{0} finished', jobFailed: '{0}: {1}', jobLog: 'Job log', resultLine: '↑ {0} uploaded · {1} failed · {2}',
     quitConfirm: 'Quit syncFTP completely? Running watches and the webhook listener stop too. (Closing the window keeps it running in the tray.)', quitDone: 'Panel stopped — you can close this window.',
     sessionLost: 'Lost connection to the panel', ago: '{0} ago', justNow: 'just now', min: 'min', hour: 'h', day: 'd',
@@ -449,15 +449,27 @@ function trackJob(id, opts = {}) {
     j.finishedAt = Date.now();
     if (j.onDone) j.onDone(j);
     for (const cb of j.doneCbs.splice(0)) { try { cb(j); } catch (err) { console.error(err); } }
-    const name = `${j.title}${j.server ? ' · ' + j.server : ''}`;
-    if (j.status === 'error') toast(t('jobFailed', name, j.error || ''), 'bad');
-    else if (opts.quiet !== true) toast(t('jobDone', name) + resultSuffix(j.result));
+    // Sonuç sağ alttaki kartta görünür (ayrıca toast YOK — aynı bildirim iki kez çıkıyordu);
+    // kartı olmayan watch işleri için toast kalır. Hata kartı daha uzun durur.
+    if (j.status === 'error') j.shownUntil = Date.now() + 15000;
+    if (isWatchJob(j)) {
+      const name = `${j.title}${j.server ? ' · ' + j.server : ''}`;
+      if (j.status === 'error') toast(t('jobFailed', name, j.error || ''), 'bad');
+      else if (opts.quiet !== true) toast(t('jobDone', name));
+    }
     renderDock();
     onJobFinished(j);
   });
   es.onerror = () => { /* tarayıcı yeniden bağlanır; done gelmişse zaten kapalı */ };
   renderDock();
   return j;
+}
+// İş durumu → [rozet sınıfı, etiket] (dock, iş penceresi ve İşler sayfası ortak)
+function jobPill(s) {
+  if (s === 'running') return ['busy', t('stRunning')];
+  if (s === 'error') return ['bad', t('stError')];
+  if (s === 'stopped') return ['warn', t('stStopped')];
+  return ['ok', t('stDone')];
 }
 function resultSuffix(r) {
   if (!r || r.uploaded == null) return '';
@@ -492,8 +504,7 @@ function renderDock() {
   const keep = new Set(visible.map((j) => j.id));
   for (const d of [...el.children]) if (!keep.has(d.dataset.job)) d.remove();
   visible.forEach((j, i) => {
-    const st = j.status === 'running' ? 'busy' : j.status === 'error' ? 'bad' : 'ok';
-    const txt = j.status === 'running' ? t('stRunning') : j.status === 'error' ? t('stError') : t('stDone');
+    const [st, txt] = jobPill(j.status);
     // Son satır ayrıca yazılır — her log satırında ilerleme çubuğunun animasyonu baştan başlamasın
     const html = `<div class="ust"><span class="pill ${st}"><span class="nokta"></span>${txt}</span>
       <b>${esc(j.title)}${j.server ? ' · ' + esc(j.server) : ''}</b></div>
@@ -507,11 +518,12 @@ function renderDock() {
       d.onclick = () => showJobLog(j.id);
     }
     if (d.__html !== html) { d.innerHTML = html; d.__html = html; }
-    const son = j.status === 'error' ? j.error || '' : j.last || '…';
+    const son = j.status === 'error' ? j.error || '' : j.status === 'running' ? j.last || '…' : (resultSuffix(j.result).replace(/^ — /, '') || j.last || '…');
     const sonEl = d.querySelector('.son');
     if (sonEl.textContent !== son) sonEl.textContent = son;
     if (el.children[i] !== d) el.insertBefore(d, el.children[i] || null);
   });
+  document.documentElement.style.setProperty('--dock-h', el.offsetHeight ? el.offsetHeight + 8 + 'px' : '0px');
   const running = [...S.jobs.values()].filter((j) => j.status === 'running' && !isWatchJob(j)).length;
   $('#nav-jobs').textContent = running ? running : '';
   renderWatchRow();
@@ -570,8 +582,7 @@ async function showJobLog(id) {
   const fresh = !j;
   if (fresh) j = trackJob(id, { kind: snap.kind, title: snap.title, server: snap.server, project: snap.project, quiet: true });
   const header = () => {
-    const st = j.status === 'running' ? 'busy' : j.status === 'error' ? 'bad' : 'ok';
-    const txt = j.status === 'running' ? t('stRunning') : j.status === 'error' ? t('stError') : t('stDone');
+    const [st, txt] = jobPill(j.status);
     return `<span class="pill ${st}"><span class="nokta"></span>${txt}</span> ${esc(snap.title)}${snap.server ? ' · ' + esc(snap.server) : ''}`;
   };
   const m = modal({
@@ -2394,7 +2405,7 @@ async function pageJobs() {
       await watchStop(b.dataset.wstop, b.dataset.wsrv);
     }));
   });
-  const st = (s) => s === 'running' ? `<span class="pill busy"><span class="nokta"></span>${t('stRunning')}</span>` : s === 'error' ? `<span class="pill bad"><span class="nokta"></span>${t('stError')}</span>` : `<span class="pill ok"><span class="nokta"></span>${t('stDone')}</span>`;
+  const st = (s) => { const [c, l] = jobPill(s); return `<span class="pill ${c}"><span class="nokta"></span>${l}</span>`; };
   return `<div class="sayfa"><div class="baslik-satir"><div><h1>${t('jobsTitle')}</h1><p>${t('jobsSub')}</p></div></div>
     ${watches.length ? `<h2 style="margin-top:0">${icon('eye')}${t('activeWatches')}</h2><div class="kartlar" style="margin-bottom:24px">${watches.map((w) => `<div class="kart"><div><div class="ust"><h3>${esc(w.project)} · ${esc(w.server)}</h3><span class="pill busy"><span class="nokta"></span>watch</span></div>
       <div class="meta"><span>${icon('server')}${esc(w.servers.join(', '))}</span><span>${icon('clock')}${t('watchSince', fmtDate(w.started).slice(11), w.syncs)}</span>${w.last_sync ? `<span>${icon('upload')}${esc(w.last_sync)}</span>` : ''}</div></div>

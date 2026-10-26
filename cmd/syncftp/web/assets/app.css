@@ -280,8 +280,9 @@ textarea { font-family: var(--mono); font-size: 12.5px; min-height: 84px; resize
 @keyframes akis { 0% { transform: translateX(-100%); } 100% { transform: translateX(340%); } }
 
 /* Toast */
-.toastlar { position: fixed; left: 50%; transform: translateX(-50%); bottom: 22px; z-index: 120; display: grid; gap: 8px; justify-items: center; pointer-events: none; }
-.toast { pointer-events: auto; background: var(--surface-2); border: 1px solid var(--line-2); color: var(--text); padding: 9px 14px; border-radius: 12px; box-shadow: 0 10px 30px rgb(0 0 0 / .4); font-size: 13px; display: flex; align-items: center; gap: 8px; max-width: 640px; animation: kay .15s ease-out; }
+/* Bildirimler tek yerde: sağ altta, iş kartlarının hemen üstünde (--dock-h renderDock'ta güncellenir) */
+.toastlar { position: fixed; right: 22px; bottom: calc(22px + var(--dock-h, 0px)); z-index: 120; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; width: 340px; pointer-events: none; transition: bottom .15s; }
+.toast { pointer-events: auto; background: var(--surface-2); border: 1px solid var(--line-2); color: var(--text); padding: 9px 14px; border-radius: 12px; box-shadow: 0 10px 30px rgb(0 0 0 / .4); font-size: 13px; display: flex; align-items: center; gap: 8px; max-width: 100%; animation: kay .15s ease-out; }
 .toast.bad { border-color: rgb(255 99 105 / .5); }
 .toast.ok svg { color: var(--ok); } .toast.bad svg { color: var(--bad); }
 
@@ -300,7 +301,7 @@ code { font: 12px var(--mono); background: var(--surface-2); padding: 1px 6px; b
   .sidebar { display: none; }
   .content { padding: 0; }
   .frame { border-radius: 0; padding: 18px 16px 60px; }
-  .isler { right: 12px; left: 12px; width: auto; }
+  .isler, .toastlar { right: 12px; left: 12px; width: auto; }
 }
 
 /* ── Kod görünümü + syntax highlight + diff ───────────── */

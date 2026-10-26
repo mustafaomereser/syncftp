@@ -1030,8 +1030,7 @@ func (sv *guiServer) apiJobCancel(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 404, errors.New("job"))
 		return
 	}
-	if cancel := j.cancelFunc(); cancel != nil {
-		cancel()
+	if j.stop() {
 		guiJSON(w, true)
 		return
 	}
