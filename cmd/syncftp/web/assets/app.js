@@ -302,6 +302,7 @@ function toast(msg, kind = 'ok') {
   const el = document.createElement('div');
   el.className = 'toast ' + kind;
   el.innerHTML = icon(kind === 'bad' ? 'alert' : 'check') + `<span>${esc(msg)}</span>`;
+  el.onclick = () => el.remove(); // tıklayınca kapanır
   $('#toastlar').appendChild(el);
   setTimeout(() => el.remove(), kind === 'bad' ? 7000 : 3500);
 }
@@ -498,7 +499,7 @@ function pruneJobs() {
 function renderDock() {
   const el = $('#isler');
   const now = Date.now();
-  const visible = [...S.jobs.values()].filter((j) => !isWatchJob(j) && (j.status === 'running' || j.shownUntil > now)).slice(-5);
+  const visible = [...S.jobs.values()].filter((j) => !isWatchJob(j) && !j.dismissed && (j.status === 'running' || j.shownUntil > now)).slice(-5);
   // Kartlar iş kimliğiyle yerinde güncellenir: eskiden her çizimde (3 sn'de bir + her log satırında)
   // innerHTML baştan yazılıyor, giriş animasyonu yeniden oynuyor → kart sürekli gelip gidiyordu
   const keep = new Set(visible.map((j) => j.id));
@@ -515,7 +516,8 @@ function renderDock() {
       d = document.createElement('div');
       d.className = 'is';
       d.dataset.job = j.id;
-      d.onclick = () => showJobLog(j.id);
+      // Tıklayınca log açılır ve kart kapanır (iş sürüyorsa İşler sayfasında / sayacında görünmeye devam eder)
+      d.onclick = () => { j.dismissed = true; renderDock(); showJobLog(j.id); };
     }
     if (d.__html !== html) { d.innerHTML = html; d.__html = html; }
     const son = j.status === 'error' ? j.error || '' : j.status === 'running' ? j.last || '…' : (resultSuffix(j.result).replace(/^ — /, '') || j.last || '…');
