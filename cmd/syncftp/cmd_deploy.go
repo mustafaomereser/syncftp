@@ -459,9 +459,14 @@ func (dm *deployManager) deployOnce(out io.Writer, p projects.Project, trig conf
 		// Sunucuda başka iş varsa (elle sync, watch sync'i değil) bitmesini bekle — en fazla 10 dk
 		deadline := time.Now().Add(10 * time.Minute)
 		for {
-			sj, err = dm.jobs.start("sync", p.Name, srv.Name, lang.L.GuiJobSync+" (deploy)", p.Name+"|"+srv.Name, func(j *job) (any, error) {
-				return guiRunSync(j, p.Path, srv, req)
+			ctx, cancel := context.WithCancel(context.Background())
+			sj, err = dm.jobs.startCancelable("sync", p.Name, srv.Name, lang.L.GuiJobSync+" (deploy)", p.Name+"|"+srv.Name, cancel, func(j *job) (any, error) {
+				defer cancel()
+				return guiRunSync(ctx, j, p.Path, srv, req)
 			})
+			if err != nil {
+				cancel()
+			}
 			if err == nil || time.Now().After(deadline) {
 				break
 			}

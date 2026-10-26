@@ -84,5 +84,5 @@ func Diff(s *State, current map[string]string) DiffResult {
 }
 
 func statePath(configDir, serverName string) string {
-	return filepath.Join(configDir, ".syncftp", "state", serverName+".json")
+	return fsutil.ServerFile(filepath.Join(configDir, ".syncftp", "state"), serverName, ".json")
 }

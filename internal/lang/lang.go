@@ -163,6 +163,8 @@ type StringSet struct {
 	SyncUploadLabel    string // "    YÜKLENECEK %s\n"
 	SyncPoolFmt        string // "  Bağlantı havuzu: %d / Retry: %d\n"
 	SyncDoneFullFmt    string // "  Tamamlandı: %d yüklendi, %d korundu, %d hata\n"
+	SyncCanceled       string // "  ■ Sync durduruldu" — yükleme başlamadan
+	SyncCanceledFmt    string // "  ■ Sync durduruldu: %d dosya yüklendi, %d dosya bekliyor\n"
 	SyncFailedSavedFmt string // "  ! %d başarısız dosya .syncftp/failed/%s.json'a kaydedildi — tekrar denemek için: syncftp sync --retry-failed\n"
 	SyncFailedSaveErr  string // "  ! Failed listesi kaydedilemedi: %v\n"
 	SyncStateErr       string // "  ! State kaydedilemedi: %v\n"

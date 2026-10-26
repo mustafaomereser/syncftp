@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -154,6 +155,9 @@ type syncOpts struct {
 	// sonra her dosyanın sonucu (onResult verilirse sonuçlar w'ye ayrıca yazılmaz).
 	onUploadStart func(total int)
 	onResult      func(ftpclient.UploadResult)
+	// ctx iptal edilince (panelde "Durdur") yeni dosya başlatılmaz, açık aktarımlar kesilir;
+	// yüklenenler state'e yazılır, kalanlar bekleyen olarak kalır. nil = iptal yok.
+	ctx context.Context
 }
 
 // syncServer tarama + sync + log — TÜM sync girişlerinin ortak sarmalayıcısı (CLI sync / milestone
@@ -162,10 +166,15 @@ type syncOpts struct {
 func syncServer(w io.Writer, configDir string, cfg *config.Config, srv config.Server, cliInclude, cliExclude []string, since *time.Time, opts syncOpts) serverSyncResult {
 	// Aynı proje+sunucuya eş zamanlı iki sync (watch + panel işi + serve + deploy…) state
 	// yükle→yükle→kaydet adımlarını birbirine karıştırmasın
-	defer lockServer(configDir, srv.Name)()
+	unlock, lerr := lockServerCtx(opts.ctx, configDir, srv.Name)
+	defer unlock()
 	var buf strings.Builder
 	out := io.MultiWriter(w, &buf)
 	fmt.Fprintf(out, "══ %s (%s://%s) ══\n", srv.Name, srv.ProtocolName(), srv.Host)
+	if lerr != nil {
+		fmt.Fprintln(out, lang.L.SyncCanceled)
+		return serverSyncResult{name: srv.Name, err: lerr}
+	}
 	current, byKey, err := scanForServer(configDir, cfg, srv)
 	if err != nil {
 		fmt.Fprintf(out, "  ✗ %v\n\n", err)
@@ -249,7 +258,7 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 				fmt.Fprint(w, lang.L.ResyncAutoMsg)
 				// Calibrate başarısızsa (bağlantı / listeleme hatası) devam ETME: FirstSyncDone=false
 				// ile her dosya yüklenir (ve yedeklenir) — bu sunucunun sync'i iptal
-				if calErr := runCalibrateOpts(configDir, srv, cfg, calibrateOpts{out: w}); calErr != nil {
+				if calErr := runCalibrateOpts(configDir, srv, cfg, calibrateOpts{out: w, ctx: opts.ctx}); calErr != nil {
 					fmt.Fprintf(w, lang.L.SyncCalibrateAbortFmt, calErr)
 					result.err = calErr
 					return result
@@ -321,6 +330,12 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 		return result
 	}
 
+	if opts.ctx != nil && opts.ctx.Err() != nil {
+		fmt.Fprintln(w, lang.L.SyncCanceled)
+		result.err = opts.ctx.Err()
+		return result
+	}
+
 	// Pre-sync hook'ları (global + sunucu); hata → bu sunucunun sync'i iptal
 	preHooks := append(append([]string{}, cfg.Sync.PreSync...), srv.PreSync...)
 	if len(preHooks) > 0 {
@@ -377,13 +392,18 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 	if opts.onUploadStart != nil {
 		opts.onUploadStart(len(tasks))
 	}
-	outcome, sessErr := runUploadSession(w, configDir, cfg, srv, tasks, st, func(r ftpclient.UploadResult) {
+	outcome, sessErr := runUploadSession(opts.ctx, w, configDir, cfg, srv, tasks, st, func(r ftpclient.UploadResult) {
 		if opts.onResult != nil {
 			opts.onResult(r)
 			return
 		}
 		printUploadResult(w, r)
 	})
+	if sessErr != nil && opts.ctx != nil && opts.ctx.Err() != nil {
+		fmt.Fprintln(w, lang.L.SyncCanceled)
+		result.err = opts.ctx.Err()
+		return result
+	}
 	if sessErr != nil { // bağlantı kurulamadı vb. — eskiden tek sunucuda hiçbir yere yazılmıyordu
 		fmt.Fprintf(w, lang.L.SyncServerErrFmt, sessErr)
 		result.err = sessErr
@@ -408,7 +428,12 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 	result.duration = time.Since(startTime)
 	result.releaseID = outcome.releaseID
 
-	fmt.Fprintf(w, lang.L.SyncDoneFullFmt, uploaded, skipped, failedCount)
+	if outcome.canceled {
+		fmt.Fprintf(w, lang.L.SyncCanceledFmt, uploaded, len(tasks)-uploaded-failedCount)
+		result.err = context.Canceled
+	} else {
+		fmt.Fprintf(w, lang.L.SyncDoneFullFmt, uploaded, skipped, failedCount)
+	}
 	fmt.Fprintf(w, lang.L.SyncReportFmt+"\n", humanBytes(result.bytes), result.duration.Round(time.Second))
 
 	if len(failedPaths) > 0 {
@@ -426,8 +451,8 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 			delete(st.Files, rel)
 		}
 	}
-	// Milestone modu ilk sync sayılmaz — auto-calibrate hakkını tüketme
-	if since == nil {
+	// Milestone modu ilk sync sayılmaz — auto-calibrate hakkını tüketme; yarım kalan tur da sayılmaz
+	if since == nil && !outcome.canceled {
 		st.FirstSyncDone = true
 	}
 
@@ -437,6 +462,9 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 
 	if outcome.releaseDir != "" {
 		fmt.Fprintf(w, lang.L.SyncReleaseFmt, outcome.releaseDir)
+	}
+	if outcome.canceled {
+		return result // iptal: post hook / webhook çalışmaz
 	}
 
 	// Uzak post-sync (SFTP/SSH): migrate, cache clear, restart… — hata sync sonucunu değiştirmez
@@ -789,13 +817,13 @@ func serverNames(servers []config.Server) []string {
 	return names
 }
 
-// serverLocks proje dizini + sunucu adı → *sync.Mutex (süreç geneli).
+// serverLocks proje dizini + sunucu adı → chan struct{} (süreç geneli).
 var serverLocks sync.Map
 
-// lockServer proje+sunucu kilidini alır, bırakma fonksiyonunu döner. Anahtar:
+// serverLockChan proje+sunucu kilidi (1 kapasiteli kanal — ctx ile beklenebilsin). lockServer kilidi alır, bırakma fonksiyonunu döner. Anahtar:
 // filepath.Clean(mutlak dizin) + "|" + sunucu (Windows'ta yol büyük/küçük harf duyarsız).
 // Kilit içinde aynı kilidi tekrar isteyen çağrı (syncServer → saveRemoteEdit vb.) YOKTUR — öyle kalmalı.
-func lockServer(dir, server string) func() {
+func serverLockChan(dir, server string) chan struct{} {
 	abs, err := filepath.Abs(dir)
 	if err != nil {
 		abs = dir
@@ -804,10 +832,28 @@ func lockServer(dir, server string) func() {
 	if runtime.GOOS == "windows" {
 		key = strings.ToLower(key)
 	}
-	m, _ := serverLocks.LoadOrStore(key+"|"+server, &sync.Mutex{})
-	mu := m.(*sync.Mutex)
-	mu.Lock()
-	return mu.Unlock
+	m, _ := serverLocks.LoadOrStore(key+"|"+server, make(chan struct{}, 1))
+	return m.(chan struct{})
+}
+
+func lockServer(dir, server string) func() {
+	unlock, _ := lockServerCtx(context.Background(), dir, server)
+	return unlock
+}
+
+// lockServerCtx lockServer gibidir; kilit beklenirken ctx iptal edilirse hata döner
+// (panelde başka bir sync/watch turu sürerken "Durdur" da çalışsın).
+func lockServerCtx(ctx context.Context, dir, server string) (func(), error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ch := serverLockChan(dir, server)
+	select {
+	case ch <- struct{}{}:
+		return func() { <-ch }, nil
+	case <-ctx.Done():
+		return func() {}, ctx.Err()
+	}
 }
 
 // isExactPath returns true if p looks like an exact file path (no wildcards, no trailing slash).

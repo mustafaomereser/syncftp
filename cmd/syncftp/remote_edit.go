@@ -134,7 +134,7 @@ func saveRemoteEdit(w io.Writer, dir string, cfg *config.Config, srv config.Serv
 		target = &cp
 	}
 	task := ftpclient.UploadTask{LocalPath: src, RelPath: rel, Hash: contentHash(data)}
-	out, err := runUploadSession(w, dir, cfg, srv, []ftpclient.UploadTask{task}, target, func(r ftpclient.UploadResult) { printUploadResult(w, r) })
+	out, err := runUploadSession(nil, w, dir, cfg, srv, []ftpclient.UploadTask{task}, target, func(r ftpclient.UploadResult) { printUploadResult(w, r) })
 	if err != nil {
 		return "", err
 	}

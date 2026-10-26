@@ -8,6 +8,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"syncftp/internal/fsutil"
 )
 
 // Manifest — bir sync turunda yüklenen dosyaların kaydı.
@@ -66,7 +68,7 @@ func (m *Manifest) HasBackup() bool {
 }
 
 func serverDir(configDir, serverName string) string {
-	return filepath.Join(configDir, ".syncftp", "releases", serverName)
+	return filepath.Join(configDir, ".syncftp", "releases", fsutil.SafeName(serverName))
 }
 
 // Dir release dizini.
@@ -109,7 +111,9 @@ func NewID(configDir, serverName string) string {
 	base := time.Now().Format("20060102-150405")
 	id := base
 	for i := 2; ; i++ {
-		if _, err := os.Stat(Dir(configDir, serverName, id)); os.IsNotExist(err) {
+		// Yalnızca "var" ise sonraki sonek denenir; başka her hata (geçersiz yol, erişim) döngüyü
+		// bitirir — eskiden "yok" dışı hata sonsuz döngüye sokuyordu (sync CPU'yu yiyip asılı kalıyordu)
+		if _, err := os.Stat(Dir(configDir, serverName, id)); err != nil {
 			return id
 		}
 		id = fmt.Sprintf("%s-%d", base, i)

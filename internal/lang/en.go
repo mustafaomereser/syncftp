@@ -230,6 +230,8 @@ Other:
 	SyncUploadLabel:    "    WILL UPLOAD %s\n",
 	SyncPoolFmt:        "  Connection pool: %d / Retry: %d\n",
 	SyncDoneFullFmt:    "  Done: %d uploaded, %d protected, %d errors\n",
+	SyncCanceled:       "  ■ Sync stopped",
+	SyncCanceledFmt:    "  ■ Sync stopped: %d file(s) uploaded, %d still pending\n",
 	SyncFailedSavedFmt: "  ! %d failed files saved to .syncftp/failed/%s.json — retry with: syncftp sync --retry-failed\n",
 	SyncFailedSaveErr:  "  ! Could not save failed list: %v\n",
 	SyncStateErr:       "  ! Could not save state: %v\n",

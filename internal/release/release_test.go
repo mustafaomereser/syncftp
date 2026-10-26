@@ -55,3 +55,21 @@ func TestWriteListPrune(t *testing.T) {
 		t.Fatal("v1 must not be restorable")
 	}
 }
+
+func TestNewIDWithUnsafeServerName(t *testing.T) {
+	dir := t.TempDir()
+	done := make(chan string, 1)
+	go func() { done <- NewID(dir, "Prod: public_html") }()
+	select {
+	case id := <-done:
+		if _, err := Write(dir, "Prod: public_html", id, &Manifest{Files: map[string]string{"a": "h"}}); err != nil {
+			t.Fatal(err)
+		}
+		list, err := List(dir, "Prod: public_html")
+		if err != nil || len(list) != 1 {
+			t.Fatalf("list: %v %d", err, len(list))
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("NewID hung")
+	}
+}

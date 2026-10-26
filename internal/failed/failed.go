@@ -20,7 +20,7 @@ func dir(configDir string) string {
 }
 
 func path(configDir, serverName string) string {
-	return filepath.Join(dir(configDir), serverName+".json")
+	return fsutil.ServerFile(dir(configDir), serverName, ".json")
 }
 
 // Save writes the failed file list for a server. Overwrites any previous list.

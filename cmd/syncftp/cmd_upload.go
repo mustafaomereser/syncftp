@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -29,6 +30,7 @@ type uploadOutcome struct {
 	backed       int
 	newFiles     int
 	bytes        int64
+	canceled     bool // ctx iptal edildi — kalan görevler başlatılmadı
 }
 
 // runUploadSession tüm sync akışlarının (CLI sync, shell sync, milestone, serve/GUI)
@@ -42,8 +44,11 @@ type uploadOutcome struct {
 //
 // onResult her sonuç geldiğinde (canlı) çağrılır. State'in son temizliği (silinen
 // dosyalar, FirstSyncDone) ve final kaydı çağıranın işidir.
-func runUploadSession(w io.Writer, configDir string, cfg *config.Config, srv config.Server, tasks []ftpclient.UploadTask, st *state.State, onResult func(ftpclient.UploadResult)) (uploadOutcome, error) {
+func runUploadSession(ctx context.Context, w io.Writer, configDir string, cfg *config.Config, srv config.Server, tasks []ftpclient.UploadTask, st *state.State, onResult func(ftpclient.UploadResult)) (uploadOutcome, error) {
 	out := uploadOutcome{successFiles: make(map[string]string)}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
 	backup := srv.BackupEnabled(cfg.Sync)
 	out.releaseID = release.NewID(configDir, srv.Name)
@@ -58,7 +63,7 @@ func runUploadSession(w io.Writer, configDir string, cfg *config.Config, srv con
 		fmt.Fprintf(w, lang.L.SyncBandwidthFmt, kbps)
 	}
 
-	pool, err := ftpclient.NewPoolLimited(srv, srv.EffectiveBandwidth(cfg.Sync))
+	pool, err := ftpclient.NewPoolCtx(ctx, srv, srv.EffectiveBandwidth(cfg.Sync))
 	if err != nil {
 		return out, err
 	}
@@ -118,6 +123,7 @@ func runUploadSession(w io.Writer, configDir string, cfg *config.Config, srv con
 		}
 	}
 
+	out.canceled = ctx.Err() != nil
 	if len(out.successFiles) == 0 {
 		release.Discard(configDir, srv.Name, out.releaseID)
 		return out, nil

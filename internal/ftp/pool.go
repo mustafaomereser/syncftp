@@ -1,6 +1,7 @@
 package ftp
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -103,13 +104,27 @@ func semFor(srv config.Server, limit int) *hostSem {
 }
 
 // acquire bir slot bekler (pool'un ilk bağlantısı — en az bir bağlantı garanti).
-func (s *hostSem) acquire() {
+// ctx iptal edilirse beklemeyi bırakır ve false döner.
+func (s *hostSem) acquire(ctx context.Context) bool {
+	stop := context.AfterFunc(ctx, func() {
+		s.mu.Lock()
+		s.cond.Broadcast()
+		s.mu.Unlock()
+	})
+	defer stop()
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	for s.used >= s.limitLocked() {
+		if ctx.Err() != nil {
+			return false
+		}
 		s.cond.Wait()
 	}
+	if ctx.Err() != nil {
+		return false
+	}
 	s.used++
-	s.mu.Unlock()
+	return true
 }
 
 // tryAcquire boş slot varsa alır (ek bağlantılar — başka pool'u bekletmesin).
@@ -151,6 +166,8 @@ type Pool struct {
 	sem        *hostSem
 	semLimit   int // semFor'a kaydedilen limit (Close'da düşülür)
 	held       int
+	ctx        context.Context
+	stopAbort  func() bool
 }
 
 // NewPool opens up to srv.MaxConnections parallel connections.
@@ -164,6 +181,12 @@ func NewPool(srv config.Server) (*Pool, error) {
 // NewPoolLimited NewPool ile aynıdır; kbps > 0 ise tüm bağlantılar tek bir
 // limiter'ı paylaşır (sınır sunucu başına toplam upload hızıdır).
 func NewPoolLimited(srv config.Server, kbps int) (*Pool, error) {
+	return NewPoolCtx(context.Background(), srv, kbps)
+}
+
+// NewPoolCtx NewPoolLimited ile aynıdır; ctx iptal edilince bağlantı beklemesi biter, kalan
+// görevler başlatılmaz ve açık aktarımlar kesilir (panelde sync'i durdur).
+func NewPoolCtx(ctx context.Context, srv config.Server, kbps int) (*Pool, error) {
 	n := srv.MaxConnections
 	if n <= 0 {
 		n = 1
@@ -178,12 +201,15 @@ func NewPoolLimited(srv config.Server, kbps int) (*Pool, error) {
 
 	lim := NewLimiter(kbps)
 	sem := semFor(srv, n)
-	p := &Pool{maxRetries: maxRetries, sem: sem, semLimit: n}
+	p := &Pool{maxRetries: maxRetries, sem: sem, semLimit: n, ctx: ctx}
 
 	for i := 0; i < n; i++ {
 		if i == 0 {
-			sem.acquire()
-		} else if !sem.tryAcquire() {
+			if !sem.acquire(ctx) {
+				sem.unregister(n)
+				return nil, ctx.Err()
+			}
+		} else if ctx.Err() != nil || !sem.tryAcquire() {
 			break // host limiti başka pool'larca dolu — eldekiyle devam
 		}
 		p.held++
@@ -199,6 +225,16 @@ func NewPoolLimited(srv config.Server, kbps int) (*Pool, error) {
 		}
 		p.clients = append(p.clients, c)
 	}
+	if ctx.Err() != nil {
+		p.Close()
+		return nil, ctx.Err()
+	}
+	// İptalde açık aktarımlar beklenmeden kesilir (Abort kilit almaz)
+	p.stopAbort = context.AfterFunc(ctx, func() {
+		for _, c := range p.clients {
+			c.Abort()
+		}
+	})
 	return p, nil
 }
 
@@ -221,6 +257,9 @@ func (p *Pool) Size() int { return len(p.clients) }
 
 // Close shuts down all connections in the pool.
 func (p *Pool) Close() {
+	if p.stopAbort != nil {
+		p.stopAbort()
+	}
 	for _, c := range p.clients {
 		c.Close()
 	}
@@ -250,7 +289,14 @@ func (p *Pool) UploadCh(tasks []UploadTask) <-chan UploadResult {
 		go func(client *Client) {
 			defer wg.Done()
 			for task := range jobs {
-				ch <- p.uploadWithRetry(client, task)
+				if p.canceled() {
+					continue // iptal: kalan görevler başlatılmaz (bekleyen olarak kalır)
+				}
+				r := p.uploadWithRetry(client, task)
+				if r.Err != nil && p.canceled() {
+					continue // iptalle kesilen aktarım hata sayılmaz
+				}
+				ch <- r
 			}
 		}(c)
 	}
@@ -275,6 +321,8 @@ func (p *Pool) Upload(tasks []UploadTask) []UploadResult {
 	}
 	return out
 }
+
+func (p *Pool) canceled() bool { return p.ctx != nil && p.ctx.Err() != nil }
 
 func (p *Pool) uploadWithRetry(client *Client, task UploadTask) UploadResult {
 	var lastErr error
@@ -315,11 +363,14 @@ func (p *Pool) uploadWithRetry(client *Client, task UploadTask) UploadResult {
 			}
 		}
 		retryErrs = append(retryErrs, lastErr)
+		if p.canceled() {
+			break
+		}
 	}
 	return UploadResult{
 		RelPath:   task.RelPath,
 		Err:       lastErr,
-		Attempts:  maxAttempts,
+		Attempts:  len(retryErrs),
 		RetryErrs: retryErrs[:len(retryErrs)-1], // son hata zaten Err'da, RetryErrs'da tekrar etme
 		BackedUp:  backedUp,
 		IsNew:     isNew,

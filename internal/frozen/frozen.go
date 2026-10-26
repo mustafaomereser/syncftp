@@ -15,7 +15,7 @@ type List struct {
 }
 
 func Load(configDir, serverName string) (*List, error) {
-	p := filepath.Join(configDir, ".syncftp", "frozen", serverName+".json")
+	p := fsutil.ServerFile(filepath.Join(configDir, ".syncftp", "frozen"), serverName, ".json")
 	data, err := os.ReadFile(p)
 	if os.IsNotExist(err) {
 		return &List{Files: make(map[string]bool)}, nil
@@ -43,7 +43,7 @@ func Save(configDir, serverName string, paths []string) error {
 	if err != nil {
 		return err
 	}
-	return fsutil.WriteFileAtomic(filepath.Join(dir, serverName+".json"), data, 0600)
+	return fsutil.WriteFileAtomic(fsutil.ServerFile(dir, serverName, ".json"), data, 0600)
 }
 
 // IsFrozen yol freeze'li mi: listede birebir, ya da üst klasörlerinden biri "klasör/" olarak

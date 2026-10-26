@@ -1,6 +1,7 @@
 package ftp
 
 import (
+	"context"
 	"io"
 	"strings"
 	"testing"
@@ -76,8 +77,8 @@ func TestHostSemaphoreLimitRecomputedAfterClose(t *testing.T) {
 	// Eş zamanlı daha küçük limitli pool → en küçük geçerli
 	s2 := semFor(srv, 2)
 	s.release(3)
-	s2.acquire()
-	s2.acquire()
+	s2.acquire(context.Background())
+	s2.acquire(context.Background())
 	if s2.tryAcquire() {
 		t.Fatal("smallest concurrent limit (2) exceeded")
 	}

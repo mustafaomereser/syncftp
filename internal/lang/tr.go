@@ -230,6 +230,8 @@ Diğer:
 	SyncUploadLabel:    "    YÜKLENECEK %s\n",
 	SyncPoolFmt:        "  Bağlantı havuzu: %d / Retry: %d\n",
 	SyncDoneFullFmt:    "  Tamamlandı: %d yüklendi, %d korundu, %d hata\n",
+	SyncCanceled:       "  ■ Sync durduruldu",
+	SyncCanceledFmt:    "  ■ Sync durduruldu: %d dosya yüklendi, %d dosya bekliyor\n",
 	SyncFailedSavedFmt: "  ! %d başarısız dosya .syncftp/failed/%s.json'a kaydedildi — tekrar denemek için: syncftp sync --retry-failed\n",
 	SyncFailedSaveErr:  "  ! Failed listesi kaydedilemedi: %v\n",
 	SyncStateErr:       "  ! State kaydedilemedi: %v\n",

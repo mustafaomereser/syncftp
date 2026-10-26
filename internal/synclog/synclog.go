@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"sort"
 	"time"
+
+	"syncftp/internal/fsutil"
 )
 
 var ansiRe = regexp.MustCompile(`\x1b\[[0-9;?]*[a-zA-Z]`)
@@ -46,7 +48,7 @@ func Save(configDir, serverName, content string) (string, error) {
 
 // Dir sunucunun log klasörü.
 func Dir(configDir, serverName string) string {
-	return filepath.Join(configDir, ".syncftp", "logs", serverName)
+	return filepath.Join(configDir, ".syncftp", "logs", fsutil.SafeName(serverName))
 }
 
 // Entry tek bir log dosyası.

@@ -774,8 +774,11 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 			if req.Kind == "milestone-sync" {
 				title = lang.L.GuiJobMilestoneSync
 			}
-			add(sv.jobs.start(req.Kind, p.Name, srv.Name, title, p.Name+"|"+srv.Name, func(j *job) (any, error) {
-				return guiRunSync(j, dir, srv, req)
+			// İş penceresindeki "Durdur": yeni dosya başlatılmaz, açık aktarımlar kesilir
+			ctx, cancel := context.WithCancel(context.Background())
+			add(sv.jobs.startCancelable(req.Kind, p.Name, srv.Name, title, p.Name+"|"+srv.Name, cancel, func(j *job) (any, error) {
+				defer cancel()
+				return guiRunSync(ctx, j, dir, srv, req)
 			}))
 		}
 	case "calibrate":
@@ -899,7 +902,7 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 }
 
 // guiRunSync tek sunucu sync job'u: tarama + ana sync çekirdeği + log kaydı.
-func guiRunSync(j *job, dir string, srv config.Server, req guiJobReq) (any, error) {
+func guiRunSync(ctx context.Context, j *job, dir string, srv config.Server, req guiJobReq) (any, error) {
 	cfg, err := config.Load(dir)
 	if err != nil {
 		return nil, err
@@ -916,13 +919,16 @@ func guiRunSync(j *job, dir string, srv config.Server, req guiJobReq) (any, erro
 		since = &ms.Date
 	}
 	r := syncServer(j, dir, cfg, srv, req.Include, req.Exclude, since,
-		syncOpts{full: req.Full, dryRun: req.DryRun, retryFailed: req.RetryFailed})
+		syncOpts{full: req.Full, dryRun: req.DryRun, retryFailed: req.RetryFailed, ctx: ctx})
 	if r.logPath != "" {
 		fmt.Fprintf(j, lang.L.SyncLogSavedFmt, r.logPath)
 	}
 	res := map[string]any{
 		"uploaded": r.uploaded, "failed": r.failed, "protected": r.protected, "blocked": r.blocked,
 		"frozen": r.frozenSkipped, "bytes": r.bytes, "duration_ms": r.duration.Milliseconds(), "release": r.releaseID,
+	}
+	if errors.Is(r.err, context.Canceled) { // panelde "Durdur" — ham "context canceled" yerine
+		return res, errors.New(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(lang.L.SyncCanceled), "■")))
 	}
 	return res, r.err
 }

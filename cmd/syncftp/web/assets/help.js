@@ -37,14 +37,14 @@ const HELP = [
       <li><b>Dry-run</b>: neyin yükleneceğini gösterir, hiçbir şey yüklemez. <b>Tam sync</b>: state'i yok sayıp her şeyi yükler.</li>
       <li>Yüklenemeyen dosyalar kırmızı rozetle görünür → tıklayıp <b>Başarısızları tekrar dene</b>.</li>
       <li>Yerelde silinen dosyalar sunucudan <b>silinmez</b>, yalnızca raporlanır (güvenli taraf).</li>
-      <li>Her iş sağ altta canlı görünür; tıklayınca tam log açılır. Loglar <i>Geçmiş</i> sekmesinde saklanır. Durdurulabilen işlerde (calibrate, watch) log penceresinde <b>Durdur</b> düğmesi vardır.</li>
+      <li>Her iş sağ altta canlı görünür; tıklayınca tam log açılır. Loglar <i>Geçmiş</i> sekmesinde saklanır. Durdurulabilen işlerde (sync, calibrate, watch) log penceresinde <b>Durdur</b> düğmesi vardır. Sync durdurulunca yeni dosya başlatılmaz, açık aktarımlar kesilir; yüklenenler kaydedilir (geri alınabilir), kalanlar bekleyen olarak kalır ve bir sonraki sync'te gider.</li>
       <li>Sunucuya bağlanılamazsa hata satırı log'a yazılır; CLI'da <code>sync</code> 1 koduyla çıkar (script / CI başarısızlığı görür).</li></ul>`],
     en: ['Seeing changes and syncing', `<ul>
       <li>Click the <span class="degisim" style="cursor:default"><b class="n">+new</b> <b class="c">~changed</b> <b class="d">−deleted</b></span> chip on a server card → file list. Clicking a file opens a coloured <b>local ↔ server diff</b>.</li>
       <li><b>Dry-run</b> shows what would be uploaded without uploading. <b>Full sync</b> ignores the state and uploads everything.</li>
       <li>Files that failed show a red badge → click it and <b>Retry failed</b>.</li>
       <li>Locally deleted files are <b>not</b> deleted from the server, only reported (safe side).</li>
-      <li>Every job appears live at the bottom right; click it for the full log. Logs are kept under <i>History</i>. Jobs that can be cancelled (calibrate, watch) have a <b>Stop</b> button in their log window.</li>
+      <li>Every job appears live at the bottom right; click it for the full log. Logs are kept under <i>History</i>. Jobs that can be cancelled (sync, calibrate, watch) have a <b>Stop</b> button in their log window. Stopping a sync starts no new files and cuts the running transfers; what was uploaded is recorded (and can be undone), the rest stays pending for the next sync.</li>
       <li>If the server cannot be reached, the error is written to the log; on the CLI <code>sync</code> exits with code 1 (scripts and CI see the failure).</li></ul>`],
   }],
   ['filters', 'sliders', {
@@ -93,12 +93,14 @@ const HELP = [
       <li><b>Düzenle</b>: dosyanın tamamı (4 MB'a kadar; binary ve UTF-8 olmayan dosyalar yalnızca görüntülenir) renkli bir editörde açılır — Tab / Shift+Tab girinti, <kbd>Ctrl</kbd>+<kbd>S</kbd> kaydet.</li>
       <li>Kaydederken: <b>Sunucu + yerel</b> (yerel dosya da yazılır, CRLF korunur, state güncellenir) ya da <b>Yalnızca sunucu</b> (state değişmez; yereldeki dosya değişmedikçe sync düzenlemeyi ezmez). "Bir daha sorma" ile seçim hatırlanır; <i>Ayarlar → Genel</i>'den ya da editörün altındaki <i>Tekrar sor</i>'dan değiştirilir.</li>
       <li>Kayıt normal upload'tan geçer: sunucudaki eski hal yedeklenir, <i>Geçmiş</i>'ten geri alınabilir. Dosyayı açtığınızdan beri sunucuda biri değiştirdiyse <b>üzerine yaz</b> ya da <b>sunucudakini aç</b> diye sorulur.</li>
+      <li><b>Biçimlendir</b>: JS / CSS / JSON / HTML / XML dosyalarında önizleme ve karşılaştırmanın üstünde <i>Orijinal | Biçimlendir</i> seçimi vardır. Sıkıştırılmış (minify) dosyalar kendiliğinden okunur hâlde açılır. Yalnızca görünümdür — sunucudaki ya da yereldeki dosya değişmez; internet gerekmez.</li>
       <li>Önizlemede kısayollar: <kbd>S</kbd> düzenle, <kbd>R</kbd> yerelle karşılaştır, <kbd>D</kbd> indir. Düzenleme / karşılaştırmada <kbd>Esc</kbd> önizlemeye döner.</li></ul>`],
     en: ['Files: browsing and editing server files', `<ul>
       <li>The <b>Files</b> tab browses the server: preview (highlighted; HTML also in a sandboxed frame), <b>compare with local</b>, download, upload, new folder, rename / <b>move</b> (with a remote folder picker), multi-select, freeze, live recursive search, tree view.</li>
       <li><b>Edit</b>: the whole file (up to 4 MB; binary and non-UTF-8 files are view-only) opens in a highlighted editor — Tab / Shift+Tab indent, <kbd>Ctrl</kbd>+<kbd>S</kbd> saves.</li>
       <li>On save: <b>Server + local</b> (the local file is written too, CRLF kept, state updated) or <b>Server only</b> (state unchanged; sync won't overwrite the edit unless the local file changes). "Don't ask again" remembers the choice; change it in <i>Settings → General</i> or with <i>Ask again</i> under the editor.</li>
       <li>Saving goes through the normal upload: the old server version is backed up and can be undone from <i>History</i>. If someone changed the file on the server since you opened it, you are asked to <b>overwrite</b> or <b>open the server version</b>.</li>
+      <li><b>Beautify</b>: for JS / CSS / JSON / HTML / XML files the preview and compare views have an <i>Original | Beautify</i> switch. Minified files open in the readable form automatically. It is view-only — the file on the server or on disk is not changed; works offline.</li>
       <li>Preview shortcuts: <kbd>S</kbd> edit, <kbd>R</kbd> compare with local, <kbd>D</kbd> download. <kbd>Esc</kbd> in edit / compare returns to the preview.</li></ul>`],
   }],
   ['conns', 'link', {

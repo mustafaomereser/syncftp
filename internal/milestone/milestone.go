@@ -56,5 +56,5 @@ func Clear(configDir, serverName string) error {
 }
 
 func msPath(configDir, serverName string) string {
-	return filepath.Join(configDir, ".syncftp", "milestones", serverName+".json")
+	return fsutil.ServerFile(filepath.Join(configDir, ".syncftp", "milestones"), serverName, ".json")
 }

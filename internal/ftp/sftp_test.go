@@ -1,6 +1,7 @@
 package ftp
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/binary"
@@ -368,8 +369,8 @@ func TestHostSemaphoreSharedAcrossPools(t *testing.T) {
 	if s1 != s2 {
 		t.Fatal("same account should share semaphore")
 	}
-	s1.acquire()
-	s1.acquire()
+	s1.acquire(context.Background())
+	s1.acquire(context.Background())
 	if s2.tryAcquire() {
 		t.Fatal("limit 2 exceeded")
 	}
@@ -405,5 +406,55 @@ func TestSSHExec(t *testing.T) {
 	}
 	if err := c.Exec("will fail", nil, &out); err == nil {
 		t.Fatal("non-zero exit status must return error")
+	}
+}
+
+func TestPoolCancel(t *testing.T) {
+	withTempKnownHosts(t)
+	host, port, stop := startTestSSH(t, "u", "p")
+	defer stop()
+	srv := config.Server{Name: "cancel", Protocol: "sftp", Host: host, Port: port, User: "u", Password: "p", RemotePath: "/c", MaxConnections: 1}
+	local := t.TempDir()
+	var tasks []UploadTask
+	for i := 0; i < 20; i++ {
+		name := "f" + strconv.Itoa(i) + ".txt"
+		tasks = append(tasks, UploadTask{LocalPath: writeLocal(t, local, name, name), RelPath: name})
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	pool, err := NewPoolCtx(ctx, srv, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	n := 0
+	for r := range pool.UploadCh(tasks) {
+		if r.Err != nil {
+			t.Fatalf("canceled upload reported as error: %v", r.Err)
+		}
+		if n++; n == 3 {
+			cancel()
+		}
+	}
+	if n >= len(tasks) {
+		t.Fatalf("all %d tasks ran despite cancel", n)
+	}
+
+	// Slot dolu iken bekleyen ikinci havuz iptalle hemen döner
+	ctx2, cancel2 := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		_, err := NewPoolCtx(ctx2, srv, 0)
+		done <- err
+	}()
+	time.Sleep(100 * time.Millisecond)
+	cancel2()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("expected cancel error")
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("waiting pool did not stop on cancel")
 	}
 }

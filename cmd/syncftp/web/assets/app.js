@@ -10,7 +10,7 @@ const T = {
   tr: {
     navAll: 'Tüm projeler', navJobs: 'İşler', navProjects: 'Projeler',
     addProject: 'Proje ekle', navNoProjects: 'Bu klasörde proje yok', watching: 'Watch', language: 'Dil', quit: 'Kapat',
-    loading: 'Yükleniyor…', shortcutKey: 'Kısayol: {0}', skip_ignored: 'ignore', skip_excluded: 'exclude', skip_not_included: 'include dışı', skipHint_ignored: 'Yerelde ignore dosyalarında (.gitignore / syncftp.ignore): sync bu yolu taramaz, sunucuya yüklemez. Sunucudaki kopyaya dokunulmaz, silinmez.', skipHint_excluded: 'Exclude yerel taraf içindir: yereldeki bu dosya sunucuya yüklenmez. Sunucudaki kopyaya dokunulmaz, silinmez.', skipHint_not_included: 'Include listesinde değil: yereldeki bu dosya sunucuya yüklenmez. Sunucudaki kopyaya dokunulmaz, silinmez.', watchAll: 'Tümünü izle', watchStopAll: 'Tüm watch\'ları durdur', watchAllHint: 'Projedeki her aktif sunucu için ayrı watch başlatır', watchServerHint: 'Bu sunucuyu izle: yerelde değişen dosyalar otomatik yüklenir (CLI: watch -s)', watchingTag: 'izleniyor', watchCount: '{0}/{1} sunucu', watchSyncs: '{0} otomatik sync', mgSync: 'Sync', mgCheck: 'Kontrol', mgHistory: 'Zaman ve geri alma', mgServer: 'Sunucu', showMore: '{0} tane daha göster', foldAdvanced: 'Gelişmiş', foldMore: 'Diğer', foldDefault: 'varsayılan', foldOff: 'kapalı', foldConn: 'bağlantı', foldRetry: 'deneme', foldBlock: 'engelli uzantı', setTabGeneral: 'Genel', setTabLibrary: 'Bağlantı kütüphanesi', setTabDefaults: 'Yeni proje varsayılanları', setTabProjects: 'Projeler', setTabHooks: 'Webhook / CI', setTabSecurity: 'Host anahtarları', setTabSystem: 'Sistem', deleteRecursive: 'İçeriğiyle birlikte sil', deleteRecursiveHint: 'Kapalıyken yalnızca boş klasörler silinir (CLI: remote rm --recursive)', stFilter: 'Filtrele', stFilterHint: 'Yalnızca bu liste için — config değişmez (CLI: status --include / --exclude)', moreRows: '{0} öğe daha göster', stFrozen: 'Freeze', stProtected: 'Korunan', stBlocked: 'Engelli', stUploadSize: 'yüklenecek: {0}', treeView: 'Ağaç', treeHint: 'Bu klasörün altını ağaç olarak göster (shell tree)', treeAsk: 'Klasör başına en fazla kaç öğe gösterilsin?', treeAll: 'Tümü', ignoreNoFile: 'ignore_files listesinde syncFTP dosyası yok — yalnızca .gitignore okunuyor', viewCode: 'Kod', viewRendered: 'Önizleme', viewRenderedLocal: 'Önizleme (yerel)', viewRenderedRemote: 'Önizleme (sunucu)', scanningLocal: 'Taranıyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
+    loading: 'Yükleniyor…', shortcutKey: 'Kısayol: {0}', skip_ignored: 'ignore', skip_excluded: 'exclude', skip_not_included: 'include dışı', skipHint_ignored: 'Yerelde ignore dosyalarında (.gitignore / syncftp.ignore): sync bu yolu taramaz, sunucuya yüklemez. Sunucudaki kopyaya dokunulmaz, silinmez.', skipHint_excluded: 'Exclude yerel taraf içindir: yereldeki bu dosya sunucuya yüklenmez. Sunucudaki kopyaya dokunulmaz, silinmez.', skipHint_not_included: 'Include listesinde değil: yereldeki bu dosya sunucuya yüklenmez. Sunucudaki kopyaya dokunulmaz, silinmez.', watchAll: 'Tümünü izle', watchStopAll: 'Tüm watch\'ları durdur', watchAllHint: 'Projedeki her aktif sunucu için ayrı watch başlatır', watchServerHint: 'Bu sunucuyu izle: yerelde değişen dosyalar otomatik yüklenir (CLI: watch -s)', watchingTag: 'izleniyor', watchCount: '{0}/{1} sunucu', watchSyncs: '{0} otomatik sync', mgSync: 'Sync', mgCheck: 'Kontrol', mgHistory: 'Zaman ve geri alma', mgServer: 'Sunucu', showMore: '{0} tane daha göster', foldAdvanced: 'Gelişmiş', foldMore: 'Diğer', foldDefault: 'varsayılan', foldOff: 'kapalı', foldConn: 'bağlantı', foldRetry: 'deneme', foldBlock: 'engelli uzantı', setTabGeneral: 'Genel', setTabLibrary: 'Bağlantı kütüphanesi', setTabDefaults: 'Yeni proje varsayılanları', setTabProjects: 'Projeler', setTabHooks: 'Webhook / CI', setTabSecurity: 'Host anahtarları', setTabSystem: 'Sistem', deleteRecursive: 'İçeriğiyle birlikte sil', deleteRecursiveHint: 'Kapalıyken yalnızca boş klasörler silinir (CLI: remote rm --recursive)', stFilter: 'Filtrele', stFilterHint: 'Yalnızca bu liste için — config değişmez (CLI: status --include / --exclude)', moreRows: '{0} öğe daha göster', stFrozen: 'Freeze', stProtected: 'Korunan', stBlocked: 'Engelli', stUploadSize: 'yüklenecek: {0}', treeView: 'Ağaç', treeHint: 'Bu klasörün altını ağaç olarak göster (shell tree)', treeAsk: 'Klasör başına en fazla kaç öğe gösterilsin?', treeAll: 'Tümü', ignoreNoFile: 'ignore_files listesinde syncFTP dosyası yok — yalnızca .gitignore okunuyor', viewCode: 'Kod', fmtRaw: 'Orijinal', fmtPretty: 'Biçimlendir', fmtMinified: 'Dosya sıkıştırılmış (minify) — okunur hâli gösteriliyor; sunucudaki dosya değişmez', fmtHint: 'Yalnızca görünüm: sunucudaki ya da yereldeki dosya değişmez', fmtFailed: 'Biçimlendirilemedi: {0}', viewRendered: 'Önizleme', viewRenderedLocal: 'Önizleme (yerel)', viewRenderedRemote: 'Önizleme (sunucu)', scanningLocal: 'Taranıyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
     edit: 'Düzenle', back: 'Geri', yes: 'Evet', confirm: 'Onayla', browse: 'Gözat', add: 'Ekle', open: 'Aç',
     saved: 'Kaydedildi', copied: 'Kopyalandı', never: 'hiç', none: 'yok', all: 'Tümü', manual: '(manuel giriş)',
     projectsTitle: 'Projeler', projectsSub: `{0} klasöründeki syncFTP projeleri (CLI gibi: panel açıldığı klasörü esas alır)`,
@@ -125,7 +125,7 @@ const T = {
   en: {
     navAll: 'All projects', navJobs: 'Jobs', navProjects: 'Projects',
     addProject: 'Add project', navNoProjects: 'No project in this folder', watching: 'Watch', language: 'Language', quit: 'Quit',
-    loading: 'Loading…', shortcutKey: 'Shortcut: {0}', skip_ignored: 'ignored', skip_excluded: 'excluded', skip_not_included: 'not included', skipHint_ignored: 'Matched by the local ignore files (.gitignore / syncftp.ignore): sync doesn’t scan or upload it. The copy on the server is left alone, never deleted.', skipHint_excluded: 'Exclude applies to the local side: this local file is not uploaded. The copy on the server is left alone, never deleted.', skipHint_not_included: 'Not in the include list: this local file is not uploaded. The copy on the server is left alone, never deleted.', watchAll: 'Watch all', watchStopAll: 'Stop all watches', watchAllHint: 'Starts a separate watch for every enabled server', watchServerHint: 'Watch this server: locally changed files upload automatically (CLI: watch -s)', watchingTag: 'watching', watchCount: '{0}/{1} servers', watchSyncs: '{0} auto syncs', mgSync: 'Sync', mgCheck: 'Check', mgHistory: 'Time & rollback', mgServer: 'Server', showMore: 'Show {0} more', foldAdvanced: 'Advanced', foldMore: 'More', foldDefault: 'default', foldOff: 'off', foldConn: 'connections', foldRetry: 'retries', foldBlock: 'blocked ext', setTabGeneral: 'General', setTabLibrary: 'Connection library', setTabDefaults: 'New project defaults', setTabProjects: 'Projects', setTabHooks: 'Webhook / CI', setTabSecurity: 'Host keys', setTabSystem: 'System', deleteRecursive: 'Delete with contents', deleteRecursiveHint: 'When off, only empty folders are deleted (CLI: remote rm --recursive)', stFilter: 'Filter', stFilterHint: 'Only for this list — config is not changed (CLI: status --include / --exclude)', moreRows: 'Show {0} more', stFrozen: 'Frozen', stProtected: 'Protected', stBlocked: 'Blocked', stUploadSize: 'to upload: {0}', treeView: 'Tree', treeHint: 'Show everything below this folder as a tree (shell tree)', treeAsk: 'Show at most how many entries per folder?', treeAll: 'All', ignoreNoFile: 'ignore_files has no syncFTP file — only .gitignore is read', viewCode: 'Code', viewRendered: 'Preview', viewRenderedLocal: 'Preview (local)', viewRenderedRemote: 'Preview (server)', scanningLocal: 'Scanning…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
+    loading: 'Loading…', shortcutKey: 'Shortcut: {0}', skip_ignored: 'ignored', skip_excluded: 'excluded', skip_not_included: 'not included', skipHint_ignored: 'Matched by the local ignore files (.gitignore / syncftp.ignore): sync doesn’t scan or upload it. The copy on the server is left alone, never deleted.', skipHint_excluded: 'Exclude applies to the local side: this local file is not uploaded. The copy on the server is left alone, never deleted.', skipHint_not_included: 'Not in the include list: this local file is not uploaded. The copy on the server is left alone, never deleted.', watchAll: 'Watch all', watchStopAll: 'Stop all watches', watchAllHint: 'Starts a separate watch for every enabled server', watchServerHint: 'Watch this server: locally changed files upload automatically (CLI: watch -s)', watchingTag: 'watching', watchCount: '{0}/{1} servers', watchSyncs: '{0} auto syncs', mgSync: 'Sync', mgCheck: 'Check', mgHistory: 'Time & rollback', mgServer: 'Server', showMore: 'Show {0} more', foldAdvanced: 'Advanced', foldMore: 'More', foldDefault: 'default', foldOff: 'off', foldConn: 'connections', foldRetry: 'retries', foldBlock: 'blocked ext', setTabGeneral: 'General', setTabLibrary: 'Connection library', setTabDefaults: 'New project defaults', setTabProjects: 'Projects', setTabHooks: 'Webhook / CI', setTabSecurity: 'Host keys', setTabSystem: 'System', deleteRecursive: 'Delete with contents', deleteRecursiveHint: 'When off, only empty folders are deleted (CLI: remote rm --recursive)', stFilter: 'Filter', stFilterHint: 'Only for this list — config is not changed (CLI: status --include / --exclude)', moreRows: 'Show {0} more', stFrozen: 'Frozen', stProtected: 'Protected', stBlocked: 'Blocked', stUploadSize: 'to upload: {0}', treeView: 'Tree', treeHint: 'Show everything below this folder as a tree (shell tree)', treeAsk: 'Show at most how many entries per folder?', treeAll: 'All', ignoreNoFile: 'ignore_files has no syncFTP file — only .gitignore is read', viewCode: 'Code', fmtRaw: 'Original', fmtPretty: 'Beautify', fmtMinified: 'File is minified — showing a readable version; the file on the server is not changed', fmtHint: 'View only: the file on the server or on disk is not changed', fmtFailed: 'Could not format: {0}', viewRendered: 'Preview', viewRenderedLocal: 'Preview (local)', viewRenderedRemote: 'Preview (server)', scanningLocal: 'Scanning…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
     edit: 'Edit', back: 'Back', yes: 'Yes', confirm: 'Confirm', browse: 'Browse', add: 'Add', open: 'Open',
     saved: 'Saved', copied: 'Copied', never: 'never', none: 'none', all: 'All', manual: '(manual entry)',
     projectsTitle: 'Projects', projectsSub: `syncFTP projects in {0} (like the CLI: the panel works on the folder it was opened in)`,
@@ -487,15 +487,31 @@ function renderDock() {
   const el = $('#isler');
   const now = Date.now();
   const visible = [...S.jobs.values()].filter((j) => !isWatchJob(j) && (j.status === 'running' || j.shownUntil > now)).slice(-5);
-  el.innerHTML = visible.map((j) => {
+  // Kartlar iş kimliğiyle yerinde güncellenir: eskiden her çizimde (3 sn'de bir + her log satırında)
+  // innerHTML baştan yazılıyor, giriş animasyonu yeniden oynuyor → kart sürekli gelip gidiyordu
+  const keep = new Set(visible.map((j) => j.id));
+  for (const d of [...el.children]) if (!keep.has(d.dataset.job)) d.remove();
+  visible.forEach((j, i) => {
     const st = j.status === 'running' ? 'busy' : j.status === 'error' ? 'bad' : 'ok';
     const txt = j.status === 'running' ? t('stRunning') : j.status === 'error' ? t('stError') : t('stDone');
-    return `<div class="is" data-job="${esc(j.id)}"><div class="ust"><span class="pill ${st}"><span class="nokta"></span>${txt}</span>
+    // Son satır ayrıca yazılır — her log satırında ilerleme çubuğunun animasyonu baştan başlamasın
+    const html = `<div class="ust"><span class="pill ${st}"><span class="nokta"></span>${txt}</span>
       <b>${esc(j.title)}${j.server ? ' · ' + esc(j.server) : ''}</b></div>
-      <div class="son">${esc(j.status === 'error' ? j.error || '' : j.last || '…')}</div>
-      ${j.status === 'running' ? '<div class="bar"><i></i></div>' : ''}</div>`;
-  }).join('');
-  $$('[data-job]', el).forEach((d) => (d.onclick = () => showJobLog(d.dataset.job)));
+      <div class="son"></div>
+      ${j.status === 'running' ? '<div class="bar"><i></i></div>' : ''}`;
+    let d = [...el.children].find((c) => c.dataset.job === j.id);
+    if (!d) {
+      d = document.createElement('div');
+      d.className = 'is';
+      d.dataset.job = j.id;
+      d.onclick = () => showJobLog(j.id);
+    }
+    if (d.__html !== html) { d.innerHTML = html; d.__html = html; }
+    const son = j.status === 'error' ? j.error || '' : j.last || '…';
+    const sonEl = d.querySelector('.son');
+    if (sonEl.textContent !== son) sonEl.textContent = son;
+    if (el.children[i] !== d) el.insertBefore(d, el.children[i] || null);
+  });
   const running = [...S.jobs.values()].filter((j) => j.status === 'running' && !isWatchJob(j)).length;
   $('#nav-jobs').textContent = running ? running : '';
   renderWatchRow();
@@ -2024,6 +2040,74 @@ function bindViewTabs(root) {
   }));
 }
 
+// ── Biçimlendirme (unminify) — yalnızca görünüm; js-beautify gömülü, ilk kullanımda yüklenir ──
+function beautifyKind(name) {
+  const e = (/\.([a-z0-9]+)$/i.exec(name || '') || [, ''])[1].toLowerCase();
+  if (['js', 'mjs', 'cjs', 'jsx', 'ts', 'tsx'].includes(e)) return 'js';
+  if (['json', 'map', 'webmanifest'].includes(e)) return 'json';
+  if (['css', 'scss', 'less'].includes(e)) return 'css';
+  if (['html', 'htm', 'xhtml', 'xml', 'svg'].includes(e)) return 'html';
+  return '';
+}
+// Uzun satırlar ya da satır başına çok karakter → sıkıştırılmış sayılır (otomatik biçimlendirilir)
+function looksMinified(text) {
+  if (!text || text.length < 1500) return false;
+  const lines = text.split('\n');
+  return text.length / lines.length > 250 || lines.some((l) => l.length > 2000);
+}
+let beautifierP = null;
+function loadBeautifier() {
+  return (beautifierP ||= new Promise((ok, no) => {
+    const s = document.createElement('script');
+    s.src = '/assets/vendor/beautifier.min.js';
+    s.onload = () => (window.beautifier ? ok(window.beautifier) : no(new Error('beautifier')));
+    s.onerror = () => { beautifierP = null; no(new Error('beautifier')); };
+    document.head.appendChild(s);
+  }));
+}
+async function beautifyText(text, name) {
+  const kind = beautifyKind(name);
+  if (kind === 'json') { try { return JSON.stringify(JSON.parse(text), null, 2); } catch { /* geçersiz JSON → JS biçimleyici */ } }
+  const b = await loadBeautifier();
+  const o = { indent_size: 2, max_preserve_newlines: 2, wrap_line_length: 0 };
+  if (kind === 'css') return b.css(text, o);
+  if (kind === 'html') return b.html(text, { ...o, indent_inner_html: true });
+  return b.js(text, o);
+}
+// fmtCodeView: biçimlendirilebilen dosyada üstte "Orijinal | Biçimlendir" seçimi; sıkıştırılmışsa
+// biçimlendirilmiş açılır. bindFmt(root) modal çizildikten sonra çağrılır.
+const FMT = new Map();
+let fmtSeq = 0;
+function fmtCodeView(text, name) {
+  if (!beautifyKind(name)) return codeView(text, name);
+  const id = 'fmt' + ++fmtSeq;
+  FMT.set(id, { text, name, pretty: null });
+  const min = looksMinified(text);
+  return `<div data-fmt="${id}" data-auto="${min ? 1 : ''}">
+    <div class="fmt-bar"><span class="seg"><button data-fmtv="raw" class="aktif">${t('fmtRaw')}</button><button data-fmtv="pretty">${icon('code')}${t('fmtPretty')}</button></span>
+      <span class="ipucu" data-fmtnote>${min ? t('fmtMinified') : t('fmtHint')}</span></div>
+    <div data-fmtbody>${codeView(text, name)}</div></div>`;
+}
+function bindFmt(root) {
+  $$('[data-fmt]', root).forEach((box) => {
+    const st = FMT.get(box.dataset.fmt);
+    if (!st) return;
+    FMT.delete(box.dataset.fmt); // modal kapanınca metin bellekte kalmasın (durum kutunun kapanışında)
+    const show = async (v) => {
+      $$('[data-fmtv]', box).forEach((b) => b.classList.toggle('aktif', b.dataset.fmtv === v));
+      const body = $('[data-fmtbody]', box);
+      if (v === 'raw') { body.innerHTML = codeView(st.text, st.name); return; }
+      if (st.pretty == null) {
+        body.innerHTML = `<div class="yukleniyor" style="padding:20px 0">${icon('refresh', 'spin')} ${t('loading')}</div>`;
+        try { st.pretty = await beautifyText(st.text, st.name); } catch (e) { toast(t('fmtFailed', e.message || e), 'bad'); return show('raw'); }
+      }
+      if (box.isConnected) body.innerHTML = codeView(st.pretty, st.name);
+    };
+    $$('[data-fmtv]', box).forEach((b) => (b.onclick = () => show(b.dataset.fmtv)));
+    if (box.dataset.auto) show('pretty');
+  });
+}
+
 function codeView(text, name) {
   const rows = HL.hlLines(text, name);
   return `<div class="kod"><table>${rows.map((l, i) => `<tr><td class="no">${i + 1}</td><td class="l">${l || ' '}</td></tr>`).join('')}</table></div>`;
@@ -2067,8 +2151,8 @@ async function compareModal(P, srv, rel) {
     views.diff = `<p class="ipucu" style="margin:0 0 10px">${t('diffHint')}</p>${d.html}`;
     summary = `<span class="fark-ozet"><span class="ok-t">+${d.add}</span><span class="bad-t">−${d.del}</span></span>`;
   }
-  if (loc.exists && !loc.binary) views.local = codeView(loc.content, rel);
-  if (rem.exists && !rem.binary) views.remote = codeView(rem.content, rel);
+  if (loc.exists && !loc.binary) views.local = fmtCodeView(loc.content, rel);
+  if (rem.exists && !rem.binary) views.remote = fmtCodeView(rem.content, rel);
   if (isHTMLFile(rel)) {
     if (loc.exists && !loc.binary) views.localHtml = htmlFrame(loc.content);
     if (rem.exists && !rem.binary) views.remoteHtml = htmlFrame(rem.content);
@@ -2085,6 +2169,7 @@ async function compareModal(P, srv, rel) {
     $$('[data-cv]', m.root).forEach((x) => x.classList.toggle('aktif', x === a));
     $$('[data-cvp]', m.root).forEach((p) => (p.hidden = p.dataset.cvp !== a.dataset.cv));
   }));
+  bindFmt(m.root);
 }
 
 async function previewFile(P, srv, p) {
@@ -2094,7 +2179,7 @@ async function previewFile(P, srv, p) {
   const pm = modal({
     title: `${icon('file')}<span class="mono" style="font-size:13px">${esc(p)}</span>`, size: 'genis',
     body: d.binary ? `<div class="bos">${t('binaryFile')}</div>`
-      : viewTabs([['code', t('viewCode'), codeView(d.content, p)], ...(isHTMLFile(p) ? [['html', t('viewRendered'), htmlFrame(d.content)]] : [])]),
+      : viewTabs([['code', t('viewCode'), fmtCodeView(d.content, p)], ...(isHTMLFile(p) ? [['html', t('viewRendered'), htmlFrame(d.content)]] : [])]),
     actions: [{ left: `${bytes(d.size)} ${d.truncated ? t('truncated') : ''}` },
       ...(d.binary ? [] : [{ label: icon('layers') + t('compare'), cls: '', key: 'r', run: () => { compareModal(P, srv, p); return false; } },
         // Önizleme altta açık kalır (false) → Esc üstteki pencereyi kapatıp buraya döner; kaydedildiyse tazelenir
@@ -2103,6 +2188,7 @@ async function previewFile(P, srv, p) {
       { label: t('close'), cls: 'birincil' }],
   });
   bindViewTabs(pm.root);
+  bindFmt(pm.root);
 }
 
 // ── Geçmiş (release + rollback + log) ────────────────────────────────────────

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"syncftp/internal/fsutil"
 	"syncftp/internal/lang"
 )
 
@@ -16,13 +17,7 @@ import (
 // reddeder. Ölü süreçten kalan kilit devralınır. Farklı sunucular ayrı süreçlerde izlenebilir.
 
 func watchLockPath(dir, server string) string {
-	safe := strings.Map(func(r rune) rune {
-		if r == '/' || r == '\\' || r == ':' || r == '*' || r == '?' || r == '"' || r == '<' || r == '>' || r == '|' {
-			return '_'
-		}
-		return r
-	}, server)
-	return filepath.Join(dir, ".syncftp", "locks", "watch-"+safe+".lock")
+	return filepath.Join(dir, ".syncftp", "locks", "watch-"+fsutil.SafeName(server)+".lock")
 }
 
 // watchLockOwner sunucunun kilidini tutan canlı başka bir sürecin PID'i (yoksa 0).
