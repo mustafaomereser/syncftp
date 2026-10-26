@@ -702,7 +702,7 @@ async function render(soft = false) {
     else html = await pageProject(r);
     if (seq !== S.renderSeq) return;
     if (typeof html === 'string') root.innerHTML = html;
-    root.classList.remove('surukle'); // sürükle-bırak katmanı yarıda kaldıysa yeni sayfaya taşınmasın
+    $('#frame')?.classList.remove('surukle'); // sürükle-bırak katmanı yarıda kaldıysa yeni sayfaya taşınmasın
     root.dataset.proj = r.page === 'project' ? r.project : '';
     if (root._bind) { const b = root._bind; root._bind = null; b(root); }
     // Sayfa değişimiyle birlikte açılacak modal (ör. arama sonucundan önizleme): hashchange'in
@@ -2055,13 +2055,15 @@ async function tabFiles(proj, srvName, relPath) {
 
 // Dosyalar sekmesine sürükle-bırak yükleme: dosyalar ve klasörler (alt yapısıyla) bulunulan klasöre,
 // bir klasör satırının üstüne bırakılırsa o klasöre. onDrop(items [{file, path}], dirName|'').
-// Kök (#sayfa) sayfalar arasında aynı öğe → olaylar özellik olarak atanır (birikmez), dosyalar sayfası
-// değilse hiçbir şey yapmaz.
+// Bırakma alanı içerik kadar değil, çerçevenin görünen alanının tamamı (#frame — klasör kısa olsa da
+// sayfanın altına kadar). Çerçeve sayfalar arasında aynı öğe → olaylar özellik olarak atanır (birikmez),
+// dosyalar sayfası değilse hiçbir şey yapmaz.
 function bindDropUpload(root, onDrop) {
+  const zone = $('#frame') || root;
   const active = () => !!$('#f-upload', root);
   const hasFiles = (e) => [...(e.dataTransfer?.types || [])].includes('Files');
   let depth = 0;
-  const clear = () => { depth = 0; root.classList.remove('surukle'); $$('tr.surukle-hedef', root).forEach((x) => x.classList.remove('surukle-hedef')); };
+  const clear = () => { depth = 0; zone.classList.remove('surukle'); $$('tr.surukle-hedef', root).forEach((x) => x.classList.remove('surukle-hedef')); };
   const readEntry = async (entry, prefix, out) => {
     if (entry.isFile) {
       const file = await new Promise((res, rej) => entry.file(res, rej));
@@ -2076,27 +2078,31 @@ function bindDropUpload(root, onDrop) {
       }
     }
   };
-  root.ondragenter = (e) => {
+  zone.ondragenter = (e) => {
     if (!active() || !hasFiles(e)) return;
     e.preventDefault();
     depth++;
-    root.dataset.drop = t('dropHere');
-    root.classList.add('surukle');
+    // Katman position:fixed → çerçeve kaydırılmış olsa da görünen alanı kaplar
+    const r = zone.getBoundingClientRect();
+    zone.style.setProperty('--dz-t', r.top + 'px'); zone.style.setProperty('--dz-l', r.left + 'px');
+    zone.style.setProperty('--dz-w', r.width + 'px'); zone.style.setProperty('--dz-h', r.height + 'px');
+    zone.dataset.drop = t('dropHere');
+    zone.classList.add('surukle');
   };
-  root.ondragover = (e) => {
+  zone.ondragover = (e) => {
     if (!active() || !hasFiles(e)) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
     const row = e.target.closest && e.target.closest('tr[data-type="dir"]');
     $$('tr.surukle-hedef', root).forEach((x) => { if (x !== row) x.classList.remove('surukle-hedef'); });
     if (row) row.classList.add('surukle-hedef');
-    root.dataset.drop = row ? t('dropInto', row.dataset.entry) : t('dropHere');
+    zone.dataset.drop = row ? t('dropInto', row.dataset.entry) : t('dropHere');
   };
-  root.ondragleave = (e) => {
+  zone.ondragleave = (e) => {
     if (!active() || !hasFiles(e)) return;
     if (--depth <= 0) clear();
   };
-  root.ondrop = async (e) => {
+  zone.ondrop = async (e) => {
     if (!active() || !hasFiles(e)) { clear(); return; }
     e.preventDefault();
     const row = e.target.closest && e.target.closest('tr[data-type="dir"]');

@@ -495,9 +495,8 @@ body.terminal-modu #sayfa { height: 100%; }
 .medya-yan { min-width: 0; }
 
 /* Dosyalar sekmesine sürükle-bırak */
-.surukle { position: relative; }
-.surukle::after { content: attr(data-drop); position: absolute; inset: 0; z-index: 5; pointer-events: none; display: flex; align-items: center; justify-content: center;
-  border: 2px dashed var(--accent); border-radius: var(--r-card); background: var(--accent-soft); color: var(--accent); font-weight: 600; font-size: 15px; }
+.surukle::after { content: attr(data-drop); position: fixed; top: var(--dz-t, 0); left: var(--dz-l, 0); width: var(--dz-w, 100%); height: var(--dz-h, 100%); z-index: 5; pointer-events: none; display: flex; align-items: center; justify-content: center;
+  border: 2px dashed var(--accent); border-radius: var(--r-frame); background: var(--accent-soft); color: var(--accent); font-weight: 600; font-size: 15px; }
 tr.surukle-hedef td { background: var(--accent-soft) !important; box-shadow: inset 0 1px 0 var(--accent), inset 0 -1px 0 var(--accent); }
 
 /* Dosyalar: kalan satırları göster */
