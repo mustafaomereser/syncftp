@@ -41,7 +41,7 @@ const T = {
     pendingChip: '<b class="n">+{0}</b> <b class="c">~{1}</b> <b class="d">−{2}</b>', upToDate: 'Güncel',
     filesTracked: '{0} dosya', maxConn: '{0} bağlantı', speedLimit: '{0} KB/s', noBackup: 'yedek kapalı', backupOn: 'yedekli',
     failedN: '{0} başarısız', frozenN: '{0} frozen', rollbackN: '{0} geri alınabilir',
-    statusTitle: '{0} — bekleyen değişiklikler', newFiles: 'Yeni', changedFiles: 'Değişen', deletedFiles: 'Yerelde silinen',
+    statusTitle: '{0} — bekleyen değişiklikler', stViewList: 'Liste', stViewTree: 'Klasör', stViewHint: 'Liste ya da klasör ağacı (ls gibi) olarak göster', newFiles: 'Yeni', changedFiles: 'Değişen', deletedFiles: 'Yerelde silinen',
     deletedNote: 'Yerelde silinen dosyalar sunucudan silinmez, yalnızca raporlanır.', emptyList: 'Liste boş',
     milestoneTitle: '{0} — milestone', milestoneBody: 'Milestone, bu tarihten önce değişmiş dosyaları sync dışında bırakır (kalıcı filtre). "Milestone sync" yalnızca tarihten sonra değişenleri yükler.',
     milestoneCurrent: 'Mevcut: {0}', milestoneDate: 'Tarih', milestonePh: 'bugün', milestoneDateHint: 'boş = şimdi · bugün · dün · 3d · 5h · 14:30 · 20.07 · 20.07.2026 15:04 · 2026-07-20',
@@ -156,7 +156,7 @@ const T = {
     pendingChip: '<b class="n">+{0}</b> <b class="c">~{1}</b> <b class="d">−{2}</b>', upToDate: 'Up to date',
     filesTracked: '{0} files', maxConn: '{0} connections', speedLimit: '{0} KB/s', noBackup: 'no backup', backupOn: 'backed up',
     failedN: '{0} failed', frozenN: '{0} frozen', rollbackN: '{0} restorable',
-    statusTitle: '{0} — pending changes', newFiles: 'New', changedFiles: 'Changed', deletedFiles: 'Deleted locally',
+    statusTitle: '{0} — pending changes', stViewList: 'List', stViewTree: 'Folders', stViewHint: 'Show as a flat list or as a folder tree (like ls)', newFiles: 'New', changedFiles: 'Changed', deletedFiles: 'Deleted locally',
     deletedNote: 'Locally deleted files are not deleted from the server, only reported.', emptyList: 'Empty',
     milestoneTitle: '{0} — milestone', milestoneBody: 'A milestone keeps files changed before its date out of syncs (persistent filter). "Milestone sync" uploads only files changed after it.',
     milestoneCurrent: 'Current: {0}', milestoneDate: 'Date', milestonePh: 'today', milestoneDateHint: 'empty = now · today · yesterday · 3d · 5h · 14:30 · 20.07 · 20.07.2026 15:04 · 2026-07-20',
@@ -1014,7 +1014,12 @@ async function statusModal(P, s, flt = { include: [], exclude: [] }) {
   const lm = await loadModal(t('statusTitle', esc(s.name)), 'orta', () => GET(`/api/p/${enc(P)}/status?server=${enc(s.name)}${fq}`));
   if (!lm) return;
   const st = lm.d;
-  const list = (arr, mark, click) => arr.length ? `<div class="liste-kutu">${arr.map((x) => `<div ${click ? `class="tikla" data-diff="${esc(x)}"` : ''}>${mark} ${esc(x)}</div>`).join('')}</div>` : `<p class="faint">${t('emptyList')}</p>`;
+  // Görünüm: düz liste ya da klasör ağacı (ls gibi) — tercih hatırlanır, iki görünüm de çizilir
+  let view = localStorageGet('syncftp-st-view') === 'tree' ? 'tree' : 'list';
+  const flat = (arr, mark, click) => `<div class="liste-kutu">${arr.map((x) => `<div ${click ? `class="tikla" data-diff="${esc(x)}"` : ''}>${mark} ${esc(x)}</div>`).join('')}</div>`;
+  const list = (arr, mark, click) => arr.length
+    ? `<div data-stv="list" ${view !== 'list' ? 'hidden' : ''}>${flat(arr, mark, click)}</div><div data-stv="tree" ${view !== 'tree' ? 'hidden' : ''}>${pathTreeHTML(arr, mark, click)}</div>`
+    : `<p class="faint">${t('emptyList')}</p>`;
   // Sync'in yükleyeceği liste ile aynı hesap: atlanacaklar (freeze / protect / engelli uzantı) ayrı sekmede
   const tabs = [['new', t('newFiles'), st.new, '+'], ['changed', t('changedFiles'), st.changed, '~'], ['deleted', t('deletedFiles'), st.deleted, '−'],
     ['frozen', t('stFrozen'), st.frozen || [], '❄'], ['protected', t('stProtected'), st.protected || [], '🔒'], ['blocked', t('stBlocked'), st.blocked || [], '✗']]
@@ -1022,7 +1027,8 @@ async function statusModal(P, s, flt = { include: [], exclude: [] }) {
   const first = Math.max(0, tabs.findIndex(([, , a]) => a.length)); // ilk dolu sekmede aç
   const m = modal({
     title: t('statusTitle', esc(s.name)), size: 'orta',
-    body: `<div class="tabs" style="margin-bottom:12px">${tabs.map(([k, l, a], i) => `<a href="javascript:void 0" data-st="${k}" class="${i === first ? 'aktif' : ''}">${l} <span class="sayac">${st.counts[k]}</span></a>`).join('')}</div>
+    body: `<div class="st-ust"><div class="tabs">${tabs.map(([k, l, a], i) => `<a href="javascript:void 0" data-st="${k}" class="${i === first ? 'aktif' : ''}">${l} <span class="sayac">${st.counts[k]}</span></a>`).join('')}</div>
+        <span class="seg st-gorunum" title="${t('stViewHint')}"><button data-view="list" class="${view === 'list' ? 'aktif' : ''}">${icon('log')}${t('stViewList')}</button><button data-view="tree" class="${view === 'tree' ? 'aktif' : ''}">${icon('folder')}${t('stViewTree')}</button></span></div>
       <details class="st-filtre" style="margin:-4px 0 10px" ${fltOn ? 'open' : ''}><summary class="faint" style="cursor:pointer">${icon('sliders')} ${t('stFilter')}${fltOn ? ` <span class="pill">${flt.include.length + flt.exclude.length}</span>` : ''}</summary>
         <p class="ipucu" style="margin:6px 0 8px">${t('stFilterHint')}</p>
         <div class="form" id="st-form" data-p="${esc(P)}" data-ppath="${esc(proj.path || '')}" data-srv="${esc(s.name)}"><div class="alanlar">
@@ -1034,6 +1040,12 @@ async function statusModal(P, s, flt = { include: [], exclude: [] }) {
   });
   bindFormTools(m.root);
   $$('[data-diff]', m.root).forEach((d) => (d.onclick = () => compareModal(P, s.name, d.dataset.diff)));
+  $$('[data-view]', m.root).forEach((b) => (b.onclick = () => {
+    view = b.dataset.view;
+    localStorageSet('syncftp-st-view', view);
+    $$('[data-view]', m.root).forEach((x) => x.classList.toggle('aktif', x === b));
+    $$('[data-stv]', m.root).forEach((x) => (x.hidden = x.dataset.stv !== view));
+  }));
   $('#st-flt', m.root).onclick = () => {
     const f = readForm($('#st-form', m.root), {});
     m.close();
@@ -1043,6 +1055,33 @@ async function statusModal(P, s, flt = { include: [], exclude: [] }) {
     $$('[data-st]', m.root).forEach((x) => x.classList.toggle('aktif', x === a));
     $$('[data-stp]', m.root).forEach((p) => (p.hidden = p.dataset.stp !== a.dataset.st));
   }));
+}
+
+// pathTreeHTML yol listesini klasör ağacı olarak çizer (ls gibi): önce klasörler, tek alt klasörlü
+// zincirler birleşik (a/b/c), klasörde altındaki dosya sayısı. Küçük listede hepsi açık; büyükte
+// (200+ dosya) yalnızca ilk seviye. click → dosya satırı data-diff taşır (karşılaştırma açılır).
+function pathTreeHTML(paths, mark, click) {
+  const root = { dirs: {}, files: [] };
+  for (const p of paths) {
+    const parts = p.split('/');
+    let n = root;
+    for (const d of parts.slice(0, -1)) n = n.dirs[d] || (n.dirs[d] = { dirs: {}, files: [] });
+    n.files.push({ path: p, name: parts[parts.length - 1] });
+  }
+  const openAll = paths.length <= 200;
+  const count = (n) => n.files.length + Object.values(n.dirs).reduce((a, x) => a + count(x), 0);
+  const draw = (n, depth) => Object.keys(n.dirs).sort((a, b) => a.localeCompare(b)).map((name) => {
+    let label = name, node = n.dirs[name];
+    while (!node.files.length && Object.keys(node.dirs).length === 1) {
+      const only = Object.keys(node.dirs)[0];
+      label += '/' + only;
+      node = node.dirs[only];
+    }
+    return `<details ${openAll || depth === 0 ? 'open' : ''}><summary>${icon('folder', 'acc-t')}<span>${esc(label)}/</span><span class="faint rt-say">${count(node)}</span></summary>
+      <div class="rt-ic">${draw(node, depth + 1)}</div></details>`;
+  }).join('') + n.files.sort((a, b) => a.name.localeCompare(b.name)).map((f) =>
+    `<div class="rt-dosya${click ? ' tikla' : ''}" ${click ? `data-diff="${esc(f.path)}"` : ''} title="${esc(f.path)}"><span class="mono faint">${mark}</span>${icon('file', 'faint')}<span class="rt-ad">${esc(f.name)}</span></div>`).join('');
+  return `<div class="liste-kutu rt-agac st-agac">${draw(root, 0)}</div>`;
 }
 
 function milestoneModal(P, s) {

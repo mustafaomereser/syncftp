@@ -37,6 +37,7 @@ const HELP = [
       <li><b>Dry-run</b>: neyin yükleneceğini gösterir, hiçbir şey yüklemez. <b>Tam sync</b>: state'i yok sayıp her şeyi yükler.</li>
       <li>Yüklenemeyen dosyalar kırmızı rozetle görünür → tıklayıp <b>Başarısızları tekrar dene</b>.</li>
       <li>Yerelde silinen dosyalar sunucudan <b>silinmez</b>, yalnızca raporlanır (güvenli taraf).</li>
+      <li><b>Bekleyen değişiklikler</b> penceresi (sunucu kartında bekleyen sayısına tıkla) yüklenecek dosyaları <i>Liste</i> ya da <i>Klasör</i> (ls gibi ağaç, klasörde dosya sayısı) olarak gösterir; seçim hatırlanır. Dosyaya tıklayınca yerelle sunucudaki hâli karşılaştırılır.</li>
       <li>Her iş sağ altta canlı görünür; tıklayınca tam log açılır. Loglar <i>Geçmiş</i> sekmesinde saklanır. Durdurulabilen işlerde (sync, calibrate, watch) log penceresinde <b>Durdur</b> düğmesi vardır. Sync durdurulunca yeni dosya başlatılmaz, açık aktarımlar kesilir; yüklenenler kaydedilir (geri alınabilir), kalanlar bekleyen olarak kalır ve bir sonraki sync'te gider. Durdurulan iş sarı <i>durduruldu</i> rozetiyle görünür (hata sayılmaz).</li>
       <li>Bildirimler tek yerde, sağ altta: biten işin sonucu kendi kartında yazar (ayrı bildirim çıkmaz), diğer mesajlar kartların hemen üstünde. Bildirime tıklayınca kapanır; iş kartına tıklayınca log açılır ve kart kapanır.</li>
       <li>Sunucuya bağlanılamazsa hata satırı log'a yazılır; CLI'da <code>sync</code> 1 koduyla çıkar (script / CI başarısızlığı görür).</li></ul>`],
@@ -45,6 +46,7 @@ const HELP = [
       <li><b>Dry-run</b> shows what would be uploaded without uploading. <b>Full sync</b> ignores the state and uploads everything.</li>
       <li>Files that failed show a red badge → click it and <b>Retry failed</b>.</li>
       <li>Locally deleted files are <b>not</b> deleted from the server, only reported (safe side).</li>
+      <li>The <b>pending changes</b> window (click the pending count on a server card) shows the files to upload as a <i>List</i> or as <i>Folders</i> (a tree like ls, with a file count per folder); the choice is remembered. Click a file to compare the local and server versions.</li>
       <li>Every job appears live at the bottom right; click it for the full log. Logs are kept under <i>History</i>. Jobs that can be cancelled (sync, calibrate, watch) have a <b>Stop</b> button in their log window. Stopping a sync starts no new files and cuts the running transfers; what was uploaded is recorded (and can be undone), the rest stays pending for the next sync. A stopped job shows a yellow <i>stopped</i> badge (not an error).</li>
       <li>Notifications appear in one place, bottom right: a finished job shows its result on its own card (no extra toast), other messages stack just above the cards. Click a message to dismiss it; clicking a job card opens its log and dismisses the card.</li>
       <li>If the server cannot be reached, the error is written to the log; on the CLI <code>sync</code> exits with code 1 (scripts and CI see the failure).</li></ul>`],

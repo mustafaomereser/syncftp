@@ -654,3 +654,11 @@ details.bolum.katlanir > summary h3 + .ok-ac { margin-left: auto; }
 .pk-yeni input { flex: 1; min-width: 0; }
 .pk-liste .pk-dosya { cursor: default; }
 @media (max-width: 560px) { .pk-yeni-et { display: none; } }
+
+/* Bekleyen değişiklikler: sekmeler + Liste | Klasör görünümü */
+.st-ust { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.st-ust .tabs { flex: 1; min-width: 0; margin: 0; }
+.st-gorunum button { display: inline-flex; align-items: center; }
+.st-agac { padding: 6px; font-size: 13px; }
+.st-agac .rt-dosya { cursor: default; }
+.st-agac .rt-dosya.tikla { cursor: pointer; }
