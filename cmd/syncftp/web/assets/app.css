@@ -642,3 +642,15 @@ details.bolum.katlanir > summary h3 + .ok-ac { margin-left: auto; }
 /* Dosyalar: silme işi süren satırlar */
 .tablo tr.siliniyor { opacity: .4; pointer-events: none; }
 .tablo tr.siliniyor .ad-hucre span { text-decoration: line-through; }
+
+/* Seçicilerde yeni klasör / dosya */
+.pk-arac { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; margin-bottom: 8px; }
+.pk-arac[hidden] { display: none; }
+.pk-arac .btn .i + .i { margin-left: -4px; }
+.pk-arac-yol { justify-content: space-between; }
+.pk-arac-yol .gz-yol { margin-bottom: 0; flex: 1; min-width: 0; }
+.pk-yeni { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; padding: 6px 8px; border: 1px solid var(--accent); border-radius: var(--r-input); background: var(--accent-soft); }
+.pk-yeni[hidden] { display: none; }
+.pk-yeni input { flex: 1; min-width: 0; }
+.pk-liste .pk-dosya { cursor: default; }
+@media (max-width: 560px) { .pk-yeni-et { display: none; } }

@@ -626,6 +626,7 @@ type formServerReq struct {
 	Server      config.Server       `json:"server"`
 	Connections []config.Connection `json:"connections"`
 	Path        string              `json:"path"`
+	Create      *newItemReq         `json:"create,omitempty"` // seçicide "Yeni klasör / dosya" (önce oluştur, sonra listele)
 }
 
 func (q formServerReq) resolve(old *config.Config) config.Server {
@@ -647,12 +648,13 @@ func (sv *guiServer) apiBrowseDirs(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 400, err)
 		return
 	}
-	listRemoteDirs(w, req.resolve(old), req.Path)
+	listRemoteDirs(w, req.resolve(old), req.Path, req.Create)
 }
 
-// listRemoteDirs uzak klasör seçicisinin bir adımı: p altındaki klasörler — sunucu formu ve
-// proje ekleme penceresi (kütüphane bağlantısı) ortak.
-func listRemoteDirs(w http.ResponseWriter, srv config.Server, p string) {
+// listRemoteDirs uzak klasör seçicisinin bir adımı: p altındaki klasörler (dosyalar yalnızca
+// gösterim için) — sunucu formu ve proje ekleme penceresi (kütüphane bağlantısı) ortak. create
+// doluysa önce p altında yeni klasör / boş dosya oluşturulur (remoteCreateItem).
+func listRemoteDirs(w http.ResponseWriter, srv config.Server, p string, create *newItemReq) {
 	dir := path.Clean("/" + strings.TrimSpace(p))
 	c, err := ftpclient.Connect(srv)
 	if err != nil {
@@ -660,18 +662,29 @@ func listRemoteDirs(w http.ResponseWriter, srv config.Server, p string) {
 		return
 	}
 	defer c.Close()
+	created := ""
+	if create != nil {
+		full, err := remoteCreateItem(c, dir, *create)
+		if err != nil {
+			guiErr(w, 400, err)
+			return
+		}
+		created = path.Base(full)
+	}
 	entries, err := remoteEntries(c, dir)
 	if err != nil {
 		guiErr(w, 400, err)
 		return
 	}
-	dirs := []string{}
+	dirs, files := []string{}, []string{}
 	for _, e := range entries {
 		if entryKind(e) == "dir" {
 			dirs = append(dirs, e.Name)
+		} else {
+			files = append(files, e.Name)
 		}
 	}
-	guiJSON(w, map[string]any{"path": dir, "dirs": dirs})
+	guiJSON(w, map[string]any{"path": dir, "dirs": dirs, "files": files, "created": created})
 }
 
 // testConnection bağlanır, uzak dizini listeler, süreyi döner — sunucu formu ve kütüphane ortak.

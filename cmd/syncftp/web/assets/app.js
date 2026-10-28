@@ -803,7 +803,7 @@ async function addProjectFlow() {
   $('#ap-remote-pick', m.root).onclick = async () => {
     if (!cs.value) return;
     const inp = $('#ap-remote', m.root);
-    const picked = await pickRemoteDir({ initial: inp.value.trim() || '/', list: (path) => api('POST', '/api/library/browse-dirs', { name: cs.value, path }) });
+    const picked = await pickRemoteDir({ initial: inp.value.trim() || '/', list: (path, create) => api('POST', '/api/library/browse-dirs', { name: cs.value, path, create }) });
     if (picked) inp.value = picked;
   };
   $('#ap-browse', m.root).onclick = async () => {
@@ -1448,7 +1448,7 @@ async function tabServerEdit(proj, name) {
     if (rb) rb.onclick = async (e) => {
       e.preventDefault();
       const inp = $('[data-k="remote_path"]', root);
-      const picked = await pickRemoteDir({ initial: inp.value.trim() || '/', list: (path) => api('POST', `/api/p/${enc(P)}/browse-dirs`, { server: collect(), connections: cfg.connections, path }) });
+      const picked = await pickRemoteDir({ initial: inp.value.trim() || '/', list: (path, create) => api('POST', `/api/p/${enc(P)}/browse-dirs`, { server: collect(), connections: cfg.connections, path, create }) });
       if (picked != null) inp.value = picked;
     };
     $('#b-test', root).onclick = async (e) => {
@@ -1770,17 +1770,25 @@ async function tabFiles(proj, srvName, relPath) {
   // Seçicide "/" = sunucunun uzak dizini; liste dosya tarayıcısının remote/ls ucundan gelir.
   async function moveItems(items) {
     const toRel = (p) => String(p || '').replace(/^\/+|\/+$/g, '');
+    let created = false; // seçicide klasör/dosya oluşturulduysa vazgeçilse de liste tazelenir
     const target = await pickRemoteDir({
       title: `${t('moveTo')} — ${items.length === 1 ? esc(items[0].path) : t('selectedN', items.length)}`,
       initial: '/' + rel,
-      list: async (path) => {
+      list: async (path, create) => {
         const r = toRel(path);
+        let name = '';
+        if (create) {
+          name = (await api('POST', `/api/p/${enc(P)}/remote/create?${q}&path=${enc(r)}`, create)).name;
+          created = true;
+          S.lsCache.delete(`${P}|${srv}|${r}`);
+        }
         const d = await GET(`/api/p/${enc(P)}/remote/ls?${q}&path=${enc(r)}`);
         if (d.error) throw new Error(d.error);
-        return { path: '/' + r, dirs: (d.entries || []).filter((e) => e.type === 'dir').map((e) => e.name) };
+        const es = d.entries || [];
+        return { path: '/' + r, dirs: es.filter((e) => e.type === 'dir').map((e) => e.name), files: es.filter((e) => e.type !== 'dir').map((e) => e.name), created: name };
       },
     });
-    if (target == null) return;
+    if (target == null) { if (created) reload(); return; }
     const to = toRel(target);
     try {
       for (const it of items) {
@@ -1929,6 +1937,17 @@ async function tabFiles(proj, srvName, relPath) {
         toast(t('created')); reload();
       } }],
     });
+    // Yeni (boş) dosya → oluşturulup doğrudan editörde açılır (seçicilerdeki "Yeni dosya" ile aynı uç)
+    $('#f-mkfile', root).onclick = () => modal({
+      title: `${icon('file')}${t('pkNewFile')}`, body: `<div class="alan"><label>${t('pkNewFilePh')}</label><input type="text" class="mono" id="nfl"></div>`,
+      actions: [{ label: t('cancel'), cls: 'hayalet' }, { label: t('create'), cls: 'birincil', run: async (r2) => {
+        const n = $('#nfl', r2).value.trim();
+        if (!n) return false;
+        const r = await api('POST', `/api/p/${enc(P)}/remote/create?${q}&path=${enc(rel)}`, { kind: 'file', name: n });
+        toast(t('pkCreated', r.name)); reload();
+        editFile(P, srv, full(r.name));
+      } }],
+    });
     // Satırlar parça parça çizilir (5000 girdili klasör tek seferde ~5 MB HTML + 1 sn yerleşim
     // demekti); filtre / tümünü seç TÜM liste üzerinde çalışır, olaylar tbody'de delegasyonla.
     const bar = $('#f-selbar', root);
@@ -2045,6 +2064,7 @@ async function tabFiles(proj, srvName, relPath) {
       <button class="btn" id="f-search" title="${t('searchAll')}">${icon('search')}${t('searchAll')}</button>
       <button class="btn" id="f-tree" title="${t('treeHint')}">${icon('layers')}${t('treeView')}</button>
       <button class="btn" id="f-mkdir">${icon('folder')}${t('newFolder')}</button>
+      <button class="btn" id="f-mkfile">${icon('file')}${t('pkNewFile')}</button>
       <button class="btn mavi" id="f-upload" title="${t('dropHint')}">${icon('upload')}${t('upload')}</button><input type="file" id="f-upload-input" multiple hidden></div>
     <div class="yol-cubuk"><button data-crumb="">${esc(data.root || '/')}</button>${crumbs.map((c, i) => `<span>/</span><button data-crumb="${esc(crumbs.slice(0, i + 1).join('/'))}">${esc(c)}</button>`).join('')}</div>
     <div class="secim-cubuk" id="f-selbar" hidden><b data-selcount></b>

@@ -635,6 +635,8 @@ Diğer:
 	GuiBusyFmt:             "%s üzerinde zaten çalışan bir iş var (%s)",
 	GuiPathRequired:        "klasör yolu gerekli",
 	GuiDirNotFoundFmt:      "klasör bulunamadı: %s",
+	GuiBadNameFmt:          "geçersiz ad: %q — yalnızca tek bir ad (/ \\ : * ? \" < > | olmadan)",
+	GuiItemExistsFmt:       "%s zaten var",
 	LocalDirMissingFmt:     "yerel klasör yok: %s (%s) — sunucunun yerel dizinini düzeltin",
 	GuiJobTree:             "Ağaç",
 	GuiJobDelete:           "Silme",

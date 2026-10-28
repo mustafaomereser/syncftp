@@ -28,11 +28,14 @@ import (
 func (sv *guiServer) routesMore(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/fs/list", sv.apiFSList)
 	mux.HandleFunc("GET /api/fs/tree", sv.apiFSTree)
+	mux.HandleFunc("POST /api/fs/create", sv.apiFSCreate) // cmd_gui_create.go
 	mux.HandleFunc("GET /api/help", sv.apiHelp)
 	sv.registerSettingsAPI(mux)
 	sv.registerLibraryAPI(mux)
 	sv.registerTermAPI(mux)
 	mux.HandleFunc("GET /api/p/{p}/local/ls", sv.apiLocalLs)
+	mux.HandleFunc("POST /api/p/{p}/local/create", sv.apiLocalCreate)
+	mux.HandleFunc("POST /api/p/{p}/remote/create", sv.apiRemoteCreate)
 
 	mux.HandleFunc("POST /api/p/{p}/remote/upload", sv.apiRemoteUpload)
 	mux.HandleFunc("POST /api/p/{p}/remote/mkdir", sv.apiRemoteMkdir)

@@ -576,6 +576,8 @@ type StringSet struct {
 	GuiBusyFmt             string // "%s üzerinde zaten çalışan bir iş var (%s)"
 	GuiPathRequired        string // "klasör yolu gerekli"
 	GuiDirNotFoundFmt      string // "klasör bulunamadı: %s"
+	GuiBadNameFmt          string // "geçersiz ad: %q — yalnızca tek bir ad (/ \ : * ? " < > | olmadan)"
+	GuiItemExistsFmt       string // "%s zaten var"
 	LocalDirMissingFmt     string // "yerel klasör yok: %s (%s) — sunucunun yerel dizinini düzeltin"
 	GuiIgnoreNoFile        string
 	GuiJobTree             string

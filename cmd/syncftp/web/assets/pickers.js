@@ -15,6 +15,7 @@ Object.assign(T.tr, {
   pkHidden: 'Gizlileri göster', pkTreeTitle: 'Yerel dosyalardan seç', pkIgnored: 'ignore', pkSelected: '{0} seçili',
   
   pkFreezeHint: 'Klasör işaretlenirse klasörün kendisi freeze\'lenir: altındaki her dosya (sonradan eklenenler dahil) yüklenmez.',
+  pkNewFolder: 'Yeni klasör', pkNewFile: 'Yeni dosya', pkNewFolderPh: 'Klasör adı', pkNewFilePh: 'Dosya adı (ör. index.php)', pkCreate: 'Oluştur', pkCreated: '{0} oluşturuldu',
 });
 Object.assign(T.en, {
   pkTitleDir: 'Choose folder', pkTitleFile: 'Choose file', pkDrives: 'Drives', pkHome: 'Home', pkUp: 'Parent folder',
@@ -23,7 +24,47 @@ Object.assign(T.en, {
   pkHidden: 'Show hidden', pkTreeTitle: 'Pick from local files', pkIgnored: 'ignored', pkSelected: '{0} selected',
   
   pkFreezeHint: 'Checking a folder freezes the folder itself: nothing inside it (including files added later) is uploaded.',
+  pkNewFolder: 'New folder', pkNewFile: 'New file', pkNewFolderPh: 'Folder name', pkNewFilePh: 'File name (e.g. index.php)', pkCreate: 'Create', pkCreated: '{0} created',
 });
+
+// ── Seçicilerde "Yeni klasör / Yeni dosya" ───────────────────────────────────
+// Araç çubuğunda iki düğme; tıklayınca listenin üstünde satır içi ad kutusu açılır (Enter oluşturur,
+// Esc kapatır — Esc pencereyi kapatmaz). create(kind, name) sunucuya / diske yazar ve listeyi tazeler;
+// hata kutunun yanında kalır, ad düzeltilip tekrar denenir. kinds: ['dir'] ya da ['dir','file'].
+const pkNewButtons = (kinds = ['dir', 'file']) => kinds.map((k) =>
+  `<button class="btn kucuk" data-pknew="${k}" title="${t(k === 'dir' ? 'pkNewFolder' : 'pkNewFile')}">${icon('plus')}${icon(k === 'dir' ? 'folder' : 'file')}<span class="pk-yeni-et">${t(k === 'dir' ? 'pkNewFolder' : 'pkNewFile')}</span></button>`).join('');
+const pkNewRow = () => `<div class="pk-yeni" data-pknewrow hidden><span data-pknewicon></span>
+  <input type="text" spellcheck="false" autocomplete="off" data-pknewname>
+  <button class="btn kucuk birincil" data-pknewok>${t('pkCreate')}</button>
+  <button class="ikon-btn" data-pknewx title="${t('cancel')}">${icon('x')}</button></div>`;
+function bindPkNew(root, create) {
+  const row = $('[data-pknewrow]', root), inp = $('[data-pknewname]', root), ok = $('[data-pknewok]', root);
+  if (!row) return { hide() {} };
+  let kind = 'dir';
+  const hide = () => { row.hidden = true; inp.value = ''; };
+  const submit = async () => {
+    const name = inp.value.trim();
+    if (!name) { inp.focus(); return; }
+    ok.disabled = true;
+    try { await create(kind, name); hide(); toast(t('pkCreated', name)); }
+    catch (e) { toast(e.message, 'bad'); inp.focus(); inp.select(); }
+    finally { ok.disabled = false; }
+  };
+  $$('[data-pknew]', root).forEach((b) => (b.onclick = () => {
+    kind = b.dataset.pknew;
+    $('[data-pknewicon]', root).innerHTML = icon(kind === 'dir' ? 'folder' : 'file', 'acc-t');
+    inp.placeholder = t(kind === 'dir' ? 'pkNewFolderPh' : 'pkNewFilePh');
+    row.hidden = false; inp.focus();
+  }));
+  ok.onclick = submit;
+  $('[data-pknewx]', root).onclick = hide;
+  // Pencerenin Esc / tek tuş kısayolları bu kutuda çalışmasın
+  inp.onkeydown = (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') { e.preventDefault(); submit(); } else if (e.key === 'Escape') { e.preventDefault(); hide(); }
+  };
+  return { hide };
+}
 
 // ── Dosya sistemi seçici ─────────────────────────────────────────────────────
 function pickPath({ mode = 'dir', initial = '', title } = {}) {
@@ -43,6 +84,8 @@ function pickPath({ mode = 'dir', initial = '', title } = {}) {
           <button class="ikon-btn" data-pk="home" title="${t('pkHome')}">${icon('layers')}</button>
           <input type="text" class="mono" data-pk="path" spellcheck="false">
           <button class="btn" data-pk="go">${t('pkGo')}</button></div>
+        <div class="pk-arac" data-pk="newbar">${pkNewButtons(mode === 'dir' ? ['dir'] : ['dir', 'file'])}</div>
+        ${pkNewRow()}
         <div class="liste-kutu pk-liste" data-pk="list" style="height:46vh;max-height:none"></div>
         <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px;color:var(--muted)">
           <input type="checkbox" data-pk="hidden"> ${t('pkHidden')}</label>`,
@@ -73,6 +116,7 @@ function pickPath({ mode = 'dir', initial = '', title } = {}) {
       }
       cur = d.path; home = d.home || home; sep = d.sep || sep; chosenFile = '';
       $p('path').value = cur;
+      $p('newbar').hidden = !cur; // sürücü listesinde oluşturulamaz
       $p('info').innerHTML = d.has_config ? `<span class="pill ok"><span class="nokta"></span>${t('pkProject')}</span>` : '';
       const list = $p('list');
       if (!d.entries.length) { list.innerHTML = `<div class="faint" style="padding:10px 12px">${t('pkEmpty')}</div>`; return; }
@@ -93,6 +137,14 @@ function pickPath({ mode = 'dir', initial = '', title } = {}) {
         };
       });
     }
+    // Yeni klasör → içine girilir (klasör seçerken genelde yeni klasörü seçmek istenir); yeni dosya → seçili gelir
+    bindPkNew(m.root, async (kind, name) => {
+      const r = await api('POST', '/api/fs/create', { root: cur, path: '', kind, name });
+      if (kind === 'dir') { await load(r.path); return; }
+      await load(cur);
+      const row = $$('.pk-satir', $p('list')).find((x) => x.dataset.name === r.name);
+      if (row) { row.click(); row.scrollIntoView({ block: 'nearest' }); }
+    });
     $p('up').onclick = () => GET(`/api/fs/list?path=${enc(cur)}`).then((d) => load(d.parent || '')).catch(() => load(''));
     $p('drives').onclick = () => load('');
     $p('home').onclick = () => load(home);
@@ -103,8 +155,9 @@ function pickPath({ mode = 'dir', initial = '', title } = {}) {
   });
 }
 
-// Uzak klasör seçici — sunucu formundaki "Uzak dizin → Gözat". list(path) → {path, dirs}; formdaki
-// (kaydedilmemiş) bağlantı bilgileriyle sunucuya bağlanır. Klasöre tıkla → içine gir, ".." → üst.
+// Uzak klasör seçici — sunucu formundaki "Uzak dizin → Gözat", proje ekleme, dosya taşıma.
+// list(path, create) → {path, dirs, files?}; create ({kind, name}) verilirse çağıran önce onu
+// sunucuda oluşturur sonra listeler. Klasöre tıkla → içine gir, ".." → üst; dosyalar yalnızca görünür.
 function pickRemoteDir({ list, initial = '/', title }) {
   return new Promise((resolve) => {
     let cur = initial || '/', done = false, busy = 0;
@@ -114,6 +167,8 @@ function pickRemoteDir({ list, initial = '/', title }) {
           <button class="ikon-btn" data-rp="up" title="${t('pkUp')}">${icon('left')}</button>
           <input type="text" class="mono" data-rp="path" spellcheck="false">
           <button class="btn" data-rp="go">${t('pkGo')}</button></div>
+        <div class="pk-arac">${pkNewButtons()}</div>
+        ${pkNewRow()}
         <div class="liste-kutu pk-liste" data-rp="list" style="height:46vh;max-height:none"></div>`,
       actions: [
         { label: t('cancel'), cls: 'hayalet', run: () => { done = true; resolve(null); } },
@@ -123,6 +178,19 @@ function pickRemoteDir({ list, initial = '/', title }) {
     });
     const $r = (k) => $(`[data-rp="${k}"]`, m.root);
     const parent = (p) => (p === '/' ? '/' : p.replace(/\/[^/]*$/, '') || '/');
+    const child = (n) => (cur === '/' ? '' : cur) + '/' + n;
+    function draw(d, mark = '') {
+      cur = d.path; $r('path').value = cur;
+      const rows = (cur === '/' ? [] : [['..', parent(cur)]]).concat(d.dirs.map((n) => [n, child(n)]));
+      const files = d.files || [];
+      $r('list').innerHTML = rows.length || files.length
+        ? rows.map(([n, full]) => `<div class="tikla pk-satir${n === mark ? ' secili' : ''}" data-full="${esc(full)}">${icon(n === '..' ? 'left' : 'folder', n === '..' ? 'faint' : 'acc-t')} ${esc(n)}</div>`).join('')
+          + files.map((n) => `<div class="pk-satir pk-dosya${n === mark ? ' secili' : ''}">${icon('file', 'faint')} <span class="faint">${esc(n)}</span></div>`).join('')
+        : `<div class="faint" style="padding:10px 12px">${t('pkNoSubdirs')}</div>`;
+      $$('.pk-satir[data-full]', $r('list')).forEach((row) => (row.onclick = () => load(row.dataset.full)));
+      const sel = $('.pk-satir.secili', $r('list'));
+      if (sel) sel.scrollIntoView({ block: 'nearest' });
+    }
     async function load(path) {
       const seq = ++busy;
       $r('list').innerHTML = `<div class="faint" style="padding:10px 12px">${icon('refresh', 'spin')} ${t('loading')}</div>`;
@@ -133,12 +201,15 @@ function pickRemoteDir({ list, initial = '/', title }) {
         return;
       }
       if (seq !== busy) return;
-      cur = d.path; $r('path').value = cur;
-      const rows = (cur === '/' ? [] : [['..', parent(cur)]]).concat(d.dirs.map((n) => [n, (cur === '/' ? '' : cur) + '/' + n]));
-      $r('list').innerHTML = rows.length ? rows.map(([n, full]) => `<div class="tikla pk-satir" data-full="${esc(full)}">${icon(n === '..' ? 'left' : 'folder', n === '..' ? 'faint' : 'acc-t')} ${esc(n)}</div>`).join('')
-        : `<div class="faint" style="padding:10px 12px">${t('pkNoSubdirs')}</div>`;
-      $$('.pk-satir', $r('list')).forEach((row) => (row.onclick = () => load(row.dataset.full)));
+      draw(d);
     }
+    // Yeni klasör → içine girilir; yeni dosya → listede işaretli görünür
+    bindPkNew(m.root, async (kind, name) => {
+      const d = await list(cur, { kind, name });
+      ++busy;
+      if (kind === 'dir') await load(child(d.created || name));
+      else draw(d, d.created || name);
+    });
     $r('up').onclick = () => load(parent(cur));
     $r('go').onclick = () => load($r('path').value.trim() || '/');
     $r('path').onkeydown = (e) => { if (e.key === 'Enter') load($r('path').value.trim() || '/'); };
@@ -169,7 +240,8 @@ function pickLocalTree({ P, root = '', server = '', current = [], title, mode = 
     const m = modal({
       title: `${icon('folder')}${title || t('pkTreeTitle')}`, size: 'orta',
       body: `<p class="ipucu" style="margin:0 0 8px">${mode === 'files' ? t('pkFreezeHint') : t('pkExplorerHint')}</p>
-        <div class="gz-yol" data-crumbs></div>
+        <div class="pk-arac pk-arac-yol"><div class="gz-yol" data-crumbs></div>${pkNewButtons()}</div>
+        ${pkNewRow()}
         <div class="liste-kutu gezgin" data-list tabindex="0" style="height:44vh;max-height:none"></div>
         <div class="gz-secili" data-picked></div>`,
       actions: [
@@ -260,6 +332,13 @@ function pickLocalTree({ P, root = '', server = '', current = [], title, mode = 
       else return;
       e.preventDefault();
     };
+    // Yeni öğe bulunulan klasörde oluşturulur, imleç ona gelir (seçmek için Space / onay kutusu)
+    bindPkNew(m.root, async (kind, name) => {
+      const r = root
+        ? await api('POST', '/api/fs/create', { root, path: cwd, kind, name })
+        : await api('POST', `/api/p/${enc(P)}/local/create?server=${enc(server)}&path=${enc(cwd)}`, { kind, name });
+      await open(cwd, r.name);
+    });
     drawPicked();
     open('');
   });

@@ -153,8 +153,9 @@ func (sv *guiServer) apiLibraryTest(w http.ResponseWriter, r *http.Request) {
 // penceresinde "Uzak dizin → Gözat"; proje henüz yok).
 func (sv *guiServer) apiLibraryBrowseDirs(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Name string `json:"name"`
-		Path string `json:"path"`
+		Name   string      `json:"name"`
+		Path   string      `json:"path"`
+		Create *newItemReq `json:"create,omitempty"`
 	}
 	if err := guiDecode(r, &req); err != nil {
 		guiErr(w, 400, err)
@@ -169,7 +170,7 @@ func (sv *guiServer) apiLibraryBrowseDirs(w http.ResponseWriter, r *http.Request
 	var srv config.Server
 	srv.ApplyConnection(c)
 	srv.Normalize()
-	listRemoteDirs(w, srv, req.Path)
+	listRemoteDirs(w, srv, req.Path, req.Create)
 }
 
 func (sv *guiServer) apiLibraryImport(w http.ResponseWriter, r *http.Request) {

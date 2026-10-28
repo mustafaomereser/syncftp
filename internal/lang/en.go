@@ -635,6 +635,8 @@ Other:
 	GuiBusyFmt:             "%s already has a running job (%s)",
 	GuiPathRequired:        "folder path is required",
 	GuiDirNotFoundFmt:      "folder not found: %s",
+	GuiBadNameFmt:          "invalid name: %q — a single name only (no / \\ : * ? \" < > |)",
+	GuiItemExistsFmt:       "%s already exists",
 	LocalDirMissingFmt:     "local folder not found: %s (%s) — fix the server's local path",
 	GuiJobTree:             "Tree",
 	GuiJobDelete:           "Delete",
