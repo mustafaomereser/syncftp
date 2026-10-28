@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"os"
 	"path/filepath"
+	"strings"
 
 	gitignore "github.com/sabhiram/go-gitignore"
 )
@@ -24,7 +25,14 @@ func Load(dir string, ignoreFiles []string) (*Matcher, error) {
 	if len(ignoreFiles) == 0 {
 		ignoreFiles = defaultIgnoreFiles
 	}
+	// Sync'in okuduğu ignore dosyalarının kendisi de yüklenmez (kökteki .gitignore sunucuya gidiyordu).
+	// Yalnızca bu kök dosyalar — alt klasörlerdeki .gitignore'lar boş klasörleri sunucuda var eder
+	// (ör. Laravel storage/framework/cache/.gitignore), onlara dokunulmaz. Başa eklenir: kullanıcı
+	// syncftp.ignore'a "!/.gitignore" yazarsa yine yüklenir.
 	var lines []string
+	for _, name := range ignoreFiles {
+		lines = append(lines, "/"+strings.TrimLeft(filepath.ToSlash(filepath.Clean(name)), "/"))
+	}
 	for _, name := range ignoreFiles {
 		p := filepath.Join(dir, name)
 		extra, err := readLines(p)
@@ -32,9 +40,6 @@ func Load(dir string, ignoreFiles []string) (*Matcher, error) {
 			return nil, err
 		}
 		lines = append(lines, extra...)
-	}
-	if len(lines) == 0 {
-		return &Matcher{}, nil
 	}
 	return &Matcher{gi: gitignore.CompileIgnoreLines(lines...)}, nil
 }

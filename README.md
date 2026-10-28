@@ -201,7 +201,7 @@ For each session syncFTP writes `.syncftp/ai/` — `README.md` (rules), `CLI.md`
 | `sync.protect` | `[]` | Never overwrite these on any server (`dir/` for folders) |
 | `sync.include` | `[]` | Whitelist — sync only these paths (empty = all) |
 | `sync.exclude` | `[]` | Skip these paths — see [pattern rules](#pattern-rules) |
-| `sync.ignore_files` | `null` | Which ignore files to load — `null`/empty = `.gitignore` + `.syncftp/syncftp.ignore` |
+| `sync.ignore_files` | `null` | Which ignore files to load — `null`/empty = `.gitignore` + `.syncftp/syncftp.ignore`. These root files are themselves never uploaded (add `!/.gitignore` to upload it); `.gitignore` files in subfolders are uploaded so empty folders exist on the server |
 | `sync.block_extensions` | `[]` | Never upload these extensions; per-server list is added on top |
 | `sync.webhook` | `""` | POST after each sync (Slack / Discord URLs are formatted automatically) |
 | `sync.pre_sync` / `sync.post_sync` | `[]` | Local shell commands before / after upload |
