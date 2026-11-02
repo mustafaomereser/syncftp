@@ -10,27 +10,27 @@ const T = {
   tr: {
     navAll: 'Tüm projeler', navJobs: 'İşler', navProjects: 'Projeler',
     addProject: 'Proje ekle', navNoProjects: 'Bu klasörde proje yok', watching: 'Watch', language: 'Dil', quit: 'Kapat',
-    loading: 'Yükleniyor…', shortcutKey: 'Kısayol: {0}', skip_ignored: 'ignore', skip_excluded: 'exclude', skip_not_included: 'include dışı', skipHint_ignored: 'Yerelde ignore dosyalarında (.gitignore / syncftp.ignore): sync bu yolu taramaz, sunucuya yüklemez. Sunucudaki kopyaya dokunulmaz, silinmez.', skipHint_excluded: 'Exclude yerel taraf içindir: yereldeki bu dosya sunucuya yüklenmez. Sunucudaki kopyaya dokunulmaz, silinmez.', skipHint_not_included: 'Include listesinde değil: yereldeki bu dosya sunucuya yüklenmez. Sunucudaki kopyaya dokunulmaz, silinmez.', watchAll: 'Tümünü izle', watchStopAll: 'Tüm watch\'ları durdur', watchAllHint: 'Projedeki her aktif sunucu için ayrı watch başlatır', watchServerHint: 'Bu sunucuyu izle: yerelde değişen dosyalar otomatik yüklenir (CLI: watch -s)', watchingTag: 'izleniyor', watchCount: '{0}/{1} sunucu', watchSyncs: '{0} otomatik sync', mgSync: 'Sync', mgCheck: 'Kontrol', mgHistory: 'Zaman ve geri alma', mgServer: 'Sunucu', showMore: '{0} tane daha göster', foldAdvanced: 'Gelişmiş', foldMore: 'Diğer', foldDefault: 'varsayılan', foldOff: 'kapalı', foldConn: 'bağlantı', foldRetry: 'deneme', foldBlock: 'engelli uzantı', setTabGeneral: 'Genel', setTabLibrary: 'Bağlantı kütüphanesi', setTabDefaults: 'Yeni proje varsayılanları', setTabProjects: 'Projeler', setTabHooks: 'Webhook / CI', setTabSecurity: 'Host anahtarları', setTabSystem: 'Sistem', deleteRecursive: 'İçeriğiyle birlikte sil', deleteRecursiveHint: 'Kapalıyken yalnızca boş klasörler silinir (CLI: remote rm --recursive)', stFilter: 'Filtrele', stFilterHint: 'Yalnızca bu liste için — config değişmez (CLI: status --include / --exclude)', moreRows: '{0} öğe daha göster', stFrozen: 'Freeze', stProtected: 'Korunan', stBlocked: 'Engelli', stUploadSize: 'yüklenecek: {0}', treeView: 'Ağaç', treeHint: 'Bu klasörün altını ağaç olarak göster (shell tree)', treeAsk: 'Klasör başına en fazla kaç öğe gösterilsin?', treeAll: 'Tümü', ignoreNoFile: 'ignore_files listesinde syncFTP dosyası yok — yalnızca .gitignore okunuyor', viewCode: 'Kod', fmtRaw: 'Orijinal', fmtPretty: 'Biçimlendir', fmtMinified: 'Dosya sıkıştırılmış (minify) — okunur hâli gösteriliyor; sunucudaki dosya değişmez', fmtHint: 'Yalnızca görünüm: sunucudaki ya da yereldeki dosya değişmez', fmtFailed: 'Biçimlendirilemedi: {0}', viewRendered: 'Önizleme', viewRenderedLocal: 'Önizleme (yerel)', viewRenderedRemote: 'Önizleme (sunucu)', scanningLocal: 'Taranıyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
+    loading: 'Yükleniyor…', shortcutKey: 'Kısayol: {0}', skip_ignored: 'ignore', skip_excluded: 'exclude', skip_not_included: 'include dışı', skipHint_ignored: 'Yerelde ignore dosyalarında (.gitignore / syncftp.ignore): sync bu yolu taramaz, sunucuya yüklemez. Sunucudaki kopyaya dokunulmaz, silinmez.', skipHint_excluded: 'Exclude yerel taraf içindir: yereldeki bu dosya sunucuya yüklenmez. Sunucudaki kopyaya dokunulmaz, silinmez.', skipHint_not_included: 'Include listesinde değil: yereldeki bu dosya sunucuya yüklenmez. Sunucudaki kopyaya dokunulmaz, silinmez.', watchAll: 'Tümünü izle', watchStopAll: 'Tüm watch\'ları durdur', watchAllHint: 'Projedeki her aktif profil için ayrı watch başlatır', watchServerHint: 'Bu profili izle: yerelde değişen dosyalar otomatik yüklenir (CLI: watch -s)', watchingTag: 'izleniyor', watchCount: '{0}/{1} profil', watchSyncs: '{0} otomatik sync', mgSync: 'Sync', mgCheck: 'Kontrol', mgHistory: 'Zaman ve geri alma', mgServer: 'Profil', showMore: '{0} tane daha göster', foldAdvanced: 'Gelişmiş', foldMore: 'Diğer', foldDefault: 'varsayılan', foldOff: 'kapalı', foldConn: 'bağlantı', foldRetry: 'deneme', foldBlock: 'engelli uzantı', setTabGeneral: 'Genel', setTabLibrary: 'Bağlantı kütüphanesi', setTabDefaults: 'Yeni proje varsayılanları', setTabProjects: 'Projeler', setTabHooks: 'Webhook / CI', setTabSecurity: 'Host anahtarları', setTabSystem: 'Sistem', deleteRecursive: 'İçeriğiyle birlikte sil', deleteRecursiveHint: 'Kapalıyken yalnızca boş klasörler silinir (CLI: remote rm --recursive)', stFilter: 'Filtrele', stFilterHint: 'Yalnızca bu liste için — config değişmez (CLI: status --include / --exclude)', moreRows: '{0} öğe daha göster', stFrozen: 'Freeze', stProtected: 'Korunan', stBlocked: 'Engelli', stUploadSize: 'yüklenecek: {0}', treeView: 'Ağaç', treeHint: 'Bu klasörün altını ağaç olarak göster (shell tree)', treeAsk: 'Klasör başına en fazla kaç öğe gösterilsin?', treeAll: 'Tümü', ignoreNoFile: 'ignore_files listesinde syncFTP dosyası yok — yalnızca .gitignore okunuyor', viewCode: 'Kod', fmtRaw: 'Orijinal', fmtPretty: 'Biçimlendir', fmtMinified: 'Dosya sıkıştırılmış (minify) — okunur hâli gösteriliyor; sunucudaki dosya değişmez', fmtHint: 'Yalnızca görünüm: sunucudaki ya da yereldeki dosya değişmez', fmtFailed: 'Biçimlendirilemedi: {0}', viewRendered: 'Önizleme', viewRenderedLocal: 'Önizleme (yerel)', viewRenderedRemote: 'Önizleme (sunucu)', scanningLocal: 'Taranıyor…', refresh: 'Yenile', save: 'Kaydet', cancel: 'Vazgeç', close: 'Kapat', delete: 'Sil',
     edit: 'Düzenle', back: 'Geri', yes: 'Evet', confirm: 'Onayla', browse: 'Gözat', add: 'Ekle', open: 'Aç',
     saved: 'Kaydedildi', copied: 'Kopyalandı', never: 'hiç', none: 'yok', all: 'Tümü', manual: '(manuel giriş)',
     projectsTitle: 'Projeler', projectsSub: `{0} klasöründeki syncFTP projeleri (CLI gibi: panel açıldığı klasörü esas alır)`,
     noProjects: 'Henüz proje yok', noProjectsSub: 'Bu klasörde (ya da alt klasörlerinde) .syncftp/ yok. Buraya proje kurun; terminalde `syncftp init` çalıştırdığınız alt klasörler de burada kendiliğinden görünür.',
-    serversN: '{0} sunucu', enabledN: '{0} aktif', configError: 'Config okunamadı',
+    serversN: '{0} profil', enabledN: '{0} aktif', configError: 'Config okunamadı',
     addProjectTitle: 'Proje ekle', folder: 'Proje klasörü', folderHint: 'Panelin açıldığı klasör ya da altındaki bir klasör (.syncftp/ yoksa oluşturulur)',
     displayName: 'Görünen ad', displayNameHint: 'Boş bırakılırsa klasör adı kullanılır',
     createConfigTitle: 'Config oluşturulsun mu?', createConfigBody: 'Bu klasörde syncFTP config\'i yok. Boş bir config oluşturup projeyi ekleyeyim mi? Ardından sunucu ekleyebilirsiniz.',
     create: 'Oluştur',
-    tabOverview: 'Genel bakış', tabServers: 'Sunucular', tabConnections: 'Bağlantılar', tabSettings: 'Proje ayarları',
+    tabOverview: 'Genel bakış', tabServers: 'Profiller', tabConnections: 'Bağlantılar', tabSettings: 'Proje ayarları',
     tabFiles: 'Dosyalar', tabHistory: 'Geçmiş',
-    sumServers: 'Sunucular', sumPending: 'Bekleyen değişiklik', sumLastSync: 'Son sync', sumWatch: 'Watch',
+    sumServers: 'Profiller', sumPending: 'Bekleyen değişiklik', sumLastSync: 'Son sync', sumWatch: 'Watch',
     syncAll: 'Tümünü sync et', dryRunAll: 'Dry-run', more: 'Diğer',
     calibrateAll: 'Tümünü calibrate et', calibrateHint: 'Sunucudaki dosyaları boyutla eşleştir, state\'i kur (yükleme yok)',
     verifyAll: 'Tümünü doğrula', verifyHint: 'Sunucuda elle değiştirilen/silinen dosyaları bul',
     detectAll: 'Bağlantı limitlerini ölç', detectHint: 'Sunucunun kabul ettiği en fazla bağlantıyı bulup max_connections\'a yazar',
     watchStart: 'Watch başlat', watchStop: 'Watch durdur', watchOff: 'Kapalı',
     watchSince: '{0} beri · {1} sync', watchStarted: 'Watch başladı', watchStopped: 'Watch durduruldu', noWatches: 'Çalışan watch yok',
-    noServers: 'Bu projede sunucu yok', noServersSub: 'İlk sunucuyu ekleyin — FTP, FTPS veya SFTP; isterseniz SSH tüneli üzerinden.',
-    addServer: 'Sunucu ekle', disabled: 'pasif', busy: 'çalışıyor', tunnel: 'tünel',
+    noServers: 'Bu projede profil yok', noServersSub: 'İlk profili ekleyin: yerel klasörün sunucuda nereye yükleneceğini belirler — FTP, FTPS veya SFTP; isterseniz SSH tüneli üzerinden.',
+    addServer: 'Profil ekle', disabled: 'pasif', busy: 'çalışıyor', tunnel: 'tünel',
     sync: 'Sync', dryRun: 'Dry-run', dryRunHint: 'Neyin yükleneceğini göster, yükleme yapma',
     fullSync: 'Tam sync', fullSyncHint: 'State\'i yok say, bütün dosyaları yükle', fullSyncConfirm: '{0} üzerindeki BÜTÜN dosyalar yeniden yüklenecek. Devam edilsin mi?',
     retryFailed: 'Başarısızları tekrar dene', retryFailedHint: 'Son sync\'te yüklenemeyen {0} dosya',
@@ -41,7 +41,7 @@ const T = {
     pendingChip: '<b class="n">+{0}</b> <b class="c">~{1}</b> <b class="d">−{2}</b>', upToDate: 'Güncel',
     filesTracked: '{0} dosya', maxConn: '{0} bağlantı', speedLimit: '{0} KB/s', noBackup: 'yedek kapalı', backupOn: 'yedekli',
     failedN: '{0} başarısız', frozenN: '{0} frozen', rollbackN: '{0} geri alınabilir',
-    statusTitle: '{0} — bekleyen değişiklikler', stViewList: 'Liste', stViewTree: 'Klasör', stViewHint: 'Liste ya da klasör ağacı (ls gibi) olarak göster', newFiles: 'Yeni', changedFiles: 'Değişen', deletedFiles: 'Yerelde silinen',
+    filesConnTip: 'Bu bağlantıyla gez: {0}', filesConnHint: 'Bağlantıyla geziyorsun: kök dizinden başlar, sync\'e bağlı değildir. Freeze, yerelle karşılaştırma ve düzenleme yalnızca profillerde.', statusTitle: '{0} — bekleyen değişiklikler', stViewList: 'Liste', stViewTree: 'Klasör', stViewHint: 'Liste ya da klasör ağacı (ls gibi) olarak göster', newFiles: 'Yeni', changedFiles: 'Değişen', deletedFiles: 'Yerelde silinen',
     deletedNote: 'Yerelde silinen dosyalar sunucudan silinmez, yalnızca raporlanır.', emptyList: 'Liste boş',
     milestoneTitle: '{0} — milestone', milestoneBody: 'Milestone, bu tarihten önce değişmiş dosyaları sync dışında bırakır (kalıcı filtre). "Milestone sync" yalnızca tarihten sonra değişenleri yükler.',
     milestoneCurrent: 'Mevcut: {0}', milestoneDate: 'Tarih', milestonePh: 'bugün', milestoneDateHint: 'boş = şimdi · bugün · dün · 3d · 5h · 14:30 · 20.07 · 20.07.2026 15:04 · 2026-07-20',
@@ -49,14 +49,14 @@ const T = {
     freezeTitle: '{0} — freeze listesi', freezeBody: 'Her satıra bir dosya yolu (yerel dizine göreceli). Bu dosyalar değişse bile yüklenmez.',
     freezeSaved: 'Freeze listesi kaydedildi ({0} kayıt)',
     colName: 'Ad', colProtocol: 'Protokol', colHost: 'Host', colRemote: 'Uzak dizin', colLocal: 'Yerel dizin', colEnabled: 'Aktif',
-    duplicate: 'Kopyala', deleteServerConfirm: '"{0}" sunucusu config\'ten silinsin mi? (State ve yedekler diskte kalır.)',
-    serverNew: 'Yeni sunucu', serverEdit: 'Sunucuyu düzenle',
-    secGeneral: 'Genel', secConnection: 'Bağlantı', secConnectionDesc: 'Bir bağlantı profili seçin ya da bilgileri elle girin.',
+    duplicate: 'Kopyala', deleteServerConfirm: '"{0}" profili config\'ten silinsin mi? (State ve yedekler diskte kalır.)',
+    serverNew: 'Yeni profil', serverEdit: 'Profili düzenle',
+    secGeneral: 'Genel', secConnection: 'Bağlantı', secConnectionDesc: 'Bir bağlantı seçin ya da bilgileri elle girin.',
     secTunnel: 'SSH tüneli', secTunnelDesc: 'Sunucuya doğrudan erişilemiyorsa bağlantı bu SSH sunucusu (jump host) üzerinden açılır. Boş = tünel yok.',
-    secPaths: 'Dizinler', secPerf: 'Performans', secFilters: 'Filtreler', secFiltersDesc: 'Her satıra bir yol. Sunucu include\'u globali geçersiz kılar; exclude/protect globale eklenir.',
+    secPaths: 'Dizinler', secPerf: 'Performans', secFilters: 'Filtreler', secFiltersDesc: 'Her satıra bir yol. Profilin include\'u globali geçersiz kılar; exclude/protect globale eklenir.',
     secUpload: 'Yükleme', secHooks: 'Hook\'lar', secHooksDesc: 'Her satıra bir komut, proje dizininde sırayla çalışır. Global hook\'lardan sonra çalışırlar.',
-    fName: 'Ad', fEnabled: 'Aktif', fEnabledHint: 'Pasif sunucular "tümünü sync et"e dahil olmaz',
-    fConnection: 'Bağlantı profili', fProtocol: 'Protokol', fHost: 'Host', fPort: 'Port', fUser: 'Kullanıcı', fPassword: 'Şifre',
+    fName: 'Ad', fEnabled: 'Aktif', fEnabledHint: 'Pasif profiller "tümünü sync et"e dahil olmaz',
+    fConnection: 'Bağlantı', fProtocol: 'Protokol', fHost: 'Host', fPort: 'Port', fUser: 'Kullanıcı', fPassword: 'Şifre',
     fKeyFile: 'SSH anahtar dosyası', fKeyFileHint: 'SFTP için; şifreliyse şifre alanı passphrase olarak denenir',
     fPassive: 'Passive mode', fEpsv: 'EPSV kapalı', fEpsvHint: 'Bazı eski sunucular için', fNat: 'NAT düzeltmesi', fNatHint: 'Pasif IP yerine host adresine bağlan',
     fTls: 'Sertifika doğrulamasını atla', fTlsHint: 'FTPS — paylaşımlı hosting sertifikası host adıyla uyuşmuyorsa',
@@ -71,14 +71,14 @@ const T = {
     fWebhook: 'Webhook URL', fWebhookHint: 'Her sync sonrası özet POST edilir; boş = global',
     fPre: 'pre_sync', fPost: 'post_sync',
     testConn: 'Bağlantıyı test et', testOk: 'Bağlantı başarılı — {0} ms, {1} öğe', testing: 'Test ediliyor…',
-    lockedByProfile: 'Bağlantı bilgileri "{0}" profilinden geliyor.', editProfile: 'Profili düzenle',
-    tunnelByProfile: 'Tünel ayarı da "{0}" profilinden geliyor.',
-    connectionsSub: 'Aynı FTP/SFTP hesabını kullanan sunucular bilgileri tek yerden paylaşır.',
-    noConnections: 'Bağlantı profili yok', noConnectionsSub: 'Birden fazla sunucu aynı hesaba bağlanıyorsa bilgileri bir profilde toplayın.',
-    addConnection: 'Profil ekle', connNew: 'Yeni bağlantı profili', connEdit: 'Profili düzenle', usedBy: 'Kullanan',
-    connInUse: '"{0}" profilini kullanan sunucular var: {1}', deleteConnConfirm: '"{0}" profili silinsin mi?',
-    secProject: 'Proje', fProjectName: 'Proje adı (config)', fDefaultPath: 'Varsayılan yerel dizin', fDefaultPathHint: 'Kendi yerel dizini olmayan sunucular buradan okur',
-    secGlobal: 'Global sync ayarları', secGlobalDesc: 'Tüm sunuculara uygulanır; sunucu ayarları bunları genişletir.',
+    lockedByProfile: 'Bilgiler "{0}" bağlantısından geliyor.', editProfile: 'Bağlantıyı düzenle',
+    tunnelByProfile: 'Tünel ayarı da "{0}" bağlantısından geliyor.',
+    connectionsSub: 'Aynı FTP/SFTP hesabını kullanan profiller bilgileri tek yerden paylaşır.',
+    noConnections: 'Bağlantı yok', noConnectionsSub: 'Birden fazla profil aynı hesaba bağlanıyorsa bilgileri bir bağlantıda toplayın.',
+    addConnection: 'Bağlantı ekle', connNew: 'Yeni bağlantı', connEdit: 'Bağlantıyı düzenle', usedBy: 'Kullanan',
+    connInUse: '"{0}" bağlantısını kullanan profiller var: {1}', deleteConnConfirm: '"{0}" bağlantısı silinsin mi?',
+    secProject: 'Proje', fProjectName: 'Proje adı (config)', fDefaultPath: 'Varsayılan yerel dizin', fDefaultPathHint: 'Kendi yerel dizini olmayan profiller buradan okur',
+    secGlobal: 'Global sync ayarları', secGlobalDesc: 'Tüm profillere uygulanır; profil ayarları bunları genişletir.',
     fIgnoreFiles: 'Ignore dosyaları', fIgnoreFilesHint: 'Boş = .gitignore + .syncftp/syncftp.ignore',
     fFirstFull: 'İlk sync\'te her şeyi yükle', fFirstFullHint: 'Kapalıyken ilk sync calibrate ile mevcut dosyaları eşleştirir',
     fBackupKeep: 'Tutulacak yedek', fBackupKeepHint: 'Son kaç sync\'in yedeği saklansın (rollback derinliği)',
@@ -90,7 +90,7 @@ const T = {
     emptyDir: 'Klasör boş', preview: 'Önizle', download: 'İndir', deleteRemoteConfirm: '"{0}" sunucudan KALICI olarak silinsin mi?', deleteDirConfirm: '"{0}" klasörü ve İÇİNDEKİ HER ŞEY sunucudan kalıcı olarak silinsin mi?',
     deleted: 'Silindi', binaryFile: 'Binary dosya — önizleme yok', viewMedia: 'Görüntü', mediaFailed: 'Bu dosya tarayıcıda gösterilemiyor', mediaSameSize: 'Yerel ve sunucudaki dosyanın boyutu aynı', mediaNoLocal: 'Yerelde yok', mediaNoRemote: 'Sunucuda yok', dropHere: 'Yüklemek için bırak', dropInto: '{0} klasörüne yüklemek için bırak', dropHint: 'Dosya / klasörleri sürükleyip buraya bırakabilirsin', truncated: '(ilk 256 KB)',
     releases: 'Sync geçmişi (release)', releasesSub: 'Her sync, değiştirdiği dosyaların eski halini yedekler. Bir release\'i geri almak onu ve ondan sonrakileri geri alır.',
-    colWhen: 'Zaman', colServer: 'Sunucu', colFiles: 'Dosya', colReplaced: 'Değişen', colNew: 'Yeni', colStatus: 'Durum',
+    colWhen: 'Zaman', colServer: 'Profil', colFiles: 'Dosya', colReplaced: 'Değişen', colNew: 'Yeni', colStatus: 'Durum',
     rolledBack: 'geri alındı', noBackupTag: 'yedek yok', restorable: 'geri alınabilir', details: 'Ayrıntı', undo: 'Geri al',
     noReleases: 'Henüz release yok', rollbackTitle: 'Geri alma — {0}',
     rollbackBody: 'Aşağıdaki {0} release EN YENİDEN başlayarak geri alınacak: değişen dosyaların eski hali geri yüklenir. Yeni eklenen dosyalar, aşağıdaki kutuyu işaretlemezseniz sunucuda kalır.',
@@ -113,7 +113,7 @@ const T = {
     whTest: 'Test et', whTestOk: 'Webhook gönderildi: {0}', ignoreTitle: 'Ignore kuralları (.syncftp/syncftp.ignore)', ignoreDesc: 'Gitignore sözdizimi. .gitignore ile birleştirilir; ignore edilen klasörlere yerelde ve sunucuda hiç girilmez.',
     ignoreTemplate: 'Şablon ekle…', ignoreSaved: 'Ignore kuralları kaydedildi', gitignoreNote: '.gitignore ({0} satır) de uygulanıyor',
     failedTitle: '{0} — başarısız dosyalar', failedBody: 'Son sync\'te yüklenemeyen dosyalar. Tekrar denemek yalnızca bunları yükler.',
-    compareServers: 'Sunucuları karşılaştır', compareServersHint: 'İki sunucunun uzak içeriğini karşılaştırır (sadece birinde olan / boyutu farklı)', compareA: 'Sunucu A', compareB: 'Sunucu B', compareGo: 'Karşılaştır',
+    compareServers: 'Profilleri karşılaştır', compareServersHint: 'İki profilin uzak içeriğini karşılaştırır (sadece birinde olan / boyutu farklı)', compareA: 'Profil A', compareB: 'Profil B', compareGo: 'Karşılaştır',
     upload: 'Yükle', newFolder: 'Yeni klasör', folderName: 'Klasör adı', rename: 'Yeniden adlandır / taşı', newPath: 'Yeni yol (uzak dizine göreceli)',
     moveTo: 'Taşı', selectedN: '{0} seçili', clearSel: 'Seçimi temizle',
     freezeToggle: 'Freeze / unfreeze', frozenBadge: 'frozen', searchAll: 'Alt klasörlerde ara', searchTitle: '"{0}" araması', searchNone: 'Sonuç yok', searching: 'Aranıyor…', searchingN: '{0} sonuç · {1} klasör tarandı…', searchDoneN: '{0} sonuç · {1} klasör · {2} sn', searchTruncated: 'Çok fazla sonuç (ilk 2000) ya da 5 dakika sınırı doldu — aramayı daraltın.',
@@ -125,27 +125,27 @@ const T = {
   en: {
     navAll: 'All projects', navJobs: 'Jobs', navProjects: 'Projects',
     addProject: 'Add project', navNoProjects: 'No project in this folder', watching: 'Watch', language: 'Language', quit: 'Quit',
-    loading: 'Loading…', shortcutKey: 'Shortcut: {0}', skip_ignored: 'ignored', skip_excluded: 'excluded', skip_not_included: 'not included', skipHint_ignored: 'Matched by the local ignore files (.gitignore / syncftp.ignore): sync doesn’t scan or upload it. The copy on the server is left alone, never deleted.', skipHint_excluded: 'Exclude applies to the local side: this local file is not uploaded. The copy on the server is left alone, never deleted.', skipHint_not_included: 'Not in the include list: this local file is not uploaded. The copy on the server is left alone, never deleted.', watchAll: 'Watch all', watchStopAll: 'Stop all watches', watchAllHint: 'Starts a separate watch for every enabled server', watchServerHint: 'Watch this server: locally changed files upload automatically (CLI: watch -s)', watchingTag: 'watching', watchCount: '{0}/{1} servers', watchSyncs: '{0} auto syncs', mgSync: 'Sync', mgCheck: 'Check', mgHistory: 'Time & rollback', mgServer: 'Server', showMore: 'Show {0} more', foldAdvanced: 'Advanced', foldMore: 'More', foldDefault: 'default', foldOff: 'off', foldConn: 'connections', foldRetry: 'retries', foldBlock: 'blocked ext', setTabGeneral: 'General', setTabLibrary: 'Connection library', setTabDefaults: 'New project defaults', setTabProjects: 'Projects', setTabHooks: 'Webhook / CI', setTabSecurity: 'Host keys', setTabSystem: 'System', deleteRecursive: 'Delete with contents', deleteRecursiveHint: 'When off, only empty folders are deleted (CLI: remote rm --recursive)', stFilter: 'Filter', stFilterHint: 'Only for this list — config is not changed (CLI: status --include / --exclude)', moreRows: 'Show {0} more', stFrozen: 'Frozen', stProtected: 'Protected', stBlocked: 'Blocked', stUploadSize: 'to upload: {0}', treeView: 'Tree', treeHint: 'Show everything below this folder as a tree (shell tree)', treeAsk: 'Show at most how many entries per folder?', treeAll: 'All', ignoreNoFile: 'ignore_files has no syncFTP file — only .gitignore is read', viewCode: 'Code', fmtRaw: 'Original', fmtPretty: 'Beautify', fmtMinified: 'File is minified — showing a readable version; the file on the server is not changed', fmtHint: 'View only: the file on the server or on disk is not changed', fmtFailed: 'Could not format: {0}', viewRendered: 'Preview', viewRenderedLocal: 'Preview (local)', viewRenderedRemote: 'Preview (server)', scanningLocal: 'Scanning…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
+    loading: 'Loading…', shortcutKey: 'Shortcut: {0}', skip_ignored: 'ignored', skip_excluded: 'excluded', skip_not_included: 'not included', skipHint_ignored: 'Matched by the local ignore files (.gitignore / syncftp.ignore): sync doesn’t scan or upload it. The copy on the server is left alone, never deleted.', skipHint_excluded: 'Exclude applies to the local side: this local file is not uploaded. The copy on the server is left alone, never deleted.', skipHint_not_included: 'Not in the include list: this local file is not uploaded. The copy on the server is left alone, never deleted.', watchAll: 'Watch all', watchStopAll: 'Stop all watches', watchAllHint: 'Starts a separate watch for every enabled profile', watchServerHint: 'Watch this profile: locally changed files upload automatically (CLI: watch -s)', watchingTag: 'watching', watchCount: '{0}/{1} profiles', watchSyncs: '{0} auto syncs', mgSync: 'Sync', mgCheck: 'Check', mgHistory: 'Time & rollback', mgServer: 'Profile', showMore: 'Show {0} more', foldAdvanced: 'Advanced', foldMore: 'More', foldDefault: 'default', foldOff: 'off', foldConn: 'connections', foldRetry: 'retries', foldBlock: 'blocked ext', setTabGeneral: 'General', setTabLibrary: 'Connection library', setTabDefaults: 'New project defaults', setTabProjects: 'Projects', setTabHooks: 'Webhook / CI', setTabSecurity: 'Host keys', setTabSystem: 'System', deleteRecursive: 'Delete with contents', deleteRecursiveHint: 'When off, only empty folders are deleted (CLI: remote rm --recursive)', stFilter: 'Filter', stFilterHint: 'Only for this list — config is not changed (CLI: status --include / --exclude)', moreRows: 'Show {0} more', stFrozen: 'Frozen', stProtected: 'Protected', stBlocked: 'Blocked', stUploadSize: 'to upload: {0}', treeView: 'Tree', treeHint: 'Show everything below this folder as a tree (shell tree)', treeAsk: 'Show at most how many entries per folder?', treeAll: 'All', ignoreNoFile: 'ignore_files has no syncFTP file — only .gitignore is read', viewCode: 'Code', fmtRaw: 'Original', fmtPretty: 'Beautify', fmtMinified: 'File is minified — showing a readable version; the file on the server is not changed', fmtHint: 'View only: the file on the server or on disk is not changed', fmtFailed: 'Could not format: {0}', viewRendered: 'Preview', viewRenderedLocal: 'Preview (local)', viewRenderedRemote: 'Preview (server)', scanningLocal: 'Scanning…', refresh: 'Refresh', save: 'Save', cancel: 'Cancel', close: 'Close', delete: 'Delete',
     edit: 'Edit', back: 'Back', yes: 'Yes', confirm: 'Confirm', browse: 'Browse', add: 'Add', open: 'Open',
     saved: 'Saved', copied: 'Copied', never: 'never', none: 'none', all: 'All', manual: '(manual entry)',
     projectsTitle: 'Projects', projectsSub: `syncFTP projects in {0} (like the CLI: the panel works on the folder it was opened in)`,
     noProjects: 'No projects yet', noProjectsSub: 'This folder (and its subfolders) has no .syncftp/. Set a project up here; subfolders where you run `syncftp init` show up automatically.',
-    serversN: '{0} servers', enabledN: '{0} enabled', configError: 'Config could not be read',
+    serversN: '{0} profiles', enabledN: '{0} enabled', configError: 'Config could not be read',
     addProjectTitle: 'Add project', folder: 'Project folder', folderHint: 'The folder the panel was opened in, or one below it (.syncftp/ is created if missing)',
     displayName: 'Display name', displayNameHint: 'Defaults to the folder name',
     createConfigTitle: 'Create config?', createConfigBody: 'This folder has no syncFTP config. Create an empty one and add the project? You can add servers next.',
     create: 'Create',
-    tabOverview: 'Overview', tabServers: 'Servers', tabConnections: 'Connections', tabSettings: 'Project settings',
+    tabOverview: 'Overview', tabServers: 'Profiles', tabConnections: 'Connections', tabSettings: 'Project settings',
     tabFiles: 'Files', tabHistory: 'History',
-    sumServers: 'Servers', sumPending: 'Pending changes', sumLastSync: 'Last sync', sumWatch: 'Watch',
+    sumServers: 'Profiles', sumPending: 'Pending changes', sumLastSync: 'Last sync', sumWatch: 'Watch',
     syncAll: 'Sync all', dryRunAll: 'Dry-run', more: 'More',
     calibrateAll: 'Calibrate all', calibrateHint: 'Match server files by size and build state (no upload)',
     verifyAll: 'Verify all', verifyHint: 'Find files changed/deleted on the server by hand',
     detectAll: 'Measure connection limits', detectHint: 'Find the most connections the server accepts and save to max_connections',
     watchStart: 'Start watch', watchStop: 'Stop watch', watchOff: 'Off',
     watchSince: 'since {0} · {1} syncs', watchStarted: 'Watch started', watchStopped: 'Watch stopped', noWatches: 'No watch is running',
-    noServers: 'No servers in this project', noServersSub: 'Add the first server — FTP, FTPS or SFTP, optionally through an SSH tunnel.',
-    addServer: 'Add server', disabled: 'disabled', busy: 'running', tunnel: 'tunnel',
+    noServers: 'No profiles in this project', noServersSub: 'Add the first profile: it sets where the local folder is uploaded on the server — FTP, FTPS or SFTP, optionally through an SSH tunnel.',
+    addServer: 'Add profile', disabled: 'disabled', busy: 'running', tunnel: 'tunnel',
     sync: 'Sync', dryRun: 'Dry-run', dryRunHint: 'Show what would be uploaded, upload nothing',
     fullSync: 'Full sync', fullSyncHint: 'Ignore state, upload every file', fullSyncConfirm: 'EVERY file on {0} will be re-uploaded. Continue?',
     retryFailed: 'Retry failed', retryFailedHint: '{0} file(s) failed last time',
@@ -156,7 +156,7 @@ const T = {
     pendingChip: '<b class="n">+{0}</b> <b class="c">~{1}</b> <b class="d">−{2}</b>', upToDate: 'Up to date',
     filesTracked: '{0} files', maxConn: '{0} connections', speedLimit: '{0} KB/s', noBackup: 'no backup', backupOn: 'backed up',
     failedN: '{0} failed', frozenN: '{0} frozen', rollbackN: '{0} restorable',
-    statusTitle: '{0} — pending changes', stViewList: 'List', stViewTree: 'Folders', stViewHint: 'Show as a flat list or as a folder tree (like ls)', newFiles: 'New', changedFiles: 'Changed', deletedFiles: 'Deleted locally',
+    filesConnTip: 'Browse with this connection: {0}', filesConnHint: 'Browsing with a connection: starts at the root and is not tied to sync. Freeze, compare with local and editing are for profiles only.', statusTitle: '{0} — pending changes', stViewList: 'List', stViewTree: 'Folders', stViewHint: 'Show as a flat list or as a folder tree (like ls)', newFiles: 'New', changedFiles: 'Changed', deletedFiles: 'Deleted locally',
     deletedNote: 'Locally deleted files are not deleted from the server, only reported.', emptyList: 'Empty',
     milestoneTitle: '{0} — milestone', milestoneBody: 'A milestone keeps files changed before its date out of syncs (persistent filter). "Milestone sync" uploads only files changed after it.',
     milestoneCurrent: 'Current: {0}', milestoneDate: 'Date', milestonePh: 'today', milestoneDateHint: 'empty = now · today · yesterday · 3d · 5h · 14:30 · 20.07 · 20.07.2026 15:04 · 2026-07-20',
@@ -164,14 +164,14 @@ const T = {
     freezeTitle: '{0} — freeze list', freezeBody: 'One file path per line (relative to the local folder). These files are never uploaded, even when changed.',
     freezeSaved: 'Freeze list saved ({0} entries)',
     colName: 'Name', colProtocol: 'Protocol', colHost: 'Host', colRemote: 'Remote path', colLocal: 'Local path', colEnabled: 'Enabled',
-    duplicate: 'Duplicate', deleteServerConfirm: 'Remove server "{0}" from the config? (State and backups stay on disk.)',
-    serverNew: 'New server', serverEdit: 'Edit server',
-    secGeneral: 'General', secConnection: 'Connection', secConnectionDesc: 'Pick a connection profile or enter the details by hand.',
+    duplicate: 'Duplicate', deleteServerConfirm: 'Remove profile "{0}" from the config? (State and backups stay on disk.)',
+    serverNew: 'New profile', serverEdit: 'Edit profile',
+    secGeneral: 'General', secConnection: 'Connection', secConnectionDesc: 'Pick a connection or enter the details by hand.',
     secTunnel: 'SSH tunnel', secTunnelDesc: 'If the server is not directly reachable, connect through this SSH server (jump host). Empty = no tunnel.',
-    secPaths: 'Folders', secPerf: 'Performance', secFilters: 'Filters', secFiltersDesc: 'One path per line. Server include overrides global; exclude/protect add to global.',
+    secPaths: 'Folders', secPerf: 'Performance', secFilters: 'Filters', secFiltersDesc: 'One path per line. Profile include overrides global; exclude/protect add to global.',
     secUpload: 'Upload', secHooks: 'Hooks', secHooksDesc: 'One command per line, run in the project folder in order, after global hooks.',
-    fName: 'Name', fEnabled: 'Enabled', fEnabledHint: 'Disabled servers are skipped by "sync all"',
-    fConnection: 'Connection profile', fProtocol: 'Protocol', fHost: 'Host', fPort: 'Port', fUser: 'User', fPassword: 'Password',
+    fName: 'Name', fEnabled: 'Enabled', fEnabledHint: 'Disabled profiles are skipped by "sync all"',
+    fConnection: 'Connection', fProtocol: 'Protocol', fHost: 'Host', fPort: 'Port', fUser: 'User', fPassword: 'Password',
     fKeyFile: 'SSH key file', fKeyFileHint: 'For SFTP; if encrypted, the password is tried as passphrase',
     fPassive: 'Passive mode', fEpsv: 'Disable EPSV', fEpsvHint: 'For some older servers', fNat: 'NAT workaround', fNatHint: 'Connect to the host address instead of the passive IP',
     fTls: 'Skip certificate check', fTlsHint: 'FTPS — when a shared hosting certificate does not match the host name',
@@ -186,14 +186,14 @@ const T = {
     fWebhook: 'Webhook URL', fWebhookHint: 'A summary is POSTed after each sync; empty = global',
     fPre: 'pre_sync', fPost: 'post_sync',
     testConn: 'Test connection', testOk: 'Connected — {0} ms, {1} entries', testing: 'Testing…',
-    lockedByProfile: 'Connection details come from the "{0}" profile.', editProfile: 'Edit profile',
-    tunnelByProfile: 'The tunnel setting also comes from the "{0}" profile.',
-    connectionsSub: 'Servers that use the same FTP/SFTP account share the details from one place.',
-    noConnections: 'No connection profiles', noConnectionsSub: 'If several servers connect to the same account, keep the details in a profile.',
-    addConnection: 'Add profile', connNew: 'New connection profile', connEdit: 'Edit profile', usedBy: 'Used by',
-    connInUse: 'Profile "{0}" is used by: {1}', deleteConnConfirm: 'Delete profile "{0}"?',
-    secProject: 'Project', fProjectName: 'Project name (config)', fDefaultPath: 'Default local folder', fDefaultPathHint: 'Servers without their own local folder read from here',
-    secGlobal: 'Global sync settings', secGlobalDesc: 'Apply to every server; server settings extend them.',
+    lockedByProfile: 'Details come from the "{0}" connection.', editProfile: 'Edit connection',
+    tunnelByProfile: 'The tunnel setting also comes from the "{0}" connection.',
+    connectionsSub: 'Profiles that use the same FTP/SFTP account share the details from one place.',
+    noConnections: 'No connections', noConnectionsSub: 'If several profiles connect to the same account, keep the details in a connection.',
+    addConnection: 'Add connection', connNew: 'New connection', connEdit: 'Edit connection', usedBy: 'Used by',
+    connInUse: 'Connection "{0}" is used by: {1}', deleteConnConfirm: 'Delete connection "{0}"?',
+    secProject: 'Project', fProjectName: 'Project name (config)', fDefaultPath: 'Default local folder', fDefaultPathHint: 'Profiles without their own local folder read from here',
+    secGlobal: 'Global sync settings', secGlobalDesc: 'Apply to every profile; profile settings extend them.',
     fIgnoreFiles: 'Ignore files', fIgnoreFilesHint: 'Empty = .gitignore + .syncftp/syncftp.ignore',
     fFirstFull: 'Upload everything on first sync', fFirstFullHint: 'When off, the first sync matches existing files with calibrate',
     fBackupKeep: 'Backups to keep', fBackupKeepHint: 'How many recent syncs keep their backup (rollback depth)',
@@ -205,7 +205,7 @@ const T = {
     emptyDir: 'Folder is empty', preview: 'Preview', download: 'Download', deleteRemoteConfirm: 'PERMANENTLY delete "{0}" from the server?', deleteDirConfirm: 'PERMANENTLY delete folder "{0}" and EVERYTHING inside it from the server?',
     deleted: 'Deleted', binaryFile: 'Binary file — no preview', viewMedia: 'View', mediaFailed: 'This file cannot be shown in the browser', mediaSameSize: 'Local and server files have the same size', mediaNoLocal: 'Not on local', mediaNoRemote: 'Not on server', dropHere: 'Drop to upload', dropInto: 'Drop to upload into {0}', dropHint: 'You can drag and drop files / folders here', truncated: '(first 256 KB)',
     releases: 'Sync history (releases)', releasesSub: 'Every sync backs up the previous version of the files it changes. Rolling back a release also rolls back every newer one.',
-    colWhen: 'When', colServer: 'Server', colFiles: 'Files', colReplaced: 'Replaced', colNew: 'New', colStatus: 'Status',
+    colWhen: 'When', colServer: 'Profile', colFiles: 'Files', colReplaced: 'Replaced', colNew: 'New', colStatus: 'Status',
     rolledBack: 'rolled back', noBackupTag: 'no backup', restorable: 'restorable', details: 'Details', undo: 'Roll back',
     noReleases: 'No releases yet', rollbackTitle: 'Roll back — {0}',
     rollbackBody: 'The following {0} release(s) will be undone, NEWEST first: replaced files get their previous version back. Newly added files stay on the server unless you tick the box below.',
@@ -228,7 +228,7 @@ const T = {
     whTest: 'Test', whTestOk: 'Webhook sent: {0}', ignoreTitle: 'Ignore rules (.syncftp/syncftp.ignore)', ignoreDesc: 'Gitignore syntax. Merged with .gitignore; ignored folders are never walked locally or on the server.',
     ignoreTemplate: 'Add template…', ignoreSaved: 'Ignore rules saved', gitignoreNote: '.gitignore ({0} lines) is applied too',
     failedTitle: '{0} — failed files', failedBody: 'Files that could not be uploaded in the last sync. Retrying uploads only these.',
-    compareServers: 'Compare servers', compareServersHint: 'Compare the remote contents of two servers (only on one side / size differs)', compareA: 'Server A', compareB: 'Server B', compareGo: 'Compare',
+    compareServers: 'Compare profiles', compareServersHint: 'Compare the remote contents of two profiles (only on one side / size differs)', compareA: 'Profile A', compareB: 'Profile B', compareGo: 'Compare',
     upload: 'Upload', newFolder: 'New folder', folderName: 'Folder name', rename: 'Rename / move', newPath: 'New path (relative to remote root)',
     moveTo: 'Move', selectedN: '{0} selected', clearSel: 'Clear selection',
     freezeToggle: 'Freeze / unfreeze', frozenBadge: 'frozen', searchAll: 'Search subfolders', searchTitle: 'Search "{0}"', searchNone: 'No results', searching: 'Searching…', searchingN: '{0} results · {1} folders scanned…', searchDoneN: '{0} results · {1} folders · {2}s', searchTruncated: 'Too many results (first 2000) or the 5-minute limit was hit — narrow the search.',
@@ -1569,6 +1569,7 @@ async function tabConnections(proj) {
     $$('[data-fromlib]', root).forEach((b) => (b.onclick = () => connFromLibraryModal(P).catch(fail)));
     $$('[data-fromsrv]', root).forEach((b) => (b.onclick = () => connFromServerModal(P, manual)));
     $$('[data-row]', root).forEach((tr) => (tr.onclick = () => go(pHash(P, 'connection', tr.dataset.row))));
+    $$('[data-connfiles]', root).forEach((b) => (b.onclick = (e) => { e.stopPropagation(); go(pHash(P, 'files', CONN_TARGET + b.dataset.connfiles)); }));
     $$('[data-tolib]', root).forEach((b) => (b.onclick = async (e) => {
       e.stopPropagation();
       const name = b.dataset.tolib;
@@ -1587,7 +1588,7 @@ async function tabConnections(proj) {
       const proto = (c.protocol || 'ftp').toLowerCase();
       return `<tr data-row="${esc(c.name)}" class="tikla"><td><div class="ad-hucre">${icon('link')}<b>${esc(c.name)}</b></div></td><td><span class="pill mono ${proto}">${proto.toUpperCase()}</span></td>
         <td class="mono">${esc(c.user ? c.user + '@' : '')}${esc(c.host)}:${c.port}${c.tunnel_host ? ` <span class="pill vio">${icon('tunnel')}${t('tunnel')}</span>` : ''}</td><td class="muted">${esc(used.join(', ') || '—')}</td>
-        <td class="sag">${(() => {
+        <td class="sag" style="white-space:nowrap"><button class="btn kucuk hayalet" data-connfiles="${esc(c.name)}" title="${esc(t('filesConnTip', `${c.user ? c.user + '@' : ''}${c.host}`))}">${icon('folder')}${t('tabFiles')}</button> ${(() => {
           const lib = (libSt[c.name] || {}).library;
           return lib ? `<span class="pill ok" ${lib !== c.name ? `title="${esc(t('connInLibAs', lib))}"` : ''}>${icon('check')}${t('connInLib')}</span>`
             : `<button class="btn kucuk hayalet" data-tolib="${esc(c.name)}">${icon('download')}${t('connToLib')}</button>`;
@@ -1747,12 +1748,20 @@ async function tabSettings(proj) {
 }
 
 // ── Dosyalar ─────────────────────────────────────────────────────────────────
+// Dosya tarayıcısında profil yerine doğrudan bağlantıyla gezme: "server" değeri "@conn:<ad>" (browseTarget).
+// Bağlantının uzak dizini ve yerel karşılığı yok → kökten gezilir; freeze / karşılaştırma / düzenleme yalnızca profilde.
+const CONN_TARGET = '@conn:';
+const isConnTarget = (s) => String(s || '').startsWith(CONN_TARGET);
+
 async function tabFiles(proj, srvName, relPath) {
   const P = proj.name;
   const cfg = await getConfig(P);
-  if (!cfg.servers.length) return `<div class="bos"><h3>${t('noServers')}</h3></div>`;
-  const srvObj = cfg.servers.find((s) => s.name === srvName) || cfg.servers.find((s) => s.enabled) || cfg.servers[0];
-  const srv = srvObj.name;
+  const conns = cfg.connections || [];
+  if (!cfg.servers.length && !conns.length) return `<div class="bos"><h3>${t('noServers')}</h3></div>`;
+  const connObj = isConnTarget(srvName) ? conns.find((c) => CONN_TARGET + c.name === srvName) : null;
+  const srvObj = connObj ? null : cfg.servers.find((s) => s.name === srvName) || cfg.servers.find((s) => s.enabled) || cfg.servers[0];
+  const srv = srvObj ? srvObj.name : CONN_TARGET + (connObj || conns[0]).name;
+  const viaConn = isConnTarget(srv);
   const rel = relPath || '';
   const q = `server=${enc(srv)}`;
   // Daha önce açılan klasör önbellekten anında çizilir, sunucudan arka planda tazelenir; fark varsa
@@ -1766,7 +1775,7 @@ async function tabFiles(proj, srvName, relPath) {
     catch (e) { data = { error: e.message, entries: [] }; }
   }
   const reload = () => { S.lsCache.delete(lsKey); render(true); };
-  const frozenSet = new Set(await GET(`/api/p/${enc(P)}/frozen?${q}`).catch(() => []));
+  const frozenSet = new Set(viaConn ? [] : await GET(`/api/p/${enc(P)}/frozen?${q}`).catch(() => []));
   const hashFor = (p) => `${pHash(P, 'files', srv)}/${enc(p)}`;
   const full = (name) => (rel ? rel + '/' : '') + name;
   const crumbs = rel.split('/').filter(Boolean);
@@ -1984,7 +1993,7 @@ async function tabFiles(proj, srvName, relPath) {
         if (!n) return false;
         const r = await api('POST', `/api/p/${enc(P)}/remote/create?${q}&path=${enc(rel)}`, { kind: 'file', name: n });
         toast(t('pkCreated', r.name)); reload();
-        editFile(P, srv, full(r.name));
+        if (!viaConn) editFile(P, srv, full(r.name));
       } }],
     });
     // Satırlar parça parça çizilir (5000 girdili klasör tek seferde ~5 MB HTML + 1 sn yerleşim
@@ -2036,7 +2045,7 @@ async function tabFiles(proj, srvName, relPath) {
     $('[data-sel="clear"]', bar).onclick = () => { sel.clear(); $$('[data-entry] input[type=checkbox]', root).forEach((c) => (c.checked = false)); refreshBar(); };
     $('[data-sel="del"]', bar).onclick = () => removeItems(items());
     $('[data-sel="move"]', bar).onclick = () => moveItems(items());
-    $('[data-sel="freeze"]', bar).onclick = () => toggleFreeze(items());
+    if (!viaConn) $('[data-sel="freeze"]', bar).onclick = () => toggleFreeze(items());
     if (body) {
       body.onchange = (e) => {
         const tr = e.target.closest('[data-entry]');
@@ -2091,24 +2100,25 @@ async function tabFiles(proj, srvName, relPath) {
     return `<tr data-entry="${esc(e.name)}" data-type="${e.type}" class="tikla"><td class="sec-hucre"><label><input type="checkbox" ${checked ? 'checked' : ''}></label></td>
       <td><div class="ad-hucre">${icon(e.type === 'dir' ? 'folder' : 'file', e.type === 'dir' ? 'acc-t' : 'faint')}<span>${esc(e.name)}</span>${fz ? `<span class="pill" style="height:18px;font-size:11px">${icon('snow')}${t('frozenBadge')}</span>` : ''}${skipBadge(e.skip)}</div></td>
       <td class="sag mono faint">${e.type === 'dir' ? '' : bytes(e.size)}</td><td class="mono faint">${e.time && !e.time.startsWith('0001') ? fmtDate(e.time) : ''}</td>
-      <td class="sag satir-aks" style="white-space:nowrap">${e.type === 'dir' ? '' : `<button class="ikon-btn" data-act="pv" title="${t('preview')}">${icon('eye')}</button><button class="ikon-btn" data-act="ed" title="${t('edEdit')}">${icon('code')}</button><button class="ikon-btn" data-act="cmp" title="${t('compare')}">${icon('layers')}</button><button class="ikon-btn" data-act="dl" title="${t('download')}">${icon('download')}</button>`}
-        <button class="ikon-btn ${fz ? 'acc-t' : ''}" data-act="fz" title="${t('freezeToggle')}">${icon('snow')}</button>
+      <td class="sag satir-aks" style="white-space:nowrap">${e.type === 'dir' ? '' : `<button class="ikon-btn" data-act="pv" title="${t('preview')}">${icon('eye')}</button>${viaConn ? '' : `<button class="ikon-btn" data-act="ed" title="${t('edEdit')}">${icon('code')}</button><button class="ikon-btn" data-act="cmp" title="${t('compare')}">${icon('layers')}</button>`}<button class="ikon-btn" data-act="dl" title="${t('download')}">${icon('download')}</button>`}
+        ${viaConn ? '' : `<button class="ikon-btn ${fz ? 'acc-t' : ''}" data-act="fz" title="${t('freezeToggle')}">${icon('snow')}</button>`}
         <button class="ikon-btn" data-act="ren" title="${t('rename')}">${icon('edit')}</button>
         <button class="ikon-btn tehlike" data-act="rm" title="${t('delete')}">${icon('trash')}</button></td></tr>`;
   }
   return `<div class="arac-cubuk">
-      ${cfg.servers.length <= 6 ? `<span class="seg srv-seg">${cfg.servers.map((s) => `<a href="${pHash(P, 'files', s.name)}" class="${s.name === srv ? 'aktif' : ''}" title="${esc(s.remote_path)}">${icon('server')}${esc(s.name)}</a>`).join('')}</span>`
-        : `<select id="f-srv">${cfg.servers.map((s) => `<option value="${esc(s.name)}" ${s.name === srv ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>`}
+      ${cfg.servers.length + conns.length <= 6 ? `<span class="seg srv-seg">${cfg.servers.map((s) => `<a href="${pHash(P, 'files', s.name)}" class="${s.name === srv ? 'aktif' : ''}" title="${esc(s.remote_path)}">${icon('server')}${esc(s.name)}</a>`).join('')}${conns.map((c) => `<a href="${pHash(P, 'files', CONN_TARGET + c.name)}" class="${CONN_TARGET + c.name === srv ? 'aktif' : ''}" title="${esc(t('filesConnTip', `${c.user ? c.user + '@' : ''}${c.host}`))}">${icon('link')}${esc(c.name)}</a>`).join('')}</span>`
+        : `<select id="f-srv">${cfg.servers.length ? `<optgroup label="${esc(t('tabServers'))}">${cfg.servers.map((s) => `<option value="${esc(s.name)}" ${s.name === srv ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</optgroup>` : ''}${conns.length ? `<optgroup label="${esc(t('tabConnections'))}">${conns.map((c) => `<option value="${esc(CONN_TARGET + c.name)}" ${CONN_TARGET + c.name === srv ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</optgroup>` : ''}</select>`}
       <div class="ara">${icon('search')}<input type="text" id="f-filter" placeholder="${t('filter')}"></div>
       <button class="btn" id="f-search" title="${t('searchAll')}">${icon('search')}${t('searchAll')}</button>
       <button class="btn" id="f-tree" title="${t('treeHint')}">${icon('layers')}${t('treeView')}</button>
       <button class="btn" id="f-mkdir">${icon('folder')}${t('newFolder')}</button>
       <button class="btn" id="f-mkfile">${icon('file')}${t('pkNewFile')}</button>
       <button class="btn mavi" id="f-upload" title="${t('dropHint')}">${icon('upload')}${t('upload')}</button><input type="file" id="f-upload-input" multiple hidden></div>
+    ${viaConn ? `<p class="ipucu" style="margin:0 0 8px">${icon('link')} ${t('filesConnHint')}</p>` : ''}
     <div class="yol-cubuk"><button data-crumb="">${esc(data.root || '/')}</button>${crumbs.map((c, i) => `<span>/</span><button data-crumb="${esc(crumbs.slice(0, i + 1).join('/'))}">${esc(c)}</button>`).join('')}</div>
     <div class="secim-cubuk" id="f-selbar" hidden><b data-selcount></b>
       <button class="btn kucuk" data-sel="move">${icon('folder')}${t('moveTo')}</button>
-      <button class="btn kucuk" data-sel="freeze">${icon('snow')}${t('freezeToggle')}</button>
+      ${viaConn ? '' : `<button class="btn kucuk" data-sel="freeze">${icon('snow')}${t('freezeToggle')}</button>`}
       <button class="btn kucuk tehlike" data-sel="del">${icon('trash')}${t('delete')}</button>
       <button class="btn kucuk hayalet" data-sel="clear">${t('clearSel')}</button></div>
     ${data.error ? `<div class="kart"><div class="not bad">${icon('alert')}${esc(data.error)}</div></div>` : !entries.length ? `<div class="bos" style="padding:30px">${t('emptyDir')}</div>` :
@@ -2381,8 +2391,8 @@ async function previewFile(P, srv, p) {
     title: `${icon('file')}<span class="mono" style="font-size:13px">${esc(p)}</span>`, size: 'genis',
     body, onClose: () => stopMedia(pm.root),
     actions: [{ left: `${bytes(d.size)} ${d.truncated && !d.binary ? t('truncated') : ''}` },
-      ...(d.binary && !kind ? [] : [{ label: icon('layers') + t('compare'), cls: '', key: 'r', run: () => { compareModal(P, srv, p); return false; } }]),
-      ...(d.binary ? [] : [
+      ...((d.binary && !kind) || isConnTarget(srv) ? [] : [{ label: icon('layers') + t('compare'), cls: '', key: 'r', run: () => { compareModal(P, srv, p); return false; } }]),
+      ...(d.binary || isConnTarget(srv) ? [] : [
         // Önizleme altta açık kalır (false) → Esc üstteki pencereyi kapatıp buraya döner; kaydedildiyse tazelenir
         { label: icon('code') + t('edEdit'), cls: '', key: 's', run: () => { editFile(P, srv, p, { onClose: (saved) => { if (saved && pm.root.isConnected) { pm.close(); previewFile(P, srv, p); } } }); return false; } }]),
       { label: icon('download') + t('download'), cls: '', key: 'd', run: () => { location.href = `/api/p/${enc(P)}/remote/get?server=${enc(srv)}&path=${enc(p)}`; } },

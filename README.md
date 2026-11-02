@@ -80,7 +80,7 @@ It is a single self-contained binary — the desktop panel's web UI is embedded.
 
 1. Double-click `syncftp.exe` → the panel opens and a tray icon appears.
 2. **Add project** (`+` in the sidebar) → pick your project folder; a config is created if needed.
-3. **Servers → Add server** → protocol, host, user, password or SSH key, remote path → *Test connection* → *Save*.
+3. **Profiles → Add profile** → protocol, host, user, password or SSH key, remote path → *Test connection* → *Save*.
 4. **Overview → Sync.** The first sync calibrates against what is already on the server, then uploads only differences.
 
 **From a terminal**
@@ -124,7 +124,7 @@ The panel is a local web app served on `127.0.0.1` with a per-session token, sho
 | Tab | What you can do |
 |---|---|
 | **Overview** | pending changes per server (`+new ~changed −deleted`; click for the list and a coloured local ↔ server diff), sync / dry-run / full sync / retry failed, calibrate, verify (+fix), measure connection limit, compare two servers, milestone, freeze list, watch on/off, run a command on the server (SFTP) |
-| **Servers** | add / edit / duplicate / enable / delete servers; protocol, SSH key, tunnel, paths, performance, filters, hooks, remote SSH commands; *Test connection* without saving. A server that uses a connection profile shows a short summary of the profile (with *Edit profile*) instead of its credential fields; a server with hand-entered details can be turned into a profile with *Make it a profile* |
+| **Profiles** | a profile is an entry of `servers[]` in the config (`--server` on the CLI): add / edit / duplicate / enable / delete profiles; protocol, SSH key, tunnel, paths, performance, filters, hooks, remote SSH commands; *Test connection* without saving. A server that uses a connection profile shows a short summary of the profile (with *Edit profile*) instead of its credential fields; a server with hand-entered details can be turned into a profile with *Make it a profile* |
 | **Connections** | shared credential profiles; *From a server* moves a server's details into a profile (an existing profile for the same account is reused), *From library* / *Save to library* — entries already in the library show an *In library* badge, and saving over a same-named library entry for another account asks first |
 | **Files** | remote browser: preview with syntax highlighting (HTML files also rendered in a sandboxed frame; minified JS / CSS / JSON / HTML open **beautified**, with an *Original / Beautify* switch — view only), compare with local, **edit**, download, upload, new folder, rename / move (with a remote folder picker), multi-select, freeze toggle (files or whole folders), recursive search with live results, tree view. Badges show files that sync will never upload: *frozen*, *ignore*, *exclude*, *not included* (the filters apply to the local side; the server copy is left alone) |
 | **History** | releases with backup state; open a release to see its changed files as a **folder tree** next to the **diff** of the selected file (previous server version → uploaded version), tick files and **roll back only those**, or roll back the whole release; sync logs |

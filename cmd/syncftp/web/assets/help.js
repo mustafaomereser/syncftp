@@ -10,12 +10,12 @@ const HELP = [
   ['start', 'play', {
     tr: ['Başlarken', `<ol>
       <li><b>Proje ekle</b> — sol menüde <kbd>+</kbd> → proje klasörünü seçin. syncFTP config'i yoksa sizin için boş bir tane oluşturulur. Terminalde <code>syncftp init</code> yaptığınız projeler listede kendiliğinden görünür.</li>
-      <li><b>Sunucu ekle</b> — <i>Sunucular → Sunucu ekle</i>. Protokol (FTP / FTPS / SFTP), host, kullanıcı, şifre ya da SSH anahtarı ve <b>uzak dizin</b> (örn. <code>/public_html</code>) yeterli. <i>Bağlantıyı test et</i> ile kaydetmeden deneyin.</li>
+      <li><b>Profil ekle</b> — <i>Profiller → Profil ekle</i>. Protokol (FTP / FTPS / SFTP), host, kullanıcı, şifre ya da SSH anahtarı ve <b>uzak dizin</b> (örn. <code>/public_html</code>) yeterli. <i>Bağlantıyı test et</i> ile kaydetmeden deneyin.</li>
       <li><b>İlk sync</b> — <i>Genel bakış → Sync</i>. Sunucu daha önce elle doldurulmuşsa ilk sync önce <b>calibrate</b> çalıştırır: dosya boyutlarını karşılaştırıp aynı olanları "güncel" sayar, yalnızca farklı olanları yükler.</li>
       <li>Sonrasında her sync <b>sadece değişen dosyaları</b> yükler (SHA256 ile tespit).</li></ol>`],
     en: ['Getting started', `<ol>
       <li><b>Add a project</b> — <kbd>+</kbd> in the sidebar → choose the project folder. If it has no syncFTP config, an empty one is created. Projects where you ran <code>syncftp init</code> show up automatically.</li>
-      <li><b>Add a server</b> — <i>Servers → Add server</i>. Protocol (FTP / FTPS / SFTP), host, user, password or SSH key and the <b>remote path</b> (e.g. <code>/public_html</code>). Use <i>Test connection</i> before saving.</li>
+      <li><b>Add a profile</b> — <i>Profiles → Add profile</i>. Protocol (FTP / FTPS / SFTP), host, user, password or SSH key and the <b>remote path</b> (e.g. <code>/public_html</code>). Use <i>Test connection</i> before saving.</li>
       <li><b>First sync</b> — <i>Overview → Sync</i>. If the server already has files, the first sync runs <b>calibrate</b> first: it compares file sizes, treats identical ones as up to date and uploads only the rest.</li>
       <li>After that every sync uploads <b>only changed files</b> (detected with SHA256).</li></ol>`],
   }],
@@ -98,6 +98,7 @@ const HELP = [
   ['files', 'folder', {
     tr: ['Dosyalar: gezinme ve sunucudaki dosyayı düzenleme', `<ul>
       <li><b>Dosyalar</b> sekmesi sunucuyu gezer: önizleme (renkli; HTML ayrıca güvenli çerçevede; <b>resim, video, ses ve PDF</b> doğrudan oynatılır / gösterilir), <b>yerelle karşılaştır</b> (medyada yerel ↔ sunucu yan yana), indir, yükle, klasör, yeniden adlandır / <b>taşı</b> (uzak klasör seçiciyle), çoklu seçim, freeze, alt klasörlerde canlı arama, ağaç görünümü.</li>
+      <li><b>Bağlantıyla gezme</b>: üstteki seçicide profillerin yanında projenin bağlantıları da var (Bağlantılar sekmesindeki <i>Dosyalar</i> düğmesi de buraya getirir). Kök dizinden başlar; önizleme, indirme, yükleme, yeni klasör/dosya, taşıma, silme ve arama çalışır. Sync'e bağlı olmadığı için freeze, yerelle karşılaştırma ve düzenleme yalnızca profillerde.</li>
       <li><b>Yeni klasör / Yeni dosya</b>: Dosyalar sekmesinin araç çubuğunda ve tüm klasör/dosya seçicilerde (sunucuda klasör seç, taşı, yerel klasör seç, proje içinden seç). Ad kutusu listenin üstünde açılır; Enter oluşturur, Esc kapatır. Yeni klasörün içine girilir, yeni dosya seçili gelir; Dosyalar sekmesinde yeni dosya doğrudan editörde açılır. Var olan bir öğenin üzerine yazılmaz.</li>
       <li><b>Silme</b> bir iş olarak çalışır: sağ altta canlı görünür, silinen her dosya akar, iş penceresindeki <b>Durdur</b> kalanlara dokunmadan keser. Ayrı bağlantı kullandığı için büyük klasör silinirken de gezinmeye devam edebilirsin.</li>
       <li><b>Sürükle-bırak</b>: bilgisayarından dosya ya da klasörleri listeye bırak → bulunduğun klasöre yüklenir (klasörler alt yapısıyla); bir klasör satırının üstüne bırakırsan o klasöre. Yükleme yüzdesi düğmede görünür.</li>
@@ -108,6 +109,7 @@ const HELP = [
       <li>Önizlemede kısayollar: <kbd>S</kbd> düzenle, <kbd>R</kbd> yerelle karşılaştır, <kbd>D</kbd> indir. Düzenleme / karşılaştırmada <kbd>Esc</kbd> önizlemeye döner.</li></ul>`],
     en: ['Files: browsing and editing server files', `<ul>
       <li>The <b>Files</b> tab browses the server: preview (highlighted; HTML also in a sandboxed frame; <b>images, video, audio and PDF</b> are shown / played directly), <b>compare with local</b> (media side by side: local ↔ server), download, upload, new folder, rename / <b>move</b> (with a remote folder picker), multi-select, freeze, live recursive search, tree view.</li>
+      <li><b>Browsing with a connection</b>: the selector at the top also lists the project's connections (the <i>Files</i> button in the Connections tab leads here too). It starts at the root; preview, download, upload, new folder/file, move, delete and search work. As it is not tied to sync, freeze, compare with local and editing are for profiles only.</li>
       <li><b>New folder / New file</b>: in the Files tab toolbar and in every folder/file picker (choose a server folder, move, choose a local folder, pick from the project). The name box opens above the list; Enter creates, Esc closes. A new folder is opened, a new file comes selected; in the Files tab a new file opens straight in the editor. An existing item is never overwritten.</li>
       <li><b>Deleting</b> runs as a job: it shows live at the bottom right, every deleted file streams in, and <b>Stop</b> in its window cuts it off leaving the rest untouched. It uses its own connection, so you can keep browsing while a big folder is being deleted.</li>
       <li><b>Drag and drop</b>: drop files or folders from your computer onto the list → they are uploaded to the current folder (folders with their structure); drop onto a folder row to upload into that folder. The upload percentage shows on the button.</li>
@@ -118,13 +120,15 @@ const HELP = [
       <li>Preview shortcuts: <kbd>S</kbd> edit, <kbd>R</kbd> compare with local, <kbd>D</kbd> download. <kbd>Esc</kbd> in edit / compare returns to the preview.</li></ul>`],
   }],
   ['conns', 'link', {
-    tr: ['Bağlantı profilleri ve kütüphane', `<ul>
-      <li><b>Bağlantı profili</b>: aynı FTP/SFTP hesabını kullanan sunucular (production, staging…) bilgileri tek yerden paylaşır. Profil seçili sunucu formunda kimlik alanları yerine profilin özeti ve <i>Profili düzenle</i> görünür.</li>
-      <li><b>Sunucudan al</b> (Bağlantılar sekmesi) ya da sunucu formundaki <b>Profile çevir</b>: elle girilmiş bilgileri profile taşır; aynı hesap zaten profilse sunucu ona bağlanır. CLI: <code>syncftp config extract-conn &lt;sunucu&gt;</code>.</li>
+    tr: ['Bağlantılar ve kütüphane', `<ul>
+      <li><b>Profil</b>: yerel klasörün sunucuda nereye yükleneceğini belirler (production, staging…). <b>Bağlantı</b>: FTP/SFTP hesabının bilgileri; aynı hesabı kullanan profiller onu tek yerden paylaşır. Bağlantı seçili profil formunda kimlik alanları yerine bağlantının özeti ve <i>Bağlantıyı düzenle</i> görünür.</li>
+      <li><b>Profilden al</b> (Bağlantılar sekmesi) ya da profil formundaki <b>Bağlantıya çevir</b>: elle girilmiş bilgileri bir bağlantıya taşır; aynı hesap zaten kayıtlıysa profil ona bağlanır. CLI: <code>syncftp config extract-conn &lt;sunucu&gt;</code>.</li>
+      <li>CLI ve <code>syncftp.json</code> adları değişmedi: profil = <code>servers</code> / <code>--server</code>, bağlantı = <code>connections</code>.</li>
       <li><b>Kütüphane</b> (<i>Ayarlar → Bağlantı kütüphanesi</i>): projeler arası kayıtlı bağlantılar. <i>Kütüphaneden</i> ile projeye ekleyin, <i>Kütüphaneye kaydet</i> ile kaydedin — kütüphanede olanlar <b>Kütüphanede</b> rozetiyle görünür; aynı adlı başka hesabın üzerine yazmadan önce sorulur.</li></ul>`],
-    en: ['Connection profiles and library', `<ul>
-      <li><b>Connection profile</b>: servers on the same FTP/SFTP account (production, staging…) share the details from one place. A server using a profile shows the profile's summary and <i>Edit profile</i> instead of credential fields.</li>
-      <li><b>From a server</b> (Connections tab) or <b>Make it a profile</b> in the server form moves hand-entered details into a profile; if a profile for the same account exists, the server is linked to it. CLI: <code>syncftp config extract-conn &lt;server&gt;</code>.</li>
+    en: ['Connections and library', `<ul>
+      <li><b>Profile</b>: sets where the local folder is uploaded on the server (production, staging…). <b>Connection</b>: the details of an FTP/SFTP account; profiles on the same account share them from one place. A profile using a connection shows its summary and <i>Edit connection</i> instead of credential fields.</li>
+      <li><b>From a profile</b> (Connections tab) or <b>Make it a connection</b> in the profile form moves hand-entered details into a connection; if one for the same account exists, the profile is linked to it. CLI: <code>syncftp config extract-conn &lt;server&gt;</code>.</li>
+      <li>CLI and <code>syncftp.json</code> names are unchanged: profile = <code>servers</code> / <code>--server</code>, connection = <code>connections</code>.</li>
       <li><b>Library</b> (<i>Settings → Connection library</i>): connections saved across projects. Add with <i>From library</i>, save with <i>Save to library</i> — entries already in it show an <b>In library</b> badge; overwriting a same-named entry of another account asks first.</li></ul>`],
   }],
   ['cicd', 'zap', {

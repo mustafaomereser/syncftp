@@ -132,6 +132,31 @@ func guiRemotePath(srv config.Server, rel string) string {
 	return path.Join(srv.RemotePath, clean)
 }
 
+// connTargetPrefix dosya tarayıcısında profil yerine doğrudan bir bağlantıyla gezmek için "server"
+// parametresinin öneki ("@conn:<bağlantı adı>"). Bağlantının uzak dizini yoktur → kökten gezilir.
+const connTargetPrefix = "@conn:"
+
+// browseTarget dosya tarayıcısının hedefi: profil (Server) ya da @conn: önekli bağlantı. Yalnızca
+// gezinme / dosya işlemleri için — sync, state, freeze, release her zaman profil ister (findServer).
+func browseTarget(cfg *config.Config, name string) (config.Server, bool) {
+	if s, ok := findServer(cfg, name); ok {
+		return s, true
+	}
+	if !strings.HasPrefix(name, connTargetPrefix) {
+		return config.Server{}, false
+	}
+	want := strings.TrimPrefix(name, connTargetPrefix)
+	for _, c := range cfg.Connections {
+		if c.Name == want {
+			s := config.Server{Name: c.Name, RemotePath: "/", MaxConnections: 1, MaxRetries: 1}
+			s.ApplyConnection(c)
+			s.Normalize()
+			return s, true
+		}
+	}
+	return config.Server{}, false
+}
+
 func (sv *guiServer) remoteServer(w http.ResponseWriter, r *http.Request) (string, config.Server, bool) {
 	p, _, srv, ok := sv.remoteServerCfg(w, r)
 	return p.Name, srv, ok
@@ -145,7 +170,7 @@ func (sv *guiServer) remoteServerCfg(w http.ResponseWriter, r *http.Request) (pr
 		return p, nil, config.Server{}, false
 	}
 	name := r.URL.Query().Get("server")
-	srv, ok := findServer(cfg, name)
+	srv, ok := browseTarget(cfg, name)
 	if !ok {
 		guiErr(w, 404, fmt.Errorf(lang.L.ServerNotFoundFmt, name))
 		return p, nil, config.Server{}, false
@@ -177,10 +202,14 @@ func (sv *guiServer) apiRemoteLs(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 502, err)
 		return
 	}
-	// Sync'e hiç girmeyenler (ignore / exclude / include dışı) satırda rozetle gösterilir
-	m, _ := ignore.Load(filepath.Join(p.Path, srv.EffectiveLocalPath(cfg.Project)), cfg.Sync.IgnoreFiles)
-	f := effectiveFilters(cfg, srv, nil, nil)
-	skip := func(rel string, dir bool) string { return syncSkipReason(rel, dir, m, f) }
+	// Sync'e hiç girmeyenler (ignore / exclude / include dışı) satırda rozetle gösterilir — bağlantıyla
+	// gezerken sync yok, rozet de yok
+	skip := func(string, bool) string { return "" }
+	if _, isProfile := findServer(cfg, r.URL.Query().Get("server")); isProfile {
+		m, _ := ignore.Load(filepath.Join(p.Path, srv.EffectiveLocalPath(cfg.Project)), cfg.Sync.IgnoreFiles)
+		f := effectiveFilters(cfg, srv, nil, nil)
+		skip = func(rel string, dir bool) string { return syncSkipReason(rel, dir, m, f) }
+	}
 	base := editRel(r.URL.Query().Get("path"))
 	out := make([]guiEntry, 0, len(entries))
 	for _, e := range entries {

@@ -757,10 +757,18 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 400, err)
 		return
 	}
-	servers, err := selectServers(cfg, req.Servers)
-	if err != nil {
-		guiErr(w, 400, err)
-		return
+	// Dosya tarayıcısının işleri (silme, ağaç) bağlantıyla da çalışır; geri kalanı yalnızca profille
+	var servers []config.Server
+	if (req.Kind == "rm" || req.Kind == "tree") && len(req.Servers) == 1 {
+		if s, ok := browseTarget(cfg, req.Servers[0]); ok {
+			servers = []config.Server{s}
+		}
+	}
+	if servers == nil {
+		if servers, err = selectServers(cfg, req.Servers); err != nil {
+			guiErr(w, 400, err)
+			return
+		}
 	}
 
 	var ids []string
