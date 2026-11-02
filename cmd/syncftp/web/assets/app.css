@@ -545,7 +545,7 @@ details.bolum.katlanir > summary h3 + .ok-ac { margin-left: auto; }
 
 /* Dosyalar: sunucu seçimi sekme gibi */
 .srv-seg { display: inline-flex; flex-wrap: wrap; }
-.srv-seg a { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; height: 30px; color: var(--muted); text-decoration: none; border-radius: 8px; font-size: 13px; }
+.srv-seg a { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; height: 30px; color: var(--muted); text-decoration: none; border-radius: var(--r-pill); font-size: 13px; }
 .srv-seg a.aktif { background: var(--surface-2); color: var(--text); }
 .srv-seg a:hover { color: var(--text); }
 
