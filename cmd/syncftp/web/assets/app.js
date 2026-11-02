@@ -1921,8 +1921,7 @@ async function tabFiles(proj, srvName, relPath) {
   bind((root) => {
     $('#proj-aks', root).innerHTML = `<button class="ikon-btn" id="b-rf" title="${t('refresh')}">${icon('refresh')}</button>`;
     $('#b-rf', root).onclick = () => reload();
-    const fs = $('#f-srv', root);
-    if (fs) fs.onchange = (e) => go(pHash(P, 'files', e.target.value));
+    $$('[data-fsrv]', root).forEach((sel) => (sel.onchange = (e) => { if (e.target.value) go(pHash(P, 'files', e.target.value)); }));
     $$('[data-crumb]', root).forEach((b) => (b.onclick = () => go(b.dataset.crumb === '' ? pHash(P, 'files', srv) : hashFor(b.dataset.crumb))));
     const filter = $('#f-filter', root);
     // Binlerce girdide her tuşta yeniden çizmesin: yazma durunca (120 ms) filtrele
@@ -2105,9 +2104,14 @@ async function tabFiles(proj, srvName, relPath) {
         <button class="ikon-btn" data-act="ren" title="${t('rename')}">${icon('edit')}</button>
         <button class="ikon-btn tehlike" data-act="rm" title="${t('delete')}">${icon('trash')}</button></td></tr>`;
   }
-  return `<div class="arac-cubuk">
-      ${cfg.servers.length + conns.length <= 6 ? `<span class="seg srv-seg">${cfg.servers.map((s) => `<a href="${pHash(P, 'files', s.name)}" class="${s.name === srv ? 'aktif' : ''}" title="${esc(s.remote_path)}">${icon('server')}${esc(s.name)}</a>`).join('')}${conns.map((c) => `<a href="${pHash(P, 'files', CONN_TARGET + c.name)}" class="${CONN_TARGET + c.name === srv ? 'aktif' : ''}" title="${esc(t('filesConnTip', `${c.user ? c.user + '@' : ''}${c.host}`))}">${icon('link')}${esc(c.name)}</a>`).join('')}</span>`
-        : `<select id="f-srv">${cfg.servers.length ? `<optgroup label="${esc(t('tabServers'))}">${cfg.servers.map((s) => `<option value="${esc(s.name)}" ${s.name === srv ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</optgroup>` : ''}${conns.length ? `<optgroup label="${esc(t('tabConnections'))}">${conns.map((c) => `<option value="${esc(CONN_TARGET + c.name)}" ${CONN_TARGET + c.name === srv ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</optgroup>` : ''}</select>`}
+  // Hedef seçimi iki ayrı grup: profiller ve bağlantılar; kalabalık grup açılır listeye döner
+  const targetGroup = (label, items) => (items.length ? `<div class="f-hedef-grup"><span class="f-hedef-et">${esc(label)}</span>${items.length <= 6
+    ? `<span class="seg srv-seg">${items.map((x) => `<a href="${pHash(P, 'files', x.value)}" class="${x.value === srv ? 'aktif' : ''}" title="${esc(x.title)}">${icon(x.icon)}${esc(x.name)}</a>`).join('')}</span>`
+    : `<select data-fsrv>${items.some((x) => x.value === srv) ? '' : '<option value="" selected>—</option>'}${items.map((x) => `<option value="${esc(x.value)}" ${x.value === srv ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>`}</div>` : '');
+  const profileItems = cfg.servers.map((s) => ({ value: s.name, name: s.name, icon: 'server', title: s.remote_path }));
+  const connItems = conns.map((c) => ({ value: CONN_TARGET + c.name, name: c.name, icon: 'link', title: t('filesConnTip', `${c.user ? c.user + '@' : ''}${c.host}`) }));
+  return `<div class="f-hedefler">${targetGroup(t('tabServers'), profileItems)}${targetGroup(t('tabConnections'), connItems)}</div>
+    <div class="arac-cubuk">
       <div class="ara">${icon('search')}<input type="text" id="f-filter" placeholder="${t('filter')}"></div>
       <button class="btn" id="f-search" title="${t('searchAll')}">${icon('search')}${t('searchAll')}</button>
       <button class="btn" id="f-tree" title="${t('treeHint')}">${icon('layers')}${t('treeView')}</button>
