@@ -902,3 +902,7 @@ body.cerceveli .pk-arka { top: var(--tb-h); padding-top: 8vh; }
 .ws-pin svg { width: 12px; height: 12px; color: var(--accent); }
 .ws-sekme.surukle { opacity: .6; outline: 1px dashed var(--accent); outline-offset: -3px; }
 body.ws-sekme-surukle, body.ws-sekme-surukle * { cursor: grabbing !important; user-select: none; }
+.ws-rozet { flex: none; margin-left: 4px; padding: 0 5px; height: 16px; line-height: 16px; border-radius: 6px; border: 1px solid var(--line-2); font-size: 10px; color: var(--muted); display: inline-flex; align-items: center; }
+.ws-rozet-fz { color: #7cc4ff; border-color: rgb(124 196 255 / .35); padding: 0 3px; }
+.ws-rozet svg { width: 10px; height: 10px; }
+.ws-satir.ws-soluk .ws-rozet { opacity: 1; }

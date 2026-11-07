@@ -122,6 +122,19 @@ function wsMount(root, w, m) {
     w.cache.set(path, entries);
     return entries;
   }
+  // Freeze listesi (yalnızca profilde; bağlantıyla gezerken sync yok)
+  const frozenSelf = (p, dir) => {
+    const F = w.frozen;
+    if (!F || !F.size) return false;
+    if (F.has(dir ? p + '/' : p)) return true;
+    for (let i = p.indexOf('/'); i >= 0; i = p.indexOf('/', i + 1)) if (F.has(p.slice(0, i + 1))) return true;
+    return false;
+  };
+  const frozenUnder = (p) => { const F = w.frozen; if (!F) return false; const pre = p + '/'; for (const f of F) if (f.startsWith(pre)) return true; return false; };
+  const loadFrozen = async () => {
+    if (isConnTarget(srv)) { w.frozen = new Set(); return; }
+    w.frozen = new Set(await GET(`/api/p/${enc(P)}/frozen?server=${enc(srv)}`).catch(() => []));
+  };
   function rows(path, depth) {
     const entries = w.cache.get(path);
     if (!entries) return w.open.has(path) || path === w.root ? `<div class="ws-satir ws-yuk" style="--d:${depth}">${icon('refresh', 'spin')}</div>` : '';
@@ -129,9 +142,12 @@ function wsMount(root, w, m) {
     return entries.map((e) => {
       const p = (path ? path + '/' : '') + e.name;
       const isDir = e.type === 'dir', open = isDir && w.open.has(p);
-      const skip = e.skip ? ` ws-soluk" title="${esc(t('skip_' + e.skip) || e.skip)}` : '';
+      const skip = e.skip ? ' ws-soluk' : '';
+      // Rozetler Dosyalar sekmesiyle aynı: freeze (kendisi / üst klasörü / klasörün altında kayıt) + ignore / exclude / include dışı
+      const fz = frozenSelf(p, isDir) || (isDir && frozenUnder(p));
+      const tags = `${fz ? `<span class="ws-rozet ws-rozet-fz" title="${esc(t('frozenBadge'))}">${icon('snow')}</span>` : ''}${e.skip ? `<span class="ws-rozet" title="${esc(t('skipHint_' + e.skip))}">${esc(t('skip_' + e.skip))}</span>` : ''}`;
       return `<div class="ws-satir${isDir ? ' ws-klasor' : ''}${!isDir && p === w.active ? ' aktif' : ''}${skip}" style="--d:${depth}" data-p="${esc(p)}" ${isDir ? 'data-dir' : ''}>
-        ${isDir ? `<span class="ws-ok${open ? ' acik' : ''}">${icon('right')}</span>` : '<span class="ws-ok"></span>'}${icon(isDir ? 'folder' : 'file')}<span class="ws-ad">${esc(e.name)}</span></div>
+        ${isDir ? `<span class="ws-ok${open ? ' acik' : ''}">${icon('right')}</span>` : '<span class="ws-ok"></span>'}${icon(isDir ? 'folder' : 'file')}<span class="ws-ad">${esc(e.name)}</span>${tags}</div>
         ${open ? rows(p, depth + 1) : ''}`;
     }).join('');
   }
@@ -160,6 +176,7 @@ function wsMount(root, w, m) {
     try { await ls(path); } catch (e) { w.cache.set(path, Object.assign([], { error: e.message })); }
   }
   async function loadOpen() {
+    if (!w.frozen) await loadFrozen();
     drawTree();
     await ensure(w.root);
     // Açık klasörler sığdan derine yüklenir (üstü kapalı olan atlanır)
@@ -468,6 +485,7 @@ function wsMount(root, w, m) {
   $('#ws-refresh', root).onclick = () => {
     for (const k of [...S.lsCache.keys()]) if (k.startsWith(`${P}|${srv}|`)) S.lsCache.delete(k);
     w.cache.clear();
+    w.frozen = null;
     loadOpen();
   };
   $('#ws-list', root).onclick = () => {
