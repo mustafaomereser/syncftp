@@ -603,7 +603,11 @@ async function showJobLog(id) {
       ...(snap.cancelable && j.status === 'running' ? [{ label: icon('stop') + t('stop'), cls: 'tehlike', run: async () => {
         await api('DELETE', `/api/jobs/${enc(id)}`);
         toast(snap.kind === 'watch' ? t('watchStopped') : t('jobStopping'));
-        return snap.kind === 'watch';
+        if (snap.kind !== 'watch') return false;
+        // Başka açık watch varsa onun konsoluna geç; sonuncusu durdurulunca pencere kapanır
+        const next = runningWatches().find((w) => w.id !== id);
+        if (next) { m.close(); showJobLog(next.id); return false; }
+        return true;
       } }] : []),
       { label: t('close'), cls: 'birincil' },
     ],
