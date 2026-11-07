@@ -700,7 +700,7 @@ async function render(soft = false) {
   const r = parseRoute();
   if (r.project) S.lastProject = r.project;
   document.body.classList.toggle('terminal-modu', r.page === 'terminal');
-  document.body.classList.remove('secim-acik', 'ws-modu'); // Dosyalar seçim çubuğu / editör modu dolgusu (yeni çizim kendi verir)
+  document.body.classList.remove('secim-acik'); // Dosyalar seçim çubuğunun alt dolgusu (yeni çizim kendi verir)
   if (window.tbUpdate) window.tbUpdate(); // kendi pencere barımız (titlebar.js)
   $$('.nav a').forEach((a) => a.classList.toggle('aktif',
     !!((a.dataset.nav === 'home' && r.page === 'home') || (a.dataset.nav === 'jobs' && r.page === 'jobs') || (a.dataset.nav === 'help' && r.page === 'help') || (a.dataset.nav === 'settings' && r.page === 'settings') || (a.dataset.nav === 'terminal' && r.page === 'terminal') || (a.dataset.proj && a.dataset.proj === r.project))));
@@ -710,7 +710,7 @@ async function render(soft = false) {
     [...S.modals].forEach((c) => c());
     const tabsEl = r.page === 'project' && root.dataset.proj === r.project ? $('.sayfa > .tabs', root) : null;
     if (tabsEl) {
-      const activeTab = r.tab === 'server' ? 'servers' : r.tab === 'connection' ? 'connections' : r.tab === 'edit' ? 'files' : r.tab;
+      const activeTab = r.tab === 'server' ? 'servers' : r.tab === 'connection' ? 'connections' : r.tab;
       $$('a', tabsEl).forEach((a) => a.classList.toggle('aktif', a.getAttribute('href') === pHash(r.project, activeTab)));
       while (tabsEl.nextSibling) tabsEl.nextSibling.remove();
       tabsEl.insertAdjacentHTML('afterend', `<div class="yukleniyor">${icon('refresh', 'spin')} ${t('loading')}</div>`);
@@ -1132,11 +1132,11 @@ async function pageProject(r) {
     ['overview', 'layers', t('tabOverview')], ['servers', 'server', t('tabServers')], ['connections', 'link', t('tabConnections')],
     ['files', 'folder', t('tabFiles')], ['history', 'history', t('tabHistory')], ['cicd', 'zap', t('tabCicd')], ['settings', 'sliders', t('tabSettings')],
   ];
-  const activeTab = r.tab === 'server' ? 'servers' : r.tab === 'connection' ? 'connections' : r.tab === 'edit' ? 'files' : r.tab;
+  const activeTab = r.tab === 'server' ? 'servers' : r.tab === 'connection' ? 'connections' : r.tab;
   const head =`<div class="baslik-satir"><div><h1>${esc(proj.name)}</h1>
       <div class="yol">${icon('folder')}<span>${esc(proj.path)}</span><button class="ikon-btn" style="width:24px;height:24px" data-copy="${esc(proj.path)}" title="${t('copyPath')}">${icon('copy')}</button></div></div>
       <div class="aksiyonlar"><span id="proj-aks" class="aksiyonlar"></span>
-        <a class="ikon-btn" href="#/help/${({ overview: 'sync', servers: 'start', server: 'start', connections: 'conns', connection: 'conns', files: 'files', edit: 'files', history: 'rollback', cicd: 'cicd', settings: 'project' })[r.tab] || 'start'}" title="${t('navHelp')}">${icon('help')}</a></div></div>
+        <a class="ikon-btn" href="#/help/${({ overview: 'sync', servers: 'start', server: 'start', connections: 'conns', connection: 'conns', files: 'files', history: 'rollback', cicd: 'cicd', settings: 'project' })[r.tab] || 'start'}" title="${t('navHelp')}">${icon('help')}</a></div></div>
     <div class="tabs">${tabs.map(([k, ic, l]) => `<a href="${pHash(proj.name, k)}" class="${activeTab === k ? 'aktif' : ''}">${icon(ic)}${l}</a>`).join('')}</div>`;
   let body;
   switch (r.tab) {
@@ -1146,7 +1146,6 @@ async function pageProject(r) {
     case 'connection': body = await tabConnEdit(proj, r.sub); break;
     case 'settings': body = await tabSettings(proj); break;
     case 'files': body = await tabFiles(proj, r.sub, r.sub2); break;
-    case 'edit': body = await tabWorkspace(proj, r.sub, r.sub2); break; // workspace.js
     case 'history': body = await tabHistory(proj, r.sub); break;
     case 'cicd': body = await tabCicd(proj); break;
     default: body = await tabOverview(proj);
@@ -2532,8 +2531,8 @@ async function tabFiles(proj, srvName, relPath) {
     };
     up.onchange = () => uploadItems([...up.files].map((f) => ({ file: f, path: f.name })), rel);
     bindDropUpload(root, (items, dirName) => uploadItems(items, dirName ? full(dirName) : rel));
-    // Editör modu (workspace.js): solda ağaç, sağda sekmeli editör — bulunduğun klasör açık gelir
-    $('#f-editor', root).onclick = () => go(`${pHash(P, 'edit', srv)}${rel ? '/' + enc(rel) : ''}`);
+    // Editör (workspace.js): büyük pencere — solda bulunduğun klasörden başlayan ağaç, sağda sekmeli editör
+    $('#f-editor', root).onclick = () => openWorkspace(P, srv, rel);
     // Ağaç: shell `tree` ile aynı çekirdek (iş olarak çalışır, çıktı canlı akar)
     $('#f-tree', root).onclick = () => {
       const m = modal({

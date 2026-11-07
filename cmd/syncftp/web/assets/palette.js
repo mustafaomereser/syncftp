@@ -52,7 +52,7 @@
       const P = p.name;
       out.push({ group: t('pkGroupProjects'), icon: p.ok ? 'folder' : 'alert', label: P, hint: p.path, run: () => go(pHash(P)) });
       for (const [tab, ic, key] of tabs.slice(1)) out.push({ group: t('pkGroupProjects'), icon: ic, label: `${P} · ${t(key)}`, run: () => go(pHash(P, tab)) });
-      out.push({ group: t('pkGroupProjects'), icon: 'code', label: `${P} · ${t('tabFiles')} · ${t('wsOpen')}`, run: () => go(pHash(P, 'edit')) });
+      out.push({ group: t('pkGroupProjects'), icon: 'code', label: `${P} · ${t('tabFiles')} · ${t('wsOpen')}`, run: () => openWorkspace(P) });
       if (p.ok && p.enabled) {
         out.push({ group: t('pkGroupActions'), icon: 'upload', label: `${P} · ${t('syncAll')}`, run: () => startJobs(P, { kind: 'sync' }, t('sync')) });
         out.push({ group: t('pkGroupActions'), icon: 'eye', label: `${P} · ${t('dryRun')}`, run: () => startJobs(P, { kind: 'sync', dry_run: true }, t('dryRun')) });

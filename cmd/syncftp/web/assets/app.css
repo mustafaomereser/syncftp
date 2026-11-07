@@ -588,13 +588,23 @@ details.bolum.katlanir > summary h3 + .ok-ac { margin-left: auto; }
 .ed-hatirla input { accent-color: var(--accent); }
 .ed-durum .ed-hedef { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
 
-/* Dosyalar → Editör modu (workspace.js): solda ağaç, sağda sekmeli editör; yükseklik JS ile çerçeveye sığar */
-body.ws-modu .frame { padding-bottom: 22px; }
-.ws-ust { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px; }
+/* Dosyalar → Editör penceresi (workspace.js): ekranın neredeyse tamamı; solda bulunulan klasörden ağaç, sağda sekmeler */
+.modal.ws-modal { width: min(1680px, 100%); height: calc(100vh - 48px); }
+.ws-modal .modal-ic { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.ws-modal .ws { flex: 1; min-height: 0; }
+.ws-ust { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; flex: none; }
 .ws-ust .ws-ara { flex: 1; }
 .ws-srv { width: auto; min-width: 180px; height: 32px; padding: 0 10px; font-size: 13px; }
 .ws { display: grid; grid-template-columns: minmax(200px, 270px) minmax(0, 1fr); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; min-height: 360px; background: var(--surface); }
-.ws-agac { overflow: auto; border-right: 1px solid var(--line); padding: 6px 0; font-size: 13px; background: var(--frame); }
+.ws-sol { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); background: var(--frame); }
+.ws-kok { display: flex; align-items: center; gap: 4px; height: 36px; padding: 0 8px 0 4px; border-bottom: 1px solid var(--line); flex: none; font: 12px var(--mono); color: var(--muted); }
+.ws-kok .ikon-btn { width: 26px; height: 26px; flex: none; }
+.ws-kok .ikon-btn[disabled] { opacity: .35; cursor: default; }
+.ws-kok-yol { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.ws-kok-yol a { color: var(--muted); text-decoration: none; }
+.ws-kok-yol a:hover { color: var(--text); }
+.ws-kok-yol span { margin: 0 3px; color: var(--faint); }
+.ws-agac { flex: 1; min-height: 0; overflow: auto; padding: 6px 0; font-size: 13px; }
 .ws-satir { display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px 0 calc(8px + var(--d, 0) * 14px); cursor: pointer; white-space: nowrap; color: var(--text); user-select: none; }
 .ws-satir:hover { background: var(--surface-2); }
 .ws-satir.aktif { background: var(--accent-soft); color: var(--text); }
@@ -630,7 +640,7 @@ body.ws-modu .frame { padding-bottom: 22px; }
 .ws-bos b { color: var(--muted); font-weight: 600; }
 .ws-bos small { max-width: 420px; line-height: 1.5; }
 .ws-bilgi { display: grid; gap: 12px; justify-items: start; padding: 10px; }
-@media (max-width: 760px) { .ws { grid-template-columns: 1fr; grid-template-rows: 180px minmax(0, 1fr); } .ws-agac { border-right: 0; border-bottom: 1px solid var(--line); } }
+@media (max-width: 760px) { .ws { grid-template-columns: 1fr; grid-template-rows: 200px minmax(0, 1fr); } .ws-sol { border-right: 0; border-bottom: 1px solid var(--line); } }
 
 /* Modal düğmesindeki tek tuş kısayolu (actions[].key) */
 .btn kbd.kisayol { margin-left: 6px; padding: 0 4px; font-size: 10px; line-height: 15px; opacity: .7; }
