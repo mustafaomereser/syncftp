@@ -49,6 +49,7 @@ func (sv *guiServer) routes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/projects", sv.apiProjectAdd)
 	mux.HandleFunc("PATCH /api/projects/{p}", sv.apiProjectRename)
 	mux.HandleFunc("PATCH /api/p/{p}/look", sv.apiProjectLook)
+	mux.HandleFunc("PUT /api/projects/order", sv.apiProjectOrder)
 	mux.HandleFunc("GET /api/p/{p}/banner", sv.apiProjectBanner)
 	mux.HandleFunc("PUT /api/p/{p}/banner", sv.apiProjectBanner)
 	mux.HandleFunc("DELETE /api/p/{p}/banner", sv.apiProjectBanner)
@@ -234,6 +235,7 @@ type guiProject struct {
 	Color    string     `json:"color,omitempty"`  // proje rengi (#rrggbb)
 	Group    string     `json:"group,omitempty"`  // ana sayfa grubu
 	Banner   int64      `json:"banner,omitempty"` // kapak resmi varsa değişme zamanı (önbellek kırıcı ?v=)
+	Order    int        `json:"order,omitempty"`  // grup içindeki sıra
 }
 
 func (sv *guiServer) apiProjects(w http.ResponseWriter, r *http.Request) {
@@ -258,7 +260,7 @@ func (sv *guiServer) apiProjects(w http.ResponseWriter, r *http.Request) {
 			gp.Servers = len(cfg.Servers)
 			gp.Enabled = len(cfg.EnabledServers())
 			gp.Keyring = cfg.Project.Keyring
-			gp.Color, gp.Group = cfg.Project.Color, cfg.Project.Group
+			gp.Color, gp.Group, gp.Order = cfg.Project.Color, cfg.Project.Group, cfg.Project.Order
 		}
 		if _, mod := projectBanner(p.Path); !mod.IsZero() {
 			gp.Banner = mod.UnixMilli()

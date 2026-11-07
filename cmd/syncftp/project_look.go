@@ -111,7 +111,60 @@ func removeProjectBanner(dir string) error {
 	return nil
 }
 
+// orderItem panelden gelen yeni sıra: ad + (değiştiyse) grup.
+type orderItem struct {
+	Name  string `json:"name"`
+	Group string `json:"group"`
+}
+
+// reorderProjects listedeki sırayı project.order'a (1, 2, …) ve grubu project.group'a yazar; yalnızca
+// değişen config'ler kaydedilir. Panel sürükle-bırak + CLI `project order` ortak.
+func reorderProjects(items []orderItem) error {
+	var errs []string
+	for i, it := range items {
+		p, ok := projects.Find(it.Name)
+		if !ok {
+			errs = append(errs, fmt.Sprintf(lang.L.ProjectNotFoundFmt, it.Name))
+			continue
+		}
+		cfg, err := config.Load(p.Path)
+		if err != nil {
+			errs = append(errs, it.Name+": "+err.Error())
+			continue
+		}
+		g := strings.Join(strings.Fields(it.Group), " ")
+		if cfg.Project.Order == i+1 && cfg.Project.Group == g {
+			continue
+		}
+		cfg.Project.Order, cfg.Project.Group = i+1, g
+		if err := config.Save(p.Path, cfg); err != nil {
+			errs = append(errs, it.Name+": "+err.Error())
+		}
+	}
+	projects.Invalidate()
+	if len(errs) > 0 {
+		return errors.New(strings.Join(errs, "; "))
+	}
+	return nil
+}
+
 // ── Panel uçları ──────────────────────────────────────────────────────────────
+
+// PUT /api/projects/order {items: [{name, group}]} — tüm projelerin yeni sırası
+func (sv *guiServer) apiProjectOrder(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Items []orderItem `json:"items"`
+	}
+	if err := guiDecode(r, &req); err != nil {
+		guiErr(w, 400, err)
+		return
+	}
+	if err := reorderProjects(req.Items); err != nil {
+		guiErr(w, 400, err)
+		return
+	}
+	guiJSON(w, map[string]bool{"ok": true})
+}
 
 // PATCH /api/p/{p}/look {color?, group?}
 func (sv *guiServer) apiProjectLook(w http.ResponseWriter, r *http.Request) {
@@ -185,7 +238,34 @@ func init() {
 	projectLookCmd.Flags().StringVar(&lookGroup, "group", "", `Grup adı; "none" temizler`)
 	projectLookCmd.Flags().StringVar(&lookBanner, "banner", "", "Kapak resmi (png / jpg / webp / gif, ≤ 8 MB)")
 	projectLookCmd.Flags().BoolVar(&lookNoBanner, "no-banner", false, "Kapak resmini kaldır")
-	projectCmd.AddCommand(projectLookCmd)
+	projectCmd.AddCommand(projectLookCmd, projectOrderCmd)
+}
+
+var projectOrderCmd = &cobra.Command{
+	Use:   "order <ad> [ad...]",
+	Short: "Projelerin paneldeki sırası (verilen sırayla; grupları değişmez)",
+	Args:  cobra.MinimumNArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		var items []orderItem
+		for _, a := range args {
+			p, ok := projects.Find(a)
+			if !ok {
+				return fmt.Errorf(lang.L.ProjectNotFoundFmt, a)
+			}
+			cfg, err := config.Load(p.Path)
+			if err != nil {
+				return err
+			}
+			items = append(items, orderItem{Name: cfg.Project.Name, Group: cfg.Project.Group})
+		}
+		if err := reorderProjects(items); err != nil {
+			return err
+		}
+		for i, it := range items {
+			fmt.Printf("  %d. %s\n", i+1, it.Name)
+		}
+		return nil
+	},
 }
 
 var projectLookCmd = &cobra.Command{

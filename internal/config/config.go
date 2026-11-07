@@ -77,6 +77,7 @@ type Project struct {
 	LocalPath   string `json:"local_path,omitempty"`   // deprecated: geriye dönük uyumluluk
 	Color       string `json:"color,omitempty"`        // panelde proje rengi (#rrggbb)
 	Group       string `json:"group,omitempty"`        // panelde proje grubu (ana sayfa bölümleri)
+	Order       int    `json:"order,omitempty"`        // panelde grup içindeki sıra (1…; 0 = sona, ada göre)
 }
 
 // EffectiveLocalPath global varsayılan yerel dizini döndürür.
