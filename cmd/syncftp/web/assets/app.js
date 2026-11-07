@@ -350,7 +350,12 @@ function modal({ title, body, size = '', actions = [], onClose, guard }) {
     alt.appendChild(b);
   }
   $('#modal-kok').appendChild(root);
-  const f = $('input,textarea,select', root);
+  // Odak: önce yazı alanı; yoksa onay tipi pencerede (≤ 2 düğme) ya da `focus: true` verilen
+  // düğmede asıl işlem düğmesi → Enter doğrudan onaylar. Onay kutusu odak almaz (Enter onda işe yaramaz).
+  const btns = $$('.modal-alt > button', root);
+  const f = $('input:not([type=checkbox]):not([type=radio]):not([type=hidden]),textarea,select', root)
+    || btns[actions.filter((a) => !('left' in a)).findIndex((a) => a.focus)]
+    || (btns.length && btns.length <= 2 ? btns[btns.length - 1] : null);
   if (f) setTimeout(() => f.focus(), 30);
   return { root, close };
 }
