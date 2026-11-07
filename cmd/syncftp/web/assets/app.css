@@ -807,3 +807,7 @@ body.cerceveli .pk-arka { top: var(--tb-h); padding-top: 8vh; }
 .pkart[draggable="true"], .psatir[draggable="true"] { -webkit-user-drag: element; }
 .pgrup.birak-grup > .izgara, .pgrup.birak-grup > .pliste { outline: 2px dashed var(--accent); outline-offset: 6px; border-radius: var(--r-card); }
 .pgrup.birak-grup .pgrup-bas b { color: var(--accent); }
+
+/* Dosyalar: seçili satırlar (Ctrl / Shift + tık, Ctrl+A) */
+#f-body tr.secili td { background: var(--accent-soft); }
+#f-body tr.secili:hover td { background: color-mix(in srgb, var(--accent) 20%, transparent); }
