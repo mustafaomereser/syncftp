@@ -731,3 +731,25 @@ body.cerceveli .modal-arka { top: var(--tb-h); }
 .tb-pencere button { width: 46px; border: 0; background: transparent; color: var(--muted); display: grid; place-items: center; cursor: default; }
 .tb-pencere button:hover { background: var(--surface-2); color: var(--text); }
 .tb-pencere .kapat:hover { background: #c42b1c; color: #fff; }
+
+/* Hızlı arama (palette.js) + bardaki kutu */
+.tb-ara { width: min(360px, 34vw); height: 26px; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--faint); font: inherit; font-size: 12.5px; cursor: text; }
+.tb-ara:hover { border-color: var(--line-2); color: var(--muted); }
+.tb-ara .i { width: 14px; height: 14px; }
+.tb-ara span { flex: 1; text-align: left; }
+.tb-ara kbd, .pk kbd { font: 10.5px var(--mono); padding: 1px 5px; border: 1px solid var(--line-2); border-radius: 5px; color: var(--faint); background: var(--bg); }
+.pk-arka { position: fixed; inset: 0; z-index: 2500; background: rgb(0 0 0 / .45); display: flex; justify-content: center; align-items: flex-start; padding-top: 12vh; }
+body.cerceveli .pk-arka { top: var(--tb-h); padding-top: 8vh; }
+.pk { width: min(640px, calc(100vw - 32px)); max-height: 70vh; display: flex; flex-direction: column; background: var(--frame); border: 1px solid var(--line-2); border-radius: 14px; box-shadow: 0 30px 80px rgb(0 0 0 / .6); overflow: hidden; }
+.pk-ara { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); color: var(--faint); }
+.pk-ara input, .pk-ara input:focus { flex: 1; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 15px; outline: none; box-shadow: none; padding: 0; height: auto; }
+.pk-liste { overflow-y: auto; padding: 6px; }
+.pk-grup { padding: 8px 10px 4px; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
+.pk-oge { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; color: var(--muted); }
+.pk-oge .i { width: 15px; height: 15px; color: var(--faint); flex: 0 0 auto; }
+.pk-oge.aktif { background: var(--surface-2); color: var(--text); }
+.pk-oge.aktif .i { color: var(--accent); }
+.pk-etiket { flex: 0 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pk-ipucu { flex: 1 1 0; min-width: 0; text-align: right; font: 11.5px var(--mono); color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pk-bos { padding: 18px; text-align: center; color: var(--faint); }
+.pk-alt { display: flex; gap: 16px; padding: 8px 14px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--faint); }

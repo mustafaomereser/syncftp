@@ -46,6 +46,8 @@
     bar.querySelector('[data-tb="back"]').disabled = !!nav && 'canGoBack' in nav && !nav.canGoBack;
     bar.querySelector('[data-tb="fwd"]').disabled = !!nav && 'canGoForward' in nav && !nav.canGoForward;
     for (const [k, key] of [['back', 'cmBack'], ['fwd', 'cmForward'], ['min', 'tbMin'], ['close', 'tbClose']]) bar.querySelector(`[data-tb="${k}"]`).title = t(key);
+    const ara = bar.querySelector('.tb-ara span');
+    if (ara.textContent !== t('pkPlaceholderShort')) ara.textContent = t('pkPlaceholderShort');
     bar.querySelector('[data-tb="max"]').title = t(document.body.classList.contains('pencere-buyuk') ? 'tbRestore' : 'tbMax');
   };
   window.__winState = (st) => {
@@ -62,6 +64,8 @@
     bar.innerHTML = `<div class="tb-sol"><img src="/logo.png" alt=""><b>syncFTP</b><span class="tb-yer"></span></div>
       <div class="tb-nav"><button type="button" data-tb="back">${icon('left')}</button><button type="button" data-tb="fwd">${icon('right')}</button></div>
       <div class="tb-bosluk"></div>
+      <button type="button" class="tb-ara" data-tb="search">${icon('search')}<span></span><kbd>Ctrl K</kbd></button>
+      <div class="tb-bosluk"></div>
       <button type="button" class="tb-is" hidden>${icon('refresh', 'spin')}<span></span></button>
       <div class="tb-pencere"><button type="button" data-tb="min">${ICON.min}</button><button type="button" data-tb="max">${ICON.max}</button><button type="button" data-tb="close" class="kapat">${ICON.close}</button></div>`;
     document.body.prepend(bar);
@@ -75,6 +79,7 @@
         case 'min': post('win:min'); break;
         case 'max': post('win:max'); break;
         case 'close': post('win:close'); break;
+        case 'search': if (window.openPalette) window.openPalette(); break;
       }
     });
     window.addEventListener('hashchange', () => window.tbUpdate());
