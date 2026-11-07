@@ -744,6 +744,7 @@ type guiJobReq struct {
 	DeleteNew   bool     `json:"delete_new"` // rollback: release'in yeni eklediği dosyaları da sil
 	Paths       []string `json:"paths"`      // rm: RemotePath'e göreceli silinecek yollar
 	Recursive   bool     `json:"recursive"`  // rm: dolu klasörleri de sil (CLI remote rm --recursive)
+	Target      string   `json:"target"`     // zip: arşiv adı (paths ile aynı klasörde); unzip: hedef klasör (göreceli)
 }
 
 func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
@@ -759,7 +760,7 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 	}
 	// Dosya tarayıcısının işleri (silme, ağaç) bağlantıyla da çalışır; geri kalanı yalnızca profille
 	var servers []config.Server
-	if (req.Kind == "rm" || req.Kind == "tree") && len(req.Servers) == 1 {
+	if (req.Kind == "rm" || req.Kind == "tree" || req.Kind == "zip" || req.Kind == "unzip") && len(req.Servers) == 1 {
 		if s, ok := browseTarget(cfg, req.Servers[0]); ok {
 			servers = []config.Server{s}
 		}
@@ -783,7 +784,7 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 	dir := p.Path
 
 	switch req.Kind {
-	case "rollback", "exec", "tree", "rm": // tek sunuculuk işler — boş liste "tüm aktif sunucular" demek, ilkini seçme
+	case "rollback", "exec", "tree", "rm", "zip", "unzip": // tek sunuculuk işler — boş liste "tüm aktif sunucular" demek, ilkini seçme
 		if len(req.Servers) != 1 {
 			guiErr(w, 400, errors.New(lang.L.GuiNeedOneServer))
 			return
@@ -968,6 +969,109 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 			}
 			fmt.Fprintf(j, lang.L.RemoteDelDoneFmt, files, dirs)
 			return map[string]int{"files": files, "dirs": dirs}, nil
+		}))
+	case "zip", "unzip":
+		// Sunucuda zip / zipten çıkar (CLI remote zip|unzip ile aynı çekirdek, remote_zip.go): kendi
+		// bağlantısında iş olarak, her dosya canlı akar; Durdur = ctx + o anki aktarımı kes.
+		srv := servers[0]
+		ctx, cancel := context.WithCancel(context.Background())
+		var cur *ftpclient.Client
+		var curMu sync.Mutex
+		stop := func() {
+			cancel()
+			curMu.Lock()
+			if cur != nil {
+				cur.Abort()
+			}
+			curMu.Unlock()
+		}
+		connect := func() (*ftpclient.Client, error) {
+			c, err := ftpclient.Connect(srv)
+			if err != nil {
+				return nil, err
+			}
+			curMu.Lock()
+			cur = c
+			curMu.Unlock()
+			return c, nil
+		}
+		relOf := func(full string) string { return strings.TrimPrefix(strings.TrimPrefix(full, srv.RemotePath), "/") }
+		if req.Kind == "zip" {
+			var srcs []string
+			for _, rp := range req.Paths {
+				full := guiRemotePath(srv, rp)
+				if path.Clean(full) == path.Clean(srv.RemotePath) {
+					cancel()
+					guiErr(w, 400, errors.New("root"))
+					return
+				}
+				srcs = append(srcs, full)
+			}
+			if len(srcs) == 0 {
+				cancel()
+				guiErr(w, 400, errors.New("paths"))
+				return
+			}
+			base := path.Dir(srcs[0])
+			name := zipDefaultName(base, srcs)
+			if strings.TrimSpace(req.Target) != "" {
+				n, err := checkNewName(strings.TrimSpace(req.Target))
+				if err != nil {
+					cancel()
+					guiErr(w, 400, err)
+					return
+				}
+				name = n
+			}
+			if !strings.HasSuffix(strings.ToLower(name), ".zip") {
+				name += ".zip"
+			}
+			add(sv.jobs.startCancelable("zip", p.Name, srv.Name, lang.L.GuiJobZip, "", stop, func(j *job) (any, error) {
+				defer cancel()
+				c, err := connect()
+				if err != nil {
+					return nil, err
+				}
+				defer c.Close()
+				out := path.Join(base, uniqueRemoteName(c, base, name))
+				n, size, err := remoteZip(ctx, c, base, srcs, out, j)
+				if err != nil {
+					if ctx.Err() != nil {
+						fmt.Fprint(j, lang.L.RemoteZipStopped)
+						return nil, errors.New(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(lang.L.RemoteZipStopped), "!")))
+					}
+					return nil, err
+				}
+				fmt.Fprintf(j, lang.L.RemoteZipDoneFmt, n, relOf(out), humanBytes(size))
+				return map[string]any{"files": n, "path": relOf(out), "size": size}, nil
+			}))
+			break
+		}
+		if len(req.Paths) != 1 {
+			cancel()
+			guiErr(w, 400, errors.New("paths"))
+			return
+		}
+		zipFull := guiRemotePath(srv, req.Paths[0])
+		dest := guiRemotePath(srv, req.Target)
+		add(sv.jobs.startCancelable("unzip", p.Name, srv.Name, lang.L.GuiJobUnzip, "", stop, func(j *job) (any, error) {
+			defer cancel()
+			c, err := connect()
+			if err != nil {
+				return nil, err
+			}
+			defer c.Close()
+			n, err := remoteUnzip(ctx, c, zipFull, dest, j)
+			if err != nil {
+				if ctx.Err() != nil {
+					msg := fmt.Sprintf(lang.L.RemoteUnzipStoppedFmt, n)
+					fmt.Fprint(j, msg)
+					return nil, errors.New(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(msg), "!")))
+				}
+				return nil, err
+			}
+			fmt.Fprintf(j, lang.L.RemoteUnzipDoneFmt, n, "/"+relOf(dest))
+			return map[string]any{"files": n, "path": relOf(dest)}, nil
 		}))
 	case "diff":
 		if len(servers) != 2 {

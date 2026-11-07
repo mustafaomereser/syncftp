@@ -117,7 +117,7 @@ const T = {
     upload: 'Yükle', newFolder: 'Yeni klasör', folderName: 'Klasör adı', rename: 'Yeniden adlandır / taşı', newPath: 'Yeni yol (uzak dizine göreceli)',
     moveTo: 'Taşı', selectedN: '{0} seçili', clearSel: 'Seçimi temizle',
     freezeToggle: 'Freeze / unfreeze', frozenBadge: 'frozen', searchAll: 'Alt klasörlerde ara', searchTitle: '"{0}" araması', searchNone: 'Sonuç yok', searching: 'Aranıyor…', searchingN: '{0} sonuç · {1} klasör tarandı…', searchDoneN: '{0} sonuç · {1} klasör · {2} sn', searchTruncated: 'Çok fazla sonuç (ilk 2000) ya da 5 dakika sınırı doldu — aramayı daraltın.',
-    uploaded: '{0} dosya yüklendi', upWaiting: 'sırada…', upDone: 'yüklendi', upCount: '{0} / {1} dosya', created: 'Oluşturuldu', moved: 'Taşındı', frozenAdded: '{0} öğe freeze listesine eklendi', frozenRemoved: '{0} kayıt freeze listesinden çıkarıldı',
+    uploaded: '{0} dosya yüklendi', edDirect: 'Doğrudan sunucuya · yedeksiz', edDirectHint: 'Bağlantıyla açıldı: yerel kopya ve yedek (Geri al) yok, kayıt doğrudan sunucudaki dosyaya yazılır. Sunucudaki dosya açıldıktan sonra değiştiyse yine sorulur.', zipSel: 'Zip\'le', zipTitle: 'Zip arşivi oluştur', zipName: 'Arşiv adı', zipHint: '{0} öğe bu klasörde tek arşive sıkıştırılır; aynı adlı dosya varsa sonuna -2 eklenir. FTP\'de sunucuda komut çalıştırılamadığı için dosyalar indirilip arşivlenir, arşiv geri yüklenir.', unzip: 'Zipten çıkar', unzipTo: '{0}/ klasörüne', unzipHere: 'Bulunduğu klasöre', unzipHint: 'Var olan dosyaların üzerine yazılır. Arşiv indirilir, içindeki dosyalar tek tek yüklenir.', upWaiting: 'sırada…', upDone: 'yüklendi', upCount: '{0} / {1} dosya', created: 'Oluşturuldu', moved: 'Taşındı', frozenAdded: '{0} öğe freeze listesine eklendi', frozenRemoved: '{0} kayıt freeze listesinden çıkarıldı',
     deleteManyConfirm: '{0} öğe sunucudan KALICI olarak silinsin mi? (klasörler içerikleriyle)', runCmd: 'Sunucuda komut çalıştır', runCmdHint: 'SSH ile uzak dizinde komut çalıştırır', diffLocalMissing: 'Yerelde yok', diffTooBig: 'Dosya karşılaştırma için çok büyük — tam görünüm gösteriliyor',
     unsavedTitle: 'Kaydedilmemiş değişiklikler', unsavedBody: 'Bu formda kaydedilmemiş değişiklikler var. Sayfadan çıkılırsa kaybolacak.', unsavedLeave: 'Kaydetmeden çık',
     diffHint: 'Sunucu → yerel: <span class="bad-t">−</span> sunucudan gidecek, <span class="ok-t">+</span> sync ile gelecek', foldN: '⋯ {0} aynı satır', clickToDiff: 'Farkı görmek için dosyaya tıklayın',
@@ -232,7 +232,7 @@ const T = {
     upload: 'Upload', newFolder: 'New folder', folderName: 'Folder name', rename: 'Rename / move', newPath: 'New path (relative to remote root)',
     moveTo: 'Move', selectedN: '{0} selected', clearSel: 'Clear selection',
     freezeToggle: 'Freeze / unfreeze', frozenBadge: 'frozen', searchAll: 'Search subfolders', searchTitle: 'Search "{0}"', searchNone: 'No results', searching: 'Searching…', searchingN: '{0} results · {1} folders scanned…', searchDoneN: '{0} results · {1} folders · {2}s', searchTruncated: 'Too many results (first 2000) or the 5-minute limit was hit — narrow the search.',
-    uploaded: '{0} file(s) uploaded', upWaiting: 'queued…', upDone: 'uploaded', upCount: '{0} / {1} files', created: 'Created', moved: 'Moved', frozenAdded: '{0} item(s) added to the freeze list', frozenRemoved: '{0} entr(y/ies) removed from the freeze list',
+    uploaded: '{0} file(s) uploaded', edDirect: 'Straight to the server · no backup', edDirectHint: 'Opened through a connection: there is no local copy and no backup (Undo), saving writes the server file directly. You are still asked if the server file changed after you opened it.', zipSel: 'Zip', zipTitle: 'Create a zip archive', zipName: 'Archive name', zipHint: '{0} item(s) are packed into one archive in this folder; if the name is taken, -2 is appended. FTP cannot run commands on the server, so the files are downloaded, archived and the archive is uploaded back.', unzip: 'Unzip', unzipTo: 'Into {0}/', unzipHere: 'Into this folder', unzipHint: 'Existing files are overwritten. The archive is downloaded and its files are uploaded one by one.', upWaiting: 'queued…', upDone: 'uploaded', upCount: '{0} / {1} files', created: 'Created', moved: 'Moved', frozenAdded: '{0} item(s) added to the freeze list', frozenRemoved: '{0} entr(y/ies) removed from the freeze list',
     deleteManyConfirm: 'PERMANENTLY delete {0} item(s) from the server? (folders with their contents)', runCmd: 'Run command on server', runCmdHint: 'Runs a command over SSH in the remote folder', diffLocalMissing: 'Missing locally', diffTooBig: 'File too large to diff — showing full view',
     unsavedTitle: 'Unsaved changes', unsavedBody: 'This form has unsaved changes. They will be lost if you leave the page.', unsavedLeave: 'Leave without saving',
     diffHint: 'Server → local: <span class="bad-t">−</span> leaves the server, <span class="ok-t">+</span> arrives with sync', foldN: '⋯ {0} unchanged lines', clickToDiff: 'Click a file to see the diff',
@@ -1814,6 +1814,45 @@ async function tabFiles(proj, srvName, relPath) {
       S.lsCache.delete(`${P}|${srv}|${rel}`);
     } catch (err) { fail(err); }
   }
+  // Zip / zipten çıkar: CLI `remote zip|unzip` ile aynı çekirdek (remote_zip.go), iş olarak çalışır —
+  // sağ altta canlı, Durdur'la kesilir, bitince bu klasör tazelenir (onJobFinished).
+  async function zipItems(items) {
+    const base = (p) => p.split('/').pop();
+    const def = items.length === 1 ? base(items[0].path).replace(/\.[^.]*$/, '') + '.zip' : (rel ? base(rel) : 'archive') + '.zip';
+    const name = await new Promise((res) => {
+      modal({
+        title: t('zipTitle'), onClose: () => res(null),
+        body: `<div class="form"><div class="alan"><label>${t('zipName')}</label><input type="text" id="zip-ad" value="${esc(def)}" spellcheck="false"></div></div>
+          <p class="ipucu">${esc(t('zipHint', items.length))}</p>`,
+        actions: [{ label: t('cancel'), cls: 'hayalet' }, { label: t('zipSel'), cls: 'mavi', run: (r) => res($('#zip-ad', r).value.trim() || def) }],
+      });
+    });
+    if (name === null) return;
+    try {
+      await startJobs(P, { kind: 'zip', servers: [srv], paths: items.map((it) => it.path), target: name }, `${t('zipSel')}: ${name}`);
+      S.lsCache.delete(`${P}|${srv}|${rel}`);
+    } catch (err) { fail(err); }
+  }
+  async function unzipItem(it) {
+    const name = it.path.split('/').pop();
+    const folder = name.replace(/\.zip$/i, '');
+    const dir = it.path.split('/').slice(0, -1).join('/');
+    const target = await new Promise((res) => {
+      modal({
+        title: `${t('unzip')} — ${esc(name)}`, onClose: () => res(null),
+        body: `<div class="ed-secim">
+            <label><input type="radio" name="uz" value="sub" checked><span><b>${esc(t('unzipTo', folder))}</b></span></label>
+            <label><input type="radio" name="uz" value="here"><span><b>${t('unzipHere')}</b></span></label></div>
+          <p class="ipucu">${t('unzipHint')}</p>`,
+        actions: [{ label: t('cancel'), cls: 'hayalet' }, { label: t('unzip'), cls: 'mavi', run: (r) => res($('input[name=uz]:checked', r).value === 'here' ? dir : (dir ? dir + '/' : '') + folder) }],
+      });
+    });
+    if (target === null) return;
+    try {
+      await startJobs(P, { kind: 'unzip', servers: [srv], paths: [it.path], target }, `${t('unzip')}: ${name}`);
+      S.lsCache.delete(`${P}|${srv}|${rel}`);
+    } catch (err) { fail(err); }
+  }
   // Taşı: sunucudaki klasörlerden gezerek seç (pickRemoteDir; yol kutusu elle yazmaya da izin verir).
   // Seçicide "/" = sunucunun uzak dizini; liste dosya tarayıcısının remote/ls ucundan gelir.
   async function moveItems(items) {
@@ -1995,7 +2034,7 @@ async function tabFiles(proj, srvName, relPath) {
         if (!n) return false;
         const r = await api('POST', `/api/p/${enc(P)}/remote/create?${q}&path=${enc(rel)}`, { kind: 'file', name: n });
         toast(t('pkCreated', r.name)); reload();
-        if (!viaConn) editFile(P, srv, full(r.name));
+        editFile(P, srv, full(r.name));
       } }],
     });
     // Satırlar parça parça çizilir (5000 girdili klasör tek seferde ~5 MB HTML + 1 sn yerleşim
@@ -2047,6 +2086,7 @@ async function tabFiles(proj, srvName, relPath) {
     $('[data-sel="clear"]', bar).onclick = () => { sel.clear(); $$('[data-entry] input[type=checkbox]', root).forEach((c) => (c.checked = false)); refreshBar(); };
     $('[data-sel="del"]', bar).onclick = () => removeItems(items());
     $('[data-sel="move"]', bar).onclick = () => moveItems(items());
+    $('[data-sel="zip"]', bar).onclick = () => zipItems(items());
     if (!viaConn) $('[data-sel="freeze"]', bar).onclick = () => toggleFreeze(items());
     if (body) {
       body.onchange = (e) => {
@@ -2070,6 +2110,7 @@ async function tabFiles(proj, srvName, relPath) {
           else if (act === 'ren') renameItem(it);
           else if (act === 'fz') toggleFreeze([it]);
           else if (act === 'rm') removeItems([it]);
+          else if (act === 'unzip') unzipItem(it);
           return;
         }
         if (e.target.closest('input,label')) return;
@@ -2159,7 +2200,7 @@ async function tabFiles(proj, srvName, relPath) {
     return `<tr data-entry="${esc(e.name)}" data-type="${e.type}" class="tikla"><td class="sec-hucre"><label><input type="checkbox" ${checked ? 'checked' : ''}></label></td>
       <td><div class="ad-hucre">${icon(e.type === 'dir' ? 'folder' : 'file', e.type === 'dir' ? 'acc-t' : 'faint')}<span>${esc(e.name)}</span>${fz ? `<span class="pill" style="height:18px;font-size:11px">${icon('snow')}${t('frozenBadge')}</span>` : ''}${skipBadge(e.skip)}</div></td>
       <td class="sag mono faint">${e.type === 'dir' ? '' : bytes(e.size)}</td><td class="mono faint">${e.time && !e.time.startsWith('0001') ? fmtDate(e.time) : ''}</td>
-      <td class="sag satir-aks" style="white-space:nowrap">${e.type === 'dir' ? '' : `<button class="ikon-btn" data-act="pv" title="${t('preview')}">${icon('eye')}</button>${viaConn ? '' : `<button class="ikon-btn" data-act="ed" title="${t('edEdit')}">${icon('code')}</button><button class="ikon-btn" data-act="cmp" title="${t('compare')}">${icon('layers')}</button>`}<button class="ikon-btn" data-act="dl" title="${t('download')}">${icon('download')}</button>`}
+      <td class="sag satir-aks" style="white-space:nowrap">${e.type === 'dir' ? '' : `<button class="ikon-btn" data-act="pv" title="${t('preview')}">${icon('eye')}</button><button class="ikon-btn" data-act="ed" title="${t('edEdit')}">${icon('code')}</button>${viaConn ? '' : `<button class="ikon-btn" data-act="cmp" title="${t('compare')}">${icon('layers')}</button>`}<button class="ikon-btn" data-act="dl" title="${t('download')}">${icon('download')}</button>${/\.zip$/i.test(e.name) ? `<button class="ikon-btn" data-act="unzip" title="${t('unzip')}">${icon('archive')}</button>` : ''}`}
         ${viaConn ? '' : `<button class="ikon-btn ${fz ? 'acc-t' : ''}" data-act="fz" title="${t('freezeToggle')}">${icon('snow')}</button>`}
         <button class="ikon-btn" data-act="ren" title="${t('rename')}">${icon('edit')}</button>
         <button class="ikon-btn tehlike" data-act="rm" title="${t('delete')}">${icon('trash')}</button></td></tr>`;
@@ -2182,6 +2223,7 @@ async function tabFiles(proj, srvName, relPath) {
     <div class="yol-cubuk"><button data-crumb="">${esc(data.root || '/')}</button>${crumbs.map((c, i) => `<span>/</span><button data-crumb="${esc(crumbs.slice(0, i + 1).join('/'))}">${esc(c)}</button>`).join('')}</div>
     <div class="secim-cubuk" id="f-selbar" hidden><b data-selcount></b>
       <button class="btn kucuk" data-sel="move">${icon('folder')}${t('moveTo')}</button>
+      <button class="btn kucuk" data-sel="zip">${icon('archive')}${t('zipSel')}</button>
       ${viaConn ? '' : `<button class="btn kucuk" data-sel="freeze">${icon('snow')}${t('freezeToggle')}</button>`}
       <button class="btn kucuk tehlike" data-sel="del">${icon('trash')}${t('delete')}</button>
       <button class="btn kucuk hayalet" data-sel="clear">${t('clearSel')}</button></div>
@@ -2456,7 +2498,7 @@ async function previewFile(P, srv, p) {
     body, onClose: () => stopMedia(pm.root),
     actions: [{ left: `${bytes(d.size)} ${d.truncated && !d.binary ? t('truncated') : ''}` },
       ...((d.binary && !kind) || isConnTarget(srv) ? [] : [{ label: icon('layers') + t('compare'), cls: '', key: 'r', run: () => { compareModal(P, srv, p); return false; } }]),
-      ...(d.binary || isConnTarget(srv) ? [] : [
+      ...(d.binary ? [] : [
         // Önizleme altta açık kalır (false) → Esc üstteki pencereyi kapatıp buraya döner; kaydedildiyse tazelenir
         { label: icon('code') + t('edEdit'), cls: '', key: 's', run: () => { editFile(P, srv, p, { onClose: (saved) => { if (saved && pm.root.isConnected) { pm.close(); previewFile(P, srv, p); } } }); return false; } }]),
       { label: icon('download') + t('download'), cls: '', key: 'd', run: () => { location.href = `/api/p/${enc(P)}/remote/get?server=${enc(srv)}&path=${enc(p)}`; } },

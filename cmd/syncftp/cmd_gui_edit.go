@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 
+	"syncftp/internal/config"
 	"syncftp/internal/lang"
 	"syncftp/internal/synclog"
 
@@ -23,16 +24,18 @@ func (sv *guiServer) apiRemoteEditOpen(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 404, err)
 		return
 	}
-	srv, ok := findServer(cfg, r.URL.Query().Get("server"))
+	srv, conn, ok := editTarget(cfg, r.URL.Query().Get("server"))
 	if !ok {
 		guiErr(w, 404, fmt.Errorf(lang.L.ServerNotFoundFmt, r.URL.Query().Get("server")))
 		return
 	}
 	rel := editRel(r.URL.Query().Get("path"))
-	localFile, err := editLocalPath(p.Path, cfg, srv, rel)
-	if err != nil {
-		guiErr(w, 400, err)
-		return
+	localFile := ""
+	if !conn {
+		if localFile, err = editLocalPath(p.Path, cfg, srv, rel); err != nil {
+			guiErr(w, 400, err)
+			return
+		}
 	}
 	var data []byte
 	if err := withRemote(p.Name, srv, func(c *ftpclient.Client) error {
@@ -43,10 +46,46 @@ func (sv *guiServer) apiRemoteEditOpen(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 502, err)
 		return
 	}
+	if conn {
+		doc := openEditDoc(data, nil, false)
+		doc.Direct = true
+		guiJSON(w, doc)
+		return
+	}
 	local, lerr := os.ReadFile(localFile)
 	doc := openEditDoc(data, local, lerr == nil)
 	doc.SaveTarget = loadGUIPersist().EditSaveTarget
 	guiJSON(w, doc)
+}
+
+// editTarget profil ya da Dosyalar sekmesinin bağlantı hedefi (@conn:ad). Bağlantıda yerel kopya,
+// state ve release yok → kayıt doğrudan sunucuya yazılır (conn=true).
+func editTarget(cfg *config.Config, name string) (config.Server, bool, bool) {
+	if s, ok := findServer(cfg, name); ok {
+		return s, false, true
+	}
+	if !strings.HasPrefix(name, connTargetPrefix) {
+		return config.Server{}, false, false
+	}
+	s, ok := browseTarget(cfg, name)
+	return s, true, ok
+}
+
+// saveDirectEdit bağlantı modunda kaydet: içerik geçici dosyadan doğrudan hedefe (yedek / release yok).
+func saveDirectEdit(project string, srv config.Server, rel, content string) error {
+	tmp, err := os.CreateTemp("", "syncftp-edit-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	_, werr := tmp.WriteString(content)
+	if cerr := tmp.Close(); werr == nil {
+		werr = cerr
+	}
+	if werr != nil {
+		return werr
+	}
+	return withRemote(project, srv, func(c *ftpclient.Client) error { return c.UploadTo(tmp.Name(), guiRemotePath(srv, rel)) })
 }
 
 // PUT /api/p/{p}/remote/edit — kaydet. Sunucudaki dosya açıldıktan sonra değiştiyse (base_hash
@@ -71,7 +110,7 @@ func (sv *guiServer) apiRemoteEditSave(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 400, err)
 		return
 	}
-	srv, ok := findServer(cfg, req.Server)
+	srv, conn, ok := editTarget(cfg, req.Server)
 	if !ok {
 		guiErr(w, 404, fmt.Errorf(lang.L.ServerNotFoundFmt, req.Server))
 		return
@@ -102,6 +141,13 @@ func (sv *guiServer) apiRemoteEditSave(w http.ResponseWriter, r *http.Request) {
 				return nil, errors.New(lang.L.EditConflict)
 			}
 		}
+		if conn {
+			if err := saveDirectEdit(p.Name, srv, rel, req.Content); err != nil {
+				return nil, err
+			}
+			fmt.Fprintf(j, lang.L.EditDirectSavedFmt, guiRemotePath(srv, rel))
+			return map[string]any{}, nil
+		}
 		var buf bytes.Buffer
 		out := io.MultiWriter(j, &buf)
 		id, err := saveRemoteEdit(out, p.Path, cfg, srv, rel, req.Content, editSaveOpts{Local: req.Local})
@@ -127,6 +173,10 @@ func (sv *guiServer) apiRemoteEditSave(w http.ResponseWriter, r *http.Request) {
 		// Yerel karşılaştırma kayıttan SONRA dosyadan yapılır (yalnızca sunucuya kaydedip değişikliği
 		// geri alınca da doğru "aynı" görünsün)
 		res := map[string]any{"release": releaseID, "hash": contentHash([]byte(req.Content)), "job_id": j.ID}
+		if conn {
+			guiJSON(w, res)
+			return
+		}
 		if lf, err := editLocalPath(p.Path, cfg, srv, rel); err == nil {
 			local, lerr := os.ReadFile(lf)
 			res["local_exists"] = lerr == nil

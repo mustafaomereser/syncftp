@@ -62,7 +62,7 @@ async function editFile(P, srv, rel, opts = {}) {
   }
 
   let orig = doc.content, savedAny = false;
-  const localPill = () => doc.local_exists
+  const localPill = () => doc.direct ? `<span class="pill warn" title="${esc(t('edDirectHint'))}"><span class="nokta"></span>${t('edDirect')}</span>` : doc.local_exists
     ? (doc.local_same ? `<span class="pill ok"><span class="nokta"></span>${t('edLocalSame')}</span>` : `<span class="pill warn"><span class="nokta"></span>${t('edLocalDiff')}</span>`)
     : `<span class="pill">${t('edLocalMissing')}</span>`;
   const m = modal({
@@ -82,7 +82,7 @@ async function editFile(P, srv, rel, opts = {}) {
   const setTarget = async (v) => { await api('PUT', '/api/settings', { edit_save_target: v }); target = v; drawLeft(); };
   function drawLeft() {
     const sol = $('.modal-alt .sol', m.root);
-    sol.innerHTML = `<span class="mono">${esc(srv)}</span>${target ? `<span class="ed-hedef">${t(target === 'both' ? 'edTargetBoth' : 'edTargetRemote')}
+    sol.innerHTML = `<span class="mono">${esc(srv.replace(/^@conn:/, ''))}</span>${target && !doc.direct ? `<span class="ed-hedef">${t(target === 'both' ? 'edTargetBoth' : 'edTargetRemote')}
       <button class="btn kucuk hayalet" data-reask title="${t('edTargetResetHint')}">${t('edTargetReset')}</button></span>` : ''}`;
     const b = $('[data-reask]', sol);
     if (b) b.onclick = async () => { try { await setTarget(''); toast(t('edTargetResetDone')); ta.focus(); } catch (e) { fail(e); } };
@@ -163,6 +163,8 @@ async function editFile(P, srv, rel, opts = {}) {
     if (saving) return;
     if (!dirty()) { toast(t('edNoChanges')); return; }
     const content = ta.value;
+    // Bağlantıyla açılan dosyada yerel / yedek seçeneği yok — doğrudan sunucuya
+    if (doc.direct) return put(content, false, false);
     if (target) return put(content, target === 'both', false);
     const choice = await saveDialog(content);
     if (!choice) return ta.focus();
@@ -181,7 +183,7 @@ async function editFile(P, srv, rel, opts = {}) {
       orig = content; savedAny = true;
       doc.hash = res.hash;
       // Yerel durum sunucunun kayıttan sonraki gerçek karşılaştırmasından (tahmin yok)
-      doc.local_exists = !!res.local_exists;
+      if (!doc.direct) doc.local_exists = !!res.local_exists;
       doc.local_same = !!res.local_same;
       $('[data-local]', m.root).innerHTML = localPill();
       toast(`${t('edSaved')}: ${rel}`);

@@ -585,6 +585,17 @@ type StringSet struct {
 	RemoteDelItemFmt       string // "  ✗ %s\n" (silinen her öğe)
 	RemoteDelDoneFmt       string // "\n  ✓ %d dosya, %d klasör silindi\n"
 	RemoteDelStoppedFmt    string // "\n  ! Durduruldu — %d dosya, %d klasör silindi, kalanlara dokunulmadı\n"
+	GuiJobZip              string // "Zip"
+	EditDirectSavedFmt     string // "  ✓ Sunucuya yazıldı (yedeksiz): %s\n"
+	GuiJobUnzip            string // "Zipten çıkar"
+	RemoteZipItemFmt       string // "  + %s\n" (arşive eklenen her dosya)
+	RemoteZipDoneFmt       string // "\n  ✓ %d dosya arşivlendi → %s (%s)\n"
+	RemoteZipStopped       string // "\n  ! Durduruldu — sunucuda hiçbir şey değişmedi\n"
+	RemoteUnzipItemFmt     string // "  ↳ %s\n" (çıkarılan her dosya)
+	RemoteUnzipDoneFmt     string // "\n  ✓ %d dosya çıkarıldı → %s\n"
+	RemoteUnzipStoppedFmt  string // "\n  ! Durduruldu — %d dosya çıkarıldı, kalanlara dokunulmadı\n"
+	RemoteUnzipBadFmt      string // "%s geçerli bir zip değil: %v"
+	RemoteUnzipTooBigFmt   string // "arşiv açılınca %s tutuyor — sınır 8 GB"
 	TreeMoreFmt            string
 	LangSavedUserFmt       string
 	LogsNone               string

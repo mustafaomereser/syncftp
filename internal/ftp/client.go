@@ -578,6 +578,19 @@ func (c *Client) retrLocked(remotePath string) (io.ReadCloser, error) {
 	return c.conn.Retr(remotePath)
 }
 
+// RetrieveTo uzak dosyayı w'ye akıtır (zip arşivine doğrudan yazmak için — ara dosya yok).
+// Mutex okuma boyunca tutulur.
+func (c *Client) RetrieveTo(remotePath string, w io.Writer) (int64, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	resp, err := c.retrLocked(remotePath)
+	if err != nil {
+		return 0, fmt.Errorf("dosya alınamadı (%s): %w", remotePath, err)
+	}
+	defer resp.Close()
+	return io.Copy(w, resp)
+}
+
 // Download saves a remote file to localDest.
 // Mutex okuma boyunca tutulur — Retr sonrası bırakmak data stream'i bozar.
 func (c *Client) Download(remotePath, localDest string) error {

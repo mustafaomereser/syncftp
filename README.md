@@ -34,7 +34,7 @@ local project ──▶ change detection (SHA256 + cache) ──▶ filters ─�
 - **Webhooks out** — Slack / Discord / any URL after each sync
 
 **Interfaces**
-- **Desktop panel** with **system tray**, live job logs (stoppable), remote file browser with diff, image / video / audio / PDF preview, drag-and-drop upload and an **in-place editor** for server files, help page and an **AI assistant** (Claude Code / OpenCode)
+- **Desktop panel** with **system tray**, live job logs (stoppable), remote file browser with diff, image / video / audio / PDF preview, drag-and-drop upload (with a live preview of what is being uploaded), zip / unzip on the server and an **in-place editor** for server files, help page and an **AI assistant** (Claude Code / OpenCode)
 - **Interactive shell** with an arrow-key file browser, TUIs for status / sync / config
 - **CLI** for scripts, plus a **local HTTP API** (`syncftp serve`)
 
@@ -598,6 +598,8 @@ syncftp remote ls [PATH] [--server NAME]        # interactive browser
 syncftp remote cat [FILE] [--max-kb 50]
 syncftp remote get [FILE] [DEST]
 syncftp remote rm [FILE] [--recursive] [--force]
+syncftp remote zip PATH... [-o NAME.zip]        # pack items (same folder) into one archive on the server
+syncftp remote unzip FILE.zip [--to DIR]        # extract on the server (default: folder named after the zip)
 syncftp remote exec -s NAME "COMMAND"           # SFTP: run over SSH in remote_path
 ```
 
