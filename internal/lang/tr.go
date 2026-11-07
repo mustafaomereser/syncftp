@@ -682,6 +682,7 @@ Diğer:
 	LogsNone:               "  Henüz log yok (her değişiklikli sync / rollback .syncftp/logs/ altına kaydedilir)",
 	LogsHint:               "\n  Göstermek için: syncftp logs <dosya>  ·  en yenisi: syncftp logs son",
 	ServerNotFoundFmt:      "sunucu bulunamadı: %q",
+	RemoteNoAnswerFmt:      "sunucu %d sn içinde cevap vermedi (bağlantı kesildi, tekrar deneyebilirsin)",
 	NoServerSelected:       "sunucu seçilmedi",
 	GuiIgnoreNoFile:        "ignore_files listesinde syncFTP'ye özel bir dosya yok (yalnızca .gitignore okunuyor) — önce listeye .syncftp/syncftp.ignore ekleyin",
 	GuiOutsideBaseFmt:      "%s, panelin açıldığı klasörün (%s) dışında — o klasördeki syncftp ile yönetin",

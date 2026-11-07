@@ -22,6 +22,21 @@ import (
 // cevapsız kalan bir LIST aramayı sonsuza kadar kilitliyordu ("1263 klasör tarandı…" diye donuyordu).
 var searchDirTimeout = 20 * time.Second
 
+// searchConns aramanın paralel bağlantı sayısı. Arama yalnızca okur: profilin max_connections'ı
+// (upload için ölçülmüş/ayarlanmış, çoğu projede 1–2) 2 işçiyle sınırlıyordu — FTP'de her LIST ayrı veri
+// bağlantısı olduğundan 20 bağlantı veren sunucuda bile dakikalar sürüyordu. En az 6, profil daha
+// fazlasına izin veriyorsa 16'ya kadar; sunucu fazlasını reddederse (421) o bağlantılar sessizce düşer.
+func searchConns(srv config.Server) int {
+	n := srv.MaxConnections
+	if n < 6 {
+		n = 6
+	}
+	if n > 16 {
+		n = 16
+	}
+	return n
+}
+
 // searchResult arama özeti.
 type searchResult struct {
 	Scanned int      // listelenen klasör
@@ -31,7 +46,7 @@ type searchResult struct {
 
 // searchRemoteTree — uzak dosya aramasının TEK motoru: CLI tarayıcısındaki "/" araması
 // (runSearchWorker) ve paneldeki "Alt klasörlerde ara" bunu kullanır.
-// max_connections kadar (en az 2, en çok 8) paralel KENDİ bağlantısıyla klasörler taranır; adı q
+// searchConns kadar (en az 6, en çok 16) paralel KENDİ bağlantısıyla klasörler taranır; adı q
 // içeren her girdi bulunduğu an onHit'e verilir (onHit false dönerse arama durur). onHit / onProgress
 // işçilerden, tek kilit altında çağrılır (içlerinde bekleme yapma).
 //
@@ -46,13 +61,7 @@ type searchResult struct {
 func searchRemoteTree(ctx context.Context, srv config.Server, base, q string,
 	onHit func(dir string, e *goftp.Entry) bool, onProgress func(scanned int, current string)) (searchResult, error) {
 	q = strings.ToLower(q)
-	conns := srv.MaxConnections
-	if conns < 2 {
-		conns = 2
-	}
-	if conns > 8 {
-		conns = 8
-	}
+	conns := searchConns(srv)
 
 	var (
 		mu         sync.Mutex

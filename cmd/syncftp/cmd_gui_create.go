@@ -162,7 +162,7 @@ func (sv *guiServer) apiRemoteCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	dir := guiRemotePath(srv, r.URL.Query().Get("path"))
 	var full string
-	err := withRemote(pname, srv, func(c *ftpclient.Client) error {
+	err := withRemoteT(pname, srv, remoteQuick, func(c *ftpclient.Client) error {
 		var e error
 		full, e = remoteCreateItem(c, dir, req)
 		return e

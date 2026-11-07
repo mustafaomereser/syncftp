@@ -306,7 +306,7 @@ func (sv *guiServer) apiRemoteMkdir(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	full := guiRemotePath(srv, r.URL.Query().Get("path"))
-	if err := withRemote(pname, srv, func(c *ftpclient.Client) error { return c.MakeDirAll(full) }); err != nil {
+	if err := withRemoteT(pname, srv, remoteQuick, func(c *ftpclient.Client) error { return c.MakeDirAll(full) }); err != nil {
 		guiErr(w, 502, err)
 		return
 	}
@@ -324,7 +324,7 @@ func (sv *guiServer) apiRemoteRename(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 400, errors.New("root"))
 		return
 	}
-	err := withRemote(pname, srv, func(c *ftpclient.Client) error { return remoteMove(c, from, to) })
+	err := withRemoteT(pname, srv, remoteQuick, func(c *ftpclient.Client) error { return remoteMove(c, from, to) })
 	if err != nil {
 		guiErr(w, 502, err)
 		return

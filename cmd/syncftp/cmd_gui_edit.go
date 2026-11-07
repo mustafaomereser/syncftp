@@ -38,7 +38,7 @@ func (sv *guiServer) apiRemoteEditOpen(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	var data []byte
-	if err := withRemote(p.Name, srv, func(c *ftpclient.Client) error {
+	if err := withRemoteT(p.Name, srv, remoteRead, func(c *ftpclient.Client) error {
 		var e error
 		data, e = readRemoteFull(c, guiRemotePath(srv, rel))
 		return e
@@ -125,7 +125,7 @@ func (sv *guiServer) apiRemoteEditSave(w http.ResponseWriter, r *http.Request) {
 	j, err := sv.jobs.start("edit", p.Name, srv.Name, lang.L.GuiJobEdit+": "+rel, p.Name+"|"+srv.Name, func(j *job) (any, error) {
 		if !req.Force && req.BaseHash != "" {
 			var cur []byte
-			if err := withRemote(p.Name, srv, func(c *ftpclient.Client) error {
+			if err := withRemoteT(p.Name, srv, remoteRead, func(c *ftpclient.Client) error {
 				var e error
 				cur, e = readRemoteFull(c, guiRemotePath(srv, rel))
 				if e != nil && ftpclient.IsNotFound(e) {

@@ -682,6 +682,7 @@ Other:
 	LogsNone:               "  No logs yet (every sync / rollback with changes is saved under .syncftp/logs/)",
 	LogsHint:               "\n  Show one: syncftp logs <file>  ·  newest: syncftp logs last",
 	ServerNotFoundFmt:      "server not found: %q",
+	RemoteNoAnswerFmt:      "the server did not answer within %d s (connection dropped, you can try again)",
 	NoServerSelected:       "no server selected",
 	GuiIgnoreNoFile:        "ignore_files has no syncFTP-specific file (only .gitignore is read) — add .syncftp/syncftp.ignore to the list first",
 	GuiOutsideBaseFmt:      "%s is outside the folder the panel was opened in (%s) — run syncftp from that folder to manage it",

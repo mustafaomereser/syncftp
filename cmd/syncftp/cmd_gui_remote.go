@@ -41,7 +41,45 @@ func remoteKey(project string, srv config.Server) string {
 	return project + "|" + srv.Name + "|" + ftpclient.HostKey(srv) + "|" + srv.RemotePath
 }
 
+// Önbellek bağlantısı meşgulse (başka istek sürüyor ya da takıldı) en fazla bu kadar beklenir; sonra
+// istek kendi geçici bağlantısıyla çalışır. Eskiden süresiz bekleniyordu: cevapsız bir klasörde
+// (cPanel .cagefs) takılan tek LIST o sunucunun bütün listeleme/önizleme isteklerini kilitliyor,
+// tarayıcının 6 bağlantı hakkı dolunca panelin HER sayfası "yükleniyor"da kalıyordu.
+var remoteBusyWait = time.Second
+
+// Hızlı işlemlerin (listeleme, önizleme, klasör oluşturma, taşıma) süre sınırı — aşılırsa bağlantı
+// kesilir (Abort), önbellekten atılır. İndirme / yükleme sınırsız (withRemote).
+const (
+	remoteQuick = 20 * time.Second
+	remoteRead  = 60 * time.Second // düzenleme için dosyanın tamamı (4 MB'a kadar)
+)
+
 func withRemote(project string, srv config.Server, fn func(c *ftpclient.Client) error) error {
+	return withRemoteT(project, srv, 0, fn)
+}
+
+// runLimited fn'i limit içinde çalıştırır; aşılırsa c.Abort() ile keser, fn dönene kadar bekler
+// (yakalanan değişkenler yarışmasın) ve zaman aşımı hatası döner. limit 0 = sınırsız.
+func runLimited(c *ftpclient.Client, limit time.Duration, fn func(c *ftpclient.Client) error) (err error, timedOut bool) {
+	if limit <= 0 {
+		return fn(c), false
+	}
+	done := make(chan error, 1)
+	go func() { done <- fn(c) }()
+	t := time.NewTimer(limit)
+	defer t.Stop()
+	select {
+	case err := <-done:
+		return err, false
+	case <-t.C:
+		c.Abort()
+		<-done
+		return fmt.Errorf(lang.L.RemoteNoAnswerFmt, int(limit/time.Second)), true
+	}
+}
+
+// withRemoteT withRemote + süre sınırı (limit 0 = sınırsız).
+func withRemoteT(project string, srv config.Server, limit time.Duration, fn func(c *ftpclient.Client) error) error {
 	remoteJanitor.Do(func() {
 		go func() {
 			for range time.Tick(30 * time.Second) {
@@ -86,10 +124,29 @@ func withRemote(project string, srv config.Server, fn func(c *ftpclient.Client) 
 		}
 		remoteCacheMu.Unlock()
 
-		cc.mu.Lock()
-		err := fn(cc.client)
+		if !lockWithin(&cc.mu, remoteBusyWait) {
+			// Önbellek bağlantısı meşgul / takılı: bu istek beklemeden kendi bağlantısıyla çalışır
+			c, err := ftpclient.Connect(srv)
+			if err != nil {
+				return err
+			}
+			err, _ = runLimited(c, limit, fn)
+			go c.Close()
+			return err
+		}
+		err, timedOut := runLimited(cc.client, limit, fn)
 		cc.used = time.Now()
 		cc.mu.Unlock()
+		if timedOut {
+			// Kesilen bağlantı kullanılamaz → at; tekrar deneme (aynı yer yine takılır)
+			remoteCacheMu.Lock()
+			if remoteCache[key] == cc {
+				delete(remoteCache, key)
+			}
+			remoteCacheMu.Unlock()
+			go cc.client.Close()
+			return err
+		}
 		if err == nil || ftpclient.IsNotFound(err) {
 			return err
 		}
@@ -107,6 +164,21 @@ func withRemote(project string, srv config.Server, fn func(c *ftpclient.Client) 
 		}
 	}
 	return nil
+}
+
+// lockWithin kilidi en fazla d süre bekleyerek almaya çalışır.
+func lockWithin(m *sync.Mutex, d time.Duration) bool {
+	if m.TryLock() {
+		return true
+	}
+	deadline := time.Now().Add(d)
+	for time.Now().Before(deadline) {
+		time.Sleep(25 * time.Millisecond)
+		if m.TryLock() {
+			return true
+		}
+	}
+	return false
 }
 
 // isTransportErr bağlantının kendisinin koptuğunu gösteren hatalar (boşta kapanmış önbellek bağlantısı).
@@ -193,7 +265,7 @@ func (sv *guiServer) apiRemoteLs(w http.ResponseWriter, r *http.Request) {
 	}
 	full := guiRemotePath(srv, r.URL.Query().Get("path"))
 	var entries []*goftp.Entry
-	err := withRemote(p.Name, srv, func(c *ftpclient.Client) error {
+	err := withRemoteT(p.Name, srv, remoteQuick, func(c *ftpclient.Client) error {
 		var e error
 		entries, e = remoteEntries(c, full)
 		return e
@@ -226,7 +298,7 @@ func (sv *guiServer) apiRemoteCat(w http.ResponseWriter, r *http.Request) {
 	}
 	full := guiRemotePath(srv, r.URL.Query().Get("path"))
 	var pv textPreview
-	err := withRemote(pname, srv, func(c *ftpclient.Client) error {
+	err := withRemoteT(pname, srv, remoteQuick, func(c *ftpclient.Client) error {
 		var e error
 		pv, e = remotePreview(c, full, 256*1024)
 		return e
