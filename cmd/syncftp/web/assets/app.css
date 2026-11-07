@@ -685,3 +685,25 @@ tr.yukleme-satir.yukleme-hata [data-upst] { color: var(--bad); }
 .tetik-ad { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
 .tetik-ad .faint { font-size: 12px; }
 .tetik-kart textarea { width: 100%; }
+
+/* Sağ tık menüsü (contextmenu.js) */
+.cm-menu { position: fixed; z-index: 3000; min-width: 220px; max-width: min(340px, calc(100vw - 16px)); max-height: calc(100vh - 16px); overflow-y: auto; padding: 4px; background: var(--frame); color: var(--text); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 32px rgba(0, 0, 0, .35); font-size: 13px; line-height: 1.3; outline: none; opacity: 0; transform: scale(.98); transform-origin: top left; transition: opacity .08s ease, transform .08s ease; user-select: none; }
+.cm-menu.acik { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .cm-menu { transition: none; } }
+.cm-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; white-space: nowrap; }
+.cm-item:hover, .cm-item:focus, .cm-item.aktif { background: var(--surface-2); outline: none; }
+.cm-item:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+.cm-ikon { flex: 0 0 16px; display: inline-flex; color: var(--faint); }
+.cm-ikon .i { width: 15px; height: 15px; }
+.cm-etiket { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.cm-ipucu { flex: 0 0 auto; margin-left: 12px; color: var(--faint); font-size: 12px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+.cm-ok { flex: 0 0 auto; margin-left: 6px; color: var(--faint); display: inline-flex; }
+.cm-ok .i { width: 13px; height: 13px; }
+.cm-item.tehlike, .cm-item.tehlike .cm-ikon { color: var(--bad); }
+.cm-item.tehlike:hover, .cm-item.tehlike.aktif { background: color-mix(in srgb, var(--bad) 14%, transparent); }
+.cm-item[aria-disabled="true"] { cursor: not-allowed; opacity: .5; }
+.cm-item[aria-disabled="true"]:hover, .cm-item[aria-disabled="true"].aktif { background: transparent; }
+.cm-sep { height: 1px; margin: 4px 6px; background: var(--line); }
+.cm-heading { padding: 6px 10px 4px; color: var(--faint); font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
+.cm-note { padding: 6px 10px 4px; color: var(--faint); font-size: 11.5px; }
+.cm-note kbd { font-size: 10.5px; padding: 0 4px; border: 1px solid var(--line); border-radius: 4px; }
