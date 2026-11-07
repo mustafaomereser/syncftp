@@ -722,6 +722,10 @@ const bind = (fn) => { $('#sayfa')._bind = fn; };
 // fresh: sunucu proje taramasını hemen tazelesin (normalde önbellekli, tam tarama dakikada bir)
 async function loadProjects(fresh = false) {
   try { S.projects = await GET('/api/projects' + (fresh ? '?fresh=1' : '')); } catch (e) { S.projects = []; }
+  renderSidebarProjects();
+}
+// Kenar çubuğundaki proje listesi (gruplu, ana sayfayla aynı sıra) — sıralama değişince hemen de çağrılır
+function renderSidebarProjects() {
   const el = $('#proje-listesi');
   const r = parseRoute();
   const hasGroups = S.projects.some((p) => p.group);
@@ -763,7 +767,18 @@ async function pageHome() {
     // ve imleç gezdikçe DOM'da yer değiştirir — diğerleri kayarak yer açar (FLIP animasyonu). Başka bir
     // grubun boş yerine / başlığına gelince o grubun sonuna geçer. Bırakınca DOM'daki sıra kaydedilir;
     // bırakılmadan biterse (Esc / dışarı) sayfa eski hâline döner.
-    let dragEl = null, dropped = false, lastKey = '';
+    let dragEl = null, dropped = false, lastKey = '', overRoot = false, moved = false;
+    // Bırakma alanı çerçevenin görünen tamamı: kartlar yer değiştirince sayfa kısalır, imleç içeriğin
+    // altındaki boşluğa düşer — orada da geçerli olmalı (dosya bırakma alanıyla aynı #frame)
+    const zone = $('#frame') || root;
+    // DOM'daki son sıra: grup bölümleri sırayla (bölüm yoksa tek liste, gruplar aynen)
+    const commitOrder = () => {
+      const secs = $$('.pgrup', root);
+      const list = secs.length
+        ? secs.flatMap((s) => $$('[data-p]', s).map((x) => ({ name: x.dataset.p, group: s.dataset.grp || '' })))
+        : $$('[data-p]', root).map((x) => ({ name: x.dataset.p, group: (S.projects.find((p) => p.name === x.dataset.p) || {}).group || '' }));
+      saveProjectOrder(list);
+    };
     const boxes = () => $$('.izgara, .pliste', root);
     // FLIP: taşımadan önceki konumlardan yeni konumlara kaydır
     const flip = (move) => {
@@ -782,23 +797,28 @@ async function pageHome() {
     $$('.pkart, .psatir', root).forEach((el) => {
       el.draggable = true;
       el.ondragstart = (e) => {
-        dragEl = el; dropped = false; lastKey = '';
+        dragEl = el; dropped = false; lastKey = ''; moved = false; overRoot = true;
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/x-syncftp-project', el.dataset.p);
         // sürükleme görüntüsü kartın kendisi olsun; boşluğa dönüşmesi bir kare sonra
         setTimeout(() => el.classList.add('suruklenen'), 0);
       };
+      // Kayıt dragend'de: kaynak öğe sürükleme sırasında DOM'da taşındığı için Chromium çoğu zaman drop
+      // göndermiyor (SortableJS de böyle bitirir). İmleç sayfanın içindeyken bırakılırsa yeni sıra kaydedilir;
+      // sayfanın dışına (kenar çubuğu, pencere dışı) bırakılırsa eski sıraya dönülür.
       el.ondragend = () => {
         el.classList.remove('suruklenen');
         $$('.pgrup.birak-grup', root).forEach((x) => x.classList.remove('birak-grup'));
-        const wasDropped = dropped;
+        const inside = overRoot;
         dragEl = null;
-        if (!wasDropped) render(true); // iptal: eski sıraya dön
+        if (dropped) return;
+        if (inside && moved) commitOrder(); else render(true);
       };
     });
-    root.ondragover = (e) => {
+    zone.ondragover = (e) => {
       if (!dragEl) return;
       e.preventDefault();
+      overRoot = true;
       e.dataTransfer.dropEffect = 'move';
       const item = e.target.closest('.pkart, .psatir');
       if (item === dragEl) return;
@@ -809,7 +829,7 @@ async function pageHome() {
         // zaten o konumdaysa dokunma (titreme olmasın)
         const ok = after ? item.nextElementSibling === dragEl : item.previousElementSibling === dragEl;
         if (key === lastKey || ok) return;
-        lastKey = key;
+        lastKey = key; moved = true;
         flip(() => item.parentNode.insertBefore(dragEl, after ? item.nextSibling : item));
         return;
       }
@@ -819,20 +839,18 @@ async function pageHome() {
       if (!sec) return;
       const box = sec.querySelector('.izgara, .pliste');
       if (box && dragEl.parentNode !== box) {
-        lastKey = 'grp:' + sec.dataset.grp;
+        lastKey = 'grp:' + sec.dataset.grp; moved = true;
         flip(() => box.appendChild(dragEl));
       }
     };
-    root.ondrop = (e) => {
+    // İmleç nerede: belge seviyesindeki dragover (Chrome sürükleme olaylarında relatedTarget vermiyor,
+    // dragleave'e güvenilmez). Kenar çubuğu vb. sayfa dışı → bırakınca iptal.
+    document.body.ondragover = (e) => { if (dragEl) overRoot = zone.contains(e.target); };
+    zone.ondrop = (e) => {
       if (!dragEl) return;
       e.preventDefault();
       dropped = true;
-      // DOM'daki son sıra: grup bölümleri sırayla (bölüm yoksa tek liste, gruplar aynen)
-      const secs = $$('.pgrup', root);
-      const list = secs.length
-        ? secs.flatMap((s) => $$('[data-p]', s).map((x) => ({ name: x.dataset.p, group: s.dataset.grp || '' })))
-        : $$('[data-p]', root).map((x) => ({ name: x.dataset.p, group: (S.projects.find((p) => p.name === x.dataset.p) || {}).group || '' }));
-      saveProjectOrder(list);
+      commitOrder();
     };
     $$('[data-hgrp]', root).forEach((b) => (b.onclick = () => {
       const g = b.dataset.hgrp, sec = b.closest('.pgrup');
@@ -891,6 +909,7 @@ function projectsByGroup(list) {
 // Yeni sırayı kaydet (tüm projeler, gruplarıyla): önce yerelde uygula → anında görünür, sonra sunucu
 async function saveProjectOrder(list) {
   list.forEach((it, i) => { const p = S.projects.find((x) => x.name === it.name); if (p) { p.order = i + 1; p.group = it.group; } });
+  renderSidebarProjects();
   render(true);
   try { await api('PUT', '/api/projects/order', { items: list }); } catch (e) { fail(e); }
   await loadProjects();
