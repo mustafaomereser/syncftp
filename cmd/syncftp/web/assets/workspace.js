@@ -16,7 +16,7 @@ Object.assign(T.tr, {
   wsEmpty: 'Soldan bir dosya seç', wsEmptyHint: 'Her dosya yeni bir sekmede açılır. Ctrl+S kaydet · Ctrl+W / Alt+W sekmeyi kapat · Ctrl+Tab sekmeler arası',
   wsClose: 'Kapat', wsCloseOthers: 'Diğerlerini kapat', wsCloseAll: 'Tümünü kapat', wsUnsavedN: '{0} sekmede kaydedilmemiş değişiklik var. Yine de kapatılsın mı?',
   wsReadonly: 'Bu dosya editörde açılamaz', wsLoadFail: 'Açılamadı', wsReload: 'Sunucudakini yeniden yükle',
-  wsReloadAsk: 'Kaydedilmemiş değişiklikler gider. Sunucudaki hâli yüklensin mi?', wsRetry: 'Tekrar dene', wsSetRoot: 'Ağacı buradan başlat',
+  wsReloadAsk: 'Kaydedilmemiş değişiklikler gider. Sunucudaki hâli yüklensin mi?', wsRetry: 'Tekrar dene', wsSetRoot: 'Ağacı buradan başlat', wsReadonlyShort: 'Yalnızca görüntüleme', wsCollapseAll: 'Tümünü daralt', wsSearchPh: 'Bu klasörde ara…', wsSearchClear: 'Aramayı temizle',
 });
 Object.assign(T.en, {
   wsOpen: 'Editor', wsOpenHint: 'Editor mode: files on the left, tabbed editor on the right',
@@ -24,7 +24,7 @@ Object.assign(T.en, {
   wsEmpty: 'Pick a file on the left', wsEmptyHint: 'Each file opens in its own tab. Ctrl+S save · Ctrl+W / Alt+W close tab · Ctrl+Tab switch tabs',
   wsClose: 'Close', wsCloseOthers: 'Close others', wsCloseAll: 'Close all', wsUnsavedN: '{0} tab(s) have unsaved changes. Close anyway?',
   wsReadonly: 'This file can\'t be opened in the editor', wsLoadFail: 'Could not open', wsReload: 'Reload from the server',
-  wsReloadAsk: 'Unsaved changes will be lost. Load the server version?', wsRetry: 'Try again', wsSetRoot: 'Start the tree here',
+  wsReloadAsk: 'Unsaved changes will be lost. Load the server version?', wsRetry: 'Try again', wsSetRoot: 'Start the tree here', wsReadonlyShort: 'View only', wsCollapseAll: 'Collapse all', wsSearchPh: 'Search this folder…', wsSearchClear: 'Clear search',
 });
 
 // Canlı çalışma alanları: "proje|profil" → { tabs: [{rel, host, ed, state, dirty}], active, open: Set, cache: Map }
@@ -37,6 +37,7 @@ function wsStore(w) {
   try { localStorage.setItem(wsStoreKey(w.key), JSON.stringify({ tabs: w.tabs.map((x) => x.rel), active: w.active, open: [...w.open] })); } catch { /* */ }
 }
 const wsBase = (p) => p.split('/').pop();
+const WS_COLLAPSE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 20l5-5 5 5M7 4l5 5 5-5"/></svg>';
 const wsDir = (p) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '');
 // Etkin çalışma alanı (Editör penceresi açık)
 const wsLive = () => { const w = S.wsCur; return w && w.el && w.el.isConnected ? w : null; };
@@ -78,11 +79,14 @@ async function openWorkspace(P, srvName, relDir) {
       <button class="btn kucuk hayalet" id="ws-refresh" title="${t('wsRefresh')}">${icon('refresh')}</button>
       <button class="btn kucuk" id="ws-save" title="Ctrl+S">${icon('check')}${t('edSave')}</button>
       <button class="btn kucuk" id="ws-list" title="${t('wsListHint')}">${icon('folder')}${t('wsList')}</button></div>
-    <div class="ws" id="ws"><div class="ws-sol"><div class="ws-kok" id="ws-kok"></div><div class="ws-agac" id="ws-agac"></div></div>
+    <div class="ws" id="ws"><div class="ws-sol"><div class="ws-kok" id="ws-kok"></div>
+      <div class="ws-ara-kutu">${icon('search')}<input id="ws-q" type="search" placeholder="${esc(t('wsSearchPh'))}" autocomplete="off" spellcheck="false"><button class="ws-x" id="ws-q-x" title="${t('wsSearchClear')}" hidden>${icon('x')}</button></div>
+      <div class="ws-agac" id="ws-agac"></div><div class="ws-sonuc" id="ws-sonuc" hidden></div></div>
       <div class="ws-sag"><div class="ws-sekmeler" id="ws-tabs"></div><div class="ws-govde" id="ws-body"></div></div></div>`,
     onClose: () => {
       // Editörler canlı kalır (DOM'dan ayrılır); tekrar açınca geri takılır
-      for (const tab of w.tabs) if (tab.host) tab.host.remove();
+      if (w.stopSearch) w.stopSearch();
+      for (const tab of w.tabs) if (tab.host) { stopMedia(tab.host); tab.host.remove(); }
       w.el = null;
       if (S.wsCur === w) S.wsCur = null;
     },
@@ -130,12 +134,19 @@ function wsMount(root, w, m) {
   const drawKok = () => {
     const parts = w.root.split('/').filter(Boolean);
     kok.innerHTML = `<button class="ikon-btn" data-up title="${t('cmUp')}" ${w.root ? '' : 'disabled'}>${icon('left')}</button>
+      <button class="ikon-btn ws-daralt" data-collapse title="${t('wsCollapseAll')}" ${[...w.open].some((d) => w.root === '' || d.startsWith(w.root + '/')) ? '' : 'disabled'}>${WS_COLLAPSE_SVG}</button>
       <span class="ws-kok-yol" title="/${esc(w.root)}"><a href="javascript:void 0" data-kok="">/</a>${parts.map((x, i) => `${i ? '<span>/</span>' : ''}<a href="javascript:void 0" data-kok="${esc(parts.slice(0, i + 1).join('/'))}">${esc(x)}</a>`).join('')}</span>`;
   };
   const drawTree = () => { drawKok(); const st = tree.scrollTop; tree.innerHTML = rows(w.root, 0); tree.scrollTop = st; };
   const setRoot = (p) => { w.root = p; tree.scrollTop = 0; loadOpen().then(() => { if (w.active) markActive(w.active); }); };
   kok.onclick = (e) => {
     if (e.target.closest('[data-up]')) return setRoot(wsDir(w.root));
+    if (e.target.closest('[data-collapse]')) {
+      // Tümünü daralt: kökün altındaki açık klasörlerin hepsi kapanır
+      for (const d of [...w.open]) if (w.root === '' || d.startsWith(w.root + '/')) w.open.delete(d);
+      wsStore(w); tree.scrollTop = 0; drawTree();
+      return;
+    }
     const a = e.target.closest('[data-kok]');
     if (a && a.dataset.kok !== w.root) setRoot(a.dataset.kok);
   };
@@ -169,6 +180,79 @@ function wsMount(root, w, m) {
     } else openTab(p);
   };
 
+  // ── arama (bulunulan klasörün altındaki tüm alt klasörler; motor Dosyalar'daki "Alt klasörlerde ara" ile aynı) ──
+  const qIn = $('#ws-q', root), qX = $('#ws-q-x', root), sonuc = $('#ws-sonuc', root);
+  let es = null, qTimer = 0;
+  const stopSearch = () => { if (es) { es.close(); es = null; } };
+  const showTree = () => { stopSearch(); sonuc.hidden = true; sonuc.innerHTML = ''; tree.hidden = false; qX.hidden = !qIn.value; };
+  function runSearch(term) {
+    stopSearch();
+    tree.hidden = true; sonuc.hidden = false; qX.hidden = false;
+    let n = 0, dirs = 0, curPath = '', curSince = 0, done = false;
+    const t0 = Date.now();
+    sonuc.innerHTML = `<div class="ws-ara-durum"><span data-sp>${icon('refresh', 'spin')}</span><span data-st>${t('searching')}</span></div><div class="ws-ara-bekle mono" data-cur hidden></div><div data-list></div><div class="ws-ara-not" data-not hidden></div>`;
+    const st = $('[data-st]', sonuc), list = $('[data-list]', sonuc), curEl = $('[data-cur]', sonuc), notEl = $('[data-not]', sonuc);
+    const status = () => { st.textContent = done ? t('searchDoneN', n, dirs, ((Date.now() - t0) / 1000).toFixed(1)) : t('searchingN', n, dirs); };
+    let buf = [], raf = 0;
+    const flush = () => {
+      raf = 0;
+      if (!buf.length) return;
+      const base = w.root ? w.root + '/' : '';
+      list.insertAdjacentHTML('beforeend', buf.map((h) => {
+        const shown = h.path.startsWith(base) ? h.path.slice(base.length) : h.path;
+        return `<div class="ws-satir${h.dir ? ' ws-klasor' : ''}" style="--d:0" data-hit="${esc(h.path)}" ${h.dir ? 'data-dir' : ''} title="${esc(h.path)}"><span class="ws-ok"></span>${icon(h.dir ? 'folder' : 'file')}<span class="ws-ad">${esc(wsBase(shown))}</span><span class="ws-ara-yol">${esc(wsDir(shown))}</span></div>`;
+      }).join(''));
+      buf = [];
+      status();
+    };
+    es = new EventSource(`/api/p/${enc(P)}/remote/search?server=${enc(srv)}&path=${enc(w.root)}&q=${enc(term)}`);
+    es.addEventListener('hit', (e) => { n++; buf.push(JSON.parse(e.data)); if (!raf) raf = requestAnimationFrame(flush); });
+    es.addEventListener('progress', (e) => {
+      const d = JSON.parse(e.data);
+      dirs = d.dirs; if (!raf) status();
+      if (d.cur !== curPath) { curPath = d.cur || ''; curSince = Date.now(); }
+      const show = curPath && Date.now() - curSince > 2000;
+      curEl.hidden = !show;
+      if (show) curEl.textContent = t('searchWaiting', curPath);
+    });
+    es.addEventListener('done', (e) => {
+      const d = JSON.parse(e.data);
+      stopSearch(); done = true; curEl.hidden = true;
+      if (d.dirs) dirs = d.dirs;
+      flush();
+      $('[data-sp]', sonuc).innerHTML = d.error ? icon('alert', 'bad-t') : icon('check', 'ok-t');
+      if (d.error) { st.textContent = d.error; st.className = 'bad-t'; return; }
+      status();
+      if (!n) list.innerHTML = `<div class="faint ws-ara-bos">${t('searchNone')}</div>`;
+      const msgs = [];
+      if (d.truncated) msgs.push(esc(t('searchTruncated')));
+      if (d.skipped) msgs.push(`${esc(t('searchSkipped', d.skipped))}<br><span class="mono">${(d.skipped_dirs || []).map(esc).join('<br>')}</span>`);
+      else if (d.warn) msgs.push(esc(d.warn));
+      if (msgs.length) { notEl.hidden = false; notEl.innerHTML = msgs.join('<br><br>'); }
+    });
+    es.onerror = () => { if (es && !done) { stopSearch(); done = true; flush(); status(); } };
+  }
+  qIn.oninput = () => {
+    clearTimeout(qTimer);
+    const v = qIn.value.trim();
+    qX.hidden = !qIn.value;
+    if (!v) return showTree();
+    if (v.length >= 2) qTimer = setTimeout(() => runSearch(v), 450); // yazma durunca
+  };
+  qIn.onkeydown = (e) => {
+    if (e.key === 'Enter' && qIn.value.trim()) { clearTimeout(qTimer); runSearch(qIn.value.trim()); }
+    if (e.key === 'Escape' && qIn.value) { e.stopPropagation(); qIn.value = ''; showTree(); }
+  };
+  qX.onclick = () => { qIn.value = ''; showTree(); qIn.focus(); };
+  sonuc.onclick = (e) => {
+    const r = e.target.closest('[data-hit]');
+    if (!r) return;
+    const p = r.dataset.hit;
+    if (r.hasAttribute('data-dir')) { qIn.value = ''; showTree(); setRoot(p); }
+    else openTab(p);
+  };
+  w.stopSearch = stopSearch;
+
   // ── sekmeler ──
   const find = (rel) => w.tabs.find((x) => x.rel === rel);
   // Uzun süren yüklemeler (load) sayfadan çıkıp dönülünce hep güncel mount'u kullanır
@@ -194,6 +278,14 @@ function wsMount(root, w, m) {
     if (!tab.host) { tab.host = document.createElement('div'); tab.host.className = 'ws-pano'; w.body.appendChild(tab.host); }
     tab.state = 'loading';
     tab.host.innerHTML = `<div class="yukleniyor">${icon('refresh', 'spin')} ${t('loading')}</div>`;
+    // Resim / video / ses / PDF: düzenleme yok, sekmenin içinde doğrudan önizleme
+    const kind = mediaKind(tab.rel);
+    if (kind) {
+      tab.state = 'ro';
+      tab.host.innerHTML = `<div class="ws-onizle">${mediaView(kind, `/api/p/${enc(P)}/remote/media?server=${enc(srv)}&path=${enc(tab.rel)}&v=${Date.now()}`)}</div>`;
+      w.drawTabs();
+      return;
+    }
     let doc;
     try { doc = await GET(`/api/p/${enc(P)}/remote/edit?server=${enc(srv)}&path=${enc(tab.rel)}`); }
     catch (e) {
@@ -204,11 +296,17 @@ function wsMount(root, w, m) {
       return;
     }
     if (!doc.editable) {
-      // Resim / PDF / binary / büyük dosya: sekmede bilgi + önizleme penceresi
+      // Düzenlenemeyen dosya sekmede önizlenir: metinse (büyük / UTF-8 değil) salt okunur kod görünümü,
+      // binary ise bilgi + indir
       tab.state = 'ro';
-      tab.host.innerHTML = `<div class="ws-bilgi"><div class="not">${icon('alert')}${t('wsReadonly')}: ${esc(edNotEditableReason(doc))}</div>
-        <button class="btn" data-pv>${icon('eye')}${t('preview')}</button></div>`;
-      $('[data-pv]', tab.host).onclick = () => previewFile(P, srv, tab.rel);
+      const note = `<div class="ws-ro-not">${icon('eye')}${t('wsReadonlyShort')}: ${esc(edNotEditableReason(doc))}</div>`;
+      let pv = null;
+      if (doc.reason !== 'binary') pv = await GET(`/api/p/${enc(P)}/remote/cat?server=${enc(srv)}&path=${enc(tab.rel)}`).catch(() => null);
+      tab.host.innerHTML = pv && !pv.binary
+        ? `${note}<div class="ws-onizle ws-kod">${fmtCodeView(pv.content, tab.rel)}</div>`
+        : `${note}<div class="ws-bilgi"><div class="bos">${t('binaryFile')}</div>
+            <a class="btn" href="/api/p/${enc(P)}/remote/get?server=${enc(srv)}&path=${enc(tab.rel)}" download>${icon('download')}${t('download')}</a></div>`;
+      if (pv && !pv.binary) bindFmt(tab.host);
       w.drawTabs();
       return;
     }
@@ -227,7 +325,7 @@ function wsMount(root, w, m) {
     const tab = find(rel);
     if (!tab) return;
     w.active = rel;
-    for (const x of w.tabs) if (x.host) x.host.hidden = x.rel !== rel;
+    for (const x of w.tabs) if (x.host) { const hide = x.rel !== rel; if (hide && !x.host.hidden) $$('video,audio', x.host).forEach((m) => m.pause()); x.host.hidden = hide; }
     if (tab.state === 'new') load(tab);
     else if (tab.ed) tab.ed.focus();
     markActive(rel);
@@ -261,7 +359,7 @@ function wsMount(root, w, m) {
     if (ask && tab.dirty && !(await edConfirmDiscard())) return false;
     const i = w.tabs.indexOf(tab);
     w.tabs.splice(i, 1);
-    if (tab.host) tab.host.remove();
+    if (tab.host) { stopMedia(tab.host); tab.host.remove(); }
     if (w.active === rel) {
       const next = w.tabs[i] || w.tabs[i - 1];
       w.active = null;

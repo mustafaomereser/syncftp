@@ -307,7 +307,8 @@ func runSearchWorker(
 		return
 	}
 	// Ortak motor (cmd_gui_search.go): panelin "Alt klasörlerde ara"sıyla aynı kod
-	_, _, _ = searchRemoteTree(ctx, *server, primaryClient, startDir, query,
+	_ = primaryClient // takılan LIST kesilirken tarayıcının bağlantısı ölmesin diye arama kendi bağlantılarını açar
+	_, _ = searchRemoteTree(ctx, *server, startDir, query,
 		func(dir string, e *goftp.Entry) bool {
 			select {
 			case resCh <- searchEntryMsg{gen: gen, entry: sortedEntry{entry: e, dir: dir}}:
