@@ -339,7 +339,10 @@ code { font: 12px var(--mono); background: var(--surface-2); padding: 1px 6px; b
 .agac-ok.acik { transform: none; }
 .agac-ok svg { width: 13px; height: 13px; }
 .agac-bosluk { width: 18px; flex: none; }
-.secim-cubuk { display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin-bottom: 10px; border-radius: 12px; background: var(--accent-soft); border: 1px solid rgb(59 158 255 / .3); }
+/* Seçim çubuğu altta yapışkan alt bilgi: listenin SONUNDA durur, liste uzunsa ekranın altına yapışır →
+   seçince üstteki içerik aşağı kaymaz */
+.secim-cubuk { display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin-top: 10px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 14%, var(--surface-2)); border: 1px solid rgb(59 158 255 / .35); position: sticky; bottom: 12px; z-index: 5; box-shadow: 0 10px 30px rgb(0 0 0 / .35); animation: kay .15s ease-out; }
+.secim-cubuk[hidden] { display: none; }
 .secim-cubuk b { font-weight: 600; margin-right: auto; font-size: 13px; }
 .alan > label .btn { font-weight: 500; }
 .kurulum ol { margin: 0; padding-left: 20px; color: var(--muted); line-height: 1.9; }

@@ -768,7 +768,7 @@ async function pageHome() {
     // ve imleç gezdikçe DOM'da yer değiştirir — diğerleri kayarak yer açar (FLIP animasyonu). Başka bir
     // grubun boş yerine / başlığına gelince o grubun sonuna geçer. Bırakınca DOM'daki sıra kaydedilir;
     // bırakılmadan biterse (Esc / dışarı) sayfa eski hâline döner.
-    let dragEl = null, dropped = false, lastKey = '', overRoot = false, moved = false;
+    let dragEl = null, dropped = false, overRoot = false, moved = false, coolUntil = 0;
     // Bırakma alanı çerçevenin görünen tamamı: kartlar yer değiştirince sayfa kısalır, imleç içeriğin
     // altındaki boşluğa düşer — orada da geçerli olmalı (dosya bırakma alanıyla aynı #frame)
     const zone = $('#frame') || root;
@@ -781,6 +781,26 @@ async function pageHome() {
       saveProjectOrder(list);
     };
     const boxes = () => $$('.izgara, .pliste', root);
+    // Kartın oturacağı yer (FLIP animasyonunun translate'i çıkarılmış)
+    const layoutRect = (x) => {
+      const r = x.getBoundingClientRect(), t = getComputedStyle(x).transform;
+      if (!t || t === 'none') return r;
+      const m = new DOMMatrixReadOnly(t);
+      return { left: r.left - m.m41, right: r.right - m.m41, top: r.top - m.m42, bottom: r.bottom - m.m42, width: r.width, height: r.height };
+    };
+    // İmlecin altındaki kart; aradaki boşluğun yarısı da en yakın karta sayılır (ızgara aralığında ölü bölge olmasın)
+    const cardAt = (px, py) => {
+      for (const b of boxes()) {
+        if (!b.offsetParent) continue; // katlı grup
+        const gx = parseFloat(getComputedStyle(b).columnGap) / 2 || 0, gy = parseFloat(getComputedStyle(b).rowGap) / 2 || 0;
+        for (const x of b.children) {
+          if (!x.matches('.pkart, .psatir')) continue;
+          const r = layoutRect(x);
+          if (px >= r.left - gx && px < r.right + gx && py >= r.top - gy && py < r.bottom + gy) return x;
+        }
+      }
+      return null;
+    };
     // FLIP: taşımadan önceki konumlardan yeni konumlara kaydır
     const flip = (move) => {
       const items = boxes().flatMap((b) => [...b.children]).filter((x) => x !== dragEl);
@@ -798,7 +818,7 @@ async function pageHome() {
     $$('.pkart, .psatir', root).forEach((el) => {
       el.draggable = true;
       el.ondragstart = (e) => {
-        dragEl = el; dropped = false; lastKey = ''; moved = false; overRoot = true;
+        dragEl = el; dropped = false; moved = false; overRoot = true; coolUntil = 0;
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/x-syncftp-project', el.dataset.p);
         // sürükleme görüntüsü kartın kendisi olsun; boşluğa dönüşmesi bir kare sonra
@@ -821,17 +841,46 @@ async function pageHome() {
       e.preventDefault();
       overRoot = true;
       e.dataTransfer.dropEffect = 'move';
-      const item = e.target.closest('.pkart, .psatir');
+      // Hedef kart, animasyondaki görünüşe göre değil oturacağı yere göre bulunur. Aynı listede kartın
+      // üstüne gelmek yeterli, yarısını geçmek gerekmez: boşluk o kartın yerine geçer ve imleç artık
+      // boşluğun üstünde kalır, titreme olmaz.
+      const item = cardAt(e.clientX, e.clientY);
       if (item === dragEl) return;
       if (item) {
-        const r = item.getBoundingClientRect();
-        const after = item.classList.contains('psatir') ? e.clientY > r.top + r.height / 2 : e.clientX > r.left + r.width / 2;
-        const key = item.dataset.p + (after ? '>' : '<');
-        // zaten o konumdaysa dokunma (titreme olmasın)
-        const ok = after ? item.nextElementSibling === dragEl : item.previousElementSibling === dragEl;
-        if (key === lastKey || ok) return;
-        lastKey = key; moved = true;
-        flip(() => item.parentNode.insertBefore(dragEl, after ? item.nextSibling : item));
+        if (performance.now() < coolUntil) return;
+        const box = item.parentNode, same = box === dragEl.parentNode;
+        let after;
+        if (same) {
+          const kids = [...box.children];
+          after = kids.indexOf(dragEl) < kids.indexOf(item);
+        } else {
+          const r = layoutRect(item);
+          after = item.classList.contains('psatir') ? e.clientY > r.top + r.height / 2 : e.clientX > r.left + r.width / 2;
+        }
+        if (after ? item.nextElementSibling === dragEl : item.previousElementSibling === dragEl) return;
+        moved = true;
+        // Gruplar arası taşımada üstteki grup kısalıp sayfa kayabilir: yerleşmesini bekle
+        if (!same) coolUntil = performance.now() + 220;
+        flip(() => box.insertBefore(dragEl, after ? item.nextSibling : item));
+        return;
+      }
+      // Kartların arasında değil de son kartın ötesinde (satırın sağı / altı): bu grubun sonuna
+      const endBox = boxes().find((b) => {
+        const r = b.getBoundingClientRect();
+        return b.offsetParent && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom + 24;
+      });
+      if (endBox) {
+        const cards = [...endBox.children].filter((x) => x.matches('.pkart, .psatir'));
+        const last = cards[cards.length - 1];
+        if (last && last !== dragEl) {
+          const r = layoutRect(last);
+          const past = e.clientY > r.bottom || (e.clientY >= r.top && e.clientX > r.right);
+          if (past && performance.now() >= coolUntil) {
+            moved = true;
+            if (dragEl.parentNode !== endBox) coolUntil = performance.now() + 220;
+            flip(() => endBox.appendChild(dragEl));
+          }
+        }
         return;
       }
       // kart yok: grubun boş yeri / başlığı → o grubun sonuna
@@ -840,7 +889,7 @@ async function pageHome() {
       if (!sec) return;
       const box = sec.querySelector('.izgara, .pliste');
       if (box && dragEl.parentNode !== box) {
-        lastKey = 'grp:' + sec.dataset.grp; moved = true;
+        moved = true;
         flip(() => box.appendChild(dragEl));
       }
     };
@@ -2720,15 +2769,15 @@ async function tabFiles(proj, srvName, relPath) {
       <button class="btn mavi" id="f-upload" title="${t('dropHint')}">${icon('upload')}${t('upload')}</button><input type="file" id="f-upload-input" multiple hidden></div>
     ${viaConn ? `<p class="ipucu" style="margin:0 0 8px">${icon('link')} ${t('filesConnHint')}</p>` : ''}
     <div class="yol-cubuk"><button data-crumb="">${esc(data.root || '/')}</button>${crumbs.map((c, i) => `<span>/</span><button data-crumb="${esc(crumbs.slice(0, i + 1).join('/'))}">${esc(c)}</button>`).join('')}</div>
+    ${data.error ? `<div class="kart"><div class="not bad">${icon('alert')}${esc(data.error)}</div></div>` : !entries.length ? `<div class="bos" style="padding:30px">${t('emptyDir')}</div>` :
+    `<div class="tablo-kap"><table class="tablo"><thead><tr><th class="sec-hucre"><label><input type="checkbox" id="f-all"></label></th><th>${t('colName')}</th><th class="sag">${t('colSize')}</th><th>${t('colDate')}</th><th></th></tr></thead><tbody id="f-body">
+      </tbody></table></div><button class="btn hayalet tam-gen" id="f-more" hidden></button>`}
     <div class="secim-cubuk" id="f-selbar" hidden><b data-selcount title="${t('selHint')}"></b>
       <button class="btn kucuk" data-sel="move">${icon('folder')}${t('moveTo')}</button>
       <button class="btn kucuk" data-sel="zip">${icon('archive')}${t('zipSel')}</button>
       ${viaConn ? '' : `<button class="btn kucuk" data-sel="freeze">${icon('snow')}${t('freezeToggle')}</button>`}
       <button class="btn kucuk tehlike" data-sel="del">${icon('trash')}${t('delete')}</button>
-      <button class="btn kucuk hayalet" data-sel="clear">${t('clearSel')}</button></div>
-    ${data.error ? `<div class="kart"><div class="not bad">${icon('alert')}${esc(data.error)}</div></div>` : !entries.length ? `<div class="bos" style="padding:30px">${t('emptyDir')}</div>` :
-    `<div class="tablo-kap"><table class="tablo"><thead><tr><th class="sec-hucre"><label><input type="checkbox" id="f-all"></label></th><th>${t('colName')}</th><th class="sag">${t('colSize')}</th><th>${t('colDate')}</th><th></th></tr></thead><tbody id="f-body">
-      </tbody></table></div><button class="btn hayalet tam-gen" id="f-more" hidden></button>`}`;
+      <button class="btn kucuk hayalet" data-sel="clear">${t('clearSel')}</button></div>`;
 }
 
 // Dosyalar sekmesine sürükle-bırak yükleme: dosyalar ve klasörler (alt yapısıyla) bulunulan klasöre,
