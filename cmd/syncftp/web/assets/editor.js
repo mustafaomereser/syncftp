@@ -14,7 +14,7 @@
 Object.assign(T.tr, {
   edEdit: 'Düzenle', edSave: 'Kaydet', edSaving: 'Kaydediliyor…', edSaved: 'Kaydedildi', edModified: 'değişti',
   edLine: 'Satır {0}, Sütun {1}', edNoHl: 'büyük dosya — renklendirme kapalı',
-  edLocalSame: 'Yerel dosya aynı', edLocalDiff: 'Yerel dosya farklı', edLocalMissing: 'Yerelde yok',
+  edLocalSame: 'Yerel dosya aynı', edLocalDiffTitle: 'Yerel dosya ↔ editör', edLocalDiffHint: 'Yereldeki dosya → editördeki hâl (− yerelde olup burada olmayan, + burada olup yerelde olmayan).', edLocalDiff: 'Yerel dosya farklı', edLocalMissing: 'Yerelde yok',
   edNotEditable: 'Bu dosya düzenlenemez', edReasonBinary: 'binary dosya (resim, arşiv…)', edReasonLarge: '4 MB\'tan büyük',
   edReasonEncoding: 'UTF-8 değil — panelden kaydedilirse karakterler bozulur',
   edSaveTitle: 'Değişiklikleri kaydet', edNoChanges: 'Değişiklik yok',
@@ -31,7 +31,7 @@ Object.assign(T.tr, {
 Object.assign(T.en, {
   edEdit: 'Edit', edSave: 'Save', edSaving: 'Saving…', edSaved: 'Saved', edModified: 'modified',
   edLine: 'Ln {0}, Col {1}', edNoHl: 'large file — highlighting off',
-  edLocalSame: 'Local file is the same', edLocalDiff: 'Local file differs', edLocalMissing: 'Not in local folder',
+  edLocalSame: 'Local file is the same', edLocalDiffTitle: 'Local file ↔ editor', edLocalDiffHint: 'Local file → the version in the editor (− only in the local file, + only here).', edLocalDiff: 'Local file differs', edLocalMissing: 'Not in local folder',
   edNotEditable: 'This file can\'t be edited', edReasonBinary: 'binary file (image, archive…)', edReasonLarge: 'larger than 4 MB',
   edReasonEncoding: 'not UTF-8 — saving from the panel would corrupt characters',
   edSaveTitle: 'Save changes', edNoChanges: 'No changes',
@@ -109,6 +109,19 @@ function createEditor(host, o) {
     if (b) b.onclick = async () => { try { await setTarget(''); toast(t('edTargetResetDone')); ta.focus(); } catch (e) { fail(e); } };
   }
   drawTarget();
+  // "Yerel dosya farklı" rozeti tıklanır: yereldeki dosya → editördeki hâl farkı
+  $('[data-local]', root).onclick = async () => {
+    if (doc.direct || !doc.local_exists || doc.local_same) return;
+    let loc;
+    try { loc = await GET(`/api/p/${enc(P)}/local/cat?${q}`); } catch (e) { return fail(e); }
+    if (!loc || !loc.exists || loc.binary) return;
+    const d = diffView(loc.content || '', ta.value, rel);
+    modal({
+      title: `${icon('layers')}${t('edLocalDiffTitle')} <span class="fark-ozet"><span class="ok-t">+${d.add}</span><span class="bad-t">−${d.del}</span></span>`, size: 'genis',
+      body: `<p class="muted" style="margin-top:0">${t('edLocalDiffHint')}</p>${d.html}`,
+      actions: [{ label: t('close'), cls: 'birincil' }],
+    });
+  };
   ta.value = orig;
   const dirty = () => ta.value !== orig;
 

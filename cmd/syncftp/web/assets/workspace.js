@@ -16,7 +16,7 @@ Object.assign(T.tr, {
   wsEmpty: 'Soldan bir dosya seç', wsEmptyHint: 'Her dosya yeni bir sekmede açılır. Ctrl+S kaydet · Ctrl+W / Alt+W sekmeyi kapat · Ctrl+Tab sekmeler arası',
   wsClose: 'Kapat', wsCloseOthers: 'Diğerlerini kapat', wsCloseAll: 'Tümünü kapat', wsUnsavedN: '{0} sekmede kaydedilmemiş değişiklik var. Yine de kapatılsın mı?',
   wsReadonly: 'Bu dosya editörde açılamaz', wsLoadFail: 'Açılamadı', wsReload: 'Sunucudakini yeniden yükle',
-  wsReloadAsk: 'Kaydedilmemiş değişiklikler gider. Sunucudaki hâli yüklensin mi?', wsRetry: 'Tekrar dene', wsSetRoot: 'Ağacı buradan başlat', wsReadonlyShort: 'Yalnızca görüntüleme', wsCollapseAll: 'Tümünü daralt', wsSearchPh: 'Bu klasörde ara…', wsSearchClear: 'Aramayı temizle',
+  wsReloadAsk: 'Kaydedilmemiş değişiklikler gider. Sunucudaki hâli yüklensin mi?', wsRetry: 'Tekrar dene', wsSetRoot: 'Ağacı buradan başlat', wsReadonlyShort: 'Yalnızca görüntüleme', wsCollapseAll: 'Tümünü daralt', wsPin: 'Sabitle', wsUnpin: 'Sabitlemeyi kaldır', wsCloseRight: 'Sağdakileri kapat', wsKeepPinned: 'sabitliler kalır', wsSearchPh: 'Bu klasörde ara…', wsSearchClear: 'Aramayı temizle',
 });
 Object.assign(T.en, {
   wsOpen: 'Editor', wsOpenHint: 'Editor mode: files on the left, tabbed editor on the right',
@@ -24,7 +24,7 @@ Object.assign(T.en, {
   wsEmpty: 'Pick a file on the left', wsEmptyHint: 'Each file opens in its own tab. Ctrl+S save · Ctrl+W / Alt+W close tab · Ctrl+Tab switch tabs',
   wsClose: 'Close', wsCloseOthers: 'Close others', wsCloseAll: 'Close all', wsUnsavedN: '{0} tab(s) have unsaved changes. Close anyway?',
   wsReadonly: 'This file can\'t be opened in the editor', wsLoadFail: 'Could not open', wsReload: 'Reload from the server',
-  wsReloadAsk: 'Unsaved changes will be lost. Load the server version?', wsRetry: 'Try again', wsSetRoot: 'Start the tree here', wsReadonlyShort: 'View only', wsCollapseAll: 'Collapse all', wsSearchPh: 'Search this folder…', wsSearchClear: 'Clear search',
+  wsReloadAsk: 'Unsaved changes will be lost. Load the server version?', wsRetry: 'Try again', wsSetRoot: 'Start the tree here', wsReadonlyShort: 'View only', wsCollapseAll: 'Collapse all', wsPin: 'Pin', wsUnpin: 'Unpin', wsCloseRight: 'Close tabs to the right', wsKeepPinned: 'pinned stay', wsSearchPh: 'Search this folder…', wsSearchClear: 'Clear search',
 });
 
 // Canlı çalışma alanları: "proje|profil" → { tabs: [{rel, host, ed, state, dirty}], active, open: Set, cache: Map }
@@ -34,9 +34,12 @@ function wsLoadStored(key) {
   try { return JSON.parse(localStorage.getItem(wsStoreKey(key)) || 'null'); } catch { return null; }
 }
 function wsStore(w) {
-  try { localStorage.setItem(wsStoreKey(w.key), JSON.stringify({ tabs: w.tabs.map((x) => x.rel), active: w.active, open: [...w.open] })); } catch { /* */ }
+  try { localStorage.setItem(wsStoreKey(w.key), JSON.stringify({ tabs: w.tabs.map((x) => x.rel), pinned: w.tabs.filter((x) => x.pinned).map((x) => x.rel), active: w.active, open: [...w.open] })); } catch { /* */ }
 }
 const wsBase = (p) => p.split('/').pop();
+// Sabitli sekmeler hep başta (kendi aralarındaki sıra korunur)
+const wsSortPinned = (w) => { w.tabs = [...w.tabs.filter((x) => x.pinned), ...w.tabs.filter((x) => !x.pinned)]; };
+const WS_PIN_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6l-1 6 3 3v2H7v-2l3-3-1-6zM12 15v6"/></svg>';
 const WS_COLLAPSE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 20l5-5 5 5M7 4l5 5 5-5"/></svg>';
 const wsDir = (p) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '');
 // Etkin çalışma alanı (Editör penceresi açık)
@@ -56,7 +59,9 @@ async function openWorkspace(P, srvName, relDir) {
   if (!w) {
     const st = wsLoadStored(key) || {};
     w = { key, P, srv, tabs: [], active: null, open: new Set(st.open || []), cache: new Map(), el: null };
-    for (const rel of st.tabs || []) w.tabs.push({ rel, host: null, ed: null, state: 'new', dirty: false });
+    const pinned = new Set(st.pinned || []);
+    for (const rel of st.tabs || []) w.tabs.push({ rel, host: null, ed: null, state: 'new', dirty: false, pinned: pinned.has(rel) });
+    wsSortPinned(w);
     w.active = w.tabs.some((x) => x.rel === st.active) ? st.active : (w.tabs[0] || {}).rel || null;
     WS.set(key, w);
   }
@@ -258,21 +263,92 @@ function wsMount(root, w, m) {
   // Uzun süren yüklemeler (load) sayfadan çıkıp dönülünce hep güncel mount'u kullanır
   w.drawTabs = () => drawTabs();
   function drawTabs() {
-    tabsEl.innerHTML = w.tabs.map((x) => `<div class="ws-sekme${x.rel === w.active ? ' aktif' : ''}" data-tab="${esc(x.rel)}" title="${esc(x.rel)}">
+    tabsEl.innerHTML = w.tabs.map((x) => `<div class="ws-sekme${x.rel === w.active ? ' aktif' : ''}${x.pinned ? ' sabit' : ''}" data-tab="${esc(x.rel)}" title="${esc(x.rel)}">
       ${icon(x.state === 'ro' ? 'eye' : 'file')}<span>${esc(wsBase(x.rel))}</span>${x.dirty ? `<span class="ed-nokta" title="${t('edModified')}"></span>` : ''}
-      <button class="ws-x" data-x title="${t('wsClose')}">${icon('x')}</button></div>`).join('');
+      ${x.pinned ? `<button class="ws-x ws-pin" data-unpin title="${t('wsUnpin')}">${WS_PIN_SVG}</button>` : `<button class="ws-x" data-x title="${t('wsClose')}">${icon('x')}</button>`}</div>`).join('');
     const a = $('.ws-sekme.aktif', tabsEl);
     if (a) a.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     empty.hidden = !!w.active;
     $('#ws-save', root).disabled = !w.active || !(find(w.active) || {}).ed;
   }
+  let dragJustEnded = false;
   tabsEl.onclick = (e) => {
     const tab = e.target.closest('.ws-sekme');
-    if (!tab) return;
-    if (e.target.closest('[data-x]')) closeTab(tab.dataset.tab); else activate(tab.dataset.tab);
+    if (!tab || dragJustEnded) return;
+    if (e.target.closest('[data-unpin]')) setPinned(tab.dataset.tab, false);
+    else if (e.target.closest('[data-x]')) closeTab(tab.dataset.tab);
+    else activate(tab.dataset.tab);
   };
-  tabsEl.onauxclick = (e) => { const tab = e.target.closest('.ws-sekme'); if (tab && e.button === 1) { e.preventDefault(); closeTab(tab.dataset.tab); } };
-  tabsEl.onmousedown = (e) => { if (e.button === 1) e.preventDefault(); }; // orta tık kaydırma imleci açmasın
+  // Orta tık kapatır (sabitli sekme hariç — VS Code gibi, yanlışlıkla kapanmasın)
+  tabsEl.onauxclick = (e) => { const tab = e.target.closest('.ws-sekme'); if (tab && e.button === 1) { e.preventDefault(); if (!(find(tab.dataset.tab) || {}).pinned) closeTab(tab.dataset.tab); } };
+  // Tekerlek sekme çubuğunu yatay kaydırır
+  tabsEl.onwheel = (e) => { if (tabsEl.scrollWidth > tabsEl.clientWidth && Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); tabsEl.scrollLeft += e.deltaY; } };
+  // Sürükleyerek sırala: fareyle tut, 5 px'ten fazla kayınca sekme imleci takip eder, diğerleri yer
+  // değiştirir; bırakınca sıra kaydedilir. Sabitliler kendi grubunda kalır.
+  tabsEl.onmousedown = (e) => {
+    if (e.button === 1) { e.preventDefault(); return; } // orta tık kaydırma imleci açmasın
+    if (e.button !== 0 || e.target.closest('button')) return;
+    const el = e.target.closest('.ws-sekme');
+    if (!el) return;
+    const startX = e.clientX;
+    let dragging = false;
+    const onMove = (ev) => {
+      if (!dragging) {
+        if (Math.abs(ev.clientX - startX) < 5) return;
+        dragging = true;
+        el.classList.add('surukle');
+        document.body.classList.add('ws-sekme-surukle');
+      }
+      const pinned = el.classList.contains('sabit');
+      const sibs = [...tabsEl.children].filter((x) => x !== el && x.classList.contains('sabit') === pinned);
+      // İmlecin solundaki son kardeşin arkasına
+      let before = null;
+      for (const x of sibs) { const r = x.getBoundingClientRect(); if (ev.clientX < r.left + r.width / 2) { before = x; break; } }
+      if (!before) {
+        const last = sibs[sibs.length - 1];
+        before = last ? last.nextElementSibling : (pinned ? tabsEl.querySelector('.ws-sekme:not(.sabit)') : null);
+        if (before === el) before = el.nextElementSibling;
+      }
+      if (before !== el && el.nextElementSibling !== before) tabsEl.insertBefore(el, before);
+      // kenara yaklaşınca çubuk kayar
+      const r = tabsEl.getBoundingClientRect();
+      if (ev.clientX < r.left + 30) tabsEl.scrollLeft -= 12; else if (ev.clientX > r.right - 30) tabsEl.scrollLeft += 12;
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      if (!dragging) return;
+      el.classList.remove('surukle');
+      document.body.classList.remove('ws-sekme-surukle');
+      const order = [...tabsEl.children].map((x) => x.dataset.tab);
+      w.tabs.sort((a, b) => order.indexOf(a.rel) - order.indexOf(b.rel));
+      wsStore(w);
+      dragJustEnded = true; setTimeout(() => { dragJustEnded = false; }, 0); // bırakmanın click'i sekmeyi değiştirmesin
+      activate(el.dataset.tab);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+  function setPinned(rel, on) {
+    const tab = find(rel);
+    if (!tab) return;
+    tab.pinned = on;
+    // Sabitlenen sabitlilerin sonuna, çözülen sabitlenmemişlerin başına
+    w.tabs.splice(w.tabs.indexOf(tab), 1);
+    const at = w.tabs.filter((x) => x.pinned).length;
+    w.tabs.splice(at, 0, tab);
+    wsStore(w);
+    drawTabs();
+  }
+  // Etkin sekmeyi bir sağa / sola taşı (Ctrl+Shift+PgUp/PgDn), kendi grubunda
+  function moveActive(dir) {
+    const i = w.tabs.findIndex((x) => x.rel === w.active);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= w.tabs.length || w.tabs[j].pinned !== w.tabs[i].pinned) return;
+    [w.tabs[i], w.tabs[j]] = [w.tabs[j], w.tabs[i]];
+    wsStore(w);
+    drawTabs();
+  }
 
   async function load(tab) {
     if (!tab.host) { tab.host = document.createElement('div'); tab.host.className = 'ws-pano'; w.body.appendChild(tab.host); }
@@ -349,7 +425,7 @@ function wsMount(root, w, m) {
     if (!find(rel)) {
       // Yeni sekme etkin sekmenin hemen sağına
       const i = w.tabs.findIndex((x) => x.rel === w.active);
-      w.tabs.splice(i < 0 ? w.tabs.length : i + 1, 0, { rel, host: null, ed: null, state: 'new', dirty: false });
+      w.tabs.splice(Math.max(i + 1, w.tabs.filter((x) => x.pinned).length), 0, { rel, host: null, ed: null, state: 'new', dirty: false, pinned: false });
     }
     activate(rel);
   }
@@ -374,9 +450,9 @@ function wsMount(root, w, m) {
     if (dirtyN && !(await confirmBox(t('edDiscardTitle'), t('wsUnsavedN', dirtyN), t('edDiscard'), true))) return;
     for (const x of list.slice()) await closeTab(x.rel, false);
   }
-  Object.assign(w, { find, openTab, closeTab, closeMany, setRoot, close: () => m.close() });
+  Object.assign(w, { find, openTab, closeTab, closeMany, setRoot, setPinned, moveActive, close: () => m.close() });
   w.save = () => { const tab = find(w.active); if (tab && tab.ed) tab.ed.save(); };
-  w.closeActive = () => { if (w.active) closeTab(w.active); };
+  w.closeActive = () => { const tab = find(w.active); if (tab && !tab.pinned) closeTab(w.active); };
   w.cycle = (dir) => {
     if (w.tabs.length < 2) return;
     const i = w.tabs.findIndex((x) => x.rel === w.active);
@@ -412,9 +488,12 @@ CM.register('#ws-tabs .ws-sekme', (el) => {
   const rel = el.dataset.tab, tab = find(rel);
   return [
     { heading: rel },
-    { label: t('wsClose'), icon: 'x', hint: 'Ctrl+W', action: () => closeTab(rel) },
-    { label: t('wsCloseOthers'), action: () => closeMany(w.tabs.filter((x) => x.rel !== rel)), disabled: w.tabs.length < 2 },
-    { label: t('wsCloseAll'), action: () => closeMany(w.tabs) },
+    { label: tab && tab.pinned ? t('wsUnpin') : t('wsPin'), icon: 'lock', action: () => w.setPinned(rel, !(tab && tab.pinned)) },
+    '-',
+    { label: t('wsClose'), icon: 'x', hint: tab && tab.pinned ? '' : 'Ctrl+W', action: () => closeTab(rel) },
+    { label: t('wsCloseOthers'), action: () => closeMany(w.tabs.filter((x) => x.rel !== rel && !x.pinned)), disabled: !w.tabs.some((x) => x.rel !== rel && !x.pinned) },
+    { label: t('wsCloseRight'), action: () => closeMany(w.tabs.slice(w.tabs.findIndex((x) => x.rel === rel) + 1).filter((x) => !x.pinned)), disabled: !w.tabs.slice(w.tabs.findIndex((x) => x.rel === rel) + 1).some((x) => !x.pinned) },
+    { label: t('wsCloseAll'), hint: w.tabs.some((x) => x.pinned) ? t('wsKeepPinned') : '', action: () => closeMany(w.tabs.filter((x) => !x.pinned)) },
     '-',
     { label: t('wsReload'), icon: 'refresh', disabled: !tab || !tab.ed, action: async () => { if (!tab.dirty || await confirmBox(t('wsReload'), t('wsReloadAsk'), t('wsReload'), true)) tab.ed.reload().catch(fail); } },
     { label: t('preview'), icon: 'eye', action: () => previewFile(P, srv, rel) },
@@ -451,6 +530,11 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if ((mod && k === 'w') || (e.altKey && k === 'w')) { e.preventDefault(); e.stopPropagation(); w.closeActive(); return; }
+  if (mod && e.shiftKey && (e.key === 'PageDown' || e.key === 'PageUp')) {
+    e.preventDefault(); e.stopPropagation();
+    w.moveActive(e.key === 'PageUp' ? -1 : 1);
+    return;
+  }
   if (mod && (e.key === 'Tab' || e.key === 'PageDown' || e.key === 'PageUp')) {
     e.preventDefault(); e.stopPropagation();
     w.cycle(e.key === 'PageUp' || (e.key === 'Tab' && e.shiftKey) ? -1 : 1);
