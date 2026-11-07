@@ -1626,7 +1626,8 @@ function copyMenu(F, name, p) {
 }
 document.addEventListener('keydown', (e) => {
   const F = filesCtxLive();
-  if (!F || e.target.closest?.('input, textarea, select, [contenteditable="true"], .xterm') || document.querySelector('.modal-arka, .pk-arka, .cm-menu')) return;
+  // onay kutusu odaktayken de çalışsın (seçince odak kutuda kalıyor) — yalnızca yazı alanları hariç
+  if (!F || e.target.closest?.('input:not([type=checkbox]):not([type=radio]), textarea, select, [contenteditable="true"], .xterm') || document.querySelector('.modal-arka, .pk-arka, .cm-menu')) return;
   if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'a') { e.preventDefault(); F.selectAll(); }
   else if (e.key === 'Escape' && F.hasSel()) { e.preventDefault(); F.clearSel(); }
   else if (e.key === 'Delete' && !e.ctrlKey && !e.altKey && !e.metaKey && F.hasSel()) { e.preventDefault(); F.removeSel(); }
