@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"os"
 	"path"
@@ -221,36 +220,64 @@ func (sv *guiServer) apiRemoteUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	dir := guiRemotePath(srv, r.URL.Query().Get("path"))
 	r.Body = http.MaxBytesReader(w, r.Body, guiUploadMax)
-	if err := r.ParseMultipartForm(64 << 20); err != nil {
+	// Parçalar akış hâlinde okunur (ParseMultipartForm DEĞİL): Go'nun ReadForm'u en fazla 1000 parça
+	// kabul ediyor — 500+ dosyalı klasör (dosya + yol = 2 parça) reddediliyor, gövdenin kalanı okunmadan
+	// cevap verildiği için tarayıcı bunu "bağlantı koptu" görüyordu. Her dosya diske tek tek yazılıp yüklenir.
+	mr, err := r.MultipartReader()
+	if err != nil {
 		guiErr(w, 400, err)
 		return
 	}
-	defer r.MultipartForm.RemoveAll() // diske taşan parçalar (multipart-*) temp'te kalmasın
+	// fail gövdenin kalanını tüketip hatayı yazar — okunmadan kapanan istek tarayıcıda ağ hatası olur
+	fail := func(code int, err error) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		guiErr(w, code, err)
+	}
 	var done []string
-	// Sürükle-bırakla klasör yüklemede her dosyanın göreceli yolu "paths" alanında aynı sırayla gelir
-	// (multipart dosya adı yalnızca taban adı taşır); yol hedef klasörün dışına çıkamaz.
-	rels := r.MultipartForm.Value["paths"]
-	files := r.MultipartForm.File["files"]
-	for i, fh := range files {
-		local, cleanup, err := multipartLocalFile(fh)
+	// Sürükle-bırakla klasör yüklemede her dosyanın göreceli yolu kendi parçasından ÖNCE "paths" alanında
+	// gelir (multipart dosya adı yalnızca taban adı taşır); yol hedef klasörün dışına çıkamaz.
+	pending := ""
+	for {
+		part, err := mr.NextPart()
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
-			guiErr(w, 500, err)
+			fail(400, err)
 			return
 		}
-		name := path.Base(strings.ReplaceAll(fh.Filename, `\`, "/"))
-		if len(rels) == len(files) {
-			if rp := strings.TrimPrefix(path.Clean("/"+strings.ReplaceAll(rels[i], `\`, "/")), "/"); rp != "" {
+		switch part.FormName() {
+		case "paths":
+			b, err := io.ReadAll(io.LimitReader(part, 4096))
+			part.Close()
+			if err != nil {
+				fail(400, err)
+				return
+			}
+			pending = string(b)
+		case "files":
+			name := path.Base(strings.ReplaceAll(part.FileName(), `\`, "/"))
+			if rp := strings.TrimPrefix(path.Clean("/"+strings.ReplaceAll(pending, `\`, "/")), "/"); pending != "" && rp != "" {
 				name = rp
 			}
+			pending = ""
+			local, cleanup, err := partToTemp(part)
+			part.Close()
+			if err != nil {
+				fail(500, err)
+				return
+			}
+			target := path.Join(dir, name)
+			err = withRemote(pname, srv, func(c *ftpclient.Client) error { return c.UploadTo(local, target) })
+			cleanup()
+			if err != nil {
+				fail(502, fmt.Errorf("%s: %w", name, err))
+				return
+			}
+			done = append(done, name)
+		default:
+			part.Close()
 		}
-		target := path.Join(dir, name)
-		err = withRemote(pname, srv, func(c *ftpclient.Client) error { return c.UploadTo(local, target) })
-		cleanup()
-		if err != nil {
-			guiErr(w, 502, fmt.Errorf("%s: %w", name, err))
-			return
-		}
-		done = append(done, name)
 	}
 	guiJSON(w, done)
 }
@@ -258,17 +285,8 @@ func (sv *guiServer) apiRemoteUpload(w http.ResponseWriter, r *http.Request) {
 // guiUploadMax panelden tek istekte yüklenebilecek toplam boyut.
 const guiUploadMax = 4 << 30
 
-// multipartLocalFile parçanın diskteki yolunu döner: büyük parçalar zaten temp dosyadadır (ek kopya
-// yok); bellekte tutulan küçük parçalar geçici dosyaya yazılır. cleanup'ı her durumda çağır.
-func multipartLocalFile(fh *multipart.FileHeader) (string, func(), error) {
-	src, err := fh.Open()
-	if err != nil {
-		return "", func() {}, err
-	}
-	if f, ok := src.(*os.File); ok {
-		return f.Name(), func() { f.Close() }, nil // RemoveAll siler
-	}
-	defer src.Close()
+// partToTemp multipart parçasını geçici dosyaya yazar; cleanup'ı her durumda çağır.
+func partToTemp(src io.Reader) (string, func(), error) {
 	tmp, err := os.CreateTemp("", "syncftp-up-*")
 	if err != nil {
 		return "", func() {}, err

@@ -1935,7 +1935,8 @@ async function tabFiles(proj, srvName, relPath) {
     const uploadItems = async (items, dir) => {
       if (!items.length) return;
       const fd = new FormData();
-      items.forEach((it) => { fd.append('files', it.file, it.file.name); fd.append('paths', it.path); });
+      // yol kendi dosyasından ÖNCE gelmeli — sunucu parçaları akış hâlinde okur
+      items.forEach((it) => { fd.append('paths', it.path); fd.append('files', it.file, it.file.name); });
       const b = $('#f-upload', root);
       const label = (pct) => { b.innerHTML = icon('refresh', 'spin') + t('upload') + (pct != null ? ` ${pct}%` : ''); };
       b.disabled = true; label();
