@@ -117,7 +117,7 @@ const T = {
     upload: 'Yükle', newFolder: 'Yeni klasör', folderName: 'Klasör adı', rename: 'Yeniden adlandır / taşı', newPath: 'Yeni yol (uzak dizine göreceli)',
     moveTo: 'Taşı', selectedN: '{0} seçili', clearSel: 'Seçimi temizle',
     freezeToggle: 'Freeze / unfreeze', frozenBadge: 'frozen', searchAll: 'Alt klasörlerde ara', searchTitle: '"{0}" araması', searchNone: 'Sonuç yok', searching: 'Aranıyor…', searchingN: '{0} sonuç · {1} klasör tarandı…', searchDoneN: '{0} sonuç · {1} klasör · {2} sn', searchTruncated: 'Çok fazla sonuç (ilk 2000) ya da 5 dakika sınırı doldu — aramayı daraltın.',
-    uploaded: '{0} dosya yüklendi', pkTitle: 'Hızlı arama', pkPlaceholder: 'Proje, sayfa ya da eylem ara…', pkPlaceholderShort: 'Ara…', pkGroupPages: 'Sayfalar', pkGroupProjects: 'Projeler', pkGroupActions: 'Eylemler', pkEmpty: 'Sonuç yok', pkMove: 'gez', pkOpen: 'aç', tbJobsN: '{0} iş çalışıyor', tbMin: 'Simge durumuna küçült', tbMax: 'Ekranı kapla', tbRestore: 'Önceki boyut', tbClose: 'Kapat', cmRename: 'Yeniden adlandır', cmNoEnabled: 'Aktif profil yok', cmBack: 'Geri', cmForward: 'İleri', cmJobs: 'İşler', cmSettings: 'Ayarlar', cmHelp: 'Yardım', cmPage: 'Sayfa', cmCopy: 'Kopyala', cmCopied: '{0} kopyalandı', cmCopyFail: 'Kopyalanamadı; elle seçip Ctrl+C ile kopyala', cmText: 'Metin', cmSelection: 'Seçili metin', cmBrowserNote: 'Tarayıcı menüsü için <kbd>Shift</kbd> + sağ tık', cmOpen: 'Aç', cmUploadHere: 'Bu klasöre yükle…', cmCopyMenu: 'Kopyala', cmCopyName: 'Adı', cmCopyRel: 'Göreceli yolu', cmCopyRemote: 'Sunucudaki tam yolu', cmName: 'Ad', cmPath: 'Yol', cmSelect: 'Seç', cmUnselect: 'Seçimi kaldır', cmSelectAll: 'Tümünü seç', cmDeleteN: '{0} öğeyi sil', cmUp: 'Üst klasöre çık', cmProjectSettings: 'Proje ayarları', cmTerminal: 'Terminalde aç', cmCopyFolder: 'Proje klasörünün yolunu kopyala', cmJobLog: 'Logu aç', cmNotStoppable: 'Bu iş durdurulamıyor', secTriggers: 'Tetikleyiciler', secTriggersDesc: 'Belirli dosyalar yüklenince (ya da yüklenmeden hemen önce) çalışır: örneğin migrations klasörü değişince migrate. Proje ayarlarındaki tetikleyiciler bu profilde de çalışır.', secTriggersDescGlobal: 'Tüm profillerde çalışır; profile özel olanlar profil düzenleme sayfasında. Belirli dosyalar yüklenince (ya da hemen önce) komut, SSH, HTTP isteği ya da bildirim.', trAfter: 'Yüklemeden sonra', trBefore: 'Yüklemeden önce', trWhen: 'Ne zaman', trWhenHint: '"Önce" hata verirse o profilin sync\'i iptal olur; "sonra" hatası sync sonucunu bozmaz.', trPaths: 'Hangi dosyalar', trPathsHint: 'Bu kalıplardan birine uyan dosya yüklenirse çalışır (include/exclude ile aynı kurallar). Boş = her yüklemede.', trRun: 'Yerel komutlar', trRunHint: 'Proje klasöründe çalışır; SYNCFTP_TRIGGER_FILES ortamda.', trRemote: 'SSH komutları (sunucuda)', trRemoteHint: 'Uzak dizinde çalışır (php artisan migrate --force).', trRemoteFtp: 'Yalnızca SFTP profillerinde çalışır; FTP\'de atlanır.', trHttpUrl: 'HTTP isteği — adres', trHttpMethod: 'Yöntem', trHttpHeaders: 'Başlıklar', trHttpBody: 'Gövde', trHttpBodyHint: 'Boşsa JSON özet gider (trigger, server, project, count, files).', trVarsHint: 'Yer tutucular: {files} {files_json} {count} {first} {server} {project} {trigger}', trNotify: 'Bildirim (Slack / Discord / webhook)', trActRun: 'komut', trActNotify: 'bildirim', trNoAction: 'eylem yok', trUnnamed: '(adsız)', trAnyFile: 'her dosya', trEmpty: 'Henüz tetikleyici yok. Aşağıdan hazır bir şablonla ekle.', trAdd: 'Tetikleyici ekle', trDelConfirm: '"{0}" tetikleyicisi silinsin mi? (Kaydet\'e basınca kalıcı olur)', trTest: 'Dene', trTestHint: 'Sync yapmadan bu tetikleyicinin eylemlerini çalıştır (formdaki hâliyle)', trTestServer: 'Profil', trTestFiles: 'Örnek dosyalar', trTestNote: 'Eylemler gerçekten çalışır (komut, SSH, HTTP, bildirim). Dosyalar yalnızca ortama ve yer tutuculara geçer, hiçbir şey yüklenmez.', trTestNoServer: 'Önce profili kaydet', trTpl_migrateSsh: 'Şablon: Laravel migrate (SSH)', trTpl_migrateHttp: 'Şablon: migrate (HTTP isteği)', trTpl_composer: 'Şablon: composer install (SSH)', trTpl_cache: 'Şablon: cache temizle (SSH)', trTpl_npm: 'Şablon: önce npm run build', trTpl_notify: 'Şablon: Slack / Discord bildirimi', trTpl_blank: 'Boş tetikleyici', edDirect: 'Doğrudan sunucuya · yedeksiz', edDirectHint: 'Bağlantıyla açıldı: yerel kopya ve yedek (Geri al) yok, kayıt doğrudan sunucudaki dosyaya yazılır. Sunucudaki dosya açıldıktan sonra değiştiyse yine sorulur.', zipSel: 'Zip\'le', zipTitle: 'Zip arşivi oluştur', zipName: 'Arşiv adı', zipHint: '{0} öğe bu klasörde tek arşive sıkıştırılır; aynı adlı dosya varsa sonuna -2 eklenir. FTP\'de sunucuda komut çalıştırılamadığı için dosyalar indirilip arşivlenir, arşiv geri yüklenir.', unzip: 'Zipten çıkar', unzipTo: '{0}/ klasörüne', unzipHere: 'Bulunduğu klasöre', unzipHint: 'Var olan dosyaların üzerine yazılır. Arşiv indirilir, içindeki dosyalar tek tek yüklenir.', upWaiting: 'sırada…', upDone: 'yüklendi', upCount: '{0} / {1} dosya', created: 'Oluşturuldu', moved: 'Taşındı', frozenAdded: '{0} öğe freeze listesine eklendi', frozenRemoved: '{0} kayıt freeze listesinden çıkarıldı',
+    uploaded: '{0} dosya yüklendi', viewGrid: 'Izgara', viewList: 'Liste', lookTitle: 'Görünüm', lookBanner: 'Kapak resmi', lookBannerDrop: 'Resmi buraya bırak ya da tıkla', lookBannerPick: 'Resim seç', lookBannerRemove: 'Kaldır', lookBannerHint: 'png, jpg, webp ya da gif · en fazla 8 MB · projenin .syncftp/ klasöründe saklanır', lookBannerType: 'Kapak resmi png, jpg, webp ya da gif olmalı', lookBannerBig: 'Kapak resmi en fazla 8 MB olabilir', lookColor: 'Renk', lookNoColor: 'Renksiz', lookCustom: 'Başka renk', lookGroup: 'Grup', lookGroupPh: 'örn. Müşteriler, Kişisel', lookGroupHint: 'Aynı gruptaki projeler ana sayfada ve kenar çubuğunda birlikte durur. Boş = grupsuz.', lookNoGroup: 'Diğer', pkTitle: 'Hızlı arama', pkPlaceholder: 'Proje, sayfa ya da eylem ara…', pkPlaceholderShort: 'Ara…', pkGroupPages: 'Sayfalar', pkGroupProjects: 'Projeler', pkGroupActions: 'Eylemler', pkEmpty: 'Sonuç yok', pkMove: 'gez', pkOpen: 'aç', tbJobsN: '{0} iş çalışıyor', tbMin: 'Simge durumuna küçült', tbMax: 'Ekranı kapla', tbRestore: 'Önceki boyut', tbClose: 'Kapat', cmRename: 'Yeniden adlandır', cmNoEnabled: 'Aktif profil yok', cmBack: 'Geri', cmForward: 'İleri', cmJobs: 'İşler', cmSettings: 'Ayarlar', cmHelp: 'Yardım', cmPage: 'Sayfa', cmCopy: 'Kopyala', cmCopied: '{0} kopyalandı', cmCopyFail: 'Kopyalanamadı; elle seçip Ctrl+C ile kopyala', cmText: 'Metin', cmSelection: 'Seçili metin', cmBrowserNote: 'Tarayıcı menüsü için <kbd>Shift</kbd> + sağ tık', cmOpen: 'Aç', cmUploadHere: 'Bu klasöre yükle…', cmCopyMenu: 'Kopyala', cmCopyName: 'Adı', cmCopyRel: 'Göreceli yolu', cmCopyRemote: 'Sunucudaki tam yolu', cmName: 'Ad', cmPath: 'Yol', cmSelect: 'Seç', cmUnselect: 'Seçimi kaldır', cmSelectAll: 'Tümünü seç', cmDeleteN: '{0} öğeyi sil', cmUp: 'Üst klasöre çık', cmProjectSettings: 'Proje ayarları', cmTerminal: 'Terminalde aç', cmCopyFolder: 'Proje klasörünün yolunu kopyala', cmJobLog: 'Logu aç', cmNotStoppable: 'Bu iş durdurulamıyor', secTriggers: 'Tetikleyiciler', secTriggersDesc: 'Belirli dosyalar yüklenince (ya da yüklenmeden hemen önce) çalışır: örneğin migrations klasörü değişince migrate. Proje ayarlarındaki tetikleyiciler bu profilde de çalışır.', secTriggersDescGlobal: 'Tüm profillerde çalışır; profile özel olanlar profil düzenleme sayfasında. Belirli dosyalar yüklenince (ya da hemen önce) komut, SSH, HTTP isteği ya da bildirim.', trAfter: 'Yüklemeden sonra', trBefore: 'Yüklemeden önce', trWhen: 'Ne zaman', trWhenHint: '"Önce" hata verirse o profilin sync\'i iptal olur; "sonra" hatası sync sonucunu bozmaz.', trPaths: 'Hangi dosyalar', trPathsHint: 'Bu kalıplardan birine uyan dosya yüklenirse çalışır (include/exclude ile aynı kurallar). Boş = her yüklemede.', trRun: 'Yerel komutlar', trRunHint: 'Proje klasöründe çalışır; SYNCFTP_TRIGGER_FILES ortamda.', trRemote: 'SSH komutları (sunucuda)', trRemoteHint: 'Uzak dizinde çalışır (php artisan migrate --force).', trRemoteFtp: 'Yalnızca SFTP profillerinde çalışır; FTP\'de atlanır.', trHttpUrl: 'HTTP isteği — adres', trHttpMethod: 'Yöntem', trHttpHeaders: 'Başlıklar', trHttpBody: 'Gövde', trHttpBodyHint: 'Boşsa JSON özet gider (trigger, server, project, count, files).', trVarsHint: 'Yer tutucular: {files} {files_json} {count} {first} {server} {project} {trigger}', trNotify: 'Bildirim (Slack / Discord / webhook)', trActRun: 'komut', trActNotify: 'bildirim', trNoAction: 'eylem yok', trUnnamed: '(adsız)', trAnyFile: 'her dosya', trEmpty: 'Henüz tetikleyici yok. Aşağıdan hazır bir şablonla ekle.', trAdd: 'Tetikleyici ekle', trDelConfirm: '"{0}" tetikleyicisi silinsin mi? (Kaydet\'e basınca kalıcı olur)', trTest: 'Dene', trTestHint: 'Sync yapmadan bu tetikleyicinin eylemlerini çalıştır (formdaki hâliyle)', trTestServer: 'Profil', trTestFiles: 'Örnek dosyalar', trTestNote: 'Eylemler gerçekten çalışır (komut, SSH, HTTP, bildirim). Dosyalar yalnızca ortama ve yer tutuculara geçer, hiçbir şey yüklenmez.', trTestNoServer: 'Önce profili kaydet', trTpl_migrateSsh: 'Şablon: Laravel migrate (SSH)', trTpl_migrateHttp: 'Şablon: migrate (HTTP isteği)', trTpl_composer: 'Şablon: composer install (SSH)', trTpl_cache: 'Şablon: cache temizle (SSH)', trTpl_npm: 'Şablon: önce npm run build', trTpl_notify: 'Şablon: Slack / Discord bildirimi', trTpl_blank: 'Boş tetikleyici', edDirect: 'Doğrudan sunucuya · yedeksiz', edDirectHint: 'Bağlantıyla açıldı: yerel kopya ve yedek (Geri al) yok, kayıt doğrudan sunucudaki dosyaya yazılır. Sunucudaki dosya açıldıktan sonra değiştiyse yine sorulur.', zipSel: 'Zip\'le', zipTitle: 'Zip arşivi oluştur', zipName: 'Arşiv adı', zipHint: '{0} öğe bu klasörde tek arşive sıkıştırılır; aynı adlı dosya varsa sonuna -2 eklenir. FTP\'de sunucuda komut çalıştırılamadığı için dosyalar indirilip arşivlenir, arşiv geri yüklenir.', unzip: 'Zipten çıkar', unzipTo: '{0}/ klasörüne', unzipHere: 'Bulunduğu klasöre', unzipHint: 'Var olan dosyaların üzerine yazılır. Arşiv indirilir, içindeki dosyalar tek tek yüklenir.', upWaiting: 'sırada…', upDone: 'yüklendi', upCount: '{0} / {1} dosya', created: 'Oluşturuldu', moved: 'Taşındı', frozenAdded: '{0} öğe freeze listesine eklendi', frozenRemoved: '{0} kayıt freeze listesinden çıkarıldı',
     deleteManyConfirm: '{0} öğe sunucudan KALICI olarak silinsin mi? (klasörler içerikleriyle)', runCmd: 'Sunucuda komut çalıştır', runCmdHint: 'SSH ile uzak dizinde komut çalıştırır', diffLocalMissing: 'Yerelde yok', diffTooBig: 'Dosya karşılaştırma için çok büyük — tam görünüm gösteriliyor',
     unsavedTitle: 'Kaydedilmemiş değişiklikler', unsavedBody: 'Bu formda kaydedilmemiş değişiklikler var. Sayfadan çıkılırsa kaybolacak.', unsavedLeave: 'Kaydetmeden çık',
     diffHint: 'Sunucu → yerel: <span class="bad-t">−</span> sunucudan gidecek, <span class="ok-t">+</span> sync ile gelecek', foldN: '⋯ {0} aynı satır', clickToDiff: 'Farkı görmek için dosyaya tıklayın',
@@ -232,7 +232,7 @@ const T = {
     upload: 'Upload', newFolder: 'New folder', folderName: 'Folder name', rename: 'Rename / move', newPath: 'New path (relative to remote root)',
     moveTo: 'Move', selectedN: '{0} selected', clearSel: 'Clear selection',
     freezeToggle: 'Freeze / unfreeze', frozenBadge: 'frozen', searchAll: 'Search subfolders', searchTitle: 'Search "{0}"', searchNone: 'No results', searching: 'Searching…', searchingN: '{0} results · {1} folders scanned…', searchDoneN: '{0} results · {1} folders · {2}s', searchTruncated: 'Too many results (first 2000) or the 5-minute limit was hit — narrow the search.',
-    uploaded: '{0} file(s) uploaded', pkTitle: 'Quick search', pkPlaceholder: 'Search projects, pages or actions…', pkPlaceholderShort: 'Search…', pkGroupPages: 'Pages', pkGroupProjects: 'Projects', pkGroupActions: 'Actions', pkEmpty: 'No results', pkMove: 'move', pkOpen: 'open', tbJobsN: '{0} running', tbMin: 'Minimize', tbMax: 'Maximize', tbRestore: 'Restore', tbClose: 'Close', cmRename: 'Rename', cmNoEnabled: 'No enabled profile', cmBack: 'Back', cmForward: 'Forward', cmJobs: 'Jobs', cmSettings: 'Settings', cmHelp: 'Help', cmPage: 'Page', cmCopy: 'Copy', cmCopied: '{0} copied', cmCopyFail: 'Could not copy; select it and press Ctrl+C', cmText: 'Text', cmSelection: 'Selected text', cmBrowserNote: '<kbd>Shift</kbd> + right click for the browser menu', cmOpen: 'Open', cmUploadHere: 'Upload into this folder…', cmCopyMenu: 'Copy', cmCopyName: 'Name', cmCopyRel: 'Relative path', cmCopyRemote: 'Full path on the server', cmName: 'Name', cmPath: 'Path', cmSelect: 'Select', cmUnselect: 'Unselect', cmSelectAll: 'Select all', cmDeleteN: 'Delete {0} items', cmUp: 'Up one folder', cmProjectSettings: 'Project settings', cmTerminal: 'Open in terminal', cmCopyFolder: 'Copy the project folder path', cmJobLog: 'Open log', cmNotStoppable: 'This job cannot be stopped', secTriggers: 'Triggers', secTriggersDesc: 'Run when certain files are uploaded (or right before): e.g. migrate when the migrations folder changes. Triggers in the project settings also run for this profile.', secTriggersDescGlobal: 'Run for every profile; profile-only ones live on the profile edit page. When certain files are uploaded (or right before): a command, SSH, an HTTP request or a notification.', trAfter: 'After upload', trBefore: 'Before upload', trWhen: 'When', trWhenHint: 'If "before" fails, that profile\'s sync is aborted; an "after" failure does not change the sync result.', trPaths: 'Which files', trPathsHint: 'Fires when an uploaded file matches one of these patterns (same rules as include/exclude). Empty = every upload.', trRun: 'Local commands', trRunHint: 'Run in the project folder; SYNCFTP_TRIGGER_FILES is in the environment.', trRemote: 'SSH commands (on the server)', trRemoteHint: 'Run in the remote folder (php artisan migrate --force).', trRemoteFtp: 'SFTP profiles only; skipped on FTP.', trHttpUrl: 'HTTP request — URL', trHttpMethod: 'Method', trHttpHeaders: 'Headers', trHttpBody: 'Body', trHttpBodyHint: 'Empty sends a JSON summary (trigger, server, project, count, files).', trVarsHint: 'Placeholders: {files} {files_json} {count} {first} {server} {project} {trigger}', trNotify: 'Notification (Slack / Discord / webhook)', trActRun: 'command', trActNotify: 'notification', trNoAction: 'no action', trUnnamed: '(unnamed)', trAnyFile: 'any file', trEmpty: 'No triggers yet. Add one from a template below.', trAdd: 'Add trigger', trDelConfirm: 'Delete the "{0}" trigger? (Takes effect when you save)', trTest: 'Try', trTestHint: 'Run this trigger\'s actions without a sync (as it is in the form)', trTestServer: 'Profile', trTestFiles: 'Sample files', trTestNote: 'The actions really run (command, SSH, HTTP, notification). The files only go into the environment and placeholders; nothing is uploaded.', trTestNoServer: 'Save the profile first', trTpl_migrateSsh: 'Template: Laravel migrate (SSH)', trTpl_migrateHttp: 'Template: migrate (HTTP request)', trTpl_composer: 'Template: composer install (SSH)', trTpl_cache: 'Template: clear cache (SSH)', trTpl_npm: 'Template: npm run build first', trTpl_notify: 'Template: Slack / Discord notification', trTpl_blank: 'Blank trigger', edDirect: 'Straight to the server · no backup', edDirectHint: 'Opened through a connection: there is no local copy and no backup (Undo), saving writes the server file directly. You are still asked if the server file changed after you opened it.', zipSel: 'Zip', zipTitle: 'Create a zip archive', zipName: 'Archive name', zipHint: '{0} item(s) are packed into one archive in this folder; if the name is taken, -2 is appended. FTP cannot run commands on the server, so the files are downloaded, archived and the archive is uploaded back.', unzip: 'Unzip', unzipTo: 'Into {0}/', unzipHere: 'Into this folder', unzipHint: 'Existing files are overwritten. The archive is downloaded and its files are uploaded one by one.', upWaiting: 'queued…', upDone: 'uploaded', upCount: '{0} / {1} files', created: 'Created', moved: 'Moved', frozenAdded: '{0} item(s) added to the freeze list', frozenRemoved: '{0} entr(y/ies) removed from the freeze list',
+    uploaded: '{0} file(s) uploaded', viewGrid: 'Grid', viewList: 'List', lookTitle: 'Appearance', lookBanner: 'Cover image', lookBannerDrop: 'Drop an image here or click', lookBannerPick: 'Choose image', lookBannerRemove: 'Remove', lookBannerHint: 'png, jpg, webp or gif · up to 8 MB · kept in the project\'s .syncftp/ folder', lookBannerType: 'The cover image must be png, jpg, webp or gif', lookBannerBig: 'The cover image can be at most 8 MB', lookColor: 'Color', lookNoColor: 'No color', lookCustom: 'Other color', lookGroup: 'Group', lookGroupPh: 'e.g. Clients, Personal', lookGroupHint: 'Projects in the same group sit together on the home page and in the sidebar. Empty = no group.', lookNoGroup: 'Other', pkTitle: 'Quick search', pkPlaceholder: 'Search projects, pages or actions…', pkPlaceholderShort: 'Search…', pkGroupPages: 'Pages', pkGroupProjects: 'Projects', pkGroupActions: 'Actions', pkEmpty: 'No results', pkMove: 'move', pkOpen: 'open', tbJobsN: '{0} running', tbMin: 'Minimize', tbMax: 'Maximize', tbRestore: 'Restore', tbClose: 'Close', cmRename: 'Rename', cmNoEnabled: 'No enabled profile', cmBack: 'Back', cmForward: 'Forward', cmJobs: 'Jobs', cmSettings: 'Settings', cmHelp: 'Help', cmPage: 'Page', cmCopy: 'Copy', cmCopied: '{0} copied', cmCopyFail: 'Could not copy; select it and press Ctrl+C', cmText: 'Text', cmSelection: 'Selected text', cmBrowserNote: '<kbd>Shift</kbd> + right click for the browser menu', cmOpen: 'Open', cmUploadHere: 'Upload into this folder…', cmCopyMenu: 'Copy', cmCopyName: 'Name', cmCopyRel: 'Relative path', cmCopyRemote: 'Full path on the server', cmName: 'Name', cmPath: 'Path', cmSelect: 'Select', cmUnselect: 'Unselect', cmSelectAll: 'Select all', cmDeleteN: 'Delete {0} items', cmUp: 'Up one folder', cmProjectSettings: 'Project settings', cmTerminal: 'Open in terminal', cmCopyFolder: 'Copy the project folder path', cmJobLog: 'Open log', cmNotStoppable: 'This job cannot be stopped', secTriggers: 'Triggers', secTriggersDesc: 'Run when certain files are uploaded (or right before): e.g. migrate when the migrations folder changes. Triggers in the project settings also run for this profile.', secTriggersDescGlobal: 'Run for every profile; profile-only ones live on the profile edit page. When certain files are uploaded (or right before): a command, SSH, an HTTP request or a notification.', trAfter: 'After upload', trBefore: 'Before upload', trWhen: 'When', trWhenHint: 'If "before" fails, that profile\'s sync is aborted; an "after" failure does not change the sync result.', trPaths: 'Which files', trPathsHint: 'Fires when an uploaded file matches one of these patterns (same rules as include/exclude). Empty = every upload.', trRun: 'Local commands', trRunHint: 'Run in the project folder; SYNCFTP_TRIGGER_FILES is in the environment.', trRemote: 'SSH commands (on the server)', trRemoteHint: 'Run in the remote folder (php artisan migrate --force).', trRemoteFtp: 'SFTP profiles only; skipped on FTP.', trHttpUrl: 'HTTP request — URL', trHttpMethod: 'Method', trHttpHeaders: 'Headers', trHttpBody: 'Body', trHttpBodyHint: 'Empty sends a JSON summary (trigger, server, project, count, files).', trVarsHint: 'Placeholders: {files} {files_json} {count} {first} {server} {project} {trigger}', trNotify: 'Notification (Slack / Discord / webhook)', trActRun: 'command', trActNotify: 'notification', trNoAction: 'no action', trUnnamed: '(unnamed)', trAnyFile: 'any file', trEmpty: 'No triggers yet. Add one from a template below.', trAdd: 'Add trigger', trDelConfirm: 'Delete the "{0}" trigger? (Takes effect when you save)', trTest: 'Try', trTestHint: 'Run this trigger\'s actions without a sync (as it is in the form)', trTestServer: 'Profile', trTestFiles: 'Sample files', trTestNote: 'The actions really run (command, SSH, HTTP, notification). The files only go into the environment and placeholders; nothing is uploaded.', trTestNoServer: 'Save the profile first', trTpl_migrateSsh: 'Template: Laravel migrate (SSH)', trTpl_migrateHttp: 'Template: migrate (HTTP request)', trTpl_composer: 'Template: composer install (SSH)', trTpl_cache: 'Template: clear cache (SSH)', trTpl_npm: 'Template: npm run build first', trTpl_notify: 'Template: Slack / Discord notification', trTpl_blank: 'Blank trigger', edDirect: 'Straight to the server · no backup', edDirectHint: 'Opened through a connection: there is no local copy and no backup (Undo), saving writes the server file directly. You are still asked if the server file changed after you opened it.', zipSel: 'Zip', zipTitle: 'Create a zip archive', zipName: 'Archive name', zipHint: '{0} item(s) are packed into one archive in this folder; if the name is taken, -2 is appended. FTP cannot run commands on the server, so the files are downloaded, archived and the archive is uploaded back.', unzip: 'Unzip', unzipTo: 'Into {0}/', unzipHere: 'Into this folder', unzipHint: 'Existing files are overwritten. The archive is downloaded and its files are uploaded one by one.', upWaiting: 'queued…', upDone: 'uploaded', upCount: '{0} / {1} files', created: 'Created', moved: 'Moved', frozenAdded: '{0} item(s) added to the freeze list', frozenRemoved: '{0} entr(y/ies) removed from the freeze list',
     deleteManyConfirm: 'PERMANENTLY delete {0} item(s) from the server? (folders with their contents)', runCmd: 'Run command on server', runCmdHint: 'Runs a command over SSH in the remote folder', diffLocalMissing: 'Missing locally', diffTooBig: 'File too large to diff — showing full view',
     unsavedTitle: 'Unsaved changes', unsavedBody: 'This form has unsaved changes. They will be lost if you leave the page.', unsavedLeave: 'Leave without saving',
     diffHint: 'Server → local: <span class="bad-t">−</span> leaves the server, <span class="ok-t">+</span> arrives with sync', foldN: '⋯ {0} unchanged lines', clickToDiff: 'Click a file to see the diff',
@@ -724,9 +724,14 @@ async function loadProjects(fresh = false) {
   try { S.projects = await GET('/api/projects' + (fresh ? '?fresh=1' : '')); } catch (e) { S.projects = []; }
   const el = $('#proje-listesi');
   const r = parseRoute();
-  el.innerHTML = S.projects.map((p) => `<a href="${pHash(p.name)}" data-proj="${esc(p.name)}" class="${r.project === p.name ? 'aktif' : ''}">
-      ${p.watching ? `<span class="busy" style="display:flex"><span class="nokta"></span></span>` : icon(p.ok ? 'folder' : 'alert', p.ok ? '' : 'bad-t')}
-      <span class="ad">${esc(p.name)}</span><span class="sag">${p.ok ? p.enabled : ''}</span></a>`).join('')
+  const hasGroups = S.projects.some((p) => p.group);
+  let lastGroup = null;
+  el.innerHTML = projectsByGroup(S.projects).map((p) => {
+    const head = hasGroups && p.group !== lastGroup ? `<div class="nav-grup">${esc((lastGroup = p.group) || t('lookNoGroup'))}</div>` : '';
+    return `${head}<a href="${pHash(p.name)}" data-proj="${esc(p.name)}" class="${r.project === p.name ? 'aktif' : ''}">
+      ${p.watching ? `<span class="busy" style="display:flex"><span class="nokta"></span></span>` : `<span class="nav-ikon" ${p.color ? `style="color:${esc(p.color)}"` : ''}>${icon(p.ok ? 'folder' : 'alert', p.ok ? '' : 'bad-t')}</span>`}
+      <span class="ad">${esc(p.name)}</span><span class="sag">${p.ok ? p.enabled : ''}</span></a>`;
+  }).join('')
     || `<div class="nav-bos">${icon('folder')}<span data-t="navNoProjects">${t('navNoProjects')}</span>
         <button class="btn kucuk" id="nav-bos-ekle">${icon('plus')}<span data-t="addProject">${t('addProject')}</span></button></div>`;
   const nb = $('#nav-bos-ekle');
@@ -745,9 +750,21 @@ function applyLang() {
 async function pageHome() {
   await loadProjects();
   const ps = S.projects;
+  const view = lsGet('syncftp-home-view') === 'list' ? 'list' : 'grid';
+  const closed = new Set(JSON.parse(lsGet('syncftp-home-closed') || '[]'));
   bind((root) => {
     $$('[data-add]', root).forEach((b) => (b.onclick = addProjectFlow));
-    $$('.pkart', root).forEach((c) => (c.onclick = () => go(pHash(c.dataset.p))));
+    $$('.pkart, .psatir', root).forEach((c) => (c.onclick = (e) => {
+      if (e.target.closest('[data-look]')) { e.stopPropagation(); projectLookModal(c.dataset.p); return; }
+      go(pHash(c.dataset.p));
+    }));
+    $$('[data-hv]', root).forEach((b) => (b.onclick = () => { lsSet('syncftp-home-view', b.dataset.hv); render(true); }));
+    $$('[data-hgrp]', root).forEach((b) => (b.onclick = () => {
+      const g = b.dataset.hgrp, sec = b.closest('.pgrup');
+      sec.classList.toggle('kapali');
+      if (sec.classList.contains('kapali')) closed.add(g); else closed.delete(g);
+      lsSet('syncftp-home-closed', JSON.stringify([...closed]));
+    }));
   });
   if (!ps.length) {
     return `<div class="sayfa"><div class="baslik-satir"><div><h1>${t('projectsTitle')}</h1><p>${esc(t('projectsSub', (S.meta && S.meta.base) || ''))}</p></div></div>
@@ -756,13 +773,105 @@ async function pageHome() {
         <button class="btn ai-btn" onclick="aiSetupStart()">${icon('spark')}${t('aiSetupNav')}</button>
         <a class="btn" href="#/settings">${icon('sliders')}${t('navSettings')}</a></div></div></div>`;
   }
-  return `<div class="sayfa"><div class="baslik-satir"><div><h1>${t('projectsTitle')}</h1><p>${esc(t('projectsSub', (S.meta && S.meta.base) || ''))}</p></div>
-    <div class="aksiyonlar"><button class="btn birincil" data-add>${icon('plus')}${t('addProject')}</button></div></div>
-    <div class="izgara">${ps.map((p) => `<div class="pkart" data-p="${esc(p.name)}">
-      <h3>${icon(p.ok ? 'folder' : 'alert', p.ok ? '' : 'bad-t')}${esc(p.name)}${p.watching ? `<span class="pill busy"><span class="nokta"></span>watch</span>` : ''}</h3>
+  const banner = (p) => `/api/p/${enc(p.name)}/banner?v=${p.banner}`;
+  const pc = (p) => (p.color ? `style="--pc:${esc(p.color)}"` : '');
+  const lookBtn = `<button class="ikon-btn pk-look" data-look title="${t('lookTitle')}">${icon('edit')}</button>`;
+  const meta = (p) => (p.ok ? `<span>${t('serversN', p.servers)}</span><span>·</span><span>${t('enabledN', p.enabled)}</span>${p.keyring ? `<span>·</span><span class="acc-t">${icon('lock')}</span>` : ''}` : `<span class="bad-t">${t('configError')}</span>`);
+  const watchPill = (p) => (p.watching ? `<span class="pill busy"><span class="nokta"></span>watch</span>` : '');
+  const ikon = (p) => `<span class="p-ikon" ${p.color ? `style="color:${esc(p.color)}"` : ''}>${icon(p.ok ? 'folder' : 'alert', p.ok ? '' : 'bad-t')}</span>`;
+  const card = (p) => `<div class="pkart ${p.banner ? 'kapakli' : ''}" data-p="${esc(p.name)}" ${pc(p)}>
+      ${p.banner ? `<div class="pkapak"><img src="${banner(p)}" alt="" loading="lazy"></div>` : p.color ? '<div class="pserit"></div>' : ''}${lookBtn}
+      <div class="pk-ic"><h3>${ikon(p)}${esc(p.name)}${watchPill(p)}</h3>
       <div class="yol" title="${esc(p.path)}">${esc(p.path)}</div>
-      <div class="alt">${p.ok ? `<span>${t('serversN', p.servers)}</span><span>·</span><span>${t('enabledN', p.enabled)}</span>${p.keyring ? `<span>·</span><span class="acc-t">${icon('lock')}</span>` : ''}` : `<span class="bad-t">${t('configError')}</span>`}
-      <span style="margin-left:auto" class="faint">${p.last_used ? ago(p.last_used) : ''}</span></div></div>`).join('')}</div></div>`;
+      <div class="alt">${meta(p)}<span style="margin-left:auto" class="faint">${p.last_used ? ago(p.last_used) : ''}</span></div></div></div>`;
+  const row = (p) => `<div class="psatir" data-p="${esc(p.name)}" ${pc(p)}>
+      <span class="pkucuk">${p.banner ? `<img src="${banner(p)}" alt="" loading="lazy">` : ''}</span>
+      <span class="psatir-ad">${ikon(p)}<b>${esc(p.name)}</b>${watchPill(p)}</span>
+      <span class="yol mono faint" title="${esc(p.path)}">${esc(p.path)}</span>
+      <span class="alt">${meta(p)}</span><span class="faint psatir-zaman">${p.last_used ? ago(p.last_used) : ''}</span>${lookBtn}</div>`;
+  // Gruplar: adlı gruplar alfabetik, grupsuzlar sonda ("Diğer"); hiç grup yoksa başlıksız tek liste
+  const groups = new Map();
+  for (const p of projectsByGroup(ps)) { if (!groups.has(p.group || '')) groups.set(p.group || '', []); groups.get(p.group || '').push(p); }
+  const named = [...groups.keys()].some(Boolean);
+  const listOf = (items) => (view === 'list' ? `<div class="pliste">${items.map(row).join('')}</div>` : `<div class="izgara">${items.map(card).join('')}</div>`);
+  const body = named
+    ? [...groups.entries()].map(([g, items]) => `<section class="pgrup ${closed.has(g) ? 'kapali' : ''}">
+        <button type="button" class="pgrup-bas" data-hgrp="${esc(g)}">${icon('right')}<b>${esc(g || t('lookNoGroup'))}</b><span class="faint">${items.length}</span></button>${listOf(items)}</section>`).join('')
+    : listOf(ps);
+  return `<div class="sayfa"><div class="baslik-satir"><div><h1>${t('projectsTitle')}</h1><p>${esc(t('projectsSub', (S.meta && S.meta.base) || ''))}</p></div>
+    <div class="aksiyonlar"><span class="seg srv-seg"><a role="button" data-hv="grid" class="${view === 'grid' ? 'aktif' : ''}" title="${t('viewGrid')}">${icon('layers')}${t('viewGrid')}</a><a role="button" data-hv="list" class="${view === 'list' ? 'aktif' : ''}" title="${t('viewList')}">${icon('log')}${t('viewList')}</a></span>
+      <button class="btn birincil" data-add>${icon('plus')}${t('addProject')}</button></div></div>
+    ${body}</div>`;
+}
+
+// localStorage — gizli pencere / engelli depolamada da sayfa çalışsın
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* */ } };
+// Gruba göre sıralı (adlı gruplar alfabetik, grupsuz sonda; grup içinde ad)
+function projectsByGroup(list) {
+  const key = (s) => (s || '').toLocaleLowerCase(LANG === 'tr' ? 'tr' : 'en');
+  return [...list].sort((a, b) => (!!b.group - !!a.group) || key(a.group).localeCompare(key(b.group)) || key(a.name).localeCompare(key(b.name)));
+}
+const LOOK_COLORS = ['#3b9eff', '#2ec8c4', '#3dd68c', '#a3d64b', '#ffca16', '#ff8b3e', '#ff6369', '#f76bb5', '#b197fc', '#8e9196'];
+// Proje görünümü: kapak resmi (sürükle-bırak / seç / kaldır), renk, grup — CLI `project look` ile aynı çekirdek
+function projectLookModal(P) {
+  const p = S.projects.find((x) => x.name === P) || {};
+  const groups = [...new Set(S.projects.map((x) => x.group).filter(Boolean))].sort();
+  let color = p.color || '', file = null, removeBanner = false;
+  const swatch = (c) => `<button type="button" class="renk ${c === color ? 'secili' : ''}" data-c="${c}" style="--c:${c || 'transparent'}" title="${c || t('lookNoColor')}">${c ? '' : icon('x')}</button>`;
+  const m = modal({
+    title: `${t('lookTitle')} — ${esc(P)}`, size: 'orta',
+    body: `<div class="form">
+      <div class="alan"><label>${t('lookBanner')}</label>
+        <div class="look-kapak ${p.banner ? 'dolu' : ''}" id="lk-kapak" style="--pc:${color || 'var(--surface-2)'}">${p.banner ? `<img src="/api/p/${enc(P)}/banner?v=${p.banner}" alt="">` : ''}<span class="look-kapak-bos">${icon('upload')}${t('lookBannerDrop')}</span></div>
+        <div class="aksiyonlar" style="margin-top:8px"><button type="button" class="btn kucuk" id="lk-sec">${icon('upload')}${t('lookBannerPick')}</button>
+          <button type="button" class="btn kucuk hayalet" id="lk-kaldir" ${p.banner ? '' : 'hidden'}>${icon('trash')}${t('lookBannerRemove')}</button>
+          <input type="file" id="lk-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden></div>
+        <small>${t('lookBannerHint')}</small></div>
+      <div class="alan"><label>${t('lookColor')}</label><div class="renkler">${['', ...LOOK_COLORS].map(swatch).join('')}
+        <label class="renk ozel ${color && !LOOK_COLORS.includes(color) ? 'secili' : ''}" title="${t('lookCustom')}"><input type="color" id="lk-ozel" value="${color || '#3b9eff'}"></label></div></div>
+      <div class="alan"><label>${t('lookGroup')}</label><input type="text" id="lk-grup" list="lk-gruplar" value="${esc(p.group || '')}" placeholder="${esc(t('lookGroupPh'))}" maxlength="40" spellcheck="false">
+        <datalist id="lk-gruplar">${groups.map((g) => `<option value="${esc(g)}">`).join('')}</datalist><small>${t('lookGroupHint')}</small></div></div>`,
+    actions: [{ label: t('cancel'), cls: 'hayalet' }, { label: icon('check') + t('save'), cls: 'birincil', run: async (root) => {
+      try {
+        await api('PATCH', `/api/p/${enc(P)}/look`, { color, group: $('#lk-grup', root).value });
+        if (file) {
+          const r = await fetch(`/api/p/${enc(P)}/banner`, { method: 'PUT', body: file, headers: { 'Content-Type': file.type || 'application/octet-stream' } });
+          if (!r.ok) { const d = await r.json().catch(() => null); throw new Error((d && d.error) || `HTTP ${r.status}`); }
+        } else if (removeBanner) await api('DELETE', `/api/p/${enc(P)}/banner`);
+        await loadProjects();
+        render(true);
+        toast(t('saved'));
+      } catch (e) { fail(e); return false; }
+    } }],
+  });
+  const root = m.root, box = $('#lk-kapak', root), inp = $('#lk-file', root);
+  const setFile = (f) => {
+    if (!f) return;
+    if (!/^image\/(png|jpeg|webp|gif)$/.test(f.type)) { toast(t('lookBannerType'), 'bad'); return; }
+    if (f.size > 8 << 20) { toast(t('lookBannerBig'), 'bad'); return; }
+    file = f; removeBanner = false;
+    box.querySelector('img')?.remove();
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(f);
+    box.prepend(img);
+    box.classList.add('dolu');
+    $('#lk-kaldir', root).hidden = false;
+  };
+  $('#lk-sec', root).onclick = () => inp.click();
+  box.onclick = () => inp.click();
+  inp.onchange = () => setFile(inp.files[0]);
+  box.ondragover = (e) => { e.preventDefault(); box.classList.add('surukle'); };
+  box.ondragleave = () => box.classList.remove('surukle');
+  box.ondrop = (e) => { e.preventDefault(); box.classList.remove('surukle'); setFile(e.dataTransfer.files[0]); };
+  $('#lk-kaldir', root).onclick = () => { file = null; removeBanner = true; box.querySelector('img')?.remove(); box.classList.remove('dolu'); $('#lk-kaldir', root).hidden = true; };
+  const pick = (c) => {
+    color = c;
+    $$('.renk', root).forEach((b) => b.classList.toggle('secili', b.dataset.c === c || (b.classList.contains('ozel') && !!c && !LOOK_COLORS.includes(c))));
+    box.style.setProperty('--pc', c || 'var(--surface-2)');
+  };
+  $$('.renk[data-c]', root).forEach((b) => (b.onclick = () => pick(b.dataset.c)));
+  $('#lk-ozel', root).oninput = (e) => pick(e.target.value.toLowerCase());
 }
 
 async function addProjectFlow() {
@@ -1384,6 +1493,7 @@ function projectMenu(P) {
     { label: t('tabHistory'), icon: 'history', action: () => go(pHash(P, 'history')) },
     { label: t('tabServers'), icon: 'server', action: () => go(pHash(P, 'servers')) },
     { label: t('cmProjectSettings'), icon: 'sliders', action: () => go(pHash(P, 'settings')) },
+    { label: t('lookTitle') + '…', icon: 'edit', action: () => projectLookModal(P) },
     '-',
     { label: t('cmTerminal'), icon: 'terminal', action: () => go('#/terminal/' + enc(P)) },
     proj && proj.path && { label: t('cmCopyFolder'), icon: 'copy', action: () => CM.copy(proj.path, t('cmPath')) }];

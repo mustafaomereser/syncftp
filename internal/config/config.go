@@ -75,6 +75,8 @@ type Project struct {
 	Keyring     bool   `json:"keyring,omitempty"`      // şifreler sistem anahtarlığında (JSON'da "keyring:" işareti kalır)
 	DefaultPath string `json:"default_path,omitempty"` // global varsayılan yerel dizin
 	LocalPath   string `json:"local_path,omitempty"`   // deprecated: geriye dönük uyumluluk
+	Color       string `json:"color,omitempty"`        // panelde proje rengi (#rrggbb)
+	Group       string `json:"group,omitempty"`        // panelde proje grubu (ana sayfa bölümleri)
 }
 
 // EffectiveLocalPath global varsayılan yerel dizini döndürür.

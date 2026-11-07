@@ -48,6 +48,10 @@ func (sv *guiServer) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/projects", sv.apiProjects)
 	mux.HandleFunc("POST /api/projects", sv.apiProjectAdd)
 	mux.HandleFunc("PATCH /api/projects/{p}", sv.apiProjectRename)
+	mux.HandleFunc("PATCH /api/p/{p}/look", sv.apiProjectLook)
+	mux.HandleFunc("GET /api/p/{p}/banner", sv.apiProjectBanner)
+	mux.HandleFunc("PUT /api/p/{p}/banner", sv.apiProjectBanner)
+	mux.HandleFunc("DELETE /api/p/{p}/banner", sv.apiProjectBanner)
 
 	mux.HandleFunc("GET /api/p/{p}/overview", sv.apiOverview)
 	mux.HandleFunc("GET /api/p/{p}/scan", sv.apiServerScan)
@@ -227,6 +231,9 @@ type guiProject struct {
 	Watched  []string   `json:"watched,omitempty"` // izlenen sunucular
 	LastUsed *time.Time `json:"last_used,omitempty"`
 	Keyring  bool       `json:"keyring"`
+	Color    string     `json:"color,omitempty"`  // proje rengi (#rrggbb)
+	Group    string     `json:"group,omitempty"`  // ana sayfa grubu
+	Banner   int64      `json:"banner,omitempty"` // kapak resmi varsa değişme zamanı (önbellek kırıcı ?v=)
 }
 
 func (sv *guiServer) apiProjects(w http.ResponseWriter, r *http.Request) {
@@ -251,6 +258,10 @@ func (sv *guiServer) apiProjects(w http.ResponseWriter, r *http.Request) {
 			gp.Servers = len(cfg.Servers)
 			gp.Enabled = len(cfg.EnabledServers())
 			gp.Keyring = cfg.Project.Keyring
+			gp.Color, gp.Group = cfg.Project.Color, cfg.Project.Group
+		}
+		if _, mod := projectBanner(p.Path); !mod.IsZero() {
+			gp.Banner = mod.UnixMilli()
 		}
 		out = append(out, gp)
 	}
