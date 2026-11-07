@@ -54,6 +54,17 @@ func hideConsole() {
 }
 
 // spawnDetached exe'yi konsolsuz, bağımsız süreç olarak başlatır (terminal hemen döner).
+// spawnDetachedExe pencereli bir süreci konsolsuz ve bağımsız başlatır (HideWindow YOK — GUI'nin
+// ilk ShowWindow çağrısı STARTUPINFO'daki gizle bayrağıyla ezilirdi).
+func spawnDetachedExe(exe string, args ...string) error {
+	c := exec.Command(exe, args...)
+	c.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.DETACHED_PROCESS | windows.CREATE_NEW_PROCESS_GROUP}
+	if err := c.Start(); err != nil {
+		return err
+	}
+	return c.Process.Release()
+}
+
 func spawnDetached(args ...string) error {
 	exe, err := os.Executable()
 	if err != nil {
@@ -96,8 +107,8 @@ func appBrowser() string {
 	return ""
 }
 
-// openAppWindow paneli adres çubuksuz uygulama penceresi olarak açar.
-func openAppWindow(url, profileDir string) error {
+// openEdgeAppWindow paneli Edge/Chrome --app penceresi olarak açar (WebView2 yoksa ya da SYNCFTP_EDGE_APP=1).
+func openEdgeAppWindow(url, profileDir string) error {
 	b := appBrowser()
 	if b == "" {
 		return openDefaultBrowser(url)

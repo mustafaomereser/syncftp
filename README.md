@@ -35,7 +35,7 @@ local project ──▶ change detection (SHA256 + cache) ──▶ filters ─�
 - **Webhooks out** — Slack / Discord / any URL after each sync
 
 **Interfaces**
-- **Desktop panel** with **system tray**, live job logs (stoppable), remote file browser with diff, image / video / audio / PDF preview, drag-and-drop upload (with a live preview of what is being uploaded), a context-aware right-click menu, zip / unzip on the server and an **in-place editor** for server files, help page and an **AI assistant** (Claude Code / OpenCode)
+- **Desktop panel** in its own frameless window (WebView2, custom title bar; falls back to an Edge app window) with **system tray**, live job logs (stoppable), remote file browser with diff, image / video / audio / PDF preview, drag-and-drop upload (with a live preview of what is being uploaded), a context-aware right-click menu, zip / unzip on the server and an **in-place editor** for server files, help page and an **AI assistant** (Claude Code / OpenCode)
 - **Interactive shell** with an arrow-key file browser, TUIs for status / sync / config
 - **CLI** for scripts, plus a **local HTTP API** (`syncftp serve`)
 

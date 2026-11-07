@@ -707,3 +707,27 @@ tr.yukleme-satir.yukleme-hata [data-upst] { color: var(--bad); }
 .cm-heading { padding: 6px 10px 4px; color: var(--faint); font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; }
 .cm-note { padding: 6px 10px 4px; color: var(--faint); font-size: 11.5px; }
 .cm-note kbd { font-size: 10.5px; padding: 0 4px; border: 1px solid var(--line); border-radius: 4px; }
+
+/* Kendi pencere barımız (titlebar.js) — yalnızca syncFTP WebView2 penceresinde */
+body.cerceveli { --tb-h: 38px; }
+body.cerceveli .shell { height: calc(100vh - var(--tb-h)); }
+body.cerceveli .modal-arka { top: var(--tb-h); }
+#titlebar { height: var(--tb-h); display: flex; align-items: center; gap: 6px; padding-left: 14px; background: var(--bg); color: var(--muted); font-size: 12.5px; user-select: none; app-region: drag; -webkit-app-region: drag; }
+#titlebar button { app-region: no-drag; -webkit-app-region: no-drag; }
+.tb-sol { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; white-space: nowrap; }
+.tb-sol img { width: 16px; height: 16px; }
+.tb-sol b { color: var(--text); font-weight: 600; }
+.tb-yer { color: var(--faint); margin-left: 4px; overflow: hidden; text-overflow: ellipsis; }
+.tb-nav { display: flex; gap: 2px; margin-left: 10px; }
+.tb-nav button { width: 28px; height: 26px; border: 0; background: transparent; color: var(--muted); border-radius: 7px; display: inline-grid; place-items: center; cursor: pointer; }
+.tb-nav button:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+.tb-nav button:disabled { opacity: .3; cursor: default; }
+.tb-nav .i { width: 15px; height: 15px; }
+.tb-bosluk { flex: 1; align-self: stretch; }
+.tb-is { height: 24px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--r-pill); background: transparent; color: var(--accent); display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 12px; cursor: pointer; margin-right: 8px; }
+.tb-is:hover { background: var(--accent-soft); }
+.tb-is .i { width: 13px; height: 13px; }
+.tb-pencere { display: flex; align-self: stretch; }
+.tb-pencere button { width: 46px; border: 0; background: transparent; color: var(--muted); display: grid; place-items: center; cursor: default; }
+.tb-pencere button:hover { background: var(--surface-2); color: var(--text); }
+.tb-pencere .kapat:hover { background: #c42b1c; color: #fff; }
