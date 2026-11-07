@@ -677,6 +677,7 @@ async function render(soft = false) {
   const r = parseRoute();
   if (r.project) S.lastProject = r.project;
   document.body.classList.toggle('terminal-modu', r.page === 'terminal');
+  document.body.classList.remove('secim-acik'); // Dosyalar seçim çubuğunun alt dolgusu (yeni çizim kendi verir)
   if (window.tbUpdate) window.tbUpdate(); // kendi pencere barımız (titlebar.js)
   $$('.nav a').forEach((a) => a.classList.toggle('aktif',
     !!((a.dataset.nav === 'home' && r.page === 'home') || (a.dataset.nav === 'jobs' && r.page === 'jobs') || (a.dataset.nav === 'help' && r.page === 'help') || (a.dataset.nav === 'settings' && r.page === 'settings') || (a.dataset.nav === 'terminal' && r.page === 'terminal') || (a.dataset.proj && a.dataset.proj === r.project))));
@@ -2577,6 +2578,8 @@ async function tabFiles(proj, srvName, relPath) {
       // seçili satırlar vurgulu (çizilmiş olanlar; geri kalanı renderMore çizerken checked ile gelir)
       $$('#f-body tr[data-entry]', root).forEach((tr) => tr.classList.toggle('secili', sel.has(full(tr.dataset.entry))));
       bar.hidden = !sel.size;
+      document.body.classList.toggle('secim-acik', !!sel.size);
+      if (sel.size) placeSelbar(bar);
       $('[data-selcount]', bar).textContent = t('selectedN', sel.size);
       if (allBox) {
         const inView = view.filter((e) => sel.has(full(e.name))).length;
@@ -2778,6 +2781,22 @@ async function tabFiles(proj, srvName, relPath) {
       ${viaConn ? '' : `<button class="btn kucuk" data-sel="freeze">${icon('snow')}${t('freezeToggle')}</button>`}
       <button class="btn kucuk tehlike" data-sel="del">${icon('trash')}${t('delete')}</button>
       <button class="btn kucuk hayalet" data-sel="clear">${t('clearSel')}</button></div>`;
+}
+
+// Seçim çubuğu içerik çerçevesinin en altına sabit (fixed) alt bilgi: konumu çerçeveden alınır, çerçeve
+// boyut değiştirince (pencere, kenar çubuğu) yeniden yerleşir. Seçimde içerik hiç kaymaz.
+function placeSelbar(bar) {
+  const fr = $('#frame');
+  if (!bar || !fr) return;
+  const r = fr.getBoundingClientRect();
+  bar.style.left = r.left + 1 + 'px';
+  bar.style.width = r.width - 2 + 'px';
+  bar.style.bottom = Math.max(0, innerHeight - r.bottom + 1) + 'px';
+  if (!placeSelbar.ro && window.ResizeObserver) {
+    placeSelbar.ro = new ResizeObserver(() => { const b = $('#f-selbar'); if (b && !b.hidden) placeSelbar(b); });
+    placeSelbar.ro.observe(fr);
+    addEventListener('resize', () => { const b = $('#f-selbar'); if (b && !b.hidden) placeSelbar(b); });
+  }
 }
 
 // Dosyalar sekmesine sürükle-bırak yükleme: dosyalar ve klasörler (alt yapısıyla) bulunulan klasöre,
