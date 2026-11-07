@@ -1709,6 +1709,9 @@ func (sv *guiServer) startWatch(project string, serverNames []string) ([]guiWatc
 func (sv *guiServer) startServerWatch(p projects.Project, cfg *config.Config, srv config.Server, gw *guiWatch) error {
 	cancel := func() { sv.watches.stop(p.Name, srv.Name); sv.persistWatches() }
 	j, err := sv.jobs.startCancelable("watch", p.Name, srv.Name, lang.L.GuiJobWatch, "", cancel, func(j *job) (any, error) {
+		// Watch kendiliğinden (hatayla) biterse de kaydı düşsün: yoksa proje "izleniyor" görünmeye devam
+		// ediyor, sol alttaki sayaç sönmüyordu (release yalnızca kendi kaydını siler)
+		defer func() { sv.watches.release(gw); sv.persistWatches() }()
 		return nil, watchLoop(p.Path, cfg, []config.Server{srv}, j, gw.stop, func(res serverSyncResult) {
 			sv.watches.mu.Lock()
 			gw.Syncs++

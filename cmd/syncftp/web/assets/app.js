@@ -454,6 +454,8 @@ function trackJob(id, opts = {}) {
     // kartı olmayan watch işleri için toast kalır. Hata kartı daha uzun durur.
     if (j.status === 'error') j.shownUntil = Date.now() + 15000;
     if (isWatchJob(j)) {
+      // Projelerin "izleniyor" bilgisi de tazelensin (sayaç ve watch düğmeleri ona da bakıyor)
+      loadProjects().then(renderDock, () => {});
       const name = `${j.title}${j.server ? ' · ' + j.server : ''}`;
       if (j.status === 'error') toast(t('jobFailed', name, j.error || ''), 'bad');
       else if (opts.quiet !== true) toast(t('jobDone', name));
@@ -628,11 +630,28 @@ function onJobFinished(j) {
   if (r.page === 'jobs') render(true);
 }
 
+// Sunucudaki iş listesiyle eşitle: orada çalışıp burada bilinmeyenler takibe alınır; burada "çalışıyor"
+// sanılıp sunucuda bitmiş (SSE'nin done'ı kaçmış) ya da hiç olmayan işler kapatılır — yoksa durdurulan
+// watch sol alttaki sayaçta açık kalıyordu.
 async function refreshJobsMeta() {
-  try {
-    const list = await GET('/api/jobs');
-    for (const x of list) if (x.status === 'running' && !S.jobs.has(x.id)) trackJob(x.id, { kind: x.kind, title: x.title, server: x.server, project: x.project, quiet: true });
-  } catch { /* yoksay */ }
+  let list;
+  try { list = await GET('/api/jobs'); } catch { return; }
+  const byId = new Map(list.map((x) => [x.id, x]));
+  for (const x of list) if (x.status === 'running' && !S.jobs.has(x.id)) trackJob(x.id, { kind: x.kind, title: x.title, server: x.server, project: x.project, quiet: true });
+  let changed = false, watchEnded = false;
+  for (const j of S.jobs.values()) {
+    if (j.status !== 'running') continue;
+    const x = byId.get(j.id);
+    if (x && x.status === 'running') continue;
+    if (j.es) j.es.close();
+    Object.assign(j, { status: x ? x.status : 'done', error: x?.error, result: x?.result, ended: x?.ended, finishedAt: Date.now() });
+    for (const cb of j.doneCbs.splice(0)) { try { cb(j); } catch (err) { console.error(err); } }
+    if (j.onDone) j.onDone(j);
+    changed = true;
+    if (isWatchJob(j)) watchEnded = true;
+  }
+  if (watchEnded) await loadProjects();
+  if (changed) renderDock();
 }
 
 // ── router ───────────────────────────────────────────────────────────────────
@@ -3372,7 +3391,8 @@ async function boot() {
       if (lost) { lost = 0; }
       // Sunucu tarafında başlayan işler (webhook deploy'ları, watch sync'leri) da dock'ta canlı görünsün
       const known = [...S.jobs.values()].filter((j) => j.status === 'running').length;
-      if (ping.jobs > known) refreshJobsMeta();
+      // Sayılar tutmuyorsa iki yönde de eşitle (biten watch burada çalışıyor görünmesin)
+      if (ping.jobs !== known) refreshJobsMeta();
     } catch { if (++lost === 2) toast(t('sessionLost'), 'bad'); }
   }, 5000);
   setInterval(loadProjects, 20000);
