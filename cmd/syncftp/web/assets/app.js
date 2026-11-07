@@ -88,7 +88,7 @@ const T = {
     renameProject: 'Yeniden adlandır', 
     filter: 'Bu klasörde filtrele…', colSize: 'Boyut', colDate: 'Tarih',
     emptyDir: 'Klasör boş', preview: 'Önizle', download: 'İndir', deleteRemoteConfirm: '"{0}" sunucudan KALICI olarak silinsin mi?', deleteDirConfirm: '"{0}" klasörü ve İÇİNDEKİ HER ŞEY sunucudan kalıcı olarak silinsin mi?',
-    deleted: 'Silindi', binaryFile: 'Binary dosya — önizleme yok', viewMedia: 'Görüntü', mediaFailed: 'Bu dosya tarayıcıda gösterilemiyor', mediaSameSize: 'Yerel ve sunucudaki dosyanın boyutu aynı', mediaNoLocal: 'Yerelde yok', mediaNoRemote: 'Sunucuda yok', dropHere: 'Yüklemek için bırak', dropInto: '{0} klasörüne yüklemek için bırak', dropHint: 'Dosya / klasörleri sürükleyip buraya bırakabilirsin', truncated: '(ilk 256 KB)',
+    deleted: 'Silindi', binaryFile: 'Binary dosya — önizleme yok', zoomIn: 'Yakınlaştır (tekerlek)', zoomOut: 'Uzaklaştır', zoomFit: 'Sığdır (çift tık)', zoomActual: 'Gerçek boyut', viewMedia: 'Görüntü', mediaFailed: 'Bu dosya tarayıcıda gösterilemiyor', mediaSameSize: 'Yerel ve sunucudaki dosyanın boyutu aynı', mediaNoLocal: 'Yerelde yok', mediaNoRemote: 'Sunucuda yok', dropHere: 'Yüklemek için bırak', dropInto: '{0} klasörüne yüklemek için bırak', dropHint: 'Dosya / klasörleri sürükleyip buraya bırakabilirsin', truncated: '(ilk 256 KB)',
     releases: 'Sync geçmişi (release)', releasesSub: 'Her sync, değiştirdiği dosyaların eski halini yedekler. Bir release\'i geri almak onu ve ondan sonrakileri geri alır.',
     colWhen: 'Zaman', colServer: 'Profil', colFiles: 'Dosya', colReplaced: 'Değişen', colNew: 'Yeni', colStatus: 'Durum',
     rolledBack: 'geri alındı', noBackupTag: 'yedek yok', restorable: 'geri alınabilir', details: 'Ayrıntı', undo: 'Geri al',
@@ -203,7 +203,7 @@ const T = {
     renameProject: 'Rename', 
     filter: 'Filter this folder…', colSize: 'Size', colDate: 'Date',
     emptyDir: 'Folder is empty', preview: 'Preview', download: 'Download', deleteRemoteConfirm: 'PERMANENTLY delete "{0}" from the server?', deleteDirConfirm: 'PERMANENTLY delete folder "{0}" and EVERYTHING inside it from the server?',
-    deleted: 'Deleted', binaryFile: 'Binary file — no preview', viewMedia: 'View', mediaFailed: 'This file cannot be shown in the browser', mediaSameSize: 'Local and server files have the same size', mediaNoLocal: 'Not on local', mediaNoRemote: 'Not on server', dropHere: 'Drop to upload', dropInto: 'Drop to upload into {0}', dropHint: 'You can drag and drop files / folders here', truncated: '(first 256 KB)',
+    deleted: 'Deleted', binaryFile: 'Binary file — no preview', zoomIn: 'Zoom in (wheel)', zoomOut: 'Zoom out', zoomFit: 'Fit (double-click)', zoomActual: 'Actual size', viewMedia: 'View', mediaFailed: 'This file cannot be shown in the browser', mediaSameSize: 'Local and server files have the same size', mediaNoLocal: 'Not on local', mediaNoRemote: 'Not on server', dropHere: 'Drop to upload', dropInto: 'Drop to upload into {0}', dropHint: 'You can drag and drop files / folders here', truncated: '(first 256 KB)',
     releases: 'Sync history (releases)', releasesSub: 'Every sync backs up the previous version of the files it changes. Rolling back a release also rolls back every newer one.',
     colWhen: 'When', colServer: 'Profile', colFiles: 'Files', colReplaced: 'Replaced', colNew: 'New', colStatus: 'Status',
     rolledBack: 'rolled back', noBackupTag: 'no backup', restorable: 'restorable', details: 'Details', undo: 'Roll back',
@@ -2919,13 +2919,99 @@ const mediaKind = (name) => Object.keys(MEDIA_EXT).find((k) => MEDIA_EXT[k].test
 function mediaView(kind, url) {
   const u = esc(url);
   switch (kind) {
-    case 'image': return `<div class="medya medya-resim"><img src="${u}" alt="" onerror="this.parentElement.classList.add('hata')"><span class="medya-hata">${t('mediaFailed')}</span></div>`;
+    // Görsel: pan / zoom (zoomInit — belge seviyesinde delegasyon, görselin göründüğü her yerde çalışır)
+    case 'image': return `<div class="medya medya-resim" data-zoom><img src="${u}" alt="" draggable="false" onerror="this.parentElement.classList.add('hata')"><span class="medya-hata">${t('mediaFailed')}</span>
+      <div class="zoom-arac"><button type="button" data-z="out" title="${t('zoomOut')}">−</button><button type="button" data-z="fit" class="zoom-yuzde" title="${t('zoomFit')}">100%</button><button type="button" data-z="in" title="${t('zoomIn')}">+</button><button type="button" data-z="1" title="${t('zoomActual')}">1:1</button></div></div>`;
     case 'video': return `<div class="medya"><video src="${u}" controls preload="metadata"></video></div>`;
     case 'audio': return `<div class="medya medya-ses"><audio src="${u}" controls preload="metadata"></audio></div>`;
-    case 'pdf': return `<div class="medya"><iframe class="medya-pdf" src="${u}"></iframe></div>`;
+    // PDF: tarayıcının görüntüleyicisi (zoom, sayfa, arama araç çubuğunda; Ctrl+tekerlek zoom)
+    case 'pdf': return `<div class="medya"><iframe class="medya-pdf" src="${u}#toolbar=1&view=FitH"></iframe></div>`;
   }
   return `<div class="bos">${t('binaryFile')}</div>`;
 }
+
+// ── Görsel pan / zoom ──
+// Tekerlek: imlecin olduğu yere zoom · sürükle: kaydır · çift tık: sığdır ↔ gerçek boyut (1:1) ·
+// köşedeki düğmeler: − / % (sığdır) / + / 1:1. Görsel ilk açılışta kutuya sığar (küçükse büyütülmez);
+// kutu boyut değiştirirse (pencere, editör sekmesi) kullanıcı zoom yapmadıysa yeniden sığar.
+const ZOOM = new WeakMap();
+function zoomState(box) {
+  let z = ZOOM.get(box);
+  if (!z) {
+    z = { s: 1, x: 0, y: 0, fit: 1, user: false };
+    ZOOM.set(box, z);
+    if (window.ResizeObserver) new ResizeObserver(() => { if (!z.user) zoomFit(box); }).observe(box);
+  }
+  return z;
+}
+function zoomApply(box) {
+  const z = zoomState(box), img = box.querySelector('img');
+  if (!img) return;
+  img.style.transform = `translate(${z.x}px, ${z.y}px) scale(${z.s})`;
+  const pct = box.querySelector('.zoom-yuzde');
+  if (pct) pct.textContent = Math.round(z.s * 100) + '%';
+  box.classList.toggle('zoomlu', z.s > 1.001); // gerçek boyutun üstünde pikseller keskin görünsün
+}
+function zoomFit(box) {
+  const z = zoomState(box), img = box.querySelector('img');
+  if (!img || !img.naturalWidth) return;
+  const cw = box.clientWidth, ch = box.clientHeight, nw = img.naturalWidth, nh = img.naturalHeight;
+  z.fit = Math.min(cw / nw, ch / nh, 1);
+  z.s = z.fit;
+  z.x = (cw - nw * z.s) / 2; z.y = (ch - nh * z.s) / 2;
+  z.user = false;
+  zoomApply(box);
+}
+// (mx, my) kutu içi nokta sabit kalacak şekilde yeni ölçeğe geç
+function zoomTo(box, s, mx, my) {
+  const z = zoomState(box);
+  if (mx == null) { mx = box.clientWidth / 2; my = box.clientHeight / 2; }
+  s = Math.min(Math.max(s, Math.min(z.fit, 1) * 0.5), 32);
+  z.x = mx - (mx - z.x) * (s / z.s);
+  z.y = my - (my - z.y) * (s / z.s);
+  z.s = s; z.user = true;
+  zoomApply(box);
+}
+(function zoomInit() {
+  // load olayı kabarcıklanmaz → yakalama aşamasında
+  document.addEventListener('load', (e) => {
+    const img = e.target;
+    if (img.tagName === 'IMG' && img.parentElement && img.parentElement.matches('[data-zoom]')) zoomFit(img.parentElement);
+  }, true);
+  document.addEventListener('wheel', (e) => {
+    const box = e.target.closest && e.target.closest('[data-zoom]');
+    if (!box || box.classList.contains('hata') || !box.querySelector('img').naturalWidth) return;
+    e.preventDefault();
+    const r = box.getBoundingClientRect(), z = zoomState(box);
+    zoomTo(box, z.s * Math.pow(1.0015, -e.deltaY), e.clientX - r.left, e.clientY - r.top);
+  }, { passive: false });
+  document.addEventListener('mousedown', (e) => {
+    const box = e.button === 0 && e.target.closest && e.target.closest('[data-zoom]');
+    if (!box || e.target.closest('.zoom-arac')) return;
+    e.preventDefault();
+    const z = zoomState(box), sx = e.clientX - z.x, sy = e.clientY - z.y;
+    box.classList.add('kaydir');
+    const move = (ev) => { z.x = ev.clientX - sx; z.y = ev.clientY - sy; z.user = true; zoomApply(box); };
+    const up = () => { box.classList.remove('kaydir'); document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+  });
+  document.addEventListener('dblclick', (e) => {
+    const box = e.target.closest && e.target.closest('[data-zoom]');
+    if (!box || e.target.closest('.zoom-arac')) return;
+    const z = zoomState(box), r = box.getBoundingClientRect();
+    if (Math.abs(z.s - 1) < 1e-3 || z.s > 1) zoomFit(box); else zoomTo(box, 1, e.clientX - r.left, e.clientY - r.top);
+  });
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('.zoom-arac [data-z]');
+    if (!b) return;
+    const box = b.closest('[data-zoom]'), z = zoomState(box);
+    const k = b.dataset.z;
+    if (k === 'fit') zoomFit(box);
+    else if (k === '1') zoomTo(box, 1);
+    else zoomTo(box, z.s * (k === 'in' ? 1.25 : 0.8));
+  });
+})();
 // Pencere kapanınca oynayan video/ses dursun (öğe DOM'dan kalkınca tarayıcı bazen çalmaya devam ediyor)
 function stopMedia(root) { $$('video,audio', root).forEach((m) => { try { m.pause(); m.removeAttribute('src'); m.load(); } catch { /* */ } }); }
 
