@@ -117,7 +117,7 @@ const T = {
     upload: 'Yükle', newFolder: 'Yeni klasör', folderName: 'Klasör adı', rename: 'Yeniden adlandır / taşı', newPath: 'Yeni yol (uzak dizine göreceli)',
     moveTo: 'Taşı', selectedN: '{0} seçili', clearSel: 'Seçimi temizle',
     freezeToggle: 'Freeze / unfreeze', frozenBadge: 'frozen', searchAll: 'Alt klasörlerde ara', searchTitle: '"{0}" araması', searchNone: 'Sonuç yok', searching: 'Aranıyor…', searchingN: '{0} sonuç · {1} klasör tarandı…', searchDoneN: '{0} sonuç · {1} klasör · {2} sn', searchTruncated: 'Çok fazla sonuç (ilk 2000) ya da 5 dakika sınırı doldu — aramayı daraltın.',
-    uploaded: '{0} dosya yüklendi', created: 'Oluşturuldu', moved: 'Taşındı', frozenAdded: '{0} öğe freeze listesine eklendi', frozenRemoved: '{0} kayıt freeze listesinden çıkarıldı',
+    uploaded: '{0} dosya yüklendi', upWaiting: 'sırada…', upDone: 'yüklendi', upCount: '{0} / {1} dosya', created: 'Oluşturuldu', moved: 'Taşındı', frozenAdded: '{0} öğe freeze listesine eklendi', frozenRemoved: '{0} kayıt freeze listesinden çıkarıldı',
     deleteManyConfirm: '{0} öğe sunucudan KALICI olarak silinsin mi? (klasörler içerikleriyle)', runCmd: 'Sunucuda komut çalıştır', runCmdHint: 'SSH ile uzak dizinde komut çalıştırır', diffLocalMissing: 'Yerelde yok', diffTooBig: 'Dosya karşılaştırma için çok büyük — tam görünüm gösteriliyor',
     unsavedTitle: 'Kaydedilmemiş değişiklikler', unsavedBody: 'Bu formda kaydedilmemiş değişiklikler var. Sayfadan çıkılırsa kaybolacak.', unsavedLeave: 'Kaydetmeden çık',
     diffHint: 'Sunucu → yerel: <span class="bad-t">−</span> sunucudan gidecek, <span class="ok-t">+</span> sync ile gelecek', foldN: '⋯ {0} aynı satır', clickToDiff: 'Farkı görmek için dosyaya tıklayın',
@@ -232,7 +232,7 @@ const T = {
     upload: 'Upload', newFolder: 'New folder', folderName: 'Folder name', rename: 'Rename / move', newPath: 'New path (relative to remote root)',
     moveTo: 'Move', selectedN: '{0} selected', clearSel: 'Clear selection',
     freezeToggle: 'Freeze / unfreeze', frozenBadge: 'frozen', searchAll: 'Search subfolders', searchTitle: 'Search "{0}"', searchNone: 'No results', searching: 'Searching…', searchingN: '{0} results · {1} folders scanned…', searchDoneN: '{0} results · {1} folders · {2}s', searchTruncated: 'Too many results (first 2000) or the 5-minute limit was hit — narrow the search.',
-    uploaded: '{0} file(s) uploaded', created: 'Created', moved: 'Moved', frozenAdded: '{0} item(s) added to the freeze list', frozenRemoved: '{0} entr(y/ies) removed from the freeze list',
+    uploaded: '{0} file(s) uploaded', upWaiting: 'queued…', upDone: 'uploaded', upCount: '{0} / {1} files', created: 'Created', moved: 'Moved', frozenAdded: '{0} item(s) added to the freeze list', frozenRemoved: '{0} entr(y/ies) removed from the freeze list',
     deleteManyConfirm: 'PERMANENTLY delete {0} item(s) from the server? (folders with their contents)', runCmd: 'Run command on server', runCmdHint: 'Runs a command over SSH in the remote folder', diffLocalMissing: 'Missing locally', diffTooBig: 'File too large to diff — showing full view',
     unsavedTitle: 'Unsaved changes', unsavedBody: 'This form has unsaved changes. They will be lost if you leave the page.', unsavedLeave: 'Leave without saving',
     diffHint: 'Server → local: <span class="bad-t">−</span> leaves the server, <span class="ok-t">+</span> arrives with sync', foldN: '⋯ {0} unchanged lines', clickToDiff: 'Click a file to see the diff',
@@ -1940,12 +1940,13 @@ async function tabFiles(proj, srvName, relPath) {
       const b = $('#f-upload', root);
       const label = (pct) => { b.innerHTML = icon('refresh', 'spin') + t('upload') + (pct != null ? ` ${pct}%` : ''); };
       b.disabled = true; label();
+      const ghost = uploadGhosts(items, dir);
       try {
         // api() JSON gövde gönderir; dosya için FormData + XHR (yükleme yüzdesi) — hata işleme api() ile aynı
         const r = await new Promise((res, rej) => {
           const x = new XMLHttpRequest();
           x.open('POST', `/api/p/${enc(P)}/remote/upload?${q}&path=${enc(dir)}`);
-          x.upload.onprogress = (e) => { if (e.lengthComputable && b.isConnected) label(Math.floor((e.loaded / e.total) * 100)); };
+          x.upload.onprogress = (e) => { if (e.lengthComputable && b.isConnected) { label(Math.floor((e.loaded / e.total) * 100)); ghost.progress(e.loaded); } };
           x.onerror = () => rej(new Error(t('sessionLost')));
           x.onload = () => {
             let d = null;
@@ -1954,8 +1955,9 @@ async function tabFiles(proj, srvName, relPath) {
           };
           x.send(fd);
         });
+        ghost.progress(Infinity);
         toast(t('uploaded', (r.data || []).length));
-      } catch (err) { fail(err); }
+      } catch (err) { ghost.failed(); fail(err); }
       if (dir !== rel) S.lsCache.delete(`${P}|${srv}|${dir}`);
       reload();
     };
@@ -2094,6 +2096,63 @@ async function tabFiles(proj, srvName, relPath) {
     for (let i = p.indexOf('/'); i >= 0; i = p.indexOf('/', i + 1)) if (frozenSet.has(p.slice(0, i + 1))) return true;
     return false;
   };
+  // Yükleme önizlemesi: bulunulan klasöre gidenler üst seviye adlarıyla (klasör / dosya) listede soluk
+  // satır olarak hemen görünür, bir klasöre bırakılanlar o klasörün satırında sayaç olarak. Sunucu
+  // parçaları sırayla okuyup yükler (TCP geri basıncı) → gönderilen bayt ≈ yüklenen dosyalar; satır
+  // dosyalarının hepsi gidince tam görünür. Bitince liste zaten yeniden yüklenir.
+  function uploadGhosts(items, dir) {
+    const body = () => $('#f-body', document);
+    const groups = new Map();
+    let off = 0;
+    const into = dir !== rel ? dir.split('/').pop() : '';
+    for (const it of items) {
+      const seg = it.path.split('/');
+      const key = into || seg[0];
+      if (!groups.has(key)) groups.set(key, { name: key, dir: !!into || seg.length > 1, size: 0, ends: [], done: 0, row: null });
+      const g = groups.get(key);
+      off += it.file.size + it.path.length * 2 + it.file.name.length + 320; // parça başlıkları için pay
+      g.ends.push(off);
+      g.size += it.file.size;
+    }
+    if (!$('#f-body')) {
+      const bos = $('#sayfa .bos');
+      if (bos) bos.outerHTML = `<div class="tablo-kap"><table class="tablo"><thead><tr><th class="sec-hucre"></th><th>${t('colName')}</th><th class="sag">${t('colSize')}</th><th>${t('colDate')}</th><th></th></tr></thead><tbody id="f-body"></tbody></table></div>`;
+    }
+    const tb = body();
+    const status = (g) => (g.dir ? t('upCount', g.done, g.ends.length) : g.done ? t('upDone') : t('upWaiting'));
+    // bırakma sırasıyla en üstte: sondan başa afterbegin
+    for (const g of [...groups.values()].reverse()) {
+      let row = tb &&[...tb.querySelectorAll('tr[data-entry]')].find((r) => r.dataset.entry === g.name);
+      if (!row && tb && !into) {
+        tb.insertAdjacentHTML('afterbegin', `<tr data-ghost class="yukleme-satir"><td class="sec-hucre"></td>
+          <td><div class="ad-hucre">${icon(g.dir ? 'folder' : 'file', g.dir ? 'acc-t' : 'faint')}<span>${esc(g.name)}</span></div></td>
+          <td class="sag mono faint">${bytes(g.size)}</td><td class="mono faint" data-upst></td><td></td></tr>`);
+        row = tb.firstElementChild;
+      } else if (row) {
+        row.classList.add('yukleme-satir');
+        const c = row.children[3];
+        if (c) c.setAttribute('data-upst', '');
+      }
+      g.row = row;
+      const st = row && row.querySelector('[data-upst]');
+      if (st) st.textContent = status(g);
+    }
+    const progress = (loaded) => {
+      for (const g of groups.values()) {
+        let n = 0;
+        while (n < g.ends.length && g.ends[n] <= loaded) n++;
+        if (loaded === Infinity) n = g.ends.length;
+        if (n === g.done) continue;
+        g.done = n;
+        if (!g.row || !g.row.isConnected) continue;
+        const st = g.row.querySelector('[data-upst]');
+        if (st) st.textContent = status(g);
+        if (n === g.ends.length) g.row.classList.add('yuklendi');
+      }
+    };
+    const failed = () => { for (const g of groups.values()) if (g.row && g.done < g.ends.length) g.row.classList.add('yukleme-hata'); };
+    return { progress, failed };
+  }
   function rowHTML(e, checked) {
     const p = full(e.name);
     const fz = frozenSelf(p, e.type === 'dir') || (e.type === 'dir' && frozenUnder(p));

@@ -668,3 +668,11 @@ details.bolum.katlanir > summary h3 + .ok-ac { margin-left: auto; }
 .f-hedef-grup { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .f-hedef-et { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
 .f-hedef-grup select { min-width: 180px; }
+
+/* Dosyalar: yükleme önizlemesi — bırakılanlar soluk, yüklenince tam görünür (uploadGhosts) */
+tr.yukleme-satir td { opacity: .42; transition: opacity .35s ease; }
+tr.yukleme-satir [data-upst] { color: var(--accent); }
+tr.yukleme-satir.yuklendi td { opacity: 1; }
+tr.yukleme-satir.yuklendi [data-upst] { color: var(--ok); }
+tr.yukleme-satir.yukleme-hata td { opacity: .6; }
+tr.yukleme-satir.yukleme-hata [data-upst] { color: var(--bad); }
