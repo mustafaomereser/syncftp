@@ -2962,6 +2962,15 @@ function zoomFit(box) {
   z.user = false;
   zoomApply(box);
 }
+// Gerçek boyut (1:1), görsel kutuda ortalı
+function zoomActual(box) {
+  const z = zoomState(box), img = box.querySelector('img');
+  if (!img || !img.naturalWidth) return;
+  z.s = 1;
+  z.x = (box.clientWidth - img.naturalWidth) / 2; z.y = (box.clientHeight - img.naturalHeight) / 2;
+  z.user = true;
+  zoomApply(box);
+}
 // (mx, my) kutu içi nokta sabit kalacak şekilde yeni ölçeğe geç
 function zoomTo(box, s, mx, my) {
   const z = zoomState(box);
@@ -3008,7 +3017,7 @@ function zoomTo(box, s, mx, my) {
     const box = b.closest('[data-zoom]'), z = zoomState(box);
     const k = b.dataset.z;
     if (k === 'fit') zoomFit(box);
-    else if (k === '1') zoomTo(box, 1);
+    else if (k === '1') zoomActual(box);
     else zoomTo(box, z.s * (k === 'in' ? 1.25 : 0.8));
   });
 })();
