@@ -759,42 +759,79 @@ async function pageHome() {
       go(pHash(c.dataset.p));
     }));
     $$('[data-hv]', root).forEach((b) => (b.onclick = () => { lsSet('syncftp-home-view', b.dataset.hv); render(true); }));
-    // Sürükle-bırak sıralama: kartın / satırın soluna-sağına (liste: üstüne-altına) bırak; başka bir grubun
-    // boş yerine bırakınca o grubun sonuna geçer
-    let dragName = null, drop = null;
-    const clearMarks = () => $$('.birak-once, .birak-sonra, .birak-grup', root).forEach((x) => x.classList.remove('birak-once', 'birak-sonra', 'birak-grup'));
+    // Sürükle-bırak sıralama (sıralanabilir liste gibi): sürüklenen kart yerinde kesik çizgili boşluk olur
+    // ve imleç gezdikçe DOM'da yer değiştirir — diğerleri kayarak yer açar (FLIP animasyonu). Başka bir
+    // grubun boş yerine / başlığına gelince o grubun sonuna geçer. Bırakınca DOM'daki sıra kaydedilir;
+    // bırakılmadan biterse (Esc / dışarı) sayfa eski hâline döner.
+    let dragEl = null, dropped = false, lastKey = '';
+    const boxes = () => $$('.izgara, .pliste', root);
+    // FLIP: taşımadan önceki konumlardan yeni konumlara kaydır
+    const flip = (move) => {
+      const items = boxes().flatMap((b) => [...b.children]).filter((x) => x !== dragEl);
+      const before = new Map(items.map((x) => [x, x.getBoundingClientRect()]));
+      move();
+      for (const x of items) {
+        const a = before.get(x), b = x.getBoundingClientRect();
+        const dx = a.left - b.left, dy = a.top - b.top;
+        if (!dx && !dy) continue;
+        x.style.transition = 'none';
+        x.style.transform = `translate(${dx}px, ${dy}px)`;
+        requestAnimationFrame(() => { x.style.transition = 'transform .18s ease'; x.style.transform = ''; });
+      }
+    };
     $$('.pkart, .psatir', root).forEach((el) => {
       el.draggable = true;
-      el.ondragstart = (e) => { dragName = el.dataset.p; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/x-syncftp-project', dragName); setTimeout(() => el.classList.add('suruklenen'), 0); };
-      el.ondragend = () => { dragName = null; drop = null; el.classList.remove('suruklenen'); clearMarks(); };
+      el.ondragstart = (e) => {
+        dragEl = el; dropped = false; lastKey = '';
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/x-syncftp-project', el.dataset.p);
+        // sürükleme görüntüsü kartın kendisi olsun; boşluğa dönüşmesi bir kare sonra
+        setTimeout(() => el.classList.add('suruklenen'), 0);
+      };
+      el.ondragend = () => {
+        el.classList.remove('suruklenen');
+        $$('.pgrup.birak-grup', root).forEach((x) => x.classList.remove('birak-grup'));
+        const wasDropped = dropped;
+        dragEl = null;
+        if (!wasDropped) render(true); // iptal: eski sıraya dön
+      };
     });
     root.ondragover = (e) => {
-      if (!dragName) return;
+      if (!dragEl) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
-      clearMarks();
       const item = e.target.closest('.pkart, .psatir');
-      if (item && item.dataset.p !== dragName) {
+      if (item === dragEl) return;
+      if (item) {
         const r = item.getBoundingClientRect();
         const after = item.classList.contains('psatir') ? e.clientY > r.top + r.height / 2 : e.clientX > r.left + r.width / 2;
-        item.classList.add(after ? 'birak-sonra' : 'birak-once');
-        drop = { target: item.dataset.p, after };
-      } else if (!item) {
-        const sec = e.target.closest('.pgrup');
-        if (sec) { sec.classList.add('birak-grup'); drop = { group: sec.dataset.grp }; } else drop = null;
+        const key = item.dataset.p + (after ? '>' : '<');
+        // zaten o konumdaysa dokunma (titreme olmasın)
+        const ok = after ? item.nextElementSibling === dragEl : item.previousElementSibling === dragEl;
+        if (key === lastKey || ok) return;
+        lastKey = key;
+        flip(() => item.parentNode.insertBefore(dragEl, after ? item.nextSibling : item));
+        return;
+      }
+      // kart yok: grubun boş yeri / başlığı → o grubun sonuna
+      const sec = e.target.closest('.pgrup');
+      $$('.pgrup.birak-grup', root).forEach((x) => x.classList.toggle('birak-grup', x === sec));
+      if (!sec) return;
+      const box = sec.querySelector('.izgara, .pliste');
+      if (box && dragEl.parentNode !== box) {
+        lastKey = 'grp:' + sec.dataset.grp;
+        flip(() => box.appendChild(dragEl));
       }
     };
     root.ondrop = (e) => {
-      if (!dragName || !drop) return;
+      if (!dragEl) return;
       e.preventDefault();
-      const name = dragName, d = drop;
-      clearMarks();
-      if (d.group !== undefined) { moveProject(name, { group: d.group }); return; }
-      const list = projectsByGroup(S.projects).map((p) => ({ name: p.name, group: p.group || '' }));
-      const [it] = list.splice(list.findIndex((x) => x.name === name), 1);
-      const ti = list.findIndex((x) => x.name === d.target);
-      it.group = list[ti].group;
-      list.splice(d.after ? ti + 1 : ti, 0, it);
+      dropped = true;
+      // DOM'daki son sıra: grup bölümleri sırayla (bölüm yoksa tek liste, gruplar aynen)
+      const secs = $$('.pgrup', root);
+      const list = secs.length
+        ? secs.flatMap((s) => $$('[data-p]', s).map((x) => ({ name: x.dataset.p, group: s.dataset.grp || '' })))
+        : $$('[data-p]', root).map((x) => ({ name: x.dataset.p, group: (S.projects.find((p) => p.name === x.dataset.p) || {}).group || '' }));
       saveProjectOrder(list);
     };
     $$('[data-hgrp]', root).forEach((b) => (b.onclick = () => {
