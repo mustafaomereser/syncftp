@@ -2791,9 +2791,9 @@ async function tabFiles(proj, srvName, relPath) {
   return `<div class="f-hedefler">${targetGroup(t('tabServers'), profileItems)}${targetGroup(t('tabConnections'), connItems)}</div>
     <div class="arac-cubuk">
       <div class="ara">${icon('search')}<input type="text" id="f-filter" placeholder="${t('filter')}"></div>
-      <button class="btn" id="f-editor" title="${t('wsOpenHint')}">${icon('code')}${t('wsOpen')}</button>
       <button class="btn" id="f-search" title="${t('searchAll')}">${icon('search')}${t('searchAll')}</button>
       <button class="btn" id="f-tree" title="${t('treeHint')}">${icon('layers')}${t('treeView')}</button>
+      <button class="btn" id="f-editor" title="${t('wsOpenHint')}">${icon('code')}${t('wsOpen')}</button>
       <button class="btn" id="f-mkdir">${icon('folder')}${t('newFolder')}</button>
       <button class="btn" id="f-mkfile">${icon('file')}${t('pkNewFile')}</button>
       <button class="btn mavi" id="f-upload" title="${t('dropHint')}">${icon('upload')}${t('upload')}</button><input type="file" id="f-upload-input" multiple hidden></div>
