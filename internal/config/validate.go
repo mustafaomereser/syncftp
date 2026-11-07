@@ -38,6 +38,9 @@ func (c *Config) Validate() error {
 	for _, cn := range c.Connections {
 		conns[cn.Name] = true // referans çözümü config.Load gibi birebir ad
 	}
+	if err := ValidateTriggers(c.Sync.Triggers, "sync"); err != nil {
+		return err
+	}
 	seen := map[string]bool{}
 	for _, s := range c.Servers {
 		n := strings.ToLower(strings.TrimSpace(s.Name))
@@ -56,6 +59,9 @@ func (c *Config) Validate() error {
 		}
 		if strings.TrimSpace(s.RemotePath) == "" {
 			return fmt.Errorf(lang.L.GuiValRemoteFmt, s.Name)
+		}
+		if err := ValidateTriggers(s.Triggers, s.Name); err != nil {
+			return err
 		}
 	}
 	return nil

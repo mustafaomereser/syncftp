@@ -149,6 +149,26 @@ const HELP = [
       <li>From now on every push: signature verified → branch checked → <code>git pull</code> → sync to servers (with backup and rollback).</li></ol>
       <p>The trycloudflare address changes on every start; enter your own domain for a permanent one. On a server without GUI: <code>syncftp hook serve --tunnel</code>.</p>`],
   }],
+  ['triggers', 'zap', {
+    tr: ['Tetikleyiciler: belirli dosyalar değişince', `<ul>
+      <li><b>Ne işe yarar</b>: belirli dosyalar sunucuya yüklendiğinde (ya da yüklenmeden hemen önce) otomatik iş yapar. Örnek: <code>database/migrations/</code> altında bir dosya gittiyse sync bitince <code>php artisan migrate --force</code> çalışsın ya da bir adrese istek atılsın.</li>
+      <li><b>Nerede</b>: Proje ayarları → <i>Tetikleyiciler</i> (tüm profillerde çalışır) ve profil düzenleme → <i>Tetikleyiciler</i> (yalnızca o profil). Hazır şablonlar: Laravel migrate (SSH / HTTP), composer install, cache temizle, önce npm run build, Slack / Discord bildirimi.</li>
+      <li><b>Hangi dosyalar</b>: include/exclude ile aynı kalıplar (<code>database/migrations/</code>, <code>*.sql</code>, <code>composer.lock</code>). Boş bırakılırsa her yüklemede çalışır.</li>
+      <li><b>Eylemler</b> sırayla: yerel komut (proje klasöründe) → SSH komutu (yalnızca SFTP) → HTTP isteği (adres, yöntem, başlıklar, gövde) → bildirim (Slack / Discord / webhook). Biri hata verirse o tetikleyicinin kalanı çalışmaz.</li>
+      <li><b>Ne zaman</b>: <i>Yüklemeden sonra</i> (varsayılan) gerçekten yüklenen dosyalara bakar, hatası sync sonucunu bozmaz. <i>Yüklemeden önce</i> yüklenecek dosyalara bakar; hata verirse o profilin sync'i iptal olur.</li>
+      <li><b>Değişkenler</b>: komutlara <code>SYNCFTP_TRIGGER</code>, <code>SYNCFTP_TRIGGER_COUNT</code>, <code>SYNCFTP_TRIGGER_FILES</code> (satır satır) geçer. HTTP adres/başlık/gövdesinde <code>{files}</code> <code>{files_json}</code> <code>{count}</code> <code>{first}</code> <code>{server}</code> <code>{project}</code> <code>{trigger}</code>. Gövde boşsa JSON özet gider. Log'da adresteki sorgu değerleri (token) <code>***</code> görünür.</li>
+      <li><b>Dene</b>: karttaki düğme tetikleyiciyi sync yapmadan, formdaki hâliyle çalıştırır (örnek dosya adı verirsin; eylemler gerçekten çalışır). Kuru çalıştırma (dry-run) hangi tetikleyicilerin çalışacağını listeler.</li>
+      <li>CLI: <code>syncftp trigger list</code>, <code>syncftp trigger test migrate -s production database/migrations/x.php</code>.</li></ul>`],
+    en: ['Triggers: when certain files change', `<ul>
+      <li><b>What for</b>: do something automatically when certain files are uploaded (or right before). Example: if a file under <code>database/migrations/</code> went up, run <code>php artisan migrate --force</code> after the sync, or call a URL.</li>
+      <li><b>Where</b>: Project settings → <i>Triggers</i> (run for every profile) and profile edit → <i>Triggers</i> (that profile only). Templates: Laravel migrate (SSH / HTTP), composer install, clear cache, npm run build first, Slack / Discord notification.</li>
+      <li><b>Which files</b>: the same patterns as include/exclude (<code>database/migrations/</code>, <code>*.sql</code>, <code>composer.lock</code>). Empty fires on every upload.</li>
+      <li><b>Actions</b> in order: local command (project folder) → SSH command (SFTP only) → HTTP request (URL, method, headers, body) → notification (Slack / Discord / webhook). If one fails, the rest of that trigger does not run.</li>
+      <li><b>When</b>: <i>After upload</i> (default) looks at the files actually uploaded, a failure does not change the sync result. <i>Before upload</i> looks at the files about to be uploaded; a failure aborts that profile's sync.</li>
+      <li><b>Variables</b>: commands get <code>SYNCFTP_TRIGGER</code>, <code>SYNCFTP_TRIGGER_COUNT</code>, <code>SYNCFTP_TRIGGER_FILES</code> (one per line). The HTTP URL / headers / body accept <code>{files}</code> <code>{files_json}</code> <code>{count}</code> <code>{first}</code> <code>{server}</code> <code>{project}</code> <code>{trigger}</code>. An empty body sends a JSON summary. Query values in the URL (tokens) show as <code>***</code> in the log.</li>
+      <li><b>Try</b>: the button on the card runs the trigger without a sync, as it is in the form (you give a sample file name; the actions really run). A dry run lists the triggers that would fire.</li>
+      <li>CLI: <code>syncftp trigger list</code>, <code>syncftp trigger test migrate -s production database/migrations/x.php</code>.</li></ul>`],
+  }],
   ['ssh', 'tunnel', {
     tr: ['SFTP, SSH komutları ve tünel', `<ul>
       <li><b>SFTP</b> dosyaları SSH üzerinden gönderir — FTP'si olmayan VPS'lere de deploy edebilirsiniz. Şifre ya da SSH anahtarı (<code>~/.ssh/id_ed25519</code>) kullanılır; sunucu anahtarı ilk bağlantıda kaydedilir, değişirse bağlantı reddedilir.</li>

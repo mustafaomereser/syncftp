@@ -728,23 +728,24 @@ func (sv *guiServer) apiKeyring(w http.ResponseWriter, r *http.Request) {
 // ── job'lar ───────────────────────────────────────────────────────────────────
 
 type guiJobReq struct {
-	Kind        string   `json:"kind"` // sync | calibrate | verify | rollback | detect | milestone-sync
-	Servers     []string `json:"servers"`
-	Full        bool     `json:"full"`
-	DryRun      bool     `json:"dry_run"`
-	RetryFailed bool     `json:"retry_failed"`
-	Release     string   `json:"release"`
-	Fix         bool     `json:"fix"`
-	Max         int      `json:"max"`
-	Command     string   `json:"command"`
-	Path        string   `json:"path"`       // tree: RemotePath'e göreceli başlangıç
-	Include     []string `json:"include"`    // tek seferlik (CLI sync --include gibi; config'teki include'u geçersiz kılar)
-	Exclude     []string `json:"exclude"`    // tek seferlik (CLI sync --exclude gibi; ek)
-	Files       []string `json:"files"`      // rollback: yalnızca bu dosyalar (boş = release'in tamamı)
-	DeleteNew   bool     `json:"delete_new"` // rollback: release'in yeni eklediği dosyaları da sil
-	Paths       []string `json:"paths"`      // rm: RemotePath'e göreceli silinecek yollar
-	Recursive   bool     `json:"recursive"`  // rm: dolu klasörleri de sil (CLI remote rm --recursive)
-	Target      string   `json:"target"`     // zip: arşiv adı (paths ile aynı klasörde); unzip: hedef klasör (göreceli)
+	Kind        string          `json:"kind"` // sync | calibrate | verify | rollback | detect | milestone-sync
+	Servers     []string        `json:"servers"`
+	Full        bool            `json:"full"`
+	DryRun      bool            `json:"dry_run"`
+	RetryFailed bool            `json:"retry_failed"`
+	Release     string          `json:"release"`
+	Fix         bool            `json:"fix"`
+	Max         int             `json:"max"`
+	Command     string          `json:"command"`
+	Path        string          `json:"path"`       // tree: RemotePath'e göreceli başlangıç
+	Include     []string        `json:"include"`    // tek seferlik (CLI sync --include gibi; config'teki include'u geçersiz kılar)
+	Exclude     []string        `json:"exclude"`    // tek seferlik (CLI sync --exclude gibi; ek)
+	Files       []string        `json:"files"`      // rollback: yalnızca bu dosyalar (boş = release'in tamamı)
+	DeleteNew   bool            `json:"delete_new"` // rollback: release'in yeni eklediği dosyaları da sil
+	Paths       []string        `json:"paths"`      // rm: RemotePath'e göreceli silinecek yollar
+	Recursive   bool            `json:"recursive"`  // rm: dolu klasörleri de sil (CLI remote rm --recursive)
+	Target      string          `json:"target"`     // zip: arşiv adı (paths ile aynı klasörde); unzip: hedef klasör (göreceli); trigger: ad
+	Trigger     *config.Trigger `json:"trigger"`    // trigger: kaydedilmemiş tanım (formdaki "Dene")
 }
 
 func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
@@ -784,7 +785,7 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 	dir := p.Path
 
 	switch req.Kind {
-	case "rollback", "exec", "tree", "rm", "zip", "unzip": // tek sunuculuk işler — boş liste "tüm aktif sunucular" demek, ilkini seçme
+	case "rollback", "exec", "tree", "rm", "zip", "unzip", "trigger": // tek sunuculuk işler — boş liste "tüm aktif sunucular" demek, ilkini seçme
 		if len(req.Servers) != 1 {
 			guiErr(w, 400, errors.New(lang.L.GuiNeedOneServer))
 			return
@@ -969,6 +970,27 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 			}
 			fmt.Fprintf(j, lang.L.RemoteDelDoneFmt, files, dirs)
 			return map[string]int{"files": files, "dirs": dirs}, nil
+		}))
+	case "trigger":
+		// Tetikleyiciyi sync olmadan dene (CLI `trigger test` ile aynı runTrigger); Paths = örnek dosyalar.
+		// Formda henüz kaydedilmemiş tetikleyici de denenebilsin diye gövdeyle gelebilir (Trigger).
+		srv := servers[0]
+		t, found := findTrigger(cfg, srv, req.Target)
+		if req.Trigger != nil {
+			t, found = *req.Trigger, true
+		}
+		if !found {
+			guiErr(w, 404, fmt.Errorf(lang.L.TriggerNotFoundFmt, req.Target))
+			return
+		}
+		if err := config.ValidateTriggers([]config.Trigger{t}, srv.Name); err != nil {
+			guiErr(w, 400, err)
+			return
+		}
+		files := req.Paths
+		add(sv.jobs.start("trigger", p.Name, srv.Name, lang.L.GuiJobTrigger+": "+t.Name, "", func(j *job) (any, error) {
+			fmt.Fprintf(j, lang.L.TriggerRunFmt, t.Name, len(files))
+			return nil, runTrigger(j, dir, cfg.Project.Name, srv, t, files)
 		}))
 	case "zip", "unzip":
 		// Sunucuda zip / zipten çıkar (CLI remote zip|unzip ile aynı çekirdek, remote_zip.go): kendi

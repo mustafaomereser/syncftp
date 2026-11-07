@@ -117,7 +117,7 @@ const T = {
     upload: 'Yükle', newFolder: 'Yeni klasör', folderName: 'Klasör adı', rename: 'Yeniden adlandır / taşı', newPath: 'Yeni yol (uzak dizine göreceli)',
     moveTo: 'Taşı', selectedN: '{0} seçili', clearSel: 'Seçimi temizle',
     freezeToggle: 'Freeze / unfreeze', frozenBadge: 'frozen', searchAll: 'Alt klasörlerde ara', searchTitle: '"{0}" araması', searchNone: 'Sonuç yok', searching: 'Aranıyor…', searchingN: '{0} sonuç · {1} klasör tarandı…', searchDoneN: '{0} sonuç · {1} klasör · {2} sn', searchTruncated: 'Çok fazla sonuç (ilk 2000) ya da 5 dakika sınırı doldu — aramayı daraltın.',
-    uploaded: '{0} dosya yüklendi', edDirect: 'Doğrudan sunucuya · yedeksiz', edDirectHint: 'Bağlantıyla açıldı: yerel kopya ve yedek (Geri al) yok, kayıt doğrudan sunucudaki dosyaya yazılır. Sunucudaki dosya açıldıktan sonra değiştiyse yine sorulur.', zipSel: 'Zip\'le', zipTitle: 'Zip arşivi oluştur', zipName: 'Arşiv adı', zipHint: '{0} öğe bu klasörde tek arşive sıkıştırılır; aynı adlı dosya varsa sonuna -2 eklenir. FTP\'de sunucuda komut çalıştırılamadığı için dosyalar indirilip arşivlenir, arşiv geri yüklenir.', unzip: 'Zipten çıkar', unzipTo: '{0}/ klasörüne', unzipHere: 'Bulunduğu klasöre', unzipHint: 'Var olan dosyaların üzerine yazılır. Arşiv indirilir, içindeki dosyalar tek tek yüklenir.', upWaiting: 'sırada…', upDone: 'yüklendi', upCount: '{0} / {1} dosya', created: 'Oluşturuldu', moved: 'Taşındı', frozenAdded: '{0} öğe freeze listesine eklendi', frozenRemoved: '{0} kayıt freeze listesinden çıkarıldı',
+    uploaded: '{0} dosya yüklendi', secTriggers: 'Tetikleyiciler', secTriggersDesc: 'Belirli dosyalar yüklenince (ya da yüklenmeden hemen önce) çalışır: örneğin migrations klasörü değişince migrate. Proje ayarlarındaki tetikleyiciler bu profilde de çalışır.', secTriggersDescGlobal: 'Tüm profillerde çalışır; profile özel olanlar profil düzenleme sayfasında. Belirli dosyalar yüklenince (ya da hemen önce) komut, SSH, HTTP isteği ya da bildirim.', trAfter: 'Yüklemeden sonra', trBefore: 'Yüklemeden önce', trWhen: 'Ne zaman', trWhenHint: '"Önce" hata verirse o profilin sync\'i iptal olur; "sonra" hatası sync sonucunu bozmaz.', trPaths: 'Hangi dosyalar', trPathsHint: 'Bu kalıplardan birine uyan dosya yüklenirse çalışır (include/exclude ile aynı kurallar). Boş = her yüklemede.', trRun: 'Yerel komutlar', trRunHint: 'Proje klasöründe çalışır; SYNCFTP_TRIGGER_FILES ortamda.', trRemote: 'SSH komutları (sunucuda)', trRemoteHint: 'Uzak dizinde çalışır (php artisan migrate --force).', trRemoteFtp: 'Yalnızca SFTP profillerinde çalışır; FTP\'de atlanır.', trHttpUrl: 'HTTP isteği — adres', trHttpMethod: 'Yöntem', trHttpHeaders: 'Başlıklar', trHttpBody: 'Gövde', trHttpBodyHint: 'Boşsa JSON özet gider (trigger, server, project, count, files).', trVarsHint: 'Yer tutucular: {files} {files_json} {count} {first} {server} {project} {trigger}', trNotify: 'Bildirim (Slack / Discord / webhook)', trActRun: 'komut', trActNotify: 'bildirim', trNoAction: 'eylem yok', trUnnamed: '(adsız)', trAnyFile: 'her dosya', trEmpty: 'Henüz tetikleyici yok. Aşağıdan hazır bir şablonla ekle.', trAdd: 'Tetikleyici ekle', trDelConfirm: '"{0}" tetikleyicisi silinsin mi? (Kaydet\'e basınca kalıcı olur)', trTest: 'Dene', trTestHint: 'Sync yapmadan bu tetikleyicinin eylemlerini çalıştır (formdaki hâliyle)', trTestServer: 'Profil', trTestFiles: 'Örnek dosyalar', trTestNote: 'Eylemler gerçekten çalışır (komut, SSH, HTTP, bildirim). Dosyalar yalnızca ortama ve yer tutuculara geçer, hiçbir şey yüklenmez.', trTestNoServer: 'Önce profili kaydet', trTpl_migrateSsh: 'Şablon: Laravel migrate (SSH)', trTpl_migrateHttp: 'Şablon: migrate (HTTP isteği)', trTpl_composer: 'Şablon: composer install (SSH)', trTpl_cache: 'Şablon: cache temizle (SSH)', trTpl_npm: 'Şablon: önce npm run build', trTpl_notify: 'Şablon: Slack / Discord bildirimi', trTpl_blank: 'Boş tetikleyici', edDirect: 'Doğrudan sunucuya · yedeksiz', edDirectHint: 'Bağlantıyla açıldı: yerel kopya ve yedek (Geri al) yok, kayıt doğrudan sunucudaki dosyaya yazılır. Sunucudaki dosya açıldıktan sonra değiştiyse yine sorulur.', zipSel: 'Zip\'le', zipTitle: 'Zip arşivi oluştur', zipName: 'Arşiv adı', zipHint: '{0} öğe bu klasörde tek arşive sıkıştırılır; aynı adlı dosya varsa sonuna -2 eklenir. FTP\'de sunucuda komut çalıştırılamadığı için dosyalar indirilip arşivlenir, arşiv geri yüklenir.', unzip: 'Zipten çıkar', unzipTo: '{0}/ klasörüne', unzipHere: 'Bulunduğu klasöre', unzipHint: 'Var olan dosyaların üzerine yazılır. Arşiv indirilir, içindeki dosyalar tek tek yüklenir.', upWaiting: 'sırada…', upDone: 'yüklendi', upCount: '{0} / {1} dosya', created: 'Oluşturuldu', moved: 'Taşındı', frozenAdded: '{0} öğe freeze listesine eklendi', frozenRemoved: '{0} kayıt freeze listesinden çıkarıldı',
     deleteManyConfirm: '{0} öğe sunucudan KALICI olarak silinsin mi? (klasörler içerikleriyle)', runCmd: 'Sunucuda komut çalıştır', runCmdHint: 'SSH ile uzak dizinde komut çalıştırır', diffLocalMissing: 'Yerelde yok', diffTooBig: 'Dosya karşılaştırma için çok büyük — tam görünüm gösteriliyor',
     unsavedTitle: 'Kaydedilmemiş değişiklikler', unsavedBody: 'Bu formda kaydedilmemiş değişiklikler var. Sayfadan çıkılırsa kaybolacak.', unsavedLeave: 'Kaydetmeden çık',
     diffHint: 'Sunucu → yerel: <span class="bad-t">−</span> sunucudan gidecek, <span class="ok-t">+</span> sync ile gelecek', foldN: '⋯ {0} aynı satır', clickToDiff: 'Farkı görmek için dosyaya tıklayın',
@@ -232,7 +232,7 @@ const T = {
     upload: 'Upload', newFolder: 'New folder', folderName: 'Folder name', rename: 'Rename / move', newPath: 'New path (relative to remote root)',
     moveTo: 'Move', selectedN: '{0} selected', clearSel: 'Clear selection',
     freezeToggle: 'Freeze / unfreeze', frozenBadge: 'frozen', searchAll: 'Search subfolders', searchTitle: 'Search "{0}"', searchNone: 'No results', searching: 'Searching…', searchingN: '{0} results · {1} folders scanned…', searchDoneN: '{0} results · {1} folders · {2}s', searchTruncated: 'Too many results (first 2000) or the 5-minute limit was hit — narrow the search.',
-    uploaded: '{0} file(s) uploaded', edDirect: 'Straight to the server · no backup', edDirectHint: 'Opened through a connection: there is no local copy and no backup (Undo), saving writes the server file directly. You are still asked if the server file changed after you opened it.', zipSel: 'Zip', zipTitle: 'Create a zip archive', zipName: 'Archive name', zipHint: '{0} item(s) are packed into one archive in this folder; if the name is taken, -2 is appended. FTP cannot run commands on the server, so the files are downloaded, archived and the archive is uploaded back.', unzip: 'Unzip', unzipTo: 'Into {0}/', unzipHere: 'Into this folder', unzipHint: 'Existing files are overwritten. The archive is downloaded and its files are uploaded one by one.', upWaiting: 'queued…', upDone: 'uploaded', upCount: '{0} / {1} files', created: 'Created', moved: 'Moved', frozenAdded: '{0} item(s) added to the freeze list', frozenRemoved: '{0} entr(y/ies) removed from the freeze list',
+    uploaded: '{0} file(s) uploaded', secTriggers: 'Triggers', secTriggersDesc: 'Run when certain files are uploaded (or right before): e.g. migrate when the migrations folder changes. Triggers in the project settings also run for this profile.', secTriggersDescGlobal: 'Run for every profile; profile-only ones live on the profile edit page. When certain files are uploaded (or right before): a command, SSH, an HTTP request or a notification.', trAfter: 'After upload', trBefore: 'Before upload', trWhen: 'When', trWhenHint: 'If "before" fails, that profile\'s sync is aborted; an "after" failure does not change the sync result.', trPaths: 'Which files', trPathsHint: 'Fires when an uploaded file matches one of these patterns (same rules as include/exclude). Empty = every upload.', trRun: 'Local commands', trRunHint: 'Run in the project folder; SYNCFTP_TRIGGER_FILES is in the environment.', trRemote: 'SSH commands (on the server)', trRemoteHint: 'Run in the remote folder (php artisan migrate --force).', trRemoteFtp: 'SFTP profiles only; skipped on FTP.', trHttpUrl: 'HTTP request — URL', trHttpMethod: 'Method', trHttpHeaders: 'Headers', trHttpBody: 'Body', trHttpBodyHint: 'Empty sends a JSON summary (trigger, server, project, count, files).', trVarsHint: 'Placeholders: {files} {files_json} {count} {first} {server} {project} {trigger}', trNotify: 'Notification (Slack / Discord / webhook)', trActRun: 'command', trActNotify: 'notification', trNoAction: 'no action', trUnnamed: '(unnamed)', trAnyFile: 'any file', trEmpty: 'No triggers yet. Add one from a template below.', trAdd: 'Add trigger', trDelConfirm: 'Delete the "{0}" trigger? (Takes effect when you save)', trTest: 'Try', trTestHint: 'Run this trigger\'s actions without a sync (as it is in the form)', trTestServer: 'Profile', trTestFiles: 'Sample files', trTestNote: 'The actions really run (command, SSH, HTTP, notification). The files only go into the environment and placeholders; nothing is uploaded.', trTestNoServer: 'Save the profile first', trTpl_migrateSsh: 'Template: Laravel migrate (SSH)', trTpl_migrateHttp: 'Template: migrate (HTTP request)', trTpl_composer: 'Template: composer install (SSH)', trTpl_cache: 'Template: clear cache (SSH)', trTpl_npm: 'Template: npm run build first', trTpl_notify: 'Template: Slack / Discord notification', trTpl_blank: 'Blank trigger', edDirect: 'Straight to the server · no backup', edDirectHint: 'Opened through a connection: there is no local copy and no backup (Undo), saving writes the server file directly. You are still asked if the server file changed after you opened it.', zipSel: 'Zip', zipTitle: 'Create a zip archive', zipName: 'Archive name', zipHint: '{0} item(s) are packed into one archive in this folder; if the name is taken, -2 is appended. FTP cannot run commands on the server, so the files are downloaded, archived and the archive is uploaded back.', unzip: 'Unzip', unzipTo: 'Into {0}/', unzipHere: 'Into this folder', unzipHint: 'Existing files are overwritten. The archive is downloaded and its files are uploaded one by one.', upWaiting: 'queued…', upDone: 'uploaded', upCount: '{0} / {1} files', created: 'Created', moved: 'Moved', frozenAdded: '{0} item(s) added to the freeze list', frozenRemoved: '{0} entr(y/ies) removed from the freeze list',
     deleteManyConfirm: 'PERMANENTLY delete {0} item(s) from the server? (folders with their contents)', runCmd: 'Run command on server', runCmdHint: 'Runs a command over SSH in the remote folder', diffLocalMissing: 'Missing locally', diffTooBig: 'File too large to diff — showing full view',
     unsavedTitle: 'Unsaved changes', unsavedBody: 'This form has unsaved changes. They will be lost if you leave the page.', unsavedLeave: 'Leave without saving',
     diffHint: 'Server → local: <span class="bad-t">−</span> leaves the server, <span class="ok-t">+</span> arrives with sync', foldN: '⋯ {0} unchanged lines', clickToDiff: 'Click a file to see the diff',
@@ -1303,6 +1303,112 @@ const section = (icn, title, desc, inner, o = {}) => {
   if (!o.fold) return `<div class="bolum"${pa}><h3>${icon(icn)}${title}</h3>${body}</div>`;
   return `<details class="bolum katlanir"${pa} ${o.open ? 'open' : ''}><summary><h3>${icon(icn)}${title}</h3>${o.summary ? `<span class="kat-ozet">${o.summary}</span>` : ''}${icon('right', 'ok-ac')}</summary><div class="katlanir-ic">${body}</div></details>`;
 };
+// ── Tetikleyiciler (config.Trigger, cmd_triggers.go) ─────────────────────────
+// Kart başına mevcut alan bileşenleri, anahtarlar "<prefix>.<i>.<alan>" → readForm diziye çevirir.
+// Ekle / sil kartları formdan okuyup yeniden çizer (indeksler hep 0..n-1 kalır).
+const TRIGGER_TEMPLATES = {
+  migrateSsh: { name: 'migrate', when: 'after', paths: ['database/migrations/'], remote: ['php artisan migrate --force'] },
+  migrateHttp: { name: 'migrate', when: 'after', paths: ['database/migrations/'], http_url: 'https://example.com/deploy/migrate?token=…', http_method: 'POST' },
+  composer: { name: 'composer', when: 'after', paths: ['composer.json', 'composer.lock'], remote: ['composer install --no-dev --optimize-autoloader'] },
+  cache: { name: 'cache', when: 'after', paths: ['config/', 'routes/'], remote: ['php artisan optimize:clear'] },
+  npm: { name: 'build', when: 'before', paths: ['resources/js/', 'resources/css/'], run: ['npm run build'] },
+  notify: { name: 'bildirim', when: 'after', paths: [], notify: '' },
+  blank: { name: '', when: 'after', paths: [] },
+};
+function triggerCard(prefix, tr, i, o) {
+  const k = (f) => `${prefix}.${i}.${f}`;
+  const on = tr.enabled !== false;
+  const whenOpts = [['after', t('trAfter')], ['before', t('trBefore')]];
+  const methods = ['POST', 'GET', 'PUT', 'PATCH', 'DELETE'].map((m) => [m, m]);
+  const acts = [n2(tr.run) && t('trActRun'), n2(tr.remote) && 'SSH', tr.http_url && 'HTTP', tr.notify && t('trActNotify')].filter(Boolean).join(' · ') || t('trNoAction');
+  return `<div class="tetik-kart ${on ? '' : 'kapali'}" data-tidx="${i}">
+    <div class="tetik-bas">
+      <span class="tetik-ad">${icon('zap', 'acc-t')}<b>${esc(tr.name || t('trUnnamed'))}</b><span class="faint">${esc((tr.paths || []).join(', ') || t('trAnyFile'))} → ${esc(acts)}</span></span>
+      <span class="aksiyonlar"><button class="btn kucuk" data-ttest="${i}" title="${t('trTestHint')}">${icon('play')}${t('trTest')}</button>
+        <button class="ikon-btn tehlike" data-tdel="${i}" title="${t('delete')}">${icon('trash')}</button></span></div>
+    <div class="alanlar">${fText(k('name'), t('fName'), tr.name, { ph: 'migrate' })}${fSelect(k('when'), t('trWhen'), tr.when || 'after', whenOpts, { hint: t('trWhenHint') })}
+      ${fBool(k('enabled'), t('fEnabled'), on)}</div>
+    <div class="alanlar">${fArea(k('paths'), t('trPaths'), tr.paths, { tree: 'paths', chips: ['database/migrations/', '*.sql', 'composer.lock', 'package.json', 'config/', '.env'], hint: t('trPathsHint') })}</div>
+    <div class="alanlar">${fArea(k('run'), t('trRun'), tr.run, { wide: false, hint: t('trRunHint') })}${fArea(k('remote'), t('trRemote'), tr.remote, { wide: false, hint: o.sftp ? t('trRemoteHint') : t('trRemoteFtp') })}</div>
+    <div class="alanlar">${fText(k('http_url'), t('trHttpUrl'), tr.http_url, { mono: true, wide: true, ph: 'https://site.com/deploy/migrate?token=…', hint: t('trVarsHint') })}
+      ${fSelect(k('http_method'), t('trHttpMethod'), (tr.http_method || 'POST').toUpperCase(), methods)}</div>
+    <div class="alanlar">${fArea(k('http_headers'), t('trHttpHeaders'), tr.http_headers, { wide: false, ph: 'Authorization: Bearer …' })}
+      <div class="alan"><label>${t('trHttpBody')}</label><textarea data-k="${k('http_body')}" data-ty="text" class="mono" rows="4" spellcheck="false" placeholder='{"files": {files_json}}'>${esc(tr.http_body || '')}</textarea><small>${t('trHttpBodyHint')}</small></div></div>
+    <div class="alanlar">${fText(k('notify'), t('trNotify'), tr.notify, { mono: true, wide: true, ph: 'https://hooks.slack.com/…', whtest: true })}</div>
+  </div>`;
+}
+const n2 = (a) => (a || []).filter((x) => String(x).trim()).length;
+function triggersInner(prefix, list, o) {
+  return `<input type="hidden" data-k="${prefix}" data-ty="emptylist">
+    ${(list || []).map((tr, i) => triggerCard(prefix, tr, i, o)).join('') || `<div class="bos" style="padding:14px">${t('trEmpty')}</div>`}
+    <div class="aksiyonlar"><select data-ttmpl style="width:auto">${Object.keys(TRIGGER_TEMPLATES).map((x) => `<option value="${x}">${t('trTpl_' + x)}</option>`).join('')}</select>
+      <button class="btn" data-tadd>${icon('plus')}${t('trAdd')}</button></div>`;
+}
+function triggersSection(prefix, list, o = {}) {
+  const sum = (list || []).length ? (list || []).map((x) => esc(x.name)).join(', ') : t('foldDefault');
+  return section('zap', t('secTriggers'), o.global ? t('secTriggersDescGlobal') : t('secTriggersDesc'),
+    `<div class="tetikler" data-tprefix="${prefix}" data-tservers="${esc(JSON.stringify(o.servers || []))}" data-tsftp="${o.sftp ? 1 : 0}">${triggersInner(prefix, list, o)}</div>`,
+    { fold: true, open: (list || []).length > 0, summary: sum });
+}
+// Formdaki tetikleyici listesini oku (kaydedilmemiş hâliyle)
+function readTriggers(box) {
+  const obj = readForm(box, {});
+  let v = obj;
+  for (const part of box.dataset.tprefix.split('.')) v = v ? v[part] : undefined;
+  return (v || []).filter(Boolean);
+}
+function redrawTriggers(box, list) {
+  box.innerHTML = triggersInner(box.dataset.tprefix, list, { sftp: box.dataset.tsftp === '1' });
+  bindFormTools(box);
+  box.dispatchEvent(new Event('change', { bubbles: true })); // kaydedilmemiş form koruması
+}
+document.addEventListener('click', async (e) => {
+  const box = e.target.closest && e.target.closest('.tetikler');
+  if (!box) return;
+  const add = e.target.closest('[data-tadd]'), del = e.target.closest('[data-tdel]'), test = e.target.closest('[data-ttest]');
+  if (!add && !del && !test) return;
+  e.preventDefault();
+  const list = readTriggers(box);
+  if (add) {
+    const tpl = JSON.parse(JSON.stringify(TRIGGER_TEMPLATES[$('[data-ttmpl]', box).value] || TRIGGER_TEMPLATES.blank));
+    // aynı ad varsa sonuna sayı
+    let name = tpl.name, n = 2;
+    while (name && list.some((x) => (x.name || '').toLowerCase() === name.toLowerCase())) name = `${tpl.name}-${n++}`;
+    tpl.name = name;
+    redrawTriggers(box, [...list, tpl]);
+    const cards = $$('.tetik-kart', box);
+    if (cards.length) { cards[cards.length - 1].scrollIntoView({ block: 'nearest' }); $('input[data-k$=".name"]', cards[cards.length - 1]).focus(); }
+    return;
+  }
+  const i = +(del || test).dataset[del ? 'tdel' : 'ttest'];
+  if (del) {
+    if (!(await confirmBox(t('delete'), t('trDelConfirm', list[i].name || t('trUnnamed')), t('delete'), true))) return;
+    list.splice(i, 1);
+    redrawTriggers(box, list);
+    return;
+  }
+  // Dene: formdaki (kaydedilmemiş) tanımla, sync olmadan; örnek dosyalar sorulur
+  const form = box.closest('[data-p]');
+  const P = form.dataset.p;
+  const servers = JSON.parse(box.dataset.tservers || '[]');
+  const res = await new Promise((done) => {
+    modal({
+      title: `${icon('play')}${t('trTest')} — ${esc(list[i].name || t('trUnnamed'))}`, onClose: () => done(null),
+      body: `<div class="form">${servers.length > 1 ? fSelect('srv', t('trTestServer'), servers[0], servers.map((x) => [x, x])) : ''}
+        ${fArea('files', t('trTestFiles'), (list[i].paths || []).filter((x) => !/[*?]/.test(x)).slice(0, 1).map((x) => (x.endsWith('/') ? x + 'ornek.php' : x)), { ph: 'database/migrations/2026_01_01_ornek.php' })}
+        <p class="ipucu">${t('trTestNote')}</p></div>`,
+      actions: [{ label: t('cancel'), cls: 'hayalet' }, { label: icon('play') + t('trTest'), cls: 'mavi', run: (r) => done(readForm(r, {})) }],
+    });
+  });
+  if (!res) return;
+  const srv = res.srv || servers[0];
+  if (!srv) { fail(new Error(t('trTestNoServer'))); return; }
+  const tr = { ...list[i] };
+  if (tr.http_method === 'POST') delete tr.http_method;
+  try {
+    await startJobs(P, { kind: 'trigger', servers: [srv], target: tr.name, trigger: tr, paths: res.files || [] }, `${t('trTest')}: ${tr.name}`);
+  } catch (err) { fail(err); }
+});
 // Protokole özel alanlar: FTP'de SSH anahtarı, SFTP'de passive/EPSV/NAT görünmez (değerleri korunur)
 const PROTO_FIELDS = { key_file: 'sftp', passive: 'ftp ftps', disable_epsv: 'ftp ftps', nat_workaround: 'ftp ftps', tls_skip_verify: 'ftps' };
 function applyProtoVis(root) {
@@ -1383,10 +1489,12 @@ function readForm(root, obj) {
     else if (ty === 'int') v = parseInt(el.value, 10) || 0;
     else if (ty === 'list') v = unlines(el.value);
     else if (ty === 'words') v = unwords(el.value);
+    else if (ty === 'emptylist') v = [];
     else v = el.value.trim();
+    // "triggers.0.name" → dizi (sonraki parça sayıysa)
     const path = k.split('.');
     let o = obj;
-    for (let i = 0; i < path.length - 1; i++) o = o[path[i]] ??= {};
+    for (let i = 0; i < path.length - 1; i++) o = o[path[i]] ??= (/^\d+$/.test(path[i + 1]) ? [] : {});
     o[path[path.length - 1]] = v;
   });
   return obj;
@@ -1550,6 +1658,7 @@ async function tabServerEdit(proj, name) {
         ${fArea('protect', t('fProtect'), s.protect, { wide: false, tree: 'protect', chips: 'protect' })}${fArea('block_extensions', t('fBlock'), s.block_extensions, { ty: 'words', wide: false, hint: t('fBlockHint'), chips: 'block' })}</div>`, { fold: true, summary: sumFilt })}
     ${section('log', t('secHooks'), t('secHooksDesc'), `<div class="alanlar">${fArea('pre_sync', t('fPre'), s.pre_sync, { wide: false })}${fArea('post_sync', t('fPost'), s.post_sync, { wide: false })}</div>`, { fold: true, summary: sumHooks })}
     ${section('terminal', t('secRemote'), t('secRemoteDesc'), `<div class="alanlar">${fArea('remote_pre_sync', t('fRemotePre'), s.remote_pre_sync, { wide: false })}${fArea('remote_post_sync', t('fRemotePost'), s.remote_post_sync, { wide: false, hint: 'php artisan migrate --force' })}</div>`, { fold: true, summary: sumRemote, proto: 'sftp' })}
+    ${triggersSection('triggers', s.triggers, { servers: isNew ? [] : [s.name], sftp: (conn || s).protocol === 'sftp' })}
   </div>
   <div class="form-alt"><div class="sol">${isNew ? '' : `<button class="btn tehlike" id="b-del">${icon('trash')}${t('delete')}</button>`}</div>
     <button class="btn" id="b-test">${icon('test')}${t('testConn')}</button>
@@ -1731,6 +1840,7 @@ async function tabSettings(proj) {
         ${fBool('first_sync.full', t('fFirstFull'), cfg.first_sync && cfg.first_sync.full, t('fFirstFullHint'))}
       </div>`, { fold: true, summary: sumUp })}
     ${section('log', t('secHooks'), t('secHooksDesc'), `<div class="alanlar">${fArea('sync.pre_sync', t('fPre'), sy.pre_sync, { wide: false })}${fArea('sync.post_sync', t('fPost'), sy.post_sync, { wide: false })}</div>`, { fold: true, summary: `pre ${n(sy.pre_sync)} · post ${n(sy.post_sync)}` })}
+    ${triggersSection('sync.triggers', sy.triggers, { servers: cfg.servers.map((x) => x.name), global: true, sftp: true })}
     <div class="ara-baslik">${t('foldMore')}</div>
     ${section('x', t('ignoreTitle'), `${t('ignoreDesc')}${gitLines ? ' · ' + t('gitignoreNote', gitLines) : ''}`, `
       <div class="aksiyonlar" style="margin-bottom:10px">${ignTargets.length > 1 ? `<select id="ign-dir" style="width:auto">${ignTargets.map((g, i) => `<option value="${i}">${esc(g.dir)} — ${esc((g.servers || []).join(', '))}</option>`).join('')}</select>` : ''}

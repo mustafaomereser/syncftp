@@ -676,3 +676,12 @@ tr.yukleme-satir.yuklendi td { opacity: 1; }
 tr.yukleme-satir.yuklendi [data-upst] { color: var(--ok); }
 tr.yukleme-satir.yukleme-hata td { opacity: .6; }
 tr.yukleme-satir.yukleme-hata [data-upst] { color: var(--bad); }
+
+/* Tetikleyiciler: kart başına bir tetikleyici (triggerCard) */
+.tetikler { display: grid; gap: 12px; }
+.tetik-kart { border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: grid; gap: 12px; background: var(--bg-2, transparent); }
+.tetik-kart.kapali { opacity: .6; }
+.tetik-bas { display: flex; align-items: center; gap: 10px; justify-content: space-between; flex-wrap: wrap; }
+.tetik-ad { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
+.tetik-ad .faint { font-size: 12px; }
+.tetik-kart textarea { width: 100%; }

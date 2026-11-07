@@ -31,6 +31,7 @@ local project ──▶ change detection (SHA256 + cache) ──▶ filters ─�
 - **Watch** — upload on save (OS file events, zero CPU while idle)
 - **CI/CD** — GitHub / GitLab / Gitea / Bitbucket push → signed webhook → `git pull` → deploy, with a one-click public URL (Cloudflare *trycloudflare*)
 - **Hooks** — local `pre_sync` / `post_sync`, and **remote SSH commands** on SFTP servers (`php artisan migrate` …)
+- **File triggers** — when certain files are uploaded (e.g. `database/migrations/`), run a local command, an SSH command, an HTTP request and/or a Slack / Discord notification; before or after the upload
 - **Webhooks out** — Slack / Discord / any URL after each sync
 
 **Interfaces**
@@ -51,7 +52,7 @@ The interface follows your OS language (Turkish or English); switch with `syncft
 - [Installation](#installation) · [Quick start](#quick-start) · [Three ways to use it](#three-ways-to-use-it)
 - [Desktop panel](#desktop-panel) · [Configuration](#configuration) · [Protocols & SSH tunnel](#protocols--ssh-tunnel)
 - [How a sync works](#how-a-sync-works) · [Filters](#filters) · [Backup, rollback & atomic uploads](#backup-rollback--atomic-uploads)
-- [Automation](#automation-watch-hooks-webhooks) · [CI/CD](#cicd--deploy-on-git-push) · [Performance](#performance)
+- [Automation (hooks, triggers)](#automation-watch-hooks-webhooks) · [CI/CD](#cicd--deploy-on-git-push) · [Performance](#performance)
 - [Security](#security) · [Multiple projects](#multiple-projects) · [Command reference](#command-reference)
 - [Files on disk](#files-on-disk) · [Development](#development)
 
@@ -372,6 +373,20 @@ Uploads are **atomic** (`.syncftp-<name>.tmp` → rename); if the server refuses
 ```
 
 Run on the server in `remote_path` with the same environment variables. One-off: `syncftp remote exec -s production "php artisan cache:clear"`, `exec <cmd>` in the shell, or *Run command on server* in the panel.
+
+**File triggers** — `sync.triggers` (every server) and `servers[].triggers`. A trigger fires when an uploaded file matches one of its `paths` (same patterns as include/exclude; empty = every upload):
+
+```json
+"triggers": [{
+  "name": "migrate", "when": "after", "paths": ["database/migrations/"],
+  "remote": ["php artisan migrate --force"],
+  "http_url": "https://example.com/deploy/migrate?token=…", "http_method": "POST",
+  "http_headers": ["Authorization: Bearer …"],
+  "notify": "https://hooks.slack.com/services/…"
+}]
+```
+
+Actions run in order: `run` (local, project folder) → `remote` (SSH, SFTP only) → HTTP request → `notify` (Slack / Discord / generic webhook). `when: "before"` fires on the files about to be uploaded and a failure aborts that server's sync; `"after"` (default) fires on the files that were actually uploaded and failures are only reported. Commands get `SYNCFTP_TRIGGER`, `SYNCFTP_TRIGGER_COUNT`, `SYNCFTP_TRIGGER_FILES` (one per line); the HTTP URL / headers / body accept `{files}` `{files_json}` `{count}` `{first}` `{server}` `{project}` `{trigger}` (an empty body sends a JSON summary). Dry runs list the triggers that would fire. `syncftp trigger list`, `syncftp trigger test NAME [-s SERVER] [FILE...]`; in the panel: *Triggers* section in the project settings and on each profile, with templates and a *Try* button.
 
 **Outgoing webhook** — POSTed after each sync. Slack and Discord webhook URLs get a readable message; other URLs receive JSON:
 

@@ -327,6 +327,7 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 				fmt.Fprintf(w, lang.L.SyncUploadLabel, rel)
 			}
 		}
+		previewTriggers(w, cfg, srv, plan.upload)
 		return result
 	}
 
@@ -349,6 +350,11 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 	if hookErr := runRemoteHooks(w, srv, srv.RemotePreSync, 0, 0); hookErr != nil {
 		fmt.Fprintf(w, lang.L.SyncHookAbortFmt, hookErr)
 		result.err = hookErr
+		return result
+	}
+	// "before" tetikleyicileri (yüklenecek dosyalara göre): hata → sync iptal
+	if trigErr := runTriggers(w, configDir, cfg, srv, true, plan.upload); trigErr != nil {
+		result.err = trigErr
 		return result
 	}
 
@@ -488,6 +494,8 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 			fmt.Fprintf(w, lang.L.SyncHookErrFmt, hookErr)
 		}
 	}
+	// "after" tetikleyicileri — yalnızca GERÇEKTEN yüklenen dosyalara göre; hatalar sonucu değiştirmez
+	_ = runTriggers(w, configDir, cfg, srv, false, result.uploadedFiles)
 
 	return result
 }

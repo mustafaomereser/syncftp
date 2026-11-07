@@ -89,18 +89,19 @@ func (p Project) EffectiveLocalPath() string {
 }
 
 type Sync struct {
-	Protect         []string `json:"protect"`
-	Include         []string `json:"include"`
-	Exclude         []string `json:"exclude"`
-	IgnoreFiles     []string `json:"ignore_files"`
-	BandwidthLimit  int      `json:"bandwidth_limit,omitempty"`  // KB/s, sunucu başına upload hız sınırı (0 = sınırsız); sunucu değeri önceliklidir
-	NoBackup        bool     `json:"no_backup,omitempty"`        // true → upload öncesi uzak yedek alınmaz (rollback devre dışı)
-	BackupKeep      int      `json:"backup_keep,omitempty"`      // yedek dosyaları tutulacak son release sayısı (0 → 10)
-	DirectUpload    bool     `json:"direct_upload,omitempty"`    // true → atomik (tmp+rename) upload kapalı, doğrudan hedefe yazılır              // nil/boş → [".gitignore","syncftp.ignore"] ikisi de yüklenir
-	Webhook         string   `json:"webhook,omitempty"`          // sync sonrası POST atılacak URL
-	BlockExtensions []string `json:"block_extensions,omitempty"` // yüklenmeyecek uzantılar: [".jpg",".pdf"]
-	PreSync         []string `json:"pre_sync,omitempty"`         // upload öncesi çalıştırılacak komutlar; hata → o sunucunun sync'i iptal
-	PostSync        []string `json:"post_sync,omitempty"`        // upload sonrası çalıştırılacak komutlar; hata sync'i etkilemez
+	Protect         []string  `json:"protect"`
+	Include         []string  `json:"include"`
+	Exclude         []string  `json:"exclude"`
+	IgnoreFiles     []string  `json:"ignore_files"`
+	BandwidthLimit  int       `json:"bandwidth_limit,omitempty"`  // KB/s, sunucu başına upload hız sınırı (0 = sınırsız); sunucu değeri önceliklidir
+	NoBackup        bool      `json:"no_backup,omitempty"`        // true → upload öncesi uzak yedek alınmaz (rollback devre dışı)
+	BackupKeep      int       `json:"backup_keep,omitempty"`      // yedek dosyaları tutulacak son release sayısı (0 → 10)
+	DirectUpload    bool      `json:"direct_upload,omitempty"`    // true → atomik (tmp+rename) upload kapalı, doğrudan hedefe yazılır              // nil/boş → [".gitignore","syncftp.ignore"] ikisi de yüklenir
+	Webhook         string    `json:"webhook,omitempty"`          // sync sonrası POST atılacak URL
+	BlockExtensions []string  `json:"block_extensions,omitempty"` // yüklenmeyecek uzantılar: [".jpg",".pdf"]
+	PreSync         []string  `json:"pre_sync,omitempty"`         // upload öncesi çalıştırılacak komutlar; hata → o sunucunun sync'i iptal
+	PostSync        []string  `json:"post_sync,omitempty"`        // upload sonrası çalıştırılacak komutlar; hata sync'i etkilemez
+	Triggers        []Trigger `json:"triggers,omitempty"`         // belirli dosyalar yüklenince çalışan eylemler (trigger.go)
 }
 
 type FirstSync struct {
@@ -108,37 +109,38 @@ type FirstSync struct {
 }
 
 type Server struct {
-	Name            string   `json:"name"`
-	Connection      string   `json:"connection,omitempty"` // bağlantı profili adı; set edilince host/port/user/password/passive buradan gelir
-	Host            string   `json:"host"`
-	Port            int      `json:"port"`
-	User            string   `json:"user"`
-	Password        string   `json:"password"`
-	RemotePath      string   `json:"remote_path"`
-	LocalPath       string   `json:"local_path,omitempty"` // per-server yerel dizin; boşsa project.DefaultPath
-	Passive         bool     `json:"passive"`
-	DisableEPSV     bool     `json:"disable_epsv"`
-	NATWorkaround   bool     `json:"nat_workaround"`
-	Enabled         bool     `json:"enabled"`
-	MaxConnections  int      `json:"max_connections"`
-	MaxRetries      int      `json:"max_retries"`
-	Include         []string `json:"include"`
-	Exclude         []string `json:"exclude"`
-	Protect         []string `json:"protect"`
-	Webhook         string   `json:"webhook,omitempty"`          // sync sonrası POST atılacak URL (global webhook'u override eder)
-	Minify          bool     `json:"minify,omitempty"`           // CSS/JS dosyalarını upload öncesi minify et
-	Obfuscate       bool     `json:"obfuscate,omitempty"`        // JS dosyalarını minify üstüne obfuscate et (terser gerekir)
-	BlockExtensions []string `json:"block_extensions,omitempty"` // yüklenmeyecek uzantılar (global listeye ek)
-	PreSync         []string `json:"pre_sync,omitempty"`         // sunucuya özel pre-sync komutları (global listeye ek)
-	PostSync        []string `json:"post_sync,omitempty"`        // sunucuya özel post-sync komutları (global listeye ek)
-	Protocol        string   `json:"protocol,omitempty"`         // "ftp" (varsayılan) | "ftps" | "sftp"
-	KeyFile         string   `json:"key_file,omitempty"`         // SFTP özel anahtar dosyası
-	TLSSkipVerify   bool     `json:"tls_skip_verify,omitempty"`  // FTPS: sertifika doğrulamasını atla
-	BandwidthLimit  int      `json:"bandwidth_limit,omitempty"`  // KB/s upload hız sınırı (0 = global değer)
-	RemotePreSync   []string `json:"remote_pre_sync,omitempty"`  // SFTP: upload öncesi SUNUCUDA (SSH) çalışacak komutlar; hata → sync iptal
-	RemotePostSync  []string `json:"remote_post_sync,omitempty"` // SFTP: upload sonrası SUNUCUDA çalışacak komutlar (migrate, cache clear, restart…)
-	NoBackup        bool     `json:"no_backup,omitempty"`        // true → bu sunucuda upload öncesi yedek alınmaz
-	DirectUpload    bool     `json:"direct_upload,omitempty"`    // true → atomik upload kapalı (rename desteklemeyen sunucular)
+	Name            string    `json:"name"`
+	Connection      string    `json:"connection,omitempty"` // bağlantı profili adı; set edilince host/port/user/password/passive buradan gelir
+	Host            string    `json:"host"`
+	Port            int       `json:"port"`
+	User            string    `json:"user"`
+	Password        string    `json:"password"`
+	RemotePath      string    `json:"remote_path"`
+	LocalPath       string    `json:"local_path,omitempty"` // per-server yerel dizin; boşsa project.DefaultPath
+	Passive         bool      `json:"passive"`
+	DisableEPSV     bool      `json:"disable_epsv"`
+	NATWorkaround   bool      `json:"nat_workaround"`
+	Enabled         bool      `json:"enabled"`
+	MaxConnections  int       `json:"max_connections"`
+	MaxRetries      int       `json:"max_retries"`
+	Include         []string  `json:"include"`
+	Exclude         []string  `json:"exclude"`
+	Protect         []string  `json:"protect"`
+	Webhook         string    `json:"webhook,omitempty"`          // sync sonrası POST atılacak URL (global webhook'u override eder)
+	Minify          bool      `json:"minify,omitempty"`           // CSS/JS dosyalarını upload öncesi minify et
+	Obfuscate       bool      `json:"obfuscate,omitempty"`        // JS dosyalarını minify üstüne obfuscate et (terser gerekir)
+	BlockExtensions []string  `json:"block_extensions,omitempty"` // yüklenmeyecek uzantılar (global listeye ek)
+	PreSync         []string  `json:"pre_sync,omitempty"`         // sunucuya özel pre-sync komutları (global listeye ek)
+	PostSync        []string  `json:"post_sync,omitempty"`        // sunucuya özel post-sync komutları (global listeye ek)
+	Protocol        string    `json:"protocol,omitempty"`         // "ftp" (varsayılan) | "ftps" | "sftp"
+	KeyFile         string    `json:"key_file,omitempty"`         // SFTP özel anahtar dosyası
+	TLSSkipVerify   bool      `json:"tls_skip_verify,omitempty"`  // FTPS: sertifika doğrulamasını atla
+	BandwidthLimit  int       `json:"bandwidth_limit,omitempty"`  // KB/s upload hız sınırı (0 = global değer)
+	RemotePreSync   []string  `json:"remote_pre_sync,omitempty"`  // SFTP: upload öncesi SUNUCUDA (SSH) çalışacak komutlar; hata → sync iptal
+	RemotePostSync  []string  `json:"remote_post_sync,omitempty"` // SFTP: upload sonrası SUNUCUDA çalışacak komutlar (migrate, cache clear, restart…)
+	Triggers        []Trigger `json:"triggers,omitempty"`         // sunucuya özel tetikleyiciler (global listeye ek)
+	NoBackup        bool      `json:"no_backup,omitempty"`        // true → bu sunucuda upload öncesi yedek alınmaz
+	DirectUpload    bool      `json:"direct_upload,omitempty"`    // true → atomik upload kapalı (rename desteklemeyen sunucular)
 	SSHTunnel
 }
 
@@ -386,6 +388,11 @@ func (c *Config) Redacted(mask func(string) string, deploySecrets bool) Config {
 	if deploySecrets {
 		for i := range out.Deploy {
 			out.Deploy[i].Secret = mask(out.Deploy[i].Secret)
+		}
+		// tetikleyici HTTP başlıkları çoğu zaman jeton taşır (Authorization: Bearer …)
+		out.Sync.Triggers = maskTriggerHeaders(c.Sync.Triggers, mask)
+		for i := range out.Servers {
+			out.Servers[i].Triggers = maskTriggerHeaders(out.Servers[i].Triggers, mask)
 		}
 	}
 	return out

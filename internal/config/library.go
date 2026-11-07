@@ -173,6 +173,7 @@ func (s Sync) Clone() Sync {
 	s.Protect, s.Include, s.Exclude = cp(s.Protect), cp(s.Include), cp(s.Exclude)
 	s.IgnoreFiles, s.BlockExtensions = cp(s.IgnoreFiles), cp(s.BlockExtensions)
 	s.PreSync, s.PostSync = cp(s.PreSync), cp(s.PostSync)
+	s.Triggers = cloneTriggers(s.Triggers)
 	return s
 }
 

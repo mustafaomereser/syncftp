@@ -59,6 +59,11 @@ func hookEnv(serverName string, uploaded, failed int) []string {
 // İlk hata kalanları durdurur. FTP/FTPS sunucularında SSH olmadığından atlanır (uyarı yazılır).
 // Ortam: SYNCFTP_SERVER / SYNCFTP_UPLOADED / SYNCFTP_FAILED (yerel hook'larla aynı).
 func runRemoteHooks(w io.Writer, srv config.Server, cmds []string, uploaded, failed int) error {
+	return runRemoteCmds(w, srv, cmds, hookEnv(srv.Name, uploaded, failed))
+}
+
+// runRemoteCmds runRemoteHooks'un çekirdeği; ortam "AD=değer" listesi (tetikleyiciler ek değişken taşır).
+func runRemoteCmds(w io.Writer, srv config.Server, cmds []string, envList []string) error {
 	var list []string
 	for _, c := range cmds {
 		if c = strings.TrimSpace(c); c != "" {
@@ -78,7 +83,7 @@ func runRemoteHooks(w io.Writer, srv config.Server, cmds []string, uploaded, fai
 	}
 	defer client.Close()
 	env := map[string]string{}
-	for _, kv := range hookEnv(srv.Name, uploaded, failed) {
+	for _, kv := range envList {
 		if k, v, ok := strings.Cut(kv, "="); ok {
 			env[k] = v
 		}
