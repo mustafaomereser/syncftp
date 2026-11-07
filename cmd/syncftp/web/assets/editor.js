@@ -48,50 +48,69 @@ Object.assign(T.en, {
 
 const ED_HL_MAX = 150000; // bundan büyükte her tuşta renklendirme yavaşlar → düz metin
 
+const edNotEditableReason = (doc) => ({ binary: t('edReasonBinary'), large: t('edReasonLarge'), encoding: t('edReasonEncoding') }[doc.reason] || doc.reason);
+const edConfirmDiscard = () => confirmBox(t('edDiscardTitle'), t('edDiscardText'), t('edDiscard'), true);
+
 // opts.onClose(saved): düzenleyici kapanınca (saved = en az bir kayıt yapıldı) — önizleme kendini tazeler
 async function editFile(P, srv, rel, opts = {}) {
   const title = (dirty) => `${icon('code')}<span class="mono" style="font-size:13px">${esc(rel)}</span>${dirty ? `<span class="ed-nokta" title="${t('edModified')}"></span>` : ''}`;
-  const q = `server=${enc(srv)}&path=${enc(rel)}`;
-  const lm = await loadModal(title(false), 'genis', () => GET(`/api/p/${enc(P)}/remote/edit?${q}`));
+  const lm = await loadModal(title(false), 'genis', () => GET(`/api/p/${enc(P)}/remote/edit?server=${enc(srv)}&path=${enc(rel)}`));
   if (!lm) return;
-  let doc = lm.d;
-  if (!doc.editable) {
-    const why = { binary: t('edReasonBinary'), large: t('edReasonLarge'), encoding: t('edReasonEncoding') }[doc.reason] || doc.reason;
-    modal({ title: title(false), body: `<div class="not">${icon('alert')}${t('edNotEditable')}: ${esc(why)}</div>`, actions: [{ label: t('close'), cls: 'birincil' }] });
+  if (!lm.d.editable) {
+    modal({ title: title(false), body: `<div class="not">${icon('alert')}${t('edNotEditable')}: ${esc(edNotEditableReason(lm.d))}</div>`, actions: [{ label: t('close'), cls: 'birincil' }] });
     return;
   }
+  let ed = null;
+  const m = modal({
+    title: title(false), size: 'genis ed-modal',
+    body: '<div class="ed-host"></div>',
+    actions: [{ left: `<span class="mono">${esc(srv.replace(/^@conn:/, ''))}</span>` },
+      { label: t('close'), cls: 'hayalet', run: async () => (ed.dirty() ? edConfirmDiscard() : true) },
+      { label: icon('check') + t('edSave'), cls: 'birincil', run: () => { ed.save(); return false; } }],
+    guard: async () => (ed.dirty() ? edConfirmDiscard() : true),
+    onClose: () => opts.onClose && opts.onClose(ed.savedAny()),
+  });
+  const titleEl = $('.modal-bas h3', m.root);
+  const btn = $$('.modal-alt .btn', m.root).pop();
+  const label = btn.innerHTML;
+  ed = createEditor($('.ed-host', m.root), {
+    P, srv, rel, doc: lm.d,
+    onDirty: (d) => { titleEl.innerHTML = title(d); },
+    onBusy: (b) => { btn.disabled = b; btn.innerHTML = b ? `${icon('refresh', 'spin')}${t('edSaving')}` : label; },
+  });
+  ed.focus();
+}
 
+// createEditor: düzenleyicinin kendisi (renklendirme, girinti, kaydetme, çakışma) — hem "Düzenle"
+// penceresi hem Dosyalar'daki editör modunun sekmeleri bunu kullanır. host'un içini doldurur.
+// o: { P, srv, rel, doc (GET /remote/edit cevabı, editable), onDirty(bool), onBusy(bool), onSaved() }
+// Döner: { save(), dirty(), savedAny(), focus(), reload(), root }
+function createEditor(host, o) {
+  const { P, srv, rel } = o;
+  const q = `server=${enc(srv)}&path=${enc(rel)}`;
+  let doc = o.doc;
   let orig = doc.content, savedAny = false;
   const localPill = () => doc.direct ? `<span class="pill warn" title="${esc(t('edDirectHint'))}"><span class="nokta"></span>${t('edDirect')}</span>` : doc.local_exists
     ? (doc.local_same ? `<span class="pill ok"><span class="nokta"></span>${t('edLocalSame')}</span>` : `<span class="pill warn"><span class="nokta"></span>${t('edLocalDiff')}</span>`)
     : `<span class="pill">${t('edLocalMissing')}</span>`;
-  const m = modal({
-    title: title(false), size: 'genis ed-modal',
-    body: `<div class="ed"><div class="ed-no"><pre></pre></div><div class="ed-alan"><pre class="ed-hl"></pre>
+  host.innerHTML = `<div class="ed"><div class="ed-no"><pre></pre></div><div class="ed-alan"><pre class="ed-hl"></pre>
         <textarea spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off"></textarea></div></div>
-      <div class="ed-durum"><span data-pos></span><span data-info></span><span data-local>${localPill()}</span></div>`,
-    actions: [{ left: '<span></span>' }, // drawLeft doldurur
-      { label: t('close'), cls: 'hayalet', run: async () => (dirty() ? confirmDiscard() : true) },
-      { label: icon('check') + t('edSave'), cls: 'birincil', run: () => { save(); return false; } }],
-    guard: async () => (dirty() ? confirmDiscard() : true),
-    onClose: () => opts.onClose && opts.onClose(savedAny),
-  });
-  const ta = $('textarea', m.root), hl = $('.ed-hl', m.root), gut = $('.ed-no pre', m.root);
+      <div class="ed-durum"><span data-pos></span><span data-info></span><span data-target></span><span data-local>${localPill()}</span></div>`;
+  const root = host;
+  const ta = $('textarea', root), hl = $('.ed-hl', root), gut = $('.ed-no pre', root);
   // Hatırlanan kaydetme hedefi ("bir daha sorma"): '' = sor, 'both' | 'remote'
   let target = doc.save_target || '';
-  const setTarget = async (v) => { await api('PUT', '/api/settings', { edit_save_target: v }); target = v; drawLeft(); };
-  function drawLeft() {
-    const sol = $('.modal-alt .sol', m.root);
-    sol.innerHTML = `<span class="mono">${esc(srv.replace(/^@conn:/, ''))}</span>${target && !doc.direct ? `<span class="ed-hedef">${t(target === 'both' ? 'edTargetBoth' : 'edTargetRemote')}
-      <button class="btn kucuk hayalet" data-reask title="${t('edTargetResetHint')}">${t('edTargetReset')}</button></span>` : ''}`;
-    const b = $('[data-reask]', sol);
+  const setTarget = async (v) => { await api('PUT', '/api/settings', { edit_save_target: v }); target = v; drawTarget(); };
+  function drawTarget() {
+    const el = $('[data-target]', root);
+    el.innerHTML = target && !doc.direct ? `<span class="ed-hedef">${t(target === 'both' ? 'edTargetBoth' : 'edTargetRemote')}
+      <button class="btn kucuk hayalet" data-reask title="${t('edTargetResetHint')}">${t('edTargetReset')}</button></span>` : '';
+    const b = $('[data-reask]', el);
     if (b) b.onclick = async () => { try { await setTarget(''); toast(t('edTargetResetDone')); ta.focus(); } catch (e) { fail(e); } };
   }
-  drawLeft();
-  const titleEl = $('.modal-bas h3', m.root);
+  drawTarget();
   ta.value = orig;
   const dirty = () => ta.value !== orig;
-  const confirmDiscard = () => confirmBox(t('edDiscardTitle'), t('edDiscardText'), t('edDiscard'), true);
 
   // Girinti birimi dosyadan: sekme ile girintili satır varsa \t, yoksa en küçük boşluk girintisi (2/4)
   const unit = (() => {
@@ -108,9 +127,9 @@ async function editFile(P, srv, rel, opts = {}) {
     hl.innerHTML = (big ? esc(v) : HL.hlLines(v, rel).join('\n')) + '\n ';
     const n = v.split('\n').length;
     if (n !== lines) { lines = n; gut.textContent = Array.from({ length: n }, (_, i) => i + 1).join('\n') + '\n '; }
-    $('[data-info]', m.root).textContent = `${bytes(new Blob([v]).size)}${big ? ' · ' + t('edNoHl') : ''}`;
+    $('[data-info]', root).textContent = `${bytes(new Blob([v]).size)}${big ? ' · ' + t('edNoHl') : ''}`;
     const d = dirty();
-    if (d !== wasDirty) { wasDirty = d; titleEl.innerHTML = title(d); }
+    if (d !== wasDirty) { wasDirty = d; if (o.onDirty) o.onDirty(d); }
     sync();
   }
   const queue = () => { if (!raf) raf = requestAnimationFrame(paint); };
@@ -121,7 +140,7 @@ async function editFile(P, srv, rel, opts = {}) {
   function pos() {
     const before = ta.value.slice(0, ta.selectionStart);
     const ln = before.split('\n').length, col = ta.selectionStart - before.lastIndexOf('\n');
-    $('[data-pos]', m.root).textContent = t('edLine', ln, col);
+    $('[data-pos]', root).textContent = t('edLine', ln, col);
   }
   // execCommand('insertText') geri al (Ctrl+Z) geçmişini korur
   const insert = (text) => { if (!document.execCommand('insertText', false, text)) ta.setRangeText(text, ta.selectionStart, ta.selectionEnd, 'end'); };
@@ -131,7 +150,7 @@ async function editFile(P, srv, rel, opts = {}) {
   ['keyup', 'click', 'select'].forEach((ev) => ta.addEventListener(ev, pos));
   ta.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(); return; }
-    if (e.key === 'Tab') {
+    if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) { // Ctrl+Tab = sekmeler arası (editör modu)
       e.preventDefault();
       const v = ta.value, s = ta.selectionStart, en = ta.selectionEnd;
       if (s === en && !e.shiftKey) return insert(unit);
@@ -156,7 +175,7 @@ async function editFile(P, srv, rel, opts = {}) {
     }
   });
   paint(); pos();
-  ta.focus(); ta.setSelectionRange(0, 0); ta.scrollTop = 0; sync();
+  ta.setSelectionRange(0, 0); ta.scrollTop = 0; sync();
 
   let saving = false;
   async function save() {
@@ -174,9 +193,7 @@ async function editFile(P, srv, rel, opts = {}) {
 
   async function put(content, local, force) {
     saving = true;
-    const btn = $$('.modal-alt .btn', m.root).pop();
-    const label = btn.innerHTML;
-    btn.disabled = true; btn.innerHTML = `${icon('refresh', 'spin')}${t('edSaving')}`;
+    if (o.onBusy) o.onBusy(true);
     let again = false;
     try {
       const res = await api('PUT', `/api/p/${enc(P)}/remote/edit`, { server: srv, path: rel, content, base_hash: doc.hash, local, force });
@@ -185,14 +202,15 @@ async function editFile(P, srv, rel, opts = {}) {
       // Yerel durum sunucunun kayıttan sonraki gerçek karşılaştırmasından (tahmin yok)
       if (!doc.direct) doc.local_exists = !!res.local_exists;
       doc.local_same = !!res.local_same;
-      $('[data-local]', m.root).innerHTML = localPill();
+      $('[data-local]', root).innerHTML = localPill();
       toast(`${t('edSaved')}: ${rel}`);
       paint();
+      if (o.onSaved) o.onSaved();
     } catch (e) {
       if (e.status === 409 && e.body && e.body.conflict) again = (await conflict(e.body.conflict, content)) === 'overwrite';
       else fail(e);
     } finally {
-      saving = false; btn.disabled = false; btn.innerHTML = label; ta.focus();
+      saving = false; if (o.onBusy) o.onBusy(false); ta.focus();
     }
     if (again) await put(content, local, true);
   }
@@ -236,10 +254,7 @@ async function editFile(P, srv, rel, opts = {}) {
           ...(cur.editable ? [{ label: icon('refresh') + t('edReload'), cls: '', run: async () => {
             // Yerel karşılaştırması dahil tazesi sunucudan
             try {
-              doc = await GET(`/api/p/${enc(P)}/remote/edit?${q}`);
-              orig = doc.content; ta.value = doc.content;
-              $('[data-local]', m.root).innerHTML = localPill();
-              paint(); pos();
+              await reload();
             } finally { res('reload'); }
           } }] : []),
           { label: icon('check') + t('edOverwrite'), cls: 'tehlike', run: () => res('overwrite') },
@@ -248,4 +263,15 @@ async function editFile(P, srv, rel, opts = {}) {
       });
     });
   }
+
+  // Sunucudakini yeniden yükle (yerel karşılaştırması dahil) — değişiklikler gider
+  async function reload() {
+    doc = await GET(`/api/p/${enc(P)}/remote/edit?${q}`);
+    if (!doc.editable) return;
+    orig = doc.content; ta.value = doc.content;
+    $('[data-local]', root).innerHTML = localPill();
+    paint(); pos();
+  }
+
+  return { save, dirty, savedAny: () => savedAny, focus: () => ta.focus(), reload, root };
 }

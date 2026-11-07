@@ -15,7 +15,7 @@
     restore: svg('<rect x=".5" y="2.5" width="7" height="7"/><path d="M2.5 2.5V.5h7v7h-2"/>'),
     close: svg('<path d="M.5.5l9 9M9.5.5l-9 9"/>'),
   };
-  const TAB = { overview: 'tabOverview', servers: 'tabServers', server: 'tabServers', connections: 'tabConnections', connection: 'tabConnections', files: 'tabFiles', history: 'tabHistory', cicd: 'tabCicd', settings: 'tabSettings' };
+  const TAB = { overview: 'tabOverview', servers: 'tabServers', server: 'tabServers', connections: 'tabConnections', connection: 'tabConnections', files: 'tabFiles', edit: 'tabFiles', history: 'tabHistory', cicd: 'tabCicd', settings: 'tabSettings' };
 
   function where() {
     const r = parseRoute();
@@ -25,7 +25,7 @@
       case 'settings': return [t('cmSettings')];
       case 'help': return [t('cmHelp')];
       case 'terminal': return ['Terminal', r.sub || ''];
-      case 'project': return [r.project, TAB[r.tab] ? t(TAB[r.tab]) : r.tab, r.tab === 'files' && r.sub ? r.sub.replace(/^@conn:/, '') : ''];
+      case 'project': return [r.project, TAB[r.tab] ? t(TAB[r.tab]) : r.tab, r.tab === 'edit' ? t('wsOpen') : '', (r.tab === 'files' || r.tab === 'edit') && r.sub ? r.sub.replace(/^@conn:/, '') : ''];
     }
     return [];
   }

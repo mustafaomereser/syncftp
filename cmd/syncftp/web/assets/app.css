@@ -586,7 +586,51 @@ details.bolum.katlanir > summary h3 + .ok-ac { margin-left: auto; }
 
 .ed-hatirla { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-size: 13px; color: var(--muted); cursor: pointer; }
 .ed-hatirla input { accent-color: var(--accent); }
-.modal-alt .sol .ed-hedef { display: inline-flex; align-items: center; gap: 4px; margin-left: 12px; color: var(--muted); }
+.ed-durum .ed-hedef { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
+
+/* Dosyalar → Editör modu (workspace.js): solda ağaç, sağda sekmeli editör; yükseklik JS ile çerçeveye sığar */
+body.ws-modu .frame { padding-bottom: 22px; }
+.ws-ust { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px; }
+.ws-ust .ws-ara { flex: 1; }
+.ws-srv { width: auto; min-width: 180px; height: 32px; padding: 0 10px; font-size: 13px; }
+.ws { display: grid; grid-template-columns: minmax(200px, 270px) minmax(0, 1fr); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; min-height: 360px; background: var(--surface); }
+.ws-agac { overflow: auto; border-right: 1px solid var(--line); padding: 6px 0; font-size: 13px; background: var(--frame); }
+.ws-satir { display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px 0 calc(8px + var(--d, 0) * 14px); cursor: pointer; white-space: nowrap; color: var(--text); user-select: none; }
+.ws-satir:hover { background: var(--surface-2); }
+.ws-satir.aktif { background: var(--accent-soft); color: var(--text); }
+.ws-satir svg { width: 14px; height: 14px; flex: none; color: var(--faint); }
+.ws-satir.ws-klasor > svg { color: var(--accent); }
+.ws-satir.ws-soluk { opacity: .5; }
+.ws-ad { overflow: hidden; text-overflow: ellipsis; }
+.ws-ok { width: 14px; flex: none; display: grid; place-items: center; transition: transform .12s; }
+.ws-ok svg { width: 11px; height: 11px; }
+.ws-ok.acik { transform: rotate(90deg); }
+.ws-yuk, .ws-hata { color: var(--faint); cursor: default; }
+.ws-hata { color: var(--bad); white-space: normal; height: auto; padding-block: 4px; }
+.ws-sag { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.ws-sekmeler { display: flex; overflow-x: auto; border-bottom: 1px solid var(--line); background: var(--frame); flex: none; scrollbar-width: thin; }
+.ws-sekmeler:empty { display: none; }
+.ws-sekme { display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 6px 0 12px; border-right: 1px solid var(--line); font-size: 13px; color: var(--muted); cursor: pointer; white-space: nowrap; flex: none; position: relative; user-select: none; }
+.ws-sekme:hover { color: var(--text); background: var(--surface-2); }
+.ws-sekme.aktif { color: var(--text); background: var(--surface); }
+.ws-sekme.aktif::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--accent); }
+.ws-sekme > svg { width: 13px; height: 13px; color: var(--faint); }
+.ws-sekme .ed-nokta { margin-left: 0; }
+.ws-x { width: 22px; height: 22px; border: 0; background: transparent; color: var(--faint); border-radius: 6px; display: grid; place-items: center; padding: 0; cursor: pointer; }
+.ws-x svg { width: 12px; height: 12px; }
+.ws-x:hover { background: var(--surface-3); color: var(--text); }
+.ws-govde { flex: 1; min-height: 0; position: relative; }
+.ws-pano { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 10px; }
+.ws-pano[hidden] { display: none; }
+.ws-pano .ed { height: auto; flex: 1; min-height: 0; }
+.ws-pano .ed-durum { margin-top: 6px; flex: none; }
+.ws-bos { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 6px; color: var(--faint); text-align: center; padding: 20px; }
+.ws-bos[hidden] { display: none; }
+.ws-bos svg { width: 30px; height: 30px; opacity: .6; }
+.ws-bos b { color: var(--muted); font-weight: 600; }
+.ws-bos small { max-width: 420px; line-height: 1.5; }
+.ws-bilgi { display: grid; gap: 12px; justify-items: start; padding: 10px; }
+@media (max-width: 760px) { .ws { grid-template-columns: 1fr; grid-template-rows: 180px minmax(0, 1fr); } .ws-agac { border-right: 0; border-bottom: 1px solid var(--line); } }
 
 /* Modal düğmesindeki tek tuş kısayolu (actions[].key) */
 .btn kbd.kisayol { margin-left: 6px; padding: 0 4px; font-size: 10px; line-height: 15px; opacity: .7; }
