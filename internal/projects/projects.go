@@ -341,7 +341,7 @@ func Invalidate() {
 const scanDepth = 6
 
 // scanSkip içine hiç girilmeyen (büyük ve proje barındırmayan) klasörler.
-var scanSkip = map[string]bool{"node_modules": true, "vendor": true, "bower_components": true, "__pycache__": true,
+var scanSkip = map[string]bool{"Library": true, "node_modules": true, "vendor": true, "bower_components": true, "__pycache__": true,
 	"venv": true, ".venv": true, "target": true, "obj": true, "packages": true, "jspm_packages": true, "site-packages": true}
 
 // scanRefresh tam taramanın (6 seviye, büyük klasörde ~1 sn) en fazla ne sıklıkla tekrarlanacağı.

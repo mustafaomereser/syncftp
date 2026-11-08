@@ -289,6 +289,12 @@ func guiStartDir() string {
 			return exeDir
 		}
 	}
+	// Finder'dan açılan .app'in çalışma dizini kök: projeler ev klasöründen aranır
+	if wd == "/" {
+		if home, err := os.UserHomeDir(); err == nil {
+			return home
+		}
+	}
 	return wd
 }
 

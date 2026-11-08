@@ -47,6 +47,13 @@ The interface follows your OS language (Turkish or English); switch with `syncft
 
 ---
 
+## Desktop packages
+
+- **macOS:** unzip, drag `syncFTP.app` to Applications, double-click. Signed with Developer ID and notarized by Apple. Needs Chrome, Edge, Brave or Chromium for the app window.
+- **Linux:** unzip, run `./install.sh`; syncFTP appears in the applications menu.
+- **Windows:** run the `.exe`.
+- Build all packages from Windows with `scripts/build-release.sh` (needs `rcodesign`).
+
 ## Screenshots
 
 ![Projects in a grid with groups, colors and cover images](docs/screenshots/projects.png)
