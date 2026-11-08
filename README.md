@@ -52,6 +52,8 @@ The interface follows your OS language (Turkish or English); switch with `syncft
 - **macOS:** unzip, drag `syncFTP.app` to Applications, double-click. Signed with Developer ID and notarized by Apple. Needs Chrome, Edge, Brave or Chromium for the app window.
 - **Linux:** unzip, run `./install.sh`; syncFTP appears in the applications menu.
 - **Windows:** run the `.exe`.
+- Pushing a tag like `v2.0.1` (same as `appVersion`) builds, signs and publishes a GitHub Release (`.github/workflows/release.yml`).
+
 - Build all packages from Windows with `scripts/build-release.sh` (needs `rcodesign`).
 
 ## Screenshots

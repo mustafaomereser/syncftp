@@ -1,0 +1,68 @@
+# v* etiketi push edilince: testler, tüm platformlar, macOS imza + Apple noterliği, GitHub Release.
+# Yerelde çalışan scripts/build-release.sh'ın aynısı; bu yüzden runner Windows.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Keep LF line endings
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Check tag matches appVersion
+        run: |
+          v="$(sed -n 's/^const appVersion = "\(.*\)"/\1/p' cmd/syncftp/cmd_gui_api.go | tr -d '\r')"
+          if [ "$GITHUB_REF_NAME" != "v$v" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match appVersion $v (cmd/syncftp/cmd_gui_api.go)"
+            exit 1
+          fi
+
+      - name: Install rcodesign
+        run: |
+          curl -fsSL -o rc.zip "https://github.com/indygreg/apple-platform-rs/releases/download/apple-codesign%2F0.29.0/apple-codesign-0.29.0-x86_64-pc-windows-msvc.zip"
+          unzip -q rc.zip -d "$RUNNER_TEMP/rc"
+          dirname "$(find "$RUNNER_TEMP/rc" -name rcodesign.exe | head -1)" >> "$GITHUB_PATH"
+
+      - name: Restore signing files
+        env:
+          APPLE_DEVID_KEY: ${{ secrets.APPLE_DEVID_KEY }}
+          APPLE_DEVID_CER: ${{ secrets.APPLE_DEVID_CER }}
+          APPLE_API_KEY_JSON: ${{ secrets.APPLE_API_KEY_JSON }}
+        run: |
+          for s in APPLE_DEVID_KEY APPLE_DEVID_CER APPLE_API_KEY_JSON; do
+            if [ -z "${!s}" ]; then echo "::error::Missing secret $s"; exit 1; fi
+          done
+          d="$RUNNER_TEMP/apple"; mkdir -p "$d"
+          echo "$APPLE_DEVID_KEY" | base64 -d > "$d/devid.key"
+          echo "$APPLE_DEVID_CER" | base64 -d > "$d/devid.cer"
+          echo "$APPLE_API_KEY_JSON" | base64 -d > "$d/api-key.json"
+          echo "APPLE_SIGN_DIR=$d" >> "$GITHUB_ENV"
+
+      - name: Build, sign, notarize
+        run: bash scripts/build-release.sh
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "syncFTP $GITHUB_REF_NAME" --generate-notes
+
+      - name: Remove signing files
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/apple"
