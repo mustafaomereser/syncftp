@@ -25,7 +25,8 @@
       case 'settings': return [t('cmSettings')];
       case 'help': return [t('cmHelp')];
       case 'terminal': return ['Terminal', r.sub || ''];
-      case 'project': return [r.project, TAB[r.tab] ? t(TAB[r.tab]) : r.tab, r.tab === 'files' && r.sub ? r.sub.replace(/^@conn:/, '') : ''];
+      case 'project': if (r.project === QUICK_P) return [t('qcTitle'), r.sub ? r.sub.replace(/^@conn:/, '') : ''];
+        return [r.project, TAB[r.tab] ? t(TAB[r.tab]) : r.tab, r.tab === 'files' && r.sub ? r.sub.replace(/^@conn:/, '') : ''];
     }
     return [];
   }
@@ -46,6 +47,9 @@
     bar.querySelector('[data-tb="back"]').disabled = !!nav && 'canGoBack' in nav && !nav.canGoBack;
     bar.querySelector('[data-tb="fwd"]').disabled = !!nav && 'canGoForward' in nav && !nav.canGoForward;
     for (const [k, key] of [['back', 'cmBack'], ['fwd', 'cmForward'], ['min', 'tbMin'], ['close', 'tbClose']]) bar.querySelector(`[data-tb="${k}"]`).title = t(key);
+    const qc = bar.querySelector('.tb-hizli');
+    qc.title = t('qcHint');
+    if (qc.lastElementChild.textContent !== t('qcTitle')) qc.lastElementChild.textContent = t('qcTitle');
     const ara = bar.querySelector('.tb-ara span');
     if (ara.textContent !== t('pkPlaceholderShort')) ara.textContent = t('pkPlaceholderShort');
     bar.querySelector('[data-tb="max"]').title = t(document.body.classList.contains('pencere-buyuk') ? 'tbRestore' : 'tbMax');
@@ -67,6 +71,7 @@
       <button type="button" class="tb-ara" data-tb="search">${icon('search')}<span></span><kbd>Ctrl K</kbd></button>
       <div class="tb-bosluk"></div>
       <button type="button" class="tb-is" hidden>${icon('refresh', 'spin')}<span></span></button>
+      <button type="button" class="tb-hizli" data-tb="quick">${icon('zap')}<span></span></button>
       <div class="tb-pencere"><button type="button" data-tb="min">${ICON.min}</button><button type="button" data-tb="max">${ICON.max}</button><button type="button" data-tb="close" class="kapat">${ICON.close}</button></div>`;
     document.body.prepend(bar);
     bar.addEventListener('click', (e) => {
@@ -80,6 +85,7 @@
         case 'max': post('win:max'); break;
         case 'close': post('win:close'); break;
         case 'search': if (window.openPalette) window.openPalette(); break;
+        case 'quick': openQuickConnect(); break;
       }
     });
     window.addEventListener('hashchange', () => window.tbUpdate());

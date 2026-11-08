@@ -106,6 +106,9 @@ func (sv *guiServer) routes(mux *http.ServeMux) {
 // ── proje çözümleme ───────────────────────────────────────────────────────────
 
 func (sv *guiServer) project(r *http.Request) (projects.Project, *config.Config, error) {
+	if r.PathValue("p") == quickProject {
+		return quickProjectInfo()
+	}
 	p, ok := projects.Find(r.PathValue("p"))
 	if !ok {
 		return p, nil, fmt.Errorf(lang.L.ProjectNotFoundFmt, r.PathValue("p"))

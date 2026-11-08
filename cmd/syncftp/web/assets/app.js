@@ -41,7 +41,7 @@ const T = {
     pendingChip: '<b class="n">+{0}</b> <b class="c">~{1}</b> <b class="d">−{2}</b>', upToDate: 'Güncel',
     filesTracked: '{0} dosya', maxConn: '{0} bağlantı', speedLimit: '{0} KB/s', noBackup: 'yedek kapalı', backupOn: 'yedekli',
     failedN: '{0} başarısız', frozenN: '{0} frozen', rollbackN: '{0} geri alınabilir',
-    filesConnTip: 'Bu bağlantıyla gez: {0}', filesConnHint: 'Bağlantıyla geziyorsun: kök dizinden başlar, sync\'e bağlı değildir. Freeze, yerelle karşılaştırma ve düzenleme yalnızca profillerde.', statusTitle: '{0} — bekleyen değişiklikler', stViewList: 'Liste', stViewTree: 'Klasör', stViewHint: 'Liste ya da klasör ağacı (ls gibi) olarak göster', newFiles: 'Yeni', changedFiles: 'Değişen', deletedFiles: 'Yerelde silinen',
+    filesConnTip: 'Bu bağlantıyla gez: {0}', filesConnHint: 'Bağlantıyla geziyorsun: kök dizinden başlar, sync\'e bağlı değildir. Freeze ve yerelle karşılaştırma yalnızca profillerde; kayıtlar doğrudan sunucuya gider, yedek alınmaz.', statusTitle: '{0} — bekleyen değişiklikler', stViewList: 'Liste', stViewTree: 'Klasör', stViewHint: 'Liste ya da klasör ağacı (ls gibi) olarak göster', newFiles: 'Yeni', changedFiles: 'Değişen', deletedFiles: 'Yerelde silinen',
     deletedNote: 'Yerelde silinen dosyalar sunucudan silinmez, yalnızca raporlanır.', emptyList: 'Liste boş',
     milestoneTitle: '{0} — milestone', milestoneBody: 'Milestone, bu tarihten önce değişmiş dosyaları sync dışında bırakır (kalıcı filtre). "Milestone sync" yalnızca tarihten sonra değişenleri yükler.',
     milestoneCurrent: 'Mevcut: {0}', milestoneDate: 'Tarih', milestonePh: 'bugün', milestoneDateHint: 'boş = şimdi · bugün · dün · 3d · 5h · 14:30 · 20.07 · 20.07.2026 15:04 · 2026-07-20',
@@ -156,7 +156,7 @@ const T = {
     pendingChip: '<b class="n">+{0}</b> <b class="c">~{1}</b> <b class="d">−{2}</b>', upToDate: 'Up to date',
     filesTracked: '{0} files', maxConn: '{0} connections', speedLimit: '{0} KB/s', noBackup: 'no backup', backupOn: 'backed up',
     failedN: '{0} failed', frozenN: '{0} frozen', rollbackN: '{0} restorable',
-    filesConnTip: 'Browse with this connection: {0}', filesConnHint: 'Browsing with a connection: starts at the root and is not tied to sync. Freeze, compare with local and editing are for profiles only.', statusTitle: '{0} — pending changes', stViewList: 'List', stViewTree: 'Folders', stViewHint: 'Show as a flat list or as a folder tree (like ls)', newFiles: 'New', changedFiles: 'Changed', deletedFiles: 'Deleted locally',
+    filesConnTip: 'Browse with this connection: {0}', filesConnHint: 'Browsing with a connection: starts at the root and is not tied to sync. Freeze and compare with local are for profiles only; saves go straight to the server with no backup.', statusTitle: '{0} — pending changes', stViewList: 'List', stViewTree: 'Folders', stViewHint: 'Show as a flat list or as a folder tree (like ls)', newFiles: 'New', changedFiles: 'Changed', deletedFiles: 'Deleted locally',
     deletedNote: 'Locally deleted files are not deleted from the server, only reported.', emptyList: 'Empty',
     milestoneTitle: '{0} — milestone', milestoneBody: 'A milestone keeps files changed before its date out of syncs (persistent filter). "Milestone sync" uploads only files changed after it.',
     milestoneCurrent: 'Current: {0}', milestoneDate: 'Date', milestonePh: 'today', milestoneDateHint: 'empty = now · today · yesterday · 3d · 5h · 14:30 · 20.07 · 20.07.2026 15:04 · 2026-07-20',
@@ -1130,6 +1130,7 @@ async function addProjectFlow() {
 
 // ═══ Sayfa: proje ════════════════════════════════════════════════════════════
 async function pageProject(r) {
+  if (r.project === QUICK_P) return pageQuick(r);
   if (!S.projects.length) await loadProjects();
   const proj = S.projects.find((p) => p.name === r.project);
   if (!proj) throw new Error(t('notFound') + ': ' + r.project);

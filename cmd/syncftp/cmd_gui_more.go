@@ -31,6 +31,7 @@ func (sv *guiServer) routesMore(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/help", sv.apiHelp)
 	sv.registerSettingsAPI(mux)
 	sv.registerLibraryAPI(mux)
+	sv.registerQuickAPI(mux)
 	sv.registerTermAPI(mux)
 	mux.HandleFunc("GET /api/p/{p}/local/ls", sv.apiLocalLs)
 	mux.HandleFunc("POST /api/p/{p}/local/create", sv.apiLocalCreate)

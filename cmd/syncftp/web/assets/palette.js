@@ -42,6 +42,7 @@
       { group: t('pkGroupPages'), icon: 'help', label: t('cmHelp'), run: () => go('#/help') },
       { group: t('pkGroupPages'), icon: 'terminal', label: 'Terminal', run: () => go('#/terminal') },
       { group: t('pkGroupPages'), icon: 'plus', label: t('addProject'), run: () => addProjectFlow() },
+      { group: t('pkGroupPages'), icon: 'zap', label: t('qcTitle'), hint: t('qcHint'), run: () => openQuickConnect() },
     ];
     const tabs = [['', 'layers', 'tabOverview'], ['files', 'folder', 'tabFiles'], ['history', 'history', 'tabHistory'], ['servers', 'server', 'tabServers'],
       ['connections', 'link', 'tabConnections'], ['cicd', 'zap', 'tabCicd'], ['settings', 'sliders', 'tabSettings']];

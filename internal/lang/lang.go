@@ -625,6 +625,9 @@ type StringSet struct {
 	LogsHint               string
 	ServerNotFoundFmt      string // "sunucu bulunamadı: %q"
 	RemoteNoAnswerFmt      string // "sunucu %d sn içinde cevap vermedi"
+	QuickHostRequired      string
+	QuickPasswordMissing   string
+	QuickKeyringFailed     string
 	NoServerSelected       string
 	GuiOutsideBaseFmt      string // "%s panelin açıldığı klasörün (%s) dışında"
 	GuiValConnName         string // "her bağlantı profilinin bir adı olmalı"
