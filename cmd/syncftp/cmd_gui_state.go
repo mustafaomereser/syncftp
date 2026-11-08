@@ -25,6 +25,7 @@ type guiPersist struct {
 	// EditSaveTarget dosya düzenleyicide Ctrl+S'in hedefi: "" = her seferinde sor, "both" = sunucu +
 	// yerel, "remote" = yalnızca sunucu (kaydetme penceresindeki "bir daha sorma")
 	EditSaveTarget string `json:"edit_save_target,omitempty"`
+	UpdateCheckOff bool   `json:"update_check_off,omitempty"`
 }
 
 var guiPersistMu sync.Mutex

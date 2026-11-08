@@ -71,6 +71,7 @@
       <button type="button" class="tb-ara" data-tb="search">${icon('search')}<span></span><kbd>Ctrl K</kbd></button>
       <div class="tb-bosluk"></div>
       <button type="button" class="tb-is" hidden>${icon('refresh', 'spin')}<span></span></button>
+      <button type="button" class="tb-guncel" data-tb="update" hidden>${icon('upload')}<span></span></button>
       <button type="button" class="tb-hizli" data-tb="quick">${icon('zap')}<span></span></button>
       <div class="tb-pencere"><button type="button" data-tb="min">${ICON.min}</button><button type="button" data-tb="max">${ICON.max}</button><button type="button" data-tb="close" class="kapat">${ICON.close}</button></div>`;
     document.body.prepend(bar);
@@ -86,6 +87,7 @@
         case 'close': post('win:close'); break;
         case 'search': if (window.openPalette) window.openPalette(); break;
         case 'quick': openQuickConnect(); break;
+        case 'update': openUpdate(); break;
       }
     });
     window.addEventListener('hashchange', () => window.tbUpdate());

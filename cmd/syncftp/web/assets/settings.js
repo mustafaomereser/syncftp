@@ -74,10 +74,12 @@ Object.assign(T.en, {
 });
 
 async function pageSettings(sub = "general") {
+  await upRefresh();
   const [s, hooks, lib] = await Promise.all([GET('/api/settings'), GET('/api/hooks').catch(() => ({ tunnel: {} })), GET('/api/library')]);
   if (!S.projects.length) await loadProjects();
 
   bind((root) => {
+    bindUpdateSection(root);
     $$('[data-open]', root).forEach((b) => (b.onclick = () => api('POST', '/api/settings/open', { what: b.dataset.open }).catch(fail)));
     $$('#set-lang button', root).forEach((b) => (b.onclick = async () => {
       try { await api('PUT', '/api/lang', { lang: b.dataset.l }); LANG = b.dataset.l; applyLang(); render(true); } catch (e) { fail(e); }
@@ -194,7 +196,7 @@ async function pageSettings(sub = "general") {
     ['projects', 'folder', t('setTabProjects'), projSec],
     ['hooks', 'zap', t('setTabHooks'), hooksSec],
     ['security', 'shield', t('setTabSecurity'), hostSec],
-    ['system', 'gauge', t('setTabSystem'), cacheSec + about + locSec],
+    ['system', 'gauge', t('setTabSystem'), updateSectionHTML() + cacheSec + about + locSec],
   ];
   const cur = tabs.find((x) => x[0] === sub) || tabs[0];
   return `<div class="sayfa"><div class="baslik-satir"><div><h1>${t('setTitle')}</h1><div class="yol">${esc(t('setSub'))}</div></div></div>

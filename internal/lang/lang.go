@@ -626,6 +626,12 @@ type StringSet struct {
 	ServerNotFoundFmt      string // "sunucu bulunamadı: %q"
 	RemoteNoAnswerFmt      string // "sunucu %d sn içinde cevap vermedi"
 	QuickHostRequired      string
+	UpdateCurrentFmt       string
+	UpdateAvailableFmt     string
+	UpdateDoneFmt          string
+	UpdateUnsupported      string
+	UpdateBadSignature     string
+	UpdateJobsRunning      string
 	QuickPasswordMissing   string
 	QuickKeyringFailed     string
 	NoServerSelected       string

@@ -170,4 +170,12 @@ for name in sorted(os.listdir(stage)):
     print('  zip:', os.path.basename(dest))
 PYZIP
 rm -rf "$OUT/stage"
+
+# Güncelleme imzası: uygulama yalnızca bu imzayı tutan paketi kurar (cmd/syncftp/update.go)
+KEYFILE="$HOME/.agentic-signing/syncftp-update.key"
+if [ -z "${UPDATE_SIGNING_KEY:-}" ] && [ -f "$KEYFILE" ]; then UPDATE_SIGNING_KEY="$(cat "$KEYFILE")"; fi
+[ -n "${UPDATE_SIGNING_KEY:-}" ] || { echo "HATA: güncelleme imza anahtarı yok" >&2; exit 1; }
+( cd "$OUT" && sha256sum syncFTP-* > checksums.txt )
+UPDATE_SIGNING_KEY="$UPDATE_SIGNING_KEY" go run ./cmd/signrelease "$OUT/checksums.txt"
+echo "  imzalandı: checksums.txt"
 echo; ls -lh "$OUT" | awk 'NR>1 {printf "  %-46s %s\n", $9, $5}'

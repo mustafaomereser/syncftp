@@ -828,7 +828,11 @@ body.cerceveli .modal-arka { top: var(--tb-h); }
 .tb-is .i { width: 13px; height: 13px; }
 .tb-hizli { height: 24px; padding: 0 10px; margin-right: 6px; border: 1px solid var(--line); border-radius: var(--r-pill); background: transparent; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: default; white-space: nowrap; }
 .tb-hizli:hover { background: var(--surface-2); color: var(--text); }
-.tb-hizli .i { width: 13px; height: 13px; }
+.tb-hizli .i, .tb-guncel .i { width: 13px; height: 13px; }
+.tb-guncel { height: 24px; padding: 0 10px; margin-right: 6px; border: 0; border-radius: var(--r-pill); background: var(--accent); color: #fff; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: default; white-space: nowrap; }
+.tb-guncel[hidden] { display: none; }
+.tb-guncel:hover { filter: brightness(1.1); }
+.up-not { max-height: 240px; overflow: auto; white-space: pre-wrap; font: 12.5px var(--mono); padding: 10px; border: 1px solid var(--line); border-radius: 8px; margin: 8px 0; }
 .qc-modal { width: min(620px, 94vw); }
 .qc-satir { display: grid; grid-template-columns: 110px minmax(0, 1fr) 90px; gap: 10px; }
 .qc-satir.iki { grid-template-columns: 1fr 1fr; }

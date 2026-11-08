@@ -145,6 +145,8 @@ func launchGUIDetached() error {
 
 // runGUIForeground paneli bu süreçte çalıştırır (çift tık + `gui --foreground`).
 func runGUIForeground() error {
+	waitForOldPanel()
+	go cleanupUpdateLeftovers()
 	if gi, ok := readGUIInstance(); ok {
 		if !bringWindowToFront(guiWindowTitle()) {
 			return openAppWindow(gi.url(), guiProfileDir())
@@ -208,6 +210,7 @@ func runGUIForeground() error {
 	sv.restoreWatches()
 
 	go sv.idleWatchdog()
+	go sv.updateLoop()
 	if sv.hasTray {
 		sv.runTray(gi.url()) // tray "Çıkış" ya da panelden "Kapat" → döner
 	} else {

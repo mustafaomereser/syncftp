@@ -56,6 +56,8 @@ jobs:
           echo "APPLE_SIGN_DIR=$d" >> "$GITHUB_ENV"
 
       - name: Build, sign, notarize
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
         run: bash scripts/build-release.sh
 
       - name: Publish release
