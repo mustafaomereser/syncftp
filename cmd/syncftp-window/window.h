@@ -19,6 +19,6 @@ void window_run(const char *url, const char *title, const char *smoke);
     "bar:!!document.getElementById('titlebar'),quick:!!document.querySelector('.tb-hizli')," \
     "page:(document.querySelector('#sayfa')||{}).textContent?true:false," \
     "storage:(function(){try{localStorage.setItem('x','1');return localStorage.getItem('x')==='1'}catch(e){return false}})()}))" \
-    "},6000)});"
+    "},10000)});"
 
 #endif

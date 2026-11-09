@@ -72,6 +72,7 @@ The interface follows your OS language (Turkish or English); switch with `syncft
 | ![Release with per-file diff](docs/screenshots/release.png) | ![File triggers](docs/screenshots/triggers.png) |
 | **History** — every release with a folder tree, per-file diff and partial rollback | **File triggers** — run a command / SSH / HTTP / Slack when certain files are uploaded |
 | ![Editor mode](docs/screenshots/workspace.png) | ![Quick search](docs/screenshots/palette.png) |
+| ![Quick connect](docs/screenshots/quick-connect.png) | |
 | **Editor** — server folder tree on the left, files in tabs on the right | **Ctrl+K** — jump to any project, tab or action |
 
 *Screenshots use demo projects on a local test server.*

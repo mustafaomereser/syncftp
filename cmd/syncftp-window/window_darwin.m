@@ -136,6 +136,7 @@ void window_run(const char *url, const char *title, const char *smoke) {
         web.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
         web.navigationDelegate = host;
         web.UIDelegate = host;
+        [web setValue:@NO forKey:@"drawsBackground"]; // yüklenirken beyaz değil, pencerenin koyu zemini
         host.web = web;
         win.contentView = web;
 
