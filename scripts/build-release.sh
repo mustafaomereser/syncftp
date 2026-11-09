@@ -83,7 +83,7 @@ make_app() { # goarch klasör
 PLIST
   if [ "$MAC_SIGN" = 2 ]; then
     rcodesign sign --pem-file "$APPLE_SIGN_DIR/devid.key" --certificate-der-file "$APPLE_SIGN_DIR/devid.cer" \
-      --code-signature-flags runtime "$app" >/dev/null
+      --for-notarization "$app" >/dev/null
     NOTARIZE+=("$app")
   else
     rcodesign sign "$app" >/dev/null

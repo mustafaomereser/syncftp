@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0.2
+## 2.0.3
 
 ### tr
 - macOS ve Linux'ta panel artık gerçek uygulama penceresinde açılıyor, üst bar ve Hızlı bağlan orada da var
