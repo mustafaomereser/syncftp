@@ -18,6 +18,7 @@ OUT="${OUT:-dist}"
 APPLE_SIGN_DIR="${APPLE_SIGN_DIR:-$HOME/.agentic-signing/apple}"
 NOTARY_WAIT="${NOTARY_WAIT:-7200}"
 MAC_SIGN="${MAC_SIGN:-2}"
+HELPER_DIR="${HELPER_DIR:-packaging/helper}"
 LD="-s -w"
 
 command -v rcodesign >/dev/null || { echo "HATA: rcodesign yok" >&2; exit 1; }
@@ -55,6 +56,10 @@ make_app() { # goarch klasör
   local root="$OUT/stage/$2" app="$OUT/stage/$2/syncFTP.app"
   mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
   build darwin "$1" "$app/Contents/MacOS/syncftp"
+  local exec_name=syncftp helper="$HELPER_DIR/syncftp-window-darwin-$1"
+  if [ -f "$helper" ]; then
+    cp "$helper" "$app/Contents/MacOS/syncftp-window"; chmod +x "$app/Contents/MacOS/syncftp-window"; exec_name=syncftp-window
+  elif [ "${REQUIRE_HELPERS:-0}" = 1 ]; then echo "HATA: $helper yok" >&2; exit 1; fi
   cp packaging/syncftp.icns "$app/Contents/Resources/syncftp.icns"
   cat > "$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -66,12 +71,13 @@ make_app() { # goarch klasör
   <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
   <key>CFBundleVersion</key><string>$VERSION</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
-  <key>CFBundleExecutable</key><string>syncftp</string>
+  <key>CFBundleExecutable</key><string>$exec_name</string>
   <key>CFBundleIconFile</key><string>syncftp</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>LSMinimumSystemVersion</key><string>11.0</string>
   <key>LSUIElement</key><false/>
   <key>NSHighResolutionCapable</key><true/>
+  <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
 </dict>
 </plist>
 PLIST
@@ -112,6 +118,9 @@ make_linux() { # goarch
   local d="$OUT/stage/linux-$1"
   mkdir -p "$d"
   build linux "$1" "$d/syncftp"
+  if [ -f "$HELPER_DIR/syncftp-window-linux-$1" ]; then
+    cp "$HELPER_DIR/syncftp-window-linux-$1" "$d/syncftp-window"
+  elif [ "${REQUIRE_HELPERS:-0}" = 1 ]; then echo "HATA: Linux pencere programı yok ($1)" >&2; exit 1; fi
   cp packaging/syncftp.png "$d/syncftp.png"
   cat > "$d/syncftp.desktop" <<'DESKTOP'
 [Desktop Entry]
@@ -130,9 +139,11 @@ set -euo pipefail
 src="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p "$HOME/.local/bin" "$HOME/.local/share/applications" "$HOME/.local/share/icons/hicolor/512x512/apps"
 install -m 755 "$src/syncftp" "$HOME/.local/bin/syncftp"
+[ -f "$src/syncftp-window" ] && install -m 755 "$src/syncftp-window" "$HOME/.local/bin/syncftp-window"
 install -m 644 "$src/syncftp.png" "$HOME/.local/share/icons/hicolor/512x512/apps/syncftp.png"
 sed "s|^Exec=.*|Exec=$HOME/.local/bin/syncftp gui|" "$src/syncftp.desktop" > "$HOME/.local/share/applications/syncftp.desktop"
 echo "Kuruldu: uygulama menüsünde syncFTP, terminalde ~/.local/bin/syncftp"
+echo "Uygulama penceresi için libwebkit2gtk-4.1 gerekir; yoksa panel Chrome ile açılır."
 INSTALL
 }
 make_linux amd64
@@ -145,7 +156,7 @@ out, ver = sys.argv[1], sys.argv[2]
 stage = os.path.join(out, 'stage')
 def is_exe(rel):
     base = rel.split('/')[-1]
-    return '/Contents/MacOS/' in rel or base in ('syncftp', 'install.sh')
+    return '/Contents/MacOS/' in rel or base in ('syncftp', 'syncftp-window', 'install.sh')
 for name in sorted(os.listdir(stage)):
     src = os.path.join(stage, name)
     dest = os.path.join(out, f'syncFTP-{ver}-{name}.zip')

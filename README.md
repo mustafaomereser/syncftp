@@ -49,8 +49,8 @@ The interface follows your OS language (Turkish or English); switch with `syncft
 
 ## Desktop packages
 
-- **macOS:** unzip, drag `syncFTP.app` to Applications, double-click. Signed with Developer ID and notarized by Apple. Needs Chrome, Edge, Brave or Chromium for the app window.
-- **Linux:** unzip, run `./install.sh`; syncFTP appears in the applications menu.
+- **macOS:** unzip, drag `syncFTP.app` to Applications, double-click. Signed with Developer ID and notarized by Apple. Opens in its own app window.
+- **Linux:** unzip, run `./install.sh`; syncFTP appears in the applications menu. The app window needs `libwebkit2gtk-4.1`; without it the panel opens in Chrome / Edge.
 - **Windows:** run the `.exe`.
 - **Updates:** the panel shows *Update* when a new version is out; one click downloads, verifies the signature and restarts. Or run `syncftp update`.
 - Pushing a tag like `v2.0.1` (same as `appVersion`) builds, signs and publishes a GitHub Release (`.github/workflows/release.yml`).

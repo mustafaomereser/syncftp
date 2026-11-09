@@ -63,6 +63,7 @@
 
   window.addEventListener('DOMContentLoaded', () => {
     document.body.classList.add('cerceveli');
+    if (F.native) document.body.classList.add('yerel-' + F.native);
     const bar = document.createElement('div');
     bar.id = 'titlebar';
     bar.innerHTML = `<div class="tb-sol"><img src="/logo.png" alt=""><b>syncFTP</b><span class="tb-yer"></span></div>
@@ -91,6 +92,23 @@
       }
     });
     window.addEventListener('hashchange', () => window.tbUpdate());
+    // WebView2'deki app-region burada yok: taşıma, büyütme ve (çerçevesiz Linux'ta) boyutlandırma sayfadan istenir
+    if (F.native) {
+      const free = (e) => !e.target.closest('button, a, input, kbd');
+      bar.addEventListener('mousedown', (e) => { if (e.button === 0 && e.detail < 2 && free(e)) post('win:drag'); });
+      bar.addEventListener('dblclick', (e) => { if (free(e)) post('win:max'); });
+    }
+    if (F.native === 'gtk') {
+      const B = 5, edge = (e) => {
+        if (document.body.classList.contains('pencere-buyuk')) return '';
+        const v = e.clientY <= B ? 'n' : innerHeight - e.clientY <= B ? 's' : '';
+        const h = e.clientX <= B ? 'w' : innerWidth - e.clientX <= B ? 'e' : '';
+        return v + h;
+      };
+      const CUR = { n: 'ns', s: 'ns', e: 'ew', w: 'ew', ne: 'nesw', sw: 'nesw', nw: 'nwse', se: 'nwse' };
+      document.addEventListener('mousemove', (e) => { const x = edge(e); document.documentElement.style.cursor = x ? CUR[x] + '-resize' : ''; }, true);
+      document.addEventListener('mousedown', (e) => { const x = edge(e); if (x && e.button === 0) { e.preventDefault(); e.stopPropagation(); post('win:resize:' + x); } }, true);
+    }
     window.tbUpdate();
   });
 

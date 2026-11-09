@@ -18,6 +18,14 @@ Object.assign(T.en, {
 });
 
 const QUICK_P = '@quick';
+// Üst bar yoksa (tarayıcı penceresi) düğme sol menüde
+window.addEventListener('DOMContentLoaded', () => setTimeout(() => {
+  if (document.getElementById('titlebar')) return;
+  const s = document.querySelector('a[data-nav="settings"]');
+  if (!s) return;
+  s.insertAdjacentHTML('beforebegin', `<a href="#" id="nav-quick">${icon('zap')}<span class="ad">${t('qcTitle')}</span></a>`);
+  document.getElementById('nav-quick').onclick = (e) => { e.preventDefault(); openQuickConnect(); };
+}, 200));
 const qcDefaultPort = (p) => (p === 'sftp' ? 22 : 21);
 
 async function openQuickConnect() {

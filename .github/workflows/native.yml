@@ -1,0 +1,102 @@
+# macOS / Linux yerel penceresini gerçek makinede derler ve açıp sınar. Release bunu çağırır.
+name: Native window
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'cmd/syncftp-window/**'
+      - 'cmd/syncftp/web/assets/titlebar.js'
+      - '.github/workflows/native.yml'
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '11.0'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Build
+        run: |
+          mkdir -p out
+          CGO_ENABLED=1 GOARCH=arm64 CGO_CFLAGS="-arch arm64" CGO_LDFLAGS="-arch arm64" go build -trimpath -ldflags "-s -w" -o out/syncftp-window-darwin-arm64 ./cmd/syncftp-window
+          CGO_ENABLED=1 GOARCH=amd64 CGO_CFLAGS="-arch x86_64" CGO_LDFLAGS="-arch x86_64" go build -trimpath -ldflags "-s -w" -o out/syncftp-window-darwin-amd64 ./cmd/syncftp-window
+      - name: Smoke test
+        run: |
+          app="$RUNNER_TEMP/syncFTP.app/Contents"; mkdir -p "$app/MacOS"
+          cp out/syncftp-window-darwin-arm64 "$app/MacOS/syncftp-window"
+          CGO_ENABLED=0 go build -o "$app/MacOS/syncftp" ./cmd/syncftp
+          cat > "$app/Info.plist" <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <plist version="1.0"><dict>
+          <key>CFBundleIdentifier</key><string>com.mustafaomereser.syncftp.smoke</string>
+          <key>CFBundleExecutable</key><string>syncftp-window</string>
+          <key>CFBundlePackageType</key><string>APPL</string>
+          <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
+          </dict></plist>
+          PLIST
+          mkdir -p "$RUNNER_TEMP/p"; cd "$RUNNER_TEMP/p"
+          "$app/MacOS/syncftp" gui --foreground --no-window > "$RUNNER_TEMP/url.txt" 2>&1 &
+          for i in $(seq 1 50); do grep -q 'login?t=' "$RUNNER_TEMP/url.txt" && break; sleep 0.2; done
+          url="$(grep 'login?t=' "$RUNNER_TEMP/url.txt" | tail -1)"
+          (sleep 5; screencapture -x "$GITHUB_WORKSPACE/out/shot-macos.png" || true) &
+          SYNCFTP_WINDOW_SMOKE="$RUNNER_TEMP/smoke.json" "$app/MacOS/syncftp-window" --url "$url" --title syncFTP &
+          w=$!
+          for i in $(seq 1 180); do [ -s "$RUNNER_TEMP/smoke.json" ] && break; sleep 0.5; done
+          kill "$w" 2>/dev/null || true
+          cat "$RUNNER_TEMP/smoke.json"; echo
+          grep -q '"bar":true' "$RUNNER_TEMP/smoke.json"
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: window-macos
+          path: out/*
+
+  linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            arch: amd64
+          - runner: ubuntu-22.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Install libraries
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev xvfb imagemagick dbus-x11
+      - name: Build
+        run: |
+          mkdir -p out
+          CGO_ENABLED=1 go build -trimpath -ldflags "-s -w" -o "out/syncftp-window-linux-${{ matrix.arch }}" ./cmd/syncftp-window
+      - name: Smoke test
+        run: |
+          CGO_ENABLED=0 go build -o "$RUNNER_TEMP/syncftp" ./cmd/syncftp
+          mkdir -p "$RUNNER_TEMP/p"; cd "$RUNNER_TEMP/p"
+          "$RUNNER_TEMP/syncftp" gui --foreground --no-window > "$RUNNER_TEMP/url.txt" 2>&1 &
+          for i in $(seq 1 50); do grep -q 'login?t=' "$RUNNER_TEMP/url.txt" && break; sleep 0.2; done
+          url="$(grep 'login?t=' "$RUNNER_TEMP/url.txt" | tail -1)"
+          cat > "$RUNNER_TEMP/run.sh" <<EOF
+          (sleep 5; import -window root "$GITHUB_WORKSPACE/out/shot-linux-${{ matrix.arch }}.png" || true) &
+          "$GITHUB_WORKSPACE/out/syncftp-window-linux-${{ matrix.arch }}" --probe && echo probe-ok
+          SYNCFTP_WINDOW_SMOKE="$RUNNER_TEMP/smoke.json" timeout 80 "$GITHUB_WORKSPACE/out/syncftp-window-linux-${{ matrix.arch }}" --url "$url" --title syncFTP
+          EOF
+          xvfb-run -a -s "-screen 0 1440x900x24" dbus-launch --exit-with-session bash "$RUNNER_TEMP/run.sh" || true
+          cat "$RUNNER_TEMP/smoke.json"; echo
+          grep -q '"bar":true' "$RUNNER_TEMP/smoke.json"
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: window-linux-${{ matrix.arch }}
+          path: out/*

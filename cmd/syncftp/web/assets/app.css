@@ -832,7 +832,7 @@ body.cerceveli .modal-arka { top: var(--tb-h); }
 .tb-guncel { height: 24px; padding: 0 10px; margin-right: 6px; border: 0; border-radius: var(--r-pill); background: var(--accent); color: #fff; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: default; white-space: nowrap; }
 .tb-guncel[hidden] { display: none; }
 .tb-guncel:hover { filter: brightness(1.1); }
-.up-not { max-height: 240px; overflow: auto; white-space: pre-wrap; font: 12.5px var(--mono); padding: 10px; border: 1px solid var(--line); border-radius: 8px; margin: 8px 0; }
+.up-not { max-height: 280px; overflow: auto; padding: 8px 8px 8px 26px; border: 1px solid var(--line); border-radius: 8px; margin: 8px 0; font-size: 13px; line-height: 1.6; }
 .qc-modal { width: min(620px, 94vw); }
 .qc-satir { display: grid; grid-template-columns: 110px minmax(0, 1fr) 90px; gap: 10px; }
 .qc-satir.iki { grid-template-columns: 1fr 1fr; }
@@ -850,6 +850,8 @@ body.cerceveli .modal-arka { top: var(--tb-h); }
 .qc-zaman { margin-left: auto; }
 .qc-kayit .ikon-btn { width: 24px; height: 24px; flex: none; }
 .tb-pencere { display: flex; align-self: stretch; }
+body.yerel-mac .tb-pencere { display: none; }
+body.yerel-mac #titlebar { padding-left: 84px; padding-right: 8px; }
 .tb-pencere button { width: 46px; border: 0; background: transparent; color: var(--muted); display: grid; place-items: center; cursor: default; }
 .tb-pencere button:hover { background: var(--surface-2); color: var(--text); }
 .tb-pencere .kapat:hover { background: #c42b1c; color: #fff; }

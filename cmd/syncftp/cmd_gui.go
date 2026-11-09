@@ -148,6 +148,10 @@ func runGUIForeground() error {
 	waitForOldPanel()
 	go cleanupUpdateLeftovers()
 	if gi, ok := readGUIInstance(); ok {
+		if guiFlagNoWindow { // yerel pencere (syncftp-window) adresi buradan okur
+			fmt.Println(gi.url())
+			return nil
+		}
 		if !bringWindowToFront(guiWindowTitle()) {
 			return openAppWindow(gi.url(), guiProfileDir())
 		}
@@ -159,7 +163,7 @@ func runGUIForeground() error {
 	if _, err := rand.Read(tokBuf); err != nil {
 		return err
 	}
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := listenGUIPort()
 	if err != nil {
 		return err
 	}
@@ -226,6 +230,26 @@ func runGUIForeground() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	return srv.Shutdown(ctx)
+}
+
+// listenGUIPort klasör başına aynı portu kullanır: tercihler (localStorage) kökene, yani porta bağlı;
+// port her açılışta değişince görünüm tercihleri ve editör sekmeleri kayboluyordu. Doluysa rastgele.
+func listenGUIPort() (net.Listener, error) {
+	file := guiInstancePath() + ".port"
+	if data, err := os.ReadFile(file); err == nil {
+		if p, err := strconv.Atoi(strings.TrimSpace(string(data))); err == nil && p > 0 {
+			if ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", p)); err == nil {
+				return ln, nil
+			}
+		}
+	}
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return nil, err
+	}
+	_ = os.MkdirAll(guiStateDir(), 0700)
+	_ = os.WriteFile(file, []byte(strconv.Itoa(ln.Addr().(*net.TCPAddr).Port)), 0600)
+	return ln, nil
 }
 
 // GUI dil tercihi (proje bağımsız): <UserConfigDir>/syncftp/gui-lang

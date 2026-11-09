@@ -689,6 +689,7 @@ Other:
 	UpdateDoneFmt:          "%s installed. Restart any open panel.\n",
 	UpdateUnsupported:      "no installable update for this platform",
 	UpdateBadSignature:     "update could not be verified (signature or checksum mismatch), not installed",
+	UpdateStartFailedFmt:   "update rolled back, the new version could not start: %v",
 	UpdateJobsRunning:      "a job is running, try again when it finishes",
 	QuickPasswordMissing:   "saved password not found, type it and try again",
 	QuickKeyringFailed:     "connected, but the password could not be saved to the keyring and will not be remembered",

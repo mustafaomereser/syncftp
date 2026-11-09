@@ -632,6 +632,7 @@ type StringSet struct {
 	UpdateUnsupported      string
 	UpdateBadSignature     string
 	UpdateJobsRunning      string
+	UpdateStartFailedFmt   string
 	QuickPasswordMissing   string
 	QuickKeyringFailed     string
 	NoServerSelected       string

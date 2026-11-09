@@ -689,6 +689,7 @@ Diğer:
 	UpdateDoneFmt:          "%s kuruldu. Açık panel varsa yeniden başlat.\n",
 	UpdateUnsupported:      "bu platform için kurulabilir güncelleme yok",
 	UpdateBadSignature:     "güncelleme doğrulanamadı (imza ya da özet tutmuyor), kurulmadı",
+	UpdateStartFailedFmt:   "güncelleme geri alındı, yeni sürüm başlatılamadı: %v",
 	UpdateJobsRunning:      "çalışan iş var, bitince tekrar dene",
 	QuickPasswordMissing:   "kayıtlı şifre bulunamadı, şifreyi yazıp tekrar dene",
 	QuickKeyringFailed:     "bağlandı ama şifre anahtarlığa kaydedilemedi, hatırlanmayacak",

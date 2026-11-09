@@ -1636,7 +1636,8 @@ document.addEventListener('keydown', (e) => {
   if (!F || e.target.closest?.('input:not([type=checkbox]):not([type=radio]), textarea, select, [contenteditable="true"], .xterm') || document.querySelector('.modal-arka, .pk-arka, .cm-menu')) return;
   if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'a') { e.preventDefault(); F.selectAll(); }
   else if (e.key === 'Escape' && F.hasSel()) { e.preventDefault(); F.clearSel(); }
-  else if (e.key === 'Delete' && !e.ctrlKey && !e.altKey && !e.metaKey && F.hasSel()) { e.preventDefault(); F.removeSel(); }
+  // Mac klavyesindeki silme tuşu tarayıcıya Backspace olarak gelir
+  else if ((e.key === 'Delete' || (e.key === 'Backspace' && /Mac/i.test(navigator.platform))) && !e.ctrlKey && !e.altKey && !e.metaKey && F.hasSel()) { e.preventDefault(); F.removeSel(); }
 });
 // Dosya / klasör satırı: tıklanan öğeye göre seçenekler; seçili birden fazla öğenin üstünde → toplu işlemler
 CM.register('#f-body tr[data-entry]', (tr) => {

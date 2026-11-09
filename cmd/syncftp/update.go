@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/base64"
@@ -12,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -323,7 +325,6 @@ func installPackage(goos, pkg, exe string) error {
 		if err := swapPath(fresh, app); err != nil {
 			return err
 		}
-		_ = os.RemoveAll(app + updateOldSuffix) // macOS çalışan dosyaların klasörünü silmeye izin verir
 		return nil
 	default:
 		want := "syncftp"
@@ -335,7 +336,8 @@ func installPackage(goos, pkg, exe string) error {
 			return err
 		}
 		defer os.RemoveAll(staging)
-		if err := extractZip(pkg, staging, func(n string) bool { return n == want }); err != nil {
+		const helper = "syncftp-window"
+		if err := extractZip(pkg, staging, func(n string) bool { return n == want || n == helper }); err != nil {
 			return err
 		}
 		fresh := filepath.Join(staging, filepath.FromSlash(want))
@@ -345,7 +347,10 @@ func installPackage(goos, pkg, exe string) error {
 		if err := swapPath(fresh, exe); err != nil {
 			return err
 		}
-		_ = os.Remove(exe + updateOldSuffix)
+		// Yerel pencere programı (Linux): çalışırken üzerine yeniden adlandırılabilir
+		if _, err := os.Stat(filepath.Join(staging, helper)); err == nil {
+			_ = os.Rename(filepath.Join(staging, helper), filepath.Join(dir, helper))
+		}
 		return nil
 	}
 }
@@ -372,7 +377,32 @@ func applyUpdate(r *ghRelease) error {
 	if err != nil {
 		return err
 	}
-	return installPackage(runtime.GOOS, pkg, exe)
+	if err := installPackage(runtime.GOOS, pkg, exe); err != nil {
+		return err
+	}
+	target := exe
+	if app := macBundleOf(exe); runtime.GOOS == "darwin" && app != "" {
+		target = app
+	}
+	// Yeni program çalışmıyorsa (bozuk paket, güvenlik yazılımı engeli) eskisine dön
+	if err := verifyInstalled(exe); err != nil {
+		_ = os.Rename(target, target+".update-bad")
+		if rerr := os.Rename(target+updateOldSuffix, target); rerr != nil {
+			return rerr
+		}
+		_ = os.RemoveAll(target + ".update-bad")
+		return fmt.Errorf(lang.L.UpdateStartFailedFmt, err)
+	}
+	_ = os.RemoveAll(target + updateOldSuffix) // Windows çalışan exe'yi silemez: sonraki açılışta temizlenir
+	return nil
+}
+
+func verifyInstalled(exe string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	c := exec.CommandContext(ctx, exe, "--version")
+	hideCmdWindow(c)
+	return c.Run()
 }
 
 // cleanupUpdateLeftovers önceki güncellemeden kalanı siler. Eski panel penceresi hâlâ kapanıyor olabilir → birkaç deneme.
@@ -441,6 +471,7 @@ type updateState struct {
 	checked  time.Time
 	checkErr string
 	busy     bool
+	whatsNew bool // güncellemeden sonraki ilk açılış
 }
 
 var guiUpdate updateState
@@ -463,6 +494,12 @@ func (sv *guiServer) registerUpdateAPI(mux *http.ServeMux) {
 		guiJSON(w, guiUpdate.view())
 	})
 	mux.HandleFunc("POST /api/update/apply", sv.apiUpdateApply)
+	mux.HandleFunc("POST /api/update/seen", func(w http.ResponseWriter, r *http.Request) {
+		guiUpdate.mu.Lock()
+		guiUpdate.whatsNew = false
+		guiUpdate.mu.Unlock()
+		guiJSON(w, map[string]any{"ok": true})
+	})
 }
 
 func (u *updateState) check() {
@@ -480,7 +517,7 @@ func (u *updateState) check() {
 func (u *updateState) view() map[string]any {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	out := map[string]any{"current": appVersion, "available": false, "auto": !loadGUIPersist().UpdateCheckOff, "error": u.checkErr}
+	out := map[string]any{"current": appVersion, "available": false, "auto": !loadGUIPersist().UpdateCheckOff, "error": u.checkErr, "whats_new": u.whatsNew}
 	if !u.checked.IsZero() {
 		out["checked"] = u.checked
 	}
@@ -570,6 +607,7 @@ func waitForOldPanel() {
 		return
 	}
 	os.Unsetenv(updateRestartEnv)
+	guiUpdate.whatsNew = true
 	for i := 0; i < 100; i++ {
 		if _, ok := readGUIInstance(); !ok {
 			return

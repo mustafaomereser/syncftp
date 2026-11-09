@@ -36,7 +36,7 @@ const AI = { open: false, project: '', session: null, es: null, lastId: 0, agent
 
 function aiCurrentProject() {
   const r = parseRoute();
-  if (r.project) return r.project;
+  if (r.project && r.project !== QUICK_P) return r.project;
   return AI.project || (S.projects[0] && S.projects[0].name) || '';
 }
 
