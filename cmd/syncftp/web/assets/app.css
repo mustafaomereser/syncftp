@@ -836,8 +836,8 @@ body.cerceveli .modal-arka { top: var(--tb-h); }
 .qc-modal { width: min(620px, 94vw); }
 .ch-ust { margin-bottom: 14px; align-items: center; }
 .pend-rozet:empty { display: none; }
-.yol-ac { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
-.yol-ac:hover .mono { color: var(--accent); text-decoration: underline; }
+.yol-ac { display: inline-flex; align-items: center; gap: 6px; padding: 2px 7px; margin: -2px -7px; border: 0; border-radius: 9px; background: none; color: inherit; font: inherit; cursor: pointer; transition: background .12s; }
+.yol-ac:hover { background: var(--surface-2); color: var(--text); }
 .pend-rozet .pill { margin-left: 6px; font-size: 11px; }
 .pend-rozet .i { width: 11px; height: 11px; }
 .ch-proje { border: 1px solid var(--line); border-left: 3px solid var(--pc, var(--line)); border-radius: 12px; background: var(--surface); margin-bottom: 12px; padding: 12px 14px; }

@@ -1144,7 +1144,7 @@ async function pageProject(r) {
   ];
   const activeTab = r.tab === 'server' ? 'servers' : r.tab === 'connection' ? 'connections' : r.tab;
   const head =`<div class="baslik-satir"><div><h1>${esc(proj.name)}</h1>
-      <div class="yol">${icon('folder')}<span>${esc(proj.path)}</span><button class="ikon-btn" style="width:24px;height:24px" data-copy="${esc(proj.path)}" title="${t('copyPath')}">${icon('copy')}</button></div></div>
+      <div class="yol"><button type="button" class="yol-ac" data-reveal="${esc(proj.name)}" title="${t('revealLocal')}">${icon('folder')}<span>${esc(proj.path)}</span></button><button class="ikon-btn" style="width:24px;height:24px" data-copy="${esc(proj.path)}" title="${t('copyPath')}">${icon('copy')}</button></div></div>
       <div class="aksiyonlar"><span id="proj-aks" class="aksiyonlar"></span>
         <a class="ikon-btn" href="#/help/${({ overview: 'sync', servers: 'start', server: 'start', connections: 'conns', connection: 'conns', files: 'files', history: 'rollback', cicd: 'cicd', settings: 'project' })[r.tab] || 'start'}" title="${t('navHelp')}">${icon('help')}</a></div></div>
     <div class="tabs">${tabs.map(([k, ic, l]) => `<a href="${pHash(proj.name, k)}" class="${activeTab === k ? 'aktif' : ''}">${icon(ic)}${l}</a>`).join('')}</div>`;
@@ -1332,6 +1332,11 @@ function bindServerCard(card, P, s) {
   act('menu', (b) => openMenu(b, menuItems()));
 }
 // Profil kartına sağ tık: ⋯ menüsünün aynısı (openMenu öğeleri sağ tık menüsü biçimine çevrilir)
+// Proje başlığındaki klasör yolu: tıklayınca dosya gezgininde açılır
+document.addEventListener('click', (e) => {
+  const b = e.target.closest && e.target.closest('[data-reveal]');
+  if (b) api('POST', `/api/p/${enc(b.dataset.reveal)}/local/reveal`, {}).catch(fail);
+});
 CM.register('.kart[data-s]', (el) => (el._menu ? el._menu().filter(Boolean).map((x) => (x === 'hr' ? '-' : x.title ? { heading: x.title } : { label: x.label, icon: x.icon, action: x.run })) : null));
 
 // flt: tek seferlik include/exclude (CLI status --include / --exclude) — "Filtreli sync" ile aynı liste editörleri
