@@ -523,8 +523,9 @@ function renderDock() {
       d = document.createElement('div');
       d.className = 'is';
       d.dataset.job = j.id;
-      // Tıklayınca log açılır ve kart kapanır (iş sürüyorsa İşler sayfasında / sayacında görünmeye devam eder)
-      d.onclick = () => { j.dismissed = true; renderDock(); showJobLog(j.id); };
+      // Tıklayınca log açılır. Süren işin kartı yerinde kalır (pencere kapanınca da geri dönülebilsin);
+      // bitmiş iş kartı tıklanınca kapanır. Elle kapatmak: sağ tık → Kapat
+      d.onclick = () => { if (j.status !== 'running') { j.dismissed = true; renderDock(); } showJobLog(j.id); };
     }
     if (d.__html !== html) { d.innerHTML = html; d.__html = html; }
     const son = j.status === 'error' ? j.error || '' : j.status === 'running' ? j.last || '…' : (resultSuffix(j.result).replace(/^ — /, '') || j.last || '…');
