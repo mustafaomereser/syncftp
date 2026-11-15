@@ -789,6 +789,7 @@ async function pageHome() {
   const closed = new Set(JSON.parse(lsGet('syncftp-home-closed') || '[]'));
   bind((root) => {
     $$('[data-add]', root).forEach((b) => (b.onclick = addProjectFlow));
+    loadPendingBadges(root); // changes.js
     $$('.pkart, .psatir', root).forEach((c) => (c.onclick = (e) => {
       if (e.target.closest('[data-look]')) { e.stopPropagation(); projectLookModal(c.dataset.p); return; }
       go(pHash(c.dataset.p));
@@ -951,7 +952,8 @@ async function pageHome() {
   const pc = (p) => (p.color ? `style="--pc:${esc(p.color)}"` : '');
   const lookBtn = `<button class="ikon-btn pk-look" data-look title="${t('lookTitle')}">${icon('edit')}</button>`;
   const meta = (p) => (p.ok ? `<span>${t('serversN', p.servers)}</span><span>·</span><span>${t('enabledN', p.enabled)}</span>${p.keyring ? `<span>·</span><span class="acc-t">${icon('lock')}</span>` : ''}` : `<span class="bad-t">${t('configError')}</span>`);
-  const watchPill = (p) => (p.watching ? `<span class="pill busy"><span class="nokta"></span>watch</span>` : '');
+  const pendPill = (p) => pendingBadgeHTML(p.name);
+  const watchPill = (p) => pendPill(p) + (p.watching ? `<span class="pill busy"><span class="nokta"></span>watch</span>` : '');
   const ikon = (p) => `<span class="p-ikon" ${p.color ? `style="color:${esc(p.color)}"` : ''}>${icon(p.ok ? 'folder' : 'alert', p.ok ? '' : 'bad-t')}</span>`;
   const card = (p) => `<div class="pkart ${p.banner ? 'kapakli' : ''}" data-p="${esc(p.name)}" ${pc(p)}>
       ${p.banner ? `<div class="pkapak"><img src="${banner(p)}" alt="" loading="lazy"></div>` : p.color ? '<div class="pserit"></div>' : ''}${lookBtn}

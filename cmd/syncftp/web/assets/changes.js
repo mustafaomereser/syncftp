@@ -4,13 +4,39 @@
 Object.assign(T.tr, {
   viewChanges: 'Değişiklikler', chSummary: '{0} projede {1} dosya bekliyor', chScanning: 'Projeler taranıyor…', chNone: 'Bütün projeler güncel',
   chUpToDate: 'Güncel: {0}', chSyncAll: 'Hepsini sync', chSyncAllConfirm: '{0} projede bekleyen değişiklikler sunuculara yüklenecek ({1} dosya). Devam edilsin mi?',
-  chMore: '+{0} dosya daha', chDetails: 'Ayrıntı', chSyncProject: 'Projeyi sync', chOpen: 'Projeyi aç', chNoProfiles: 'Aktif profil yok',
+  chBadgeTip: '{0} dosya sync bekliyor', chMore: '+{0} dosya daha', chDetails: 'Ayrıntı', chSyncProject: 'Projeyi sync', chOpen: 'Projeyi aç', chNoProfiles: 'Aktif profil yok',
 });
 Object.assign(T.en, {
   viewChanges: 'Changes', chSummary: '{1} file(s) pending in {0} project(s)', chScanning: 'Scanning projects…', chNone: 'All projects are up to date',
   chUpToDate: 'Up to date: {0}', chSyncAll: 'Sync all', chSyncAllConfirm: 'Pending changes in {0} project(s) will be uploaded ({1} files). Continue?',
-  chMore: '+{0} more files', chDetails: 'Details', chSyncProject: 'Sync project', chOpen: 'Open project', chNoProfiles: 'No enabled profile',
+  chBadgeTip: '{0} file(s) waiting to sync', chMore: '+{0} more files', chDetails: 'Details', chSyncProject: 'Sync project', chOpen: 'Open project', chNoProfiles: 'No enabled profile',
 });
+
+// Proje kartlarındaki bekleyen dosya rozeti: proje sayfasındaki sayının aynısı (aktif profillerin yeni +
+// değişen dosyaları). Son bilinen değer anında çizilir, arka planda tazelenir (aynı anda 3 proje).
+const PENDING = new Map();
+function pendingBadgeHTML(P) {
+  const n = PENDING.get(P);
+  return `<span class="pend-rozet" data-pend="${esc(P)}">${n ? pendingBadgeInner(n) : ''}</span>`;
+}
+const pendingBadgeInner = (n) => `<span class="pill warn" title="${esc(t('chBadgeTip', n))}">${icon('upload')}${n}</span>`;
+function loadPendingBadges(root) {
+  const seq = S.renderSeq;
+  const queue = (S.projects || []).filter((p) => p.ok && p.enabled).map((p) => p.name);
+  const worker = async () => {
+    for (let P; (P = queue.shift());) {
+      let n = 0;
+      try {
+        const ov = await GET(`/api/p/${enc(P)}/overview`);
+        n = (ov.servers || []).filter((s) => s.enabled && !s.scan_error).reduce((a, s) => a + s.new + s.changed, 0);
+      } catch { continue; }
+      if (seq !== S.renderSeq) return;
+      PENDING.set(P, n);
+      $$(`[data-pend="${CSS.escape(P)}"]`, root).forEach((el) => (el.innerHTML = n ? pendingBadgeInner(n) : ''));
+    }
+  };
+  for (let i = 0; i < 3; i++) worker();
+}
 
 const CH_SHOW = 40; // profil başına listede gösterilen dosya (fazlası "Ayrıntı" penceresinde)
 
