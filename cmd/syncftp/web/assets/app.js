@@ -784,7 +784,8 @@ async function pageHome() {
   // sıralama anındaki yerel çizimde sunucudan okuma — kayıt bitmeden eski sırayı getirip geri zıplatırdı
   if (S.skipProjectsFetch) S.skipProjectsFetch = false; else await loadProjects();
   const ps = S.projects;
-  const view = lsGet('syncftp-home-view') === 'list' ? 'list' : 'grid';
+  const hv = lsGet('syncftp-home-view');
+  const view = hv === 'list' || hv === 'changes' ? hv : 'grid';
   const closed = new Set(JSON.parse(lsGet('syncftp-home-closed') || '[]'));
   bind((root) => {
     $$('[data-add]', root).forEach((b) => (b.onclick = addProjectFlow));
@@ -945,6 +946,7 @@ async function pageHome() {
         <button class="btn ai-btn" onclick="aiSetupStart()">${icon('spark')}${t('aiSetupNav')}</button>
         <a class="btn" href="#/settings">${icon('sliders')}${t('navSettings')}</a></div></div></div>`;
   }
+  if (view === 'changes') return pageChanges(ps); // changes.js
   const banner = (p) => `/api/p/${enc(p.name)}/banner?v=${p.banner}`;
   const pc = (p) => (p.color ? `style="--pc:${esc(p.color)}"` : '');
   const lookBtn = `<button class="ikon-btn pk-look" data-look title="${t('lookTitle')}">${icon('edit')}</button>`;
@@ -971,7 +973,7 @@ async function pageHome() {
         <button type="button" class="pgrup-bas" data-hgrp="${esc(g)}">${icon('right')}<b>${esc(g || t('lookNoGroup'))}</b><span class="faint">${items.length}</span></button>${listOf(items)}</section>`).join('')
     : listOf(projectsByGroup(ps)); // grupsuzken de kayıtlı sıra (kenar çubuğuyla aynı)
   return `<div class="sayfa"><div class="baslik-satir"><div><h1>${t('projectsTitle')}</h1><p>${esc(t('projectsSub', (S.meta && S.meta.base) || ''))}</p></div>
-    <div class="aksiyonlar"><span class="seg srv-seg"><a role="button" data-hv="grid" class="${view === 'grid' ? 'aktif' : ''}" title="${t('viewGrid')}">${icon('layers')}${t('viewGrid')}</a><a role="button" data-hv="list" class="${view === 'list' ? 'aktif' : ''}" title="${t('viewList')}">${icon('log')}${t('viewList')}</a></span>
+    <div class="aksiyonlar">${homeViewSwitch(view)}
       <button class="btn birincil" data-add>${icon('plus')}${t('addProject')}</button></div></div>
     ${body}</div>`;
 }

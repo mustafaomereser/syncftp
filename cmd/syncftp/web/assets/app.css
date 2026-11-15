@@ -834,6 +834,16 @@ body.cerceveli .modal-arka { top: var(--tb-h); }
 .tb-guncel:hover { filter: brightness(1.1); }
 .up-not { max-height: 280px; overflow: auto; padding: 8px 8px 8px 26px; border: 1px solid var(--line); border-radius: 8px; margin: 8px 0; font-size: 13px; line-height: 1.6; }
 .qc-modal { width: min(620px, 94vw); }
+.ch-ust { margin-bottom: 14px; align-items: center; }
+.ch-proje { border: 1px solid var(--line); border-left: 3px solid var(--pc, var(--line)); border-radius: 12px; background: var(--surface); margin-bottom: 12px; padding: 12px 14px; }
+.ch-proje-bas, .ch-profil-bas { display: flex; align-items: center; gap: 8px; }
+.ch-proje-bas b { font-size: 15px; }
+.ch-ic:not(:empty) { margin-top: 10px; display: grid; gap: 10px; }
+.ch-profil-bas { margin-bottom: 6px; font-size: 13px; }
+.ch-liste { max-height: 260px; overflow-y: auto; }
+.ch-isaret { display: inline-block; width: 12px; font-weight: 600; }
+.ch-yeni { color: var(--ok, #4ade80); } .ch-deg { color: var(--warn, #fbbf24); } .ch-sil { color: var(--bad, #f87171); }
+.ch-guncel { margin-top: 6px; }
 .qc-satir { display: grid; grid-template-columns: 110px minmax(0, 1fr) 90px; gap: 10px; }
 .qc-satir.iki { grid-template-columns: 1fr 1fr; }
 .qc-durum { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
