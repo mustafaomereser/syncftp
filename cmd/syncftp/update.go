@@ -534,7 +534,7 @@ func (u *updateState) view() map[string]any {
 	return out
 }
 
-// updateLoop açılışta ve günde bir yeni sürüme bakar (Ayarlar'dan kapatılabilir).
+// updateLoop açılışta ve saatte bir yeni sürüme bakar (Ayarlar'dan kapatılabilir). GitHub'ın kimliksiz sınırı saatte 60 istek.
 func (sv *guiServer) updateLoop() {
 	delay := 5 * time.Second
 	for {
@@ -543,7 +543,7 @@ func (sv *guiServer) updateLoop() {
 			return
 		case <-time.After(delay):
 		}
-		delay = 24 * time.Hour
+		delay = time.Hour
 		if !loadGUIPersist().UpdateCheckOff {
 			guiUpdate.check()
 		}

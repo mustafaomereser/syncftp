@@ -2,13 +2,13 @@
 Object.assign(T.tr, {
   upTitle: 'Güncelleme', upBadge: 'Güncelle {0}', upBody: 'syncFTP {0} çıktı (sende {1}).', upGo: 'Güncelle ve yeniden başlat', upLater: 'Sonra',
   upBusy: 'İndiriliyor ve doğrulanıyor…', upDone: 'Güncellendi. syncFTP yeniden başlıyor, yeni pencere açılınca bu pencereyi kapatabilirsin.', upNoPkg: 'Bu sürümde platformun için kurulabilir paket yok, Release sayfasından indirebilirsin.',
-  upOpenRelease: 'Release sayfası', upSection: 'Güncellemeler', upAuto: 'Yeni sürümleri otomatik denetle', upAutoHint: 'Açılışta ve günde bir GitHub\'a bakar; kurulum her zaman senin onayınla',
+  upOpenRelease: 'Release sayfası', upSection: 'Güncellemeler', upAuto: 'Yeni sürümleri otomatik denetle', upAutoHint: 'Açılışta ve saatte bir GitHub\'a bakar; kurulum her zaman senin onayınla',
   upNew: 'Yenilikler', upNewTitle: '{0} sürümünde neler yeni', upCheck: 'Şimdi denetle', upLatest: 'Son sürümü kullanıyorsun ({0})', upFound: 'Yeni sürüm var: {0}', upFail: 'Denetlenemedi: {0}',
 });
 Object.assign(T.en, {
   upTitle: 'Update', upBadge: 'Update {0}', upBody: 'syncFTP {0} is out (you have {1}).', upGo: 'Update and restart', upLater: 'Later',
   upBusy: 'Downloading and verifying…', upDone: 'Updated. syncFTP is restarting; you can close this window once the new one opens.', upNoPkg: 'No installable package for your platform in this release; you can download it from the Release page.',
-  upOpenRelease: 'Release page', upSection: 'Updates', upAuto: 'Check for new versions automatically', upAutoHint: 'Checks GitHub at startup and once a day; installing always needs your approval',
+  upOpenRelease: 'Release page', upSection: 'Updates', upAuto: 'Check for new versions automatically', upAutoHint: 'Checks GitHub at startup and every hour; installing always needs your approval',
   upNew: "What's new", upNewTitle: "What's new in {0}", upCheck: 'Check now', upLatest: 'You are on the latest version ({0})', upFound: 'New version available: {0}', upFail: 'Check failed: {0}',
 });
 
@@ -113,4 +113,4 @@ function bindUpdateSection(root) {
 }
 
 // Sunucu kontrolü açılıştan 5 sn sonra bitiyor
-window.addEventListener('DOMContentLoaded', () => { setTimeout(upRefresh, 9000); setTimeout(upDraw, 300); setInterval(upRefresh, 3600 * 1000); });
+window.addEventListener('DOMContentLoaded', () => { setTimeout(upRefresh, 9000); setTimeout(upDraw, 300); setInterval(upRefresh, 10 * 60 * 1000); });
