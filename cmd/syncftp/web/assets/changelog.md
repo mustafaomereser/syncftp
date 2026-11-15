@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.0.5
+
+### tr
+- Freeze listesinde Gözat artık sunucudaki dosyaları gösteriyor
+- Freeze listesinde Liste | Klasör görünümü
+- Profil kartında "geri alınabilir" rozeti ve Dosyalar düğmesi yeniden çalışıyor
+
+### en
+- Browse in the freeze list now shows the files on the server
+- List | Folders view in the freeze list
+- The "can roll back" badge and the Files button on profile cards work again
+
 ## 2.0.4
 
 ### tr
