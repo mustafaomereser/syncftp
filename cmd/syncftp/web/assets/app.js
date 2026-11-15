@@ -1295,6 +1295,16 @@ function serverCard(s) {
   </div>`;
 }
 
+// redrawServerCard tek profil kartını güncel s ile yerinde yeniden çizer (taramadaki kart güncellemesiyle aynı)
+function redrawServerCard(old, P, s) {
+  if (!old || !old.isConnected) return;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = serverCard(s);
+  const card = tmp.firstElementChild;
+  old.replaceWith(card);
+  bindServerCard(card, P, s);
+}
+
 function bindServerCard(card, P, s) {
   const act = (sel, fn) => { const b = $(`[data-act="${sel}"]`, card); if (b) b.onclick = (e) => { e.stopPropagation(); fn(b); }; };
   const job = (req, label) => startJobs(P, { servers: [s.name], ...req }, label).catch(fail);
@@ -1311,20 +1321,25 @@ function bindServerCard(card, P, s) {
   // Yedek aç / kapa: açmak tek tık, kapatmak onaylı (geri alma o profilde çalışmaz olur)
   act('backup', async () => {
     if (s.backup && !(await confirmBox(t('backupOffTitle'), esc(t('backupOffConfirm', s.name)), t('backupOffBtn'), true))) return;
+    // Yalnızca bu kart yeniden çizilir (sayfanın tamamı ve diğer profillerin taraması değil). Önce ekranda
+    // değişir, kayıt arkadan gider; tutmazsa kart eski hâline döner
+    const was = s.backup;
+    const redraw = () => redrawServerCard(document.querySelector(`.kart[data-s="${CSS.escape(s.name)}"]`), P, s);
+    s.backup = !was;
+    redraw();
     try {
       const cfg = await getConfig(P);
       const me = cfg.servers.find((x) => x.name === s.name);
-      if (!me) return;
-      if (s.backup) me.no_backup = true;
+      if (!me) throw new Error(t('notFound') + ': ' + s.name);
+      if (was) me.no_backup = true;
       else {
         me.no_backup = false;
         // Proje geneli kapalıysa yalnızca bu profil açılır: geneli aç, diğer profiller kapalı kalsın
         if (cfg.sync.no_backup) { cfg.sync.no_backup = false; cfg.servers.forEach((x) => { if (x !== me) x.no_backup = true; }); }
       }
       await api('PUT', `/api/p/${enc(P)}/config`, cfg);
-      toast(s.backup ? t('backupTurnedOff', s.name) : t('backupTurnedOn', s.name));
-      render(true);
-    } catch (e) { fail(e); }
+      toast(was ? t('backupTurnedOff', s.name) : t('backupTurnedOn', s.name));
+    } catch (e) { s.backup = was; redraw(); fail(e); }
   });
   act('local', () => api('POST', `/api/p/${enc(P)}/local/reveal`, { server: s.name }).catch(fail));
   // Aynı menü hem ⋯ düğmesinde hem kartın sağ tıkında (CM kaydı aşağıda)
