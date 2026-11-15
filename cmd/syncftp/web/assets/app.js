@@ -1288,7 +1288,7 @@ function serverCard(s) {
       ${s.frozen ? `<button class="rozet" data-act="freeze">${icon('snow')}${t('frozenN', s.frozen)}</button>` : ''}
       ${s.failed ? `<button class="rozet bad-t" data-act="retry">${icon('alert')}${t('failedN', s.failed)}</button>` : ''}
       ${s.rollbackable ? `<button class="rozet" data-act="history">${icon('undo')}${t('rollbackN', s.rollbackable)}</button>` : ''}
-      <button class="rozet ${s.backup ? '' : 'warn-t'}" data-act="backup" title="${s.backup ? t('backupOffHint') : t('backupOnHint')}">${icon('shield')}${s.backup ? t('backupOn') : t('noBackup')}</button>
+      <button class="rozet ${s.backup ? 'ok-t' : 'warn-t'}" data-act="backup" title="${s.backup ? t('backupOffHint') : t('backupOnHint')}">${icon('shield')}${s.backup ? t('backupOn') : t('noBackup')}</button>
     </div>
     ${s.enabled && !s.first_sync_done ? `<div class="not">${icon('scan')}${t('firstSyncNote')}</div>` : ''}
     ${s.scan_error ? `<div class="not bad">${icon('alert')}${esc(s.scan_error)}</div>` : ''}
