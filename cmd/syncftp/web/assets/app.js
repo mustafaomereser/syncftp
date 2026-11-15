@@ -1949,7 +1949,8 @@ function bindFormTools(root) {
     const box = ledBox(b);
     const r = await treeRoot();
     if (r === null) return;
-    const res = await pickLocalTree({ P, root: r, server: srv, current: ledGet(box), mode: b.dataset.tree });
+    // Freeze listesi sunucudaki dosyalardan seçilir (Dosyalar sekmesindeki freeze ile aynı); diğerleri yerelden
+    const res = await pickLocalTree({ P, root: r, server: srv, current: ledGet(box), mode: b.dataset.tree, remote: b.dataset.tree === 'files' && !!srv && !!P });
     if (res) ledSet(box, res);
   }));
   $$('[data-whtest]', root).forEach((b) => (b.onclick = async (e) => {

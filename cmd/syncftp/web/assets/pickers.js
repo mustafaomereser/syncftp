@@ -14,7 +14,7 @@ Object.assign(T.tr, {
   pkExplorerHint: 'Klasöre tıklayınca içine girer, .. ile geri çıkar. Onay kutusuyla işaretleyin. Klavye: ↑↓ gez, Enter gir, Space işaretle, Backspace geri.', pkRoot: 'Proje kökü',
   pkHidden: 'Gizlileri göster', pkTreeTitle: 'Yerel dosyalardan seç', pkIgnored: 'ignore', pkSelected: '{0} seçili',
   
-  pkFreezeHint: 'Klasör işaretlenirse klasörün kendisi freeze\'lenir: altındaki her dosya (sonradan eklenenler dahil) yüklenmez.',
+  pkRemoteTreeTitle: 'Sunucudaki dosyalar · {0}', pkFreezeHint: 'Klasör işaretlenirse klasörün kendisi freeze\'lenir: altındaki her dosya (sonradan eklenenler dahil) yüklenmez.',
   pkNewFolder: 'Yeni klasör', pkNewFile: 'Yeni dosya', pkNewFolderPh: 'Klasör adı', pkNewFilePh: 'Dosya adı (ör. index.php)', pkCreate: 'Oluştur', pkCreated: '{0} oluşturuldu',
 });
 Object.assign(T.en, {
@@ -23,7 +23,7 @@ Object.assign(T.en, {
   pkExplorerHint: 'Click a folder to open it, .. to go back. Tick checkboxes to select. Keys: ↑↓ move, Enter open, Space select, Backspace back.', pkRoot: 'Project root',
   pkHidden: 'Show hidden', pkTreeTitle: 'Pick from local files', pkIgnored: 'ignored', pkSelected: '{0} selected',
   
-  pkFreezeHint: 'Checking a folder freezes the folder itself: nothing inside it (including files added later) is uploaded.',
+  pkRemoteTreeTitle: 'Server files · {0}', pkFreezeHint: 'Checking a folder freezes the folder itself: nothing inside it (including files added later) is uploaded.',
   pkNewFolder: 'New folder', pkNewFile: 'New file', pkNewFolderPh: 'Folder name', pkNewFilePh: 'File name (e.g. index.php)', pkCreate: 'Create', pkCreated: '{0} created',
 });
 
@@ -232,17 +232,18 @@ function relToProject(projectPath, abs) {
 // olmayan kalıplar (glob vb.) korunur.
 // root verilirse proje yerine o mutlak klasör gezilir (hızlı yükleme / varsayılanlar).
 // mode: 'paths' (include/exclude) | 'protect' (klasörlere / eklenir) | 'files' (freeze: klasör "klasör/" olarak)
-function pickLocalTree({ P, root = '', server = '', current = [], title, mode = 'paths' }) {
+// remote: true → profilin SUNUCUDAKİ klasörü gezilir (freeze; Dosyalar sekmesindeki freeze ile aynı kaynak)
+function pickLocalTree({ P, root = '', server = '', current = [], title, mode = 'paths', remote = false }) {
   return new Promise((resolve) => {
     const sel = new Set((current || []).map((x) => x.replace(/\/+$/, '')).filter(Boolean));
     const dirMarks = new Set((current || []).filter((x) => x.endsWith('/')).map((x) => x.replace(/\/+$/, '')));
     let cwd = '', rows = [], cursor = 0, done = false, baseName = root || '';
     const m = modal({
-      title: `${icon('folder')}${title || t('pkTreeTitle')}`, size: 'orta',
+      title: `${icon(remote ? 'server' : 'folder')}${title || (remote ? t('pkRemoteTreeTitle', server) : t('pkTreeTitle'))}`, size: 'orta',
       body: `<p class="ipucu" style="margin:0 0 8px">${mode === 'files' ? t('pkFreezeHint') : t('pkExplorerHint')}</p>
         <div class="pk-arac pk-arac-yol"><div class="gz-yol" data-crumbs></div>${pkNewButtons()}</div>
         ${pkNewRow()}
-        <div class="liste-kutu gezgin" data-list tabindex="0" style="height:44vh;max-height:none"></div>
+        <div class="liste-kutu gezgin" data-list tabindex="0" style="height:44vh;max-height:none"><div class="yukleniyor" style="padding:20px">${icon('refresh', 'spin')} ${t('loading')}</div></div>
         <div class="gz-secili" data-picked></div>`,
       actions: [
         { left: '<span data-count></span>' },
@@ -294,14 +295,20 @@ function pickLocalTree({ P, root = '', server = '', current = [], title, mode = 
     const parentOf = (p) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '');
     function drawCrumbs() {
       const parts = cwd ? cwd.split('/') : [];
-      const rootLabel = root ? root.split(/[\\/]/).filter(Boolean).pop() : t('pkRoot');
+      const rootLabel = remote ? server : root ? root.split(/[\\/]/).filter(Boolean).pop() : t('pkRoot');
       crumbs.innerHTML = `<button data-c="">${icon('folder')}${esc(rootLabel)}</button>` +
         parts.map((p, i) => `<span class="faint">/</span><button data-c="${esc(parts.slice(0, i + 1).join('/'))}">${esc(p)}</button>`).join('');
       $$('[data-c]', crumbs).forEach((b) => (b.onclick = () => open(b.dataset.c)));
     }
     async function open(rel, focusName) {
       let d;
-      try { d = await GET(root ? `/api/fs/tree?root=${enc(root)}&path=${enc(rel)}` : `/api/p/${enc(P)}/local/ls?server=${enc(server)}&path=${enc(rel)}`); }
+      try {
+        if (remote) {
+          const r = await GET(`/api/p/${enc(P)}/remote/ls?server=${enc(server)}&path=${enc(rel)}`);
+          if (r.error) throw new Error(r.error);
+          d = { entries: (r.entries || []).map((e) => ({ name: e.name, dir: e.type === 'dir', size: e.size, ignored: !!e.skip })) };
+        } else d = await GET(root ? `/api/fs/tree?root=${enc(root)}&path=${enc(rel)}` : `/api/p/${enc(P)}/local/ls?server=${enc(server)}&path=${enc(rel)}`);
+      }
       catch (e) { toast(e.message, 'bad'); return; }
       const prev = cwd;
       cwd = rel;
@@ -334,7 +341,9 @@ function pickLocalTree({ P, root = '', server = '', current = [], title, mode = 
     };
     // Yeni öğe bulunulan klasörde oluşturulur, imleç ona gelir (seçmek için Space / onay kutusu)
     bindPkNew(m.root, async (kind, name) => {
-      const r = root
+      const r = remote
+        ? await api('POST', `/api/p/${enc(P)}/remote/create?server=${enc(server)}`, { path: cwd, kind, name })
+        : root
         ? await api('POST', '/api/fs/create', { root, path: cwd, kind, name })
         : await api('POST', `/api/p/${enc(P)}/local/create?server=${enc(server)}&path=${enc(cwd)}`, { kind, name });
       await open(cwd, r.name);
