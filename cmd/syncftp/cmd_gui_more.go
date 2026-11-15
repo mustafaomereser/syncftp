@@ -32,6 +32,7 @@ func (sv *guiServer) routesMore(mux *http.ServeMux) {
 	sv.registerSettingsAPI(mux)
 	sv.registerLibraryAPI(mux)
 	sv.registerQuickAPI(mux)
+	mux.HandleFunc("POST /api/p/{p}/local/reveal", sv.apiLocalReveal)
 	sv.registerUpdateAPI(mux)
 	sv.registerTermAPI(mux)
 	mux.HandleFunc("GET /api/p/{p}/local/ls", sv.apiLocalLs)
