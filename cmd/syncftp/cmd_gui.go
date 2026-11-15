@@ -8,6 +8,7 @@ import (
 	"embed"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -522,6 +523,9 @@ func (j *job) finish(result any, err error) {
 	case err != nil && j.stopped:
 		j.Status = "stopped"
 		j.Error = err.Error()
+		if errors.Is(err, context.Canceled) { // iç hata metni değil, kullanıcının anlayacağı
+			j.Error = lang.L.JobStoppedByUser
+		}
 	case err != nil:
 		j.Status = "error"
 		j.Error = err.Error()

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -179,6 +180,11 @@ type verifyReport struct {
 
 // verifyServer tek sunucu için drift kontrolü (CLI + GUI ortak çekirdek).
 func verifyServer(w io.Writer, configDir string, cfg *config.Config, srv config.Server, fix bool) (verifyReport, error) {
+	return verifyServerCtx(context.Background(), w, configDir, cfg, srv, fix, false)
+}
+
+// verifyServerCtx verifyServer + iptal (panelde Durdur) + uzun listelemede canlı ilerleme satırları.
+func verifyServerCtx(ctx context.Context, w io.Writer, configDir string, cfg *config.Config, srv config.Server, fix, progress bool) (verifyReport, error) {
 	rep := verifyReport{Server: srv.Name, Missing: []string{}, Modified: []string{}}
 	current, byKey, err := scanForServer(configDir, cfg, srv)
 	if err != nil {
@@ -197,13 +203,21 @@ func verifyServer(w io.Writer, configDir string, cfg *config.Config, srv config.
 	rep.Pending = len(pi.newL) + len(pi.changed)
 
 	fmt.Fprintf(w, lang.L.VerifyStartFmt, srv.Name, srv.ProtocolName(), srv.Host)
-	client, err := ftpclient.Connect(srv)
+	client, err := connectCtx(ctx, srv)
 	if err != nil {
 		return rep, err
 	}
 	defer client.Close()
+	stopAbort := context.AfterFunc(ctx, client.Abort) // Durdur → takılı LIST kesilir
+	defer stopAbort()
+	if progress {
+		fmt.Fprint(w, lang.L.ResyncConnectedLine)
+	}
 	skip := remoteSkipFunc(matcher, flt.include, flt.exclude)
-	remote, err := client.ListRecursiveFiltered(srv.RemotePath, skip, nil)
+	remote, err := client.ListRecursiveFiltered(srv.RemotePath, skip, listProgress(w, progress))
+	if ctx.Err() != nil {
+		return rep, ctx.Err()
+	}
 	if err != nil {
 		return rep, err
 	}

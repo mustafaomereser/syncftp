@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -9,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"syncftp/internal/config"
-	ftpclient "syncftp/internal/ftp"
 	"syncftp/internal/lang"
 )
 
@@ -104,17 +104,28 @@ type serverDiffReport struct {
 
 // diffServers iki sunucunun uzak içeriğini karşılaştırır (CLI + GUI ortak çekirdek).
 func diffServers(w io.Writer, srvA, srvB config.Server) (serverDiffReport, error) {
+	return diffServersCtx(context.Background(), w, srvA, srvB, false)
+}
+
+// diffServersCtx diffServers + iptal (panelde Durdur) + canlı listeleme ilerlemesi.
+func diffServersCtx(ctx context.Context, w io.Writer, srvA, srvB config.Server, progress bool) (serverDiffReport, error) {
 	rep := serverDiffReport{A: srvA.Name, B: srvB.Name, OnlyA: []string{}, OnlyB: []string{}, SizeDiff: []string{}}
 	fmt.Fprintf(w, lang.L.DiffTitleFmt, srvA.Name, srvB.Name)
 
 	listServer := func(srv config.Server) (map[string]uint64, error) {
 		fmt.Fprintf(w, lang.L.DiffListingFmt, srv.Name)
-		client, err := ftpclient.Connect(srv)
+		client, err := connectCtx(ctx, srv)
 		if err != nil {
 			return nil, err
 		}
 		defer client.Close()
-		return client.ListRecursive(srv.RemotePath)
+		stop := context.AfterFunc(ctx, client.Abort)
+		defer stop()
+		files, err := client.ListRecursiveFiltered(srv.RemotePath, nil, listProgress(w, progress))
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		return files, err
 	}
 
 	filesA, err := listServer(srvA)

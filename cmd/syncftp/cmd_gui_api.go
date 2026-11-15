@@ -847,12 +847,14 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 	case "verify":
 		for _, srv := range servers {
 			srv := srv
-			add(sv.jobs.start("verify", p.Name, srv.Name, lang.L.GuiJobVerify, p.Name+"|"+srv.Name, func(j *job) (any, error) {
+			ctx, cancel := context.WithCancel(context.Background())
+			add(sv.jobs.startCancelable("verify", p.Name, srv.Name, lang.L.GuiJobVerify, p.Name+"|"+srv.Name, cancel, func(j *job) (any, error) {
+				defer cancel()
 				c, err := config.Load(dir)
 				if err != nil {
 					return nil, err
 				}
-				return verifyServer(j, dir, c, srv, req.Fix)
+				return verifyServerCtx(ctx, j, dir, c, srv, req.Fix, true)
 			}))
 		}
 	case "rollback":
@@ -904,26 +906,32 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 			guiErr(w, 400, errors.New("command"))
 			return
 		}
-		add(sv.jobs.start("exec", p.Name, srv.Name, lang.L.GuiJobExec, "", func(j *job) (any, error) {
-			c, err := ftpclient.Connect(srv)
+		ctx, cancel := context.WithCancel(context.Background())
+		add(sv.jobs.startCancelable("exec", p.Name, srv.Name, lang.L.GuiJobExec, "", cancel, func(j *job) (any, error) {
+			defer cancel()
+			c, err := connectCtx(ctx, srv)
 			if err != nil {
 				return nil, err
 			}
 			defer c.Close()
+			defer context.AfterFunc(ctx, c.Abort)() // Durdur → SSH oturumu kesilir, komut durur
 			return nil, remoteExec(j, c, command, true) // CLI remote exec / shell exec ile aynı (SFTP kontrolü dahil)
 		}))
 	case "tree":
 		srv := servers[0]
-		add(sv.jobs.start("tree", p.Name, srv.Name, lang.L.GuiJobTree, "", func(j *job) (any, error) {
-			c, err := ftpclient.Connect(srv)
+		ctx, cancel := context.WithCancel(context.Background())
+		add(sv.jobs.startCancelable("tree", p.Name, srv.Name, lang.L.GuiJobTree, "", cancel, func(j *job) (any, error) {
+			defer cancel()
+			c, err := connectCtx(ctx, srv)
 			if err != nil {
 				return nil, err
 			}
 			defer c.Close()
+			defer context.AfterFunc(ctx, c.Abort)()
 			root := guiRemotePath(srv, req.Path)
 			fmt.Fprintln(j, root)
 			writeFTPTree(j, c, root, "", req.Max, func(p ...string) string { return strings.Join(p, "") }) // shell `tree` ile aynı çekirdek
-			return nil, nil
+			return nil, ctx.Err()
 		}))
 	case "rm":
 		// Uzak silme iş olarak: dosya tarayıcısının önbellekli bağlantısını DEĞİL kendi bağlantısını
@@ -1117,8 +1125,10 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		a, b := servers[0], servers[1]
-		add(sv.jobs.start("diff", p.Name, a.Name+" ↔ "+b.Name, lang.L.GuiJobDiff, "", func(j *job) (any, error) {
-			return diffServers(j, a, b)
+		ctx, cancel := context.WithCancel(context.Background())
+		add(sv.jobs.startCancelable("diff", p.Name, a.Name+" ↔ "+b.Name, lang.L.GuiJobDiff, "", cancel, func(j *job) (any, error) {
+			defer cancel()
+			return diffServersCtx(ctx, j, a, b, true)
 		}))
 	default:
 		guiErr(w, 400, fmt.Errorf("kind: %s", req.Kind))
