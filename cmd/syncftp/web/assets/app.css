@@ -168,6 +168,11 @@ h2 small { font-weight: 400; color: var(--faint); font-size: 13px; }
 .rozet { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; border-radius: 9px; background: var(--surface); font-size: 12px; color: var(--muted); border: 1px solid transparent; cursor: default; }
 button.rozet { cursor: pointer; }
 button.rozet:hover { border-color: var(--line-2); color: var(--text); }
+/* .rozet rengi (muted) .ok-t gibi yardımcıları eziyordu: renkli rozetler */
+.rozet.ok-t { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, var(--surface)); }
+.rozet.warn-t { color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, var(--surface)); }
+.rozet.bad-t { color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, var(--surface)); }
+button.rozet.ok-t:hover, button.rozet.warn-t:hover, button.rozet.bad-t:hover { color: inherit; filter: brightness(1.15); }
 .kart .not { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; font-size: 13px; background: var(--surface); color: var(--muted); }
 .kart .not.bad { background: rgb(255 99 105 / .08); color: var(--bad); }
 
