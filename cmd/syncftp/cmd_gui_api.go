@@ -98,8 +98,8 @@ func (sv *guiServer) routes(mux *http.ServeMux) {
 	})
 	sv.routesMore(mux)
 	sv.routesAI(mux)
+	mux.HandleFunc("GET /api/jobs/live", sv.apiJobsLive)
 	mux.HandleFunc("GET /api/jobs/{id}", sv.apiJobGet)
-	mux.HandleFunc("GET /api/jobs/{id}/stream", sv.apiJobStream)
 	mux.HandleFunc("DELETE /api/jobs/{id}", sv.apiJobCancel)
 }
 
@@ -1184,84 +1184,6 @@ func (sv *guiServer) apiJobGet(w http.ResponseWriter, r *http.Request) {
 	snap["log"] = append([]string(nil), j.lines...)
 	j.mu.Unlock()
 	guiJSON(w, snap)
-}
-
-// apiJobStream SSE: önce mevcut satırlar, sonra canlı satırlar; bitince "done" olayı.
-func (sv *guiServer) apiJobStream(w http.ResponseWriter, r *http.Request) {
-	j := sv.jobs.get(r.PathValue("id"))
-	if j == nil {
-		guiErr(w, 404, errors.New("job"))
-		return
-	}
-	fl, ok := w.(http.Flusher)
-	if !ok {
-		guiErr(w, 500, errors.New("sse"))
-		return
-	}
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.WriteHeader(http.StatusOK)
-
-	ch := make(chan string, 512)
-	j.mu.Lock()
-	backlog := append([]string(nil), j.lines...)
-	j.subs[ch] = struct{}{}
-	j.mu.Unlock()
-	defer func() {
-		j.mu.Lock()
-		delete(j.subs, ch)
-		j.mu.Unlock()
-	}()
-
-	send := func(event, data string) {
-		for _, line := range strings.Split(data, "\n") {
-			if event != "" {
-				fmt.Fprintf(w, "event: %s\n", event)
-			}
-			fmt.Fprintf(w, "data: %s\n\n", line)
-		}
-	}
-	for _, l := range backlog {
-		send("", l)
-	}
-	fl.Flush()
-
-	ping := time.NewTicker(15 * time.Second)
-	defer ping.Stop()
-	for {
-		select {
-		case l := <-ch:
-			send("", l)
-			// Biriken satırları tek flush ile gönder
-			for drained := false; !drained; {
-				select {
-				case l2 := <-ch:
-					send("", l2)
-				default:
-					drained = true
-				}
-			}
-			fl.Flush()
-		case <-j.done:
-			for drained := false; !drained; {
-				select {
-				case l2 := <-ch:
-					send("", l2)
-				default:
-					drained = true
-				}
-			}
-			snap := j.snapshot()
-			send("done", mustJSON(snap))
-			fl.Flush()
-			return
-		case <-ping.C:
-			fmt.Fprint(w, ": ping\n\n")
-			fl.Flush()
-		case <-r.Context().Done():
-			return
-		}
-	}
 }
 
 func (sv *guiServer) apiJobCancel(w http.ResponseWriter, r *http.Request) {

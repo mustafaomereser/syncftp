@@ -433,44 +433,78 @@ function trackJob(id, opts = {}) {
   if (S.jobs.has(id)) return S.jobs.get(id);
   // onDone: açık log penceresinin işleyicisi (pencere kapanınca null); doneCbs: diğer bekleyenler
   // (ör. "Ölç" sonucu forma yazılır) — log penceresi açılıp kapansa da kaybolmaz
-  const j = { id, kind: opts.kind || '', title: opts.title || id, server: opts.server || '', project: opts.project || '', status: 'running', last: '', lines: [], es: null, shownUntil: 0, doneCbs: [] };
+  const j = { id, kind: opts.kind || '', title: opts.title || id, server: opts.server || '', project: opts.project || '', status: 'running', last: '', lines: [], recv: 0, quiet: opts.quiet === true, shownUntil: 0, doneCbs: [] };
   S.jobs.set(id, j);
-  const es = new EventSource(`/api/jobs/${enc(id)}/stream`);
-  j.es = es;
-  es.onmessage = (e) => {
-    j.lines.push(e.data);
-    // Günlerce süren watch işlerinde bellek şişmesin: son JOB_MAX_LINES satır tutulur
-    if (j.lines.length > JOB_MAX_LINES + 500) j.lines.splice(0, j.lines.length - JOB_MAX_LINES);
-    if (e.data.trim()) j.last = e.data;
-    if (j.onLine) j.onLine(e.data);
-    scheduleDock();
-  };
-  es.addEventListener('done', (e) => {
-    es.close();
-    try {
-      const snap = JSON.parse(e.data);
-      Object.assign(j, { kind: snap.kind || j.kind, status: snap.status, error: snap.error, result: snap.result, title: snap.title, server: snap.server, project: snap.project, ended: snap.ended, started: snap.started });
-    } catch { j.status = 'done'; }
-    j.shownUntil = Date.now() + 9000;
-    j.finishedAt = Date.now();
-    if (j.onDone) j.onDone(j);
-    for (const cb of j.doneCbs.splice(0)) { try { cb(j); } catch (err) { console.error(err); } }
-    // Sonuç sağ alttaki kartta görünür (ayrıca toast YOK — aynı bildirim iki kez çıkıyordu);
-    // kartı olmayan watch işleri için toast kalır. Hata kartı daha uzun durur.
-    if (j.status === 'error') j.shownUntil = Date.now() + 15000;
-    if (isWatchJob(j)) {
-      // Projelerin "izleniyor" bilgisi de tazelensin (sayaç ve watch düğmeleri ona da bakıyor)
-      loadProjects().then(renderDock, () => {});
-      const name = `${j.title}${j.server ? ' · ' + j.server : ''}`;
-      if (j.status === 'error') toast(t('jobFailed', name, j.error || ''), 'bad');
-      else if (opts.quiet !== true) toast(t('jobDone', name));
-    }
-    renderDock();
-    onJobFinished(j);
-  });
-  es.onerror = () => { /* tarayıcı yeniden bağlanır; done gelmişse zaten kapalı */ };
+  liveReconnect();
   renderDock();
   return j;
+}
+// Tüm işlerin logu TEK SSE bağlantısından gelir (/api/jobs/live). İş başına EventSource açılınca
+// tarayıcının sunucu başına 6 bağlantı sınırı doluyor, 8 watch açınca panelin diğer istekleri
+// sıraya girip sayfa "yükleniyor"da kalıyordu. İş eklenince bağlantı, her işten alınan satır
+// sayısıyla (recv) yeniden kurulur → sunucu yalnızca eksik satırları gönderir.
+const LIVE = { es: null, timer: 0 };
+const liveJobs = () => [...S.jobs.values()].filter((j) => j.status === 'running');
+function liveReconnect(delay = 30) {
+  clearTimeout(LIVE.timer);
+  LIVE.timer = setTimeout(liveOpen, delay);
+}
+function liveOpen() {
+  if (LIVE.es) { LIVE.es.close(); LIVE.es = null; }
+  const js = liveJobs();
+  if (!js.length) return;
+  const es = new EventSource(`/api/jobs/live?ids=${enc(js.map((j) => `${j.id}:${j.recv}`).join(','))}`);
+  LIVE.es = es;
+  const data = (e) => { try { return JSON.parse(e.data); } catch { return null; } };
+  es.addEventListener('line', (e) => {
+    const d = data(e), j = d && S.jobs.get(d.id);
+    if (!j) return;
+    j.recv++;
+    j.lines.push(d.l);
+    // Günlerce süren watch işlerinde bellek şişmesin: son JOB_MAX_LINES satır tutulur
+    if (j.lines.length > JOB_MAX_LINES + 500) j.lines.splice(0, j.lines.length - JOB_MAX_LINES);
+    if (d.l.trim()) j.last = d.l;
+    if (j.onLine) j.onLine(d.l);
+    scheduleDock();
+  });
+  es.addEventListener('done', (e) => {
+    const snap = data(e), j = snap && S.jobs.get(snap.id);
+    if (j && j.status === 'running') jobFinished(j, snap);
+    if (LIVE.es === es && !liveJobs().length) { es.close(); LIVE.es = null; }
+  });
+  // Sunucuda artık olmayan iş (panel yeniden başladı vb.) → iş listesiyle eşitle
+  es.addEventListener('gone', () => refreshJobsMeta());
+  // Tarayıcının kendi yeniden bağlanması eski satır sayılarıyla bağlanırdı (satırlar iki kez gelirdi)
+  es.onerror = () => { if (LIVE.es !== es) return; es.close(); LIVE.es = null; liveReconnect(2000); };
+}
+// İş bitti (SSE "done" ya da iş listesiyle eşitleme): durum yazılır, bekleyenler çağrılır
+function jobFinished(j, snap) {
+  if (snap) Object.assign(j, { kind: snap.kind || j.kind, status: snap.status || 'done', error: snap.error, result: snap.result, title: snap.title || j.title, server: snap.server ?? j.server, project: snap.project ?? j.project, ended: snap.ended, started: snap.started });
+  else j.status = 'done';
+  j.shownUntil = Date.now() + (j.status === 'error' ? 15000 : 9000); // hata kartı daha uzun durur
+  j.finishedAt = Date.now();
+  if (j.onDone) j.onDone(j);
+  for (const cb of j.doneCbs.splice(0)) { try { cb(j); } catch (err) { console.error(err); } }
+  // Sonuç sağ alttaki kartta görünür (ayrıca toast YOK — aynı bildirim iki kez çıkıyordu);
+  // kartı olmayan watch işleri için toast kalır.
+  if (isWatchJob(j)) {
+    dropWatchPill(j.id);
+    // Projelerin "izleniyor" bilgisi de tazelensin (sayaç ve watch düğmeleri ona da bakıyor)
+    loadProjects().then(renderDock, () => {});
+    const name = `${j.title}${j.server ? ' · ' + j.server : ''}`;
+    if (j.status === 'error') toast(t('jobFailed', name, j.error || ''), 'bad');
+    else if (!j.quiet) toast(t('jobDone', name));
+  }
+  renderDock();
+  onJobFinished(j);
+}
+// Biten watch açık konsoldaki geçiş pill'lerinden düşer (tek pill kalırsa şerit kalkar)
+function dropWatchPill(id) {
+  for (const b of $$(`.watch-gecis [data-wsw="${CSS.escape(id)}"]`)) {
+    const bar = b.parentElement;
+    b.remove();
+    if (bar.children.length < 2) bar.remove();
+  }
 }
 // İş durumu → [rozet sınıfı, etiket] (dock, iş penceresi ve İşler sayfası ortak)
 function jobPill(s) {
@@ -550,10 +584,15 @@ async function watchStart(P, servers) {
   await loadProjects(); render(true);
 }
 async function watchStop(P, server = '') {
-  try { await api('DELETE', `/api/p/${enc(P)}/watch${server ? `?server=${enc(server)}` : ''}`); toast(t('watchStopped') + (server ? ': ' + server : '')); } catch (e) { fail(e); }
+  try {
+    await api('DELETE', `/api/p/${enc(P)}/watch${server ? `?server=${enc(server)}` : ''}`);
+    toast(t('watchStopped') + (server ? ': ' + server : ''));
+    for (const j of runningWatches()) if (j.project === P && (!server || j.server === server)) { j.stopping = true; dropWatchPill(j.id); }
+  } catch (e) { fail(e); }
   await loadProjects(); render(true);
 }
-function runningWatches() { return [...S.jobs.values()].filter((j) => isWatchJob(j) && j.status === 'running'); }
+// stopping: durdurma isteği gitti, "done" henüz gelmedi — listelerde artık gösterilmez
+function runningWatches() { return [...S.jobs.values()].filter((j) => isWatchJob(j) && j.status === 'running' && !j.stopping); }
 function renderWatchRow() {
   const row = $('#sb-watch-row');
   if (!row) return;
@@ -610,6 +649,9 @@ async function showJobLog(id) {
         await api('DELETE', `/api/jobs/${enc(id)}`);
         toast(snap.kind === 'watch' ? t('watchStopped') : t('jobStopping'));
         if (snap.kind !== 'watch') return false;
+        j.stopping = true;
+        dropWatchPill(id);
+        renderWatchRow();
         // Başka açık watch varsa onun konsoluna geç; sonuncusu durdurulunca pencere kapanır
         const next = runningWatches().find((w) => w.id !== id);
         if (next) { m.close(); showJobLog(next.id); return false; }
@@ -653,15 +695,14 @@ async function refreshJobsMeta() {
     if (j.status !== 'running') continue;
     const x = byId.get(j.id);
     if (x && x.status === 'running') continue;
-    if (j.es) j.es.close();
     Object.assign(j, { status: x ? x.status : 'done', error: x?.error, result: x?.result, ended: x?.ended, finishedAt: Date.now() });
     for (const cb of j.doneCbs.splice(0)) { try { cb(j); } catch (err) { console.error(err); } }
     if (j.onDone) j.onDone(j);
+    if (isWatchJob(j)) { dropWatchPill(j.id); watchEnded = true; }
     changed = true;
-    if (isWatchJob(j)) watchEnded = true;
   }
   if (watchEnded) await loadProjects();
-  if (changed) renderDock();
+  if (changed) { renderDock(); liveReconnect(); }
 }
 
 // ── router ───────────────────────────────────────────────────────────────────

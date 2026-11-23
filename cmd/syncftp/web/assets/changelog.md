@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.0.6
+
+### tr
+- Güncellemeler artık saatte bir denetleniyor
+- Çok sayıda watch ya da iş açıkken panel "yükleniyor"da kalmıyor (tüm iş logları tek bağlantıdan akıyor)
+- Durdurulan watch, konsoldaki watch listesinden hemen kalkıyor
+
+### en
+- Updates are now checked every hour
+- The panel no longer hangs on "loading" with many watches or jobs running (all job logs share one connection)
+- A stopped watch disappears from the watch switcher in the console right away
+
 ## 2.0.5
 
 ### tr
