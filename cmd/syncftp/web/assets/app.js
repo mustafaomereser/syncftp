@@ -303,8 +303,47 @@ function toast(msg, kind = 'ok') {
   el.className = 'toast ' + kind;
   el.innerHTML = icon(kind === 'bad' ? 'alert' : 'check') + `<span>${esc(msg)}</span>`;
   el.onclick = () => el.remove(); // tıklayınca kapanır
+  swipeDismiss(el, () => el.remove());
   $('#toastlar').appendChild(el);
   setTimeout(() => el.remove(), kind === 'bad' ? 7000 : 3500);
+}
+// Sağ alttaki bildirimler (toast + iş kartları) tutup aşağı ya da sağa atılarak kapanır — tıklamak
+// iş kartında log penceresini açtığı için kapatmanın tıklamasız yolu. Sürükleme sonrası click yutulur.
+function swipeDismiss(el, onDismiss) {
+  el.addEventListener('click', (c) => { if (el._swallowUntil > Date.now()) { c.stopImmediatePropagation(); c.preventDefault(); } }, true);
+  el.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    const x0 = e.clientX, y0 = e.clientY;
+    let moved = false, d = 0;
+    el.setPointerCapture(e.pointerId);
+    const move = (ev) => {
+      const dx = Math.max(0, ev.clientX - x0), dy = Math.max(0, ev.clientY - y0);
+      if (!moved && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 5) return;
+      moved = true;
+      el.classList.add('surukle');
+      // Hangi yön daha çoksa o yöne gider (aşağı ya da sağa)
+      d = Math.max(dx, dy);
+      el.style.transform = dy >= dx ? `translateY(${dy}px)` : `translateX(${dx}px)`;
+      el.style.opacity = String(Math.max(0.2, 1 - d / 160));
+    };
+    const up = () => {
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', up);
+      el.removeEventListener('pointercancel', up);
+      el.classList.remove('surukle');
+      if (!moved) return;
+      // Sürüklemenin ardından gelen click log penceresini açmasın
+      el._swallowUntil = Date.now() + 400;
+      if (d > 50) {
+        const tr = el.style.transform.replace(/\d+(\.\d+)?px/, '220px');
+        el.style.transform = tr; el.style.opacity = '0';
+        setTimeout(onDismiss, 160);
+      } else { el.style.transform = ''; el.style.opacity = ''; }
+    };
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+  });
 }
 const fail = (e) => toast(e.message || String(e), 'bad');
 
@@ -560,6 +599,8 @@ function renderDock() {
       // Tıklayınca log açılır. Süren işin kartı yerinde kalır (pencere kapanınca da geri dönülebilsin);
       // bitmiş iş kartı tıklanınca kapanır. Elle kapatmak: sağ tık → Kapat
       d.onclick = () => { if (j.status !== 'running') { j.dismissed = true; renderDock(); } showJobLog(j.id); };
+      // Tutup aşağı/sağa at → log açılmadan kapanır (süren iş de; İşler sayfasından ulaşılır)
+      swipeDismiss(d, () => { j.dismissed = true; renderDock(); });
     }
     if (d.__html !== html) { d.innerHTML = html; d.__html = html; }
     const son = j.status === 'error' ? j.error || '' : j.status === 'running' ? j.last || '…' : (resultSuffix(j.result).replace(/^ — /, '') || j.last || '…');
