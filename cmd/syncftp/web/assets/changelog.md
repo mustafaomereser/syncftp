@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.0.7
+
+### tr
+- Sağ alttaki bildirimler ve iş kartları tutup aşağı ya da sağa atılarak kapatılabiliyor (log penceresi açılmadan)
+
+### en
+- Drag a notification or job card in the bottom right down or to the right to dismiss it without opening its log
+
 ## 2.0.6
 
 ### tr
