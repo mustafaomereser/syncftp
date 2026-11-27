@@ -445,6 +445,27 @@ body.secim-acik .frame { padding-bottom: 110px; }
 .led-ekle { display: flex; gap: 6px; align-items: center; }
 .led-ekle input { flex: 1; min-width: 0; height: 30px; font-size: 12px; }
 .liste-ed .cipler { margin-top: 0; padding: 0 2px 2px; }
+/* Hap düzeni (yol / kalıp / uzantı listeleri): girdiler yan yana küçük haplar, boşken liste alanı
+   hiç yer kaplamaz, ekleme tek satır (yaz + Enter / Gözat / +), öneriler soluk tek satır */
+.alan label .alan-acik { display: block; font-weight: 400; color: var(--faint); font-size: 12px; margin-top: 2px; }
+.hap-ed { gap: 8px; padding: 8px; }
+.hap-ed .led-items { display: flex; flex-wrap: wrap; gap: 6px; max-height: 168px; }
+.hap-ed .led-items:empty { display: none; }
+.hap-ed .led-item { gap: 5px; padding: 2px 3px 2px 8px; border-radius: var(--r-pill); background: var(--surface-2); border: 1px solid var(--line-2); font-size: 12px; max-width: 100%; }
+.hap-ed .led-item:hover { background: var(--surface-3); }
+.hap-ed .led-item .mono { flex: initial; }
+.hap-ed .led-item > svg { width: 13px; height: 13px; flex: none; }
+.hap-ed .led-item .led-del { width: 18px; height: 18px; }
+.hap-ed .led-item .led-del svg { width: 12px; height: 12px; }
+.hap-ed .led-ekle input { height: 32px; }
+.led-ekle-btn { flex: none; width: 32px; height: 32px; border: 1px solid var(--line-2); border-radius: 8px; }
+.led-ekle-btn:hover { border-color: var(--accent); color: var(--accent); }
+.hap-ed .cipler { gap: 4px 6px; align-items: center; padding: 0 2px; }
+.hap-ed .cipler[hidden] { display: none; }
+.cip-baslik { color: var(--faint); font-size: 11px; margin-right: 2px; }
+.hap-ed .cip { border: none; padding: 1px 6px; font-size: 11px; color: var(--faint); }
+.hap-ed .cip:hover { color: var(--accent); background: var(--surface-2); }
+.cip[hidden] { display: none; }
 
 /* Yerel gezgin seçici (pickLocalTree) */
 .gz-yol { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; margin-bottom: 8px; font-size: 13px; }

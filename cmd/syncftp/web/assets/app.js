@@ -53,7 +53,7 @@ const T = {
     serverNew: 'Yeni profil', serverEdit: 'Profili düzenle',
     secGeneral: 'Genel', secConnection: 'Bağlantı', secConnectionDesc: 'Bir bağlantı seçin ya da bilgileri elle girin.',
     secTunnel: 'SSH tüneli', secTunnelDesc: 'Sunucuya doğrudan erişilemiyorsa bağlantı bu SSH sunucusu (jump host) üzerinden açılır. Boş = tünel yok.',
-    secPaths: 'Dizinler', secPerf: 'Performans', secFilters: 'Filtreler', secFiltersDesc: 'Her satıra bir yol. Profilin include\'u globali geçersiz kılar; exclude/protect globale eklenir.',
+    secPaths: 'Dizinler', secPerf: 'Performans', secFilters: 'Filtreler', secFiltersDesc: 'Profilin include\'u proje ayarlarındakini geçersiz kılar; exclude ve protect onlara eklenir.',
     secUpload: 'Yükleme', secHooks: 'Hook\'lar', secHooksDesc: 'Her satıra bir komut, proje dizininde sırayla çalışır. Global hook\'lardan sonra çalışırlar.',
     fName: 'Ad', fEnabled: 'Aktif', fEnabledHint: 'Pasif profiller "tümünü sync et"e dahil olmaz',
     fConnection: 'Bağlantı', fProtocol: 'Protokol', fHost: 'Host', fPort: 'Port', fUser: 'Kullanıcı', fPassword: 'Şifre',
@@ -64,7 +64,7 @@ const T = {
     fRemote: 'Uzak dizin', fRemoteHint: 'Örn. /public_html', fLocal: 'Yerel dizin', fLocalHint: 'Proje köküne göreceli; boş = proje varsayılanı ({0})',
     fMaxConn: 'Eş zamanlı bağlantı', fMaxConnHint: 'Paralel upload sayısı; "Ölç" sunucunun limitini bulur', measure: 'Ölç',
     fRetries: 'Tekrar deneme', fBandwidth: 'Hız sınırı (KB/s)', fBandwidthHint: '0 = global değer ({0})',
-    fInclude: 'Include (yalnızca bunlar)', fExclude: 'Exclude (hariç)', fProtect: 'Protect (asla üzerine yazma)', fBlock: 'Engellenen uzantılar', fBlockHint: 'Örn. .zip .psd — boşluk veya satırla ayırın',
+    fInclude: 'Include', fIncludeDesc: 'Doluysa yalnızca bunlar gönderilir', fExcludeDesc: 'Bunlar hiç gönderilmez', fProtectDesc: 'Sunucuda varsa üzerine yazılmaz', fBlockDesc: 'Bu uzantılı dosyalar gönderilmez', ledSuggest: 'Öneriler', fExclude: 'Exclude', fProtect: 'Protect', fBlock: 'Engellenen uzantılar', fBlockHint: 'Örn. .zip .psd — boşluk veya satırla ayırın',
     fMinify: 'CSS/JS minify', fMinifyHint: 'Yorum ve boşlukları kaldırır', fObfuscate: 'JS obfuscate', fObfuscateHint: 'terser gerekir (npm i -g terser)',
     fNoBackup: 'Yedeği kapat', fNoBackupHint: 'Upload öncesi eski dosya yedeklenmez — bu sunucuda rollback yapılamaz',
     fDirect: 'Doğrudan yükle', fDirectHint: 'Atomik (geçici ad + rename) yükleme kapalı — rename desteklemeyen sunucular için',
@@ -168,7 +168,7 @@ const T = {
     serverNew: 'New profile', serverEdit: 'Edit profile',
     secGeneral: 'General', secConnection: 'Connection', secConnectionDesc: 'Pick a connection or enter the details by hand.',
     secTunnel: 'SSH tunnel', secTunnelDesc: 'If the server is not directly reachable, connect through this SSH server (jump host). Empty = no tunnel.',
-    secPaths: 'Folders', secPerf: 'Performance', secFilters: 'Filters', secFiltersDesc: 'One path per line. Profile include overrides global; exclude/protect add to global.',
+    secPaths: 'Folders', secPerf: 'Performance', secFilters: 'Filters', secFiltersDesc: 'The profile\'s include replaces the project-wide one; exclude and protect add to it.',
     secUpload: 'Upload', secHooks: 'Hooks', secHooksDesc: 'One command per line, run in the project folder in order, after global hooks.',
     fName: 'Name', fEnabled: 'Enabled', fEnabledHint: 'Disabled profiles are skipped by "sync all"',
     fConnection: 'Connection', fProtocol: 'Protocol', fHost: 'Host', fPort: 'Port', fUser: 'User', fPassword: 'Password',
@@ -179,7 +179,7 @@ const T = {
     fRemote: 'Remote path', fRemoteHint: 'e.g. /public_html', fLocal: 'Local path', fLocalHint: 'Relative to the project root; empty = project default ({0})',
     fMaxConn: 'Simultaneous connections', fMaxConnHint: 'Parallel uploads; "Measure" finds the server limit', measure: 'Measure',
     fRetries: 'Retries', fBandwidth: 'Speed limit (KB/s)', fBandwidthHint: '0 = global value ({0})',
-    fInclude: 'Include (only these)', fExclude: 'Exclude', fProtect: 'Protect (never overwrite)', fBlock: 'Blocked extensions', fBlockHint: 'e.g. .zip .psd — separate by space or line',
+    fInclude: 'Include', fIncludeDesc: 'When set, only these are uploaded', fExcludeDesc: 'Never uploaded', fProtectDesc: 'Never overwritten if it exists on the server', fBlockDesc: 'Files with these extensions are not uploaded', ledSuggest: 'Suggestions', fExclude: 'Exclude', fProtect: 'Protect', fBlock: 'Blocked extensions', fBlockHint: 'e.g. .zip .psd — separate by space or line',
     fMinify: 'Minify CSS/JS', fMinifyHint: 'Removes comments and whitespace', fObfuscate: 'Obfuscate JS', fObfuscateHint: 'Requires terser (npm i -g terser)',
     fNoBackup: 'Disable backup', fNoBackupHint: 'Old files are not backed up before upload — no rollback on this server',
     fDirect: 'Direct upload', fDirectHint: 'Atomic (temp name + rename) upload off — for servers without rename',
@@ -1721,20 +1721,33 @@ const PATTERN_CHIPS = {
 // tutulur (data-k / data-ty list|words) — readForm aynen okur.
 const ledIcon = (v) => (/[*?{]/.test(v) ? icon('search', 'faint') : v.endsWith('/') || !/\.[^/]+$/.test(v) ? icon('folder', 'acc-t') : icon('file', 'faint'));
 const ledItem = (v) => `<div class="led-item" data-v="${esc(v)}">${ledIcon(v)}<span class="mono">${esc(v)}</span><button class="ikon-btn led-del" data-led-del title="${t('remove')}">${icon('x')}</button></div>`;
-const fArea = (k, label, val, { hint = '', ty = 'list', wide = true, tree = '', chips = null, ph = '' } = {}) => {
+// Yol / kalıp / uzantı listeleri (tree, words ya da çipli) yan yana hap olarak çizilir — kutular
+// sade kalsın; komut listeleri (hook'lar) uzun satır olduğu için alt alta kalır. Öneri çiplerinden
+// listede zaten olanlar gizlenir. desc: etiketin altında tek satırlık "ne işe yarar".
+const fArea = (k, label, val, { hint = '', ty = 'list', wide = true, tree = '', chips = null, ph = '', desc = '' } = {}) => {
   const items = (val || []).filter(Boolean);
   const list = typeof chips === 'string' ? PATTERN_CHIPS[chips] : chips;
-  const placeholder = ph || (ty === 'words' ? '.jpg' : tree ? t('ledPh') : t('ledPhCmd'));
-  return `<div class="alan ${wide ? 'genis' : ''}"><label>${label}</label>
-    <div class="liste-ed" data-led="${k}" data-ledty="${ty}">
+  const pills = !!(tree || ty === 'words' || list);
+  const placeholder = ph || (ty === 'words' ? '.jpg .zip …' : tree ? t('ledPh') : t('ledPhCmd'));
+  const empty = pills ? '' : `<div class="led-bos">${t('ledEmpty')}</div>`;
+  return `<div class="alan ${wide ? 'genis' : ''}"><label>${label}${desc ? `<span class="alan-acik">${desc}</span>` : ''}</label>
+    <div class="liste-ed${pills ? ' hap-ed' : ''}" data-led="${k}" data-ledty="${ty}">
       <input type="hidden" data-k="${k}" data-ty="${ty}" value="${esc(ty === 'words' ? items.join(' ') : items.join('\n'))}">
-      <div class="led-items">${items.length ? items.map(ledItem).join('') : `<div class="led-bos">${t('ledEmpty')}</div>`}</div>
-      <div class="led-ekle">${tree ? `<button class="btn kucuk" data-tree="${tree}" data-for="${k}">${icon('folder')}${t('browse')}</button>` : ''}
-        <input type="text" class="mono" data-led-input placeholder="${esc(placeholder)}" spellcheck="false" autocomplete="off">
-        <button class="btn kucuk" data-led-add>${icon('plus')}${t('ledAdd')}</button></div>
-      ${list ? `<div class="cipler">${list.map((c) => `<button class="cip" data-chip="${esc(c)}" data-for="${k}">+ ${esc(c)}</button>`).join('')}</div>` : ''}
+      <div class="led-items">${items.length ? items.map(ledItem).join('') : empty}</div>
+      <div class="led-ekle"><input type="text" class="mono" data-led-input placeholder="${esc(placeholder)}" spellcheck="false" autocomplete="off">
+        ${tree ? `<button class="btn kucuk" data-tree="${tree}" data-for="${k}" title="${t('browse')}">${icon('folder')}${t('browse')}</button>` : ''}
+        <button class="ikon-btn led-ekle-btn" data-led-add title="${t('ledAdd')} (Enter)">${icon('plus')}</button></div>
+      ${list ? `<div class="cipler" ${list.every((c) => items.includes(c)) ? 'hidden' : ''}><span class="cip-baslik">${t('ledSuggest')}</span>${list.map((c) => `<button class="cip" data-chip="${esc(c)}" data-for="${k}" ${items.includes(c) ? 'hidden' : ''}>+ ${esc(c)}</button>`).join('')}</div>` : ''}
     </div>${hint ? `<small>${hint}</small>` : ''}</div>`;
 };
+// Öneri çiplerinden listede olanları gizle; hepsi eklendiyse öneri satırı da gizlenir
+function ledSyncChips(box, arr) {
+  const row = box.querySelector('.cipler');
+  if (!row) return;
+  let shown = 0;
+  for (const c of row.querySelectorAll('[data-chip]')) { c.hidden = arr.includes(c.dataset.chip); if (!c.hidden) shown++; }
+  row.hidden = shown === 0;
+}
 // Liste editörü yardımcıları (event delegation — form ne zaman render edilirse edilsin çalışır)
 function ledBox(el) { return el.closest('[data-led]'); }
 function ledGet(box) { const h = box.querySelector('input[type=hidden]'); return box.dataset.ledty === 'words' ? unwords(h.value) : unlines(h.value); }
@@ -1743,7 +1756,9 @@ function ledSet(box, arr) {
   const h = box.querySelector('input[type=hidden]');
   h.value = box.dataset.ledty === 'words' ? uniq.join(' ') : uniq.join('\n');
   h.dispatchEvent(new Event('change', { bubbles: true })); // kaydedilmemiş form koruması duysun
-  box.querySelector('.led-items').innerHTML = uniq.length ? uniq.map(ledItem).join('') : `<div class="led-bos">${t('ledEmpty')}</div>`;
+  const pills = box.classList.contains('hap-ed');
+  box.querySelector('.led-items').innerHTML = uniq.length ? uniq.map(ledItem).join('') : pills ? '' : `<div class="led-bos">${t('ledEmpty')}</div>`;
+  ledSyncChips(box, uniq);
 }
 function ledAddFromInput(box) {
   const inp = box.querySelector('[data-led-input]');
@@ -2239,8 +2254,8 @@ async function tabServerEdit(proj, name) {
         ${fBool('no_backup', t('fNoBackup'), s.no_backup, t('fNoBackupHint'))}${fBool('direct_upload', t('fDirect'), s.direct_upload, t('fDirectHint'))}
         ${fText('webhook', t('fWebhook'), s.webhook, { wide: true, mono: true, hint: t('fWebhookHint'), ph: 'https://…', whtest: true })}</div>`, { fold: true, summary: sumUpload })}
     ${section('sliders', t('secFilters'), t('secFiltersDesc'), `<div class="alanlar">
-        ${fArea('include', t('fInclude'), s.include, { wide: false, tree: 'paths', chips: 'include' })}${fArea('exclude', t('fExclude'), s.exclude, { wide: false, tree: 'paths', chips: 'exclude' })}
-        ${fArea('protect', t('fProtect'), s.protect, { wide: false, tree: 'protect', chips: 'protect' })}${fArea('block_extensions', t('fBlock'), s.block_extensions, { ty: 'words', wide: false, hint: t('fBlockHint'), chips: 'block' })}</div>`, { fold: true, summary: sumFilt })}
+        ${fArea('include', t('fInclude'), s.include, { wide: false, tree: 'paths', chips: 'include', desc: t('fIncludeDesc') })}${fArea('exclude', t('fExclude'), s.exclude, { wide: false, tree: 'paths', chips: 'exclude', desc: t('fExcludeDesc') })}
+        ${fArea('protect', t('fProtect'), s.protect, { wide: false, tree: 'protect', chips: 'protect', desc: t('fProtectDesc') })}${fArea('block_extensions', t('fBlock'), s.block_extensions, { ty: 'words', wide: false, chips: 'block', desc: t('fBlockDesc') })}</div>`, { fold: true, summary: sumFilt })}
     ${section('log', t('secHooks'), t('secHooksDesc'), `<div class="alanlar">${fArea('pre_sync', t('fPre'), s.pre_sync, { wide: false })}${fArea('post_sync', t('fPost'), s.post_sync, { wide: false })}</div>`, { fold: true, summary: sumHooks })}
     ${section('terminal', t('secRemote'), t('secRemoteDesc'), `<div class="alanlar">${fArea('remote_pre_sync', t('fRemotePre'), s.remote_pre_sync, { wide: false })}${fArea('remote_post_sync', t('fRemotePost'), s.remote_post_sync, { wide: false, hint: 'php artisan migrate --force' })}</div>`, { fold: true, summary: sumRemote, proto: 'sftp' })}
     ${triggersSection('triggers', s.triggers, { servers: isNew ? [] : [s.name], sftp: (conn || s).protocol === 'sftp' })}
@@ -2412,8 +2427,8 @@ async function tabSettings(proj) {
     ${section('folder', t('secProject'), '', `<div class="alanlar">${fText('project.name', t('fProjectName'), cfg.project.name)}${fText('project.default_path', t('fDefaultPath'), cfg.project.default_path, { mono: true, ph: '.', hint: t('fDefaultPathHint'), browse: 'reldir' })}</div>`)}
     <div class="ara-baslik">${t('secGlobal')}</div>
     ${section('sliders', t('secFilters'), t('secGlobalDesc'), `<div class="alanlar">
-        ${fArea('sync.include', t('fInclude'), sy.include, { wide: false, tree: 'paths', chips: 'include' })}${fArea('sync.exclude', t('fExclude'), sy.exclude, { wide: false, tree: 'paths', chips: 'exclude' })}
-        ${fArea('sync.protect', t('fProtect'), sy.protect, { wide: false, tree: 'protect', chips: 'protect' })}${fArea('sync.block_extensions', t('fBlock'), sy.block_extensions, { ty: 'words', wide: false, hint: t('fBlockHint'), chips: 'block' })}
+        ${fArea('sync.include', t('fInclude'), sy.include, { wide: false, tree: 'paths', chips: 'include', desc: t('fIncludeDesc') })}${fArea('sync.exclude', t('fExclude'), sy.exclude, { wide: false, tree: 'paths', chips: 'exclude', desc: t('fExcludeDesc') })}
+        ${fArea('sync.protect', t('fProtect'), sy.protect, { wide: false, tree: 'protect', chips: 'protect', desc: t('fProtectDesc') })}${fArea('sync.block_extensions', t('fBlock'), sy.block_extensions, { ty: 'words', wide: false, chips: 'block', desc: t('fBlockDesc') })}
         ${fArea('sync.ignore_files', t('fIgnoreFiles'), sy.ignore_files, { wide: false, tree: 'paths', ph: '.gitignore', hint: t('fIgnoreFilesHint') })}
       </div>`, { fold: true, summary: sumFilt })}
     ${section('upload', t('secUpload'), '', `<div class="alanlar">
