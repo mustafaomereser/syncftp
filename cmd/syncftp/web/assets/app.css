@@ -365,9 +365,12 @@ body.secim-acik .frame { padding-bottom: 110px; }
 
 /* ── Yardım ───────────────────────────────────────────── */
 .yardim { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 20px; align-items: start; }
-.yardim-toc { position: sticky; top: 0; display: flex; flex-direction: column; gap: 2px; }
-.yardim-toc a { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 9px; color: var(--muted); font-size: 13px; }
+.yardim-toc { position: sticky; top: 0; display: flex; flex-direction: column; gap: 2px; max-height: calc(100vh - 120px); overflow-y: auto; scrollbar-width: thin; }
+.yardim-toc a { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 9px; color: var(--muted); font-size: 13px; position: relative; transition: background .15s, color .15s; }
 .yardim-toc a:hover { background: var(--surface); color: var(--text); }
+.yardim-toc a.aktif { background: var(--surface); color: var(--text); }
+.yardim-toc a.aktif::before { content: ''; position: absolute; left: 0; top: 7px; bottom: 7px; width: 3px; border-radius: 3px; background: var(--accent); }
+.yardim-toc a[hidden] { display: none; }
 .yardim-ic { display: grid; gap: 14px; min-width: 0; }
 .yardim-bolum { scroll-margin-top: 10px; }
 .yardim-metin { color: var(--muted); line-height: 1.7; }
@@ -380,7 +383,7 @@ body.secim-acik .frame { padding-bottom: 110px; }
 .yardim-cmd summary::-webkit-details-marker { display: none; }
 .yardim-cmd summary code { flex: none; }
 .yardim-cmd pre { background: #0d0d0f; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font: 12px/1.6 var(--mono); white-space: pre-wrap; color: #c9ccd1; margin: 8px 0 4px; }
-@media (max-width: 900px) { .yardim { grid-template-columns: 1fr; } .yardim-toc { position: static; } }
+@media (max-width: 900px) { .yardim { grid-template-columns: 1fr; } .yardim-toc { position: static; max-height: none; } }
 .tablo .sec-hucre { width: 40px; padding: 0 !important; }
 .tablo .sec-hucre label { display: flex; align-items: center; justify-content: center; height: 100%; min-height: 36px; padding: 0 8px 0 14px; cursor: pointer; }
 .tablo .sec-hucre input { width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); }

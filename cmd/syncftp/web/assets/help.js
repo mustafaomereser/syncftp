@@ -253,7 +253,35 @@ async function pageHelp(section) {
         any = any || show;
       });
       $('#help-none', root).hidden = any;
+      $$('[data-hlink]', root).forEach((l) => (l.hidden = !!$(`#h-${l.dataset.hlink}`, root)?.hidden));
+      spy();
     };
+    // Scroll spy: kaydırılan alan #frame; üst kenarı çizginin üstüne geçen son bölüm aktif
+    const scroller = root.closest('.frame') || document.getElementById('frame');
+    const links = new Map($$('[data-hlink]', root).map((l) => [l.dataset.hlink, l]));
+    let cur = '';
+    const spy = () => {
+      if (!root.isConnected) { scroller && scroller.removeEventListener('scroll', onScroll); return; }
+      const secs = $$('[data-hsec]', root).filter((x) => !x.hidden);
+      if (!secs.length || !scroller) return;
+      const line = scroller.getBoundingClientRect().top + 90;
+      let id = secs[0].id;
+      for (const x of secs) { if (x.getBoundingClientRect().top <= line) id = x.id; else break; }
+      if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4) id = secs[secs.length - 1].id;
+      id = id.slice(2);
+      if (id === cur) return;
+      cur = id;
+      links.forEach((l, k) => l.classList.toggle('aktif', k === id));
+      const a = links.get(id), nav = a && a.parentElement;
+      if (nav && nav.scrollHeight > nav.clientHeight) {
+        const r = a.getBoundingClientRect(), n = nav.getBoundingClientRect();
+        if (r.top < n.top || r.bottom > n.bottom) nav.scrollTop += r.top - n.top - n.height / 2;
+      }
+    };
+    let raf = 0;
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; spy(); }); };
+    if (scroller) scroller.addEventListener('scroll', onScroll, { passive: true });
+    setTimeout(spy, 60);
     if (section) { const el = $(`#h-${CSS.escape(section)}`, root); if (el) setTimeout(() => el.scrollIntoView({ block: 'start' }), 30); }
     $$('[data-hlink]', root).forEach((a) => (a.onclick = (e) => { e.preventDefault(); $(`#h-${a.dataset.hlink}`, root).scrollIntoView({ behavior: 'smooth', block: 'start' }); }));
   });
