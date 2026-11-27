@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.0.8
+
+### tr
+- Filtreler sekmeli: Dahil et · Hariç tut · Koru · Uzantılar · Yok sayma dosyaları (her sekmede kayıt sayısı)
+- Türkçe arayüzde terimler Türkçe: izleyiciler (watch), dahil et / hariç tut / koru / yok say
+- Hook'lar açıklamalı: ne zaman çalıştığı, hata verirse ne olduğu, örnek komutlar ve komutlara verilen değişkenler
+- CI/CD sekmesi: üstte dışarıdan erişim durumu ve tek tıkla tünel, boşken kurulum adımları; tünel kapalıyken yerel adres artık "public adres" diye gösterilmiyor
+
+### en
+- Filters are now tabs: Include · Exclude · Protect · Extensions · Ignore files (with counts)
+- Hooks explain when they run, what a failure does, example commands and the variables commands receive
+- CI/CD tab: reachability and a one-click tunnel at the top, setup steps when empty; the local address is no longer shown as the public address while the tunnel is off
+
 ## 2.0.7
 
 ### tr
