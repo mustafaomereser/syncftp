@@ -445,6 +445,16 @@ body.secim-acik .frame { padding-bottom: 110px; }
 .led-ekle { display: flex; gap: 6px; align-items: center; }
 .led-ekle input { flex: 1; min-width: 0; height: 30px; font-size: 12px; }
 .liste-ed .cipler { margin-top: 0; padding: 0 2px 2px; }
+/* Filtreler sekmeleri (filterTabs) */
+.ft-kutu { display: grid; gap: 10px; }
+.ft-sekmeler { justify-self: start; flex-wrap: wrap; }
+.ft-sekmeler button { padding: 4px 12px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; }
+.ft-say { font-size: 11px; color: var(--faint); background: var(--surface-2); border-radius: var(--r-pill); padding: 0 6px; min-width: 18px; text-align: center; }
+.ft-say.dolu { color: var(--accent); }
+.ft-sekmeler button.aktif .ft-say { background: var(--surface-3); }
+.ft-panel { display: grid; gap: 6px; }
+.ft-panel[hidden] { display: none; }
+.ft-acik { margin: 0; }
 
 /* Yerel gezgin seçici (pickLocalTree) */
 .gz-yol { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; margin-bottom: 8px; font-size: 13px; }

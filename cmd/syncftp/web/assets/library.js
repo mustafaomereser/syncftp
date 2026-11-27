@@ -151,9 +151,7 @@ function defaultsSectionHTML(lib) {
   const tmpl = [['', t('defTemplateNone')], ...(lib.templates || []).map((k) => [k, TEMPLATE_LABEL[k] || k])];
   return `<div class="bolum"><h3>${icon('sliders')}${t('defTitle')}</h3><p class="aciklama">${t('defDesc')}</p>
     <p class="ipucu" style="margin:-4px 0 12px">${icon('folder')} ${t('defTreeHint')}</p><div class="form" id="def-form" data-p="" data-ppath="" data-srv=""><div class="alanlar">
-      ${fArea('sync.include', t('fInclude'), sy.include, { wide: false, tree: 'paths', chips: 'include' })}${fArea('sync.exclude', t('fExclude'), sy.exclude, { wide: false, tree: 'paths', chips: 'exclude' })}
-      ${fArea('sync.protect', t('fProtect'), sy.protect, { wide: false, tree: 'protect', chips: 'protect' })}${fArea('sync.block_extensions', t('fBlock'), sy.block_extensions, { ty: 'words', wide: false, hint: t('fBlockHint'), chips: 'block' })}
-      ${fArea('sync.ignore_files', t('fIgnoreFiles'), sy.ignore_files, { wide: false, tree: 'paths', ph: '.gitignore', hint: t('fIgnoreFilesHint') })}
+      <div class="alan genis">${filterTabs('sync.', sy, { ignore: true })}</div>
       ${fSelect('ignore_template', t('defTemplate'), d.ignore_template || '', tmpl)}
       ${fText('sync.webhook', t('fWebhook'), sy.webhook, { mono: true, ph: 'https://…' })}
       ${fNum('sync.bandwidth_limit', t('fBandwidth'), sy.bandwidth_limit, { hint: '0 = ∞' })}

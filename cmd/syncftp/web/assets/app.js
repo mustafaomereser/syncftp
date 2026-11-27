@@ -53,7 +53,7 @@ const T = {
     serverNew: 'Yeni profil', serverEdit: 'Profili düzenle',
     secGeneral: 'Genel', secConnection: 'Bağlantı', secConnectionDesc: 'Bir bağlantı seçin ya da bilgileri elle girin.',
     secTunnel: 'SSH tüneli', secTunnelDesc: 'Sunucuya doğrudan erişilemiyorsa bağlantı bu SSH sunucusu (jump host) üzerinden açılır. Boş = tünel yok.',
-    secPaths: 'Dizinler', secPerf: 'Performans', secFilters: 'Filtreler', secFiltersDesc: 'Her satıra bir yol. Profilin include\'u globali geçersiz kılar; exclude/protect globale eklenir.',
+    secPaths: 'Dizinler', secPerf: 'Performans', secFilters: 'Filtreler', secFiltersDesc: 'Profilin include\'u proje ayarlarındakini geçersiz kılar; exclude ve protect onlara eklenir.', fltInc: 'Include', fltExc: 'Exclude', fltProt: 'Protect', fltBlock: 'Uzantılar', fltIgn: 'Ignore dosyaları', fltIncDesc: 'Doluysa yalnızca bunlar gönderilir; boşsa her şey.', fltExcDesc: 'Bunlar hiç gönderilmez.', fltProtDesc: 'Sunucuda zaten varsa üzerine yazılmaz (ilk kez yüklenir).', fltBlockDesc: 'Bu uzantılı dosyalar gönderilmez.',
     secUpload: 'Yükleme', secHooks: 'Hook\'lar', secHooksDesc: 'Her satıra bir komut, proje dizininde sırayla çalışır. Global hook\'lardan sonra çalışırlar.',
     fName: 'Ad', fEnabled: 'Aktif', fEnabledHint: 'Pasif profiller "tümünü sync et"e dahil olmaz',
     fConnection: 'Bağlantı', fProtocol: 'Protokol', fHost: 'Host', fPort: 'Port', fUser: 'Kullanıcı', fPassword: 'Şifre',
@@ -168,7 +168,7 @@ const T = {
     serverNew: 'New profile', serverEdit: 'Edit profile',
     secGeneral: 'General', secConnection: 'Connection', secConnectionDesc: 'Pick a connection or enter the details by hand.',
     secTunnel: 'SSH tunnel', secTunnelDesc: 'If the server is not directly reachable, connect through this SSH server (jump host). Empty = no tunnel.',
-    secPaths: 'Folders', secPerf: 'Performance', secFilters: 'Filters', secFiltersDesc: 'One path per line. Profile include overrides global; exclude/protect add to global.',
+    secPaths: 'Folders', secPerf: 'Performance', secFilters: 'Filters', secFiltersDesc: 'The profile\'s include replaces the project-wide one; exclude and protect add to it.', fltInc: 'Include', fltExc: 'Exclude', fltProt: 'Protect', fltBlock: 'Extensions', fltIgn: 'Ignore files', fltIncDesc: 'When set, only these are uploaded; when empty, everything.', fltExcDesc: 'Never uploaded.', fltProtDesc: 'Not overwritten if it already exists on the server (uploaded the first time).', fltBlockDesc: 'Files with these extensions are not uploaded.',
     secUpload: 'Upload', secHooks: 'Hooks', secHooksDesc: 'One command per line, run in the project folder in order, after global hooks.',
     fName: 'Name', fEnabled: 'Enabled', fEnabledHint: 'Disabled profiles are skipped by "sync all"',
     fConnection: 'Connection', fProtocol: 'Protocol', fHost: 'Host', fPort: 'Port', fUser: 'User', fPassword: 'Password',
@@ -1725,7 +1725,7 @@ const fArea = (k, label, val, { hint = '', ty = 'list', wide = true, tree = '', 
   const items = (val || []).filter(Boolean);
   const list = typeof chips === 'string' ? PATTERN_CHIPS[chips] : chips;
   const placeholder = ph || (ty === 'words' ? '.jpg' : tree ? t('ledPh') : t('ledPhCmd'));
-  return `<div class="alan ${wide ? 'genis' : ''}"><label>${label}</label>
+  return `<div class="alan ${wide ? 'genis' : ''}">${label ? `<label>${label}</label>` : ''}
     <div class="liste-ed" data-led="${k}" data-ledty="${ty}">
       <input type="hidden" data-k="${k}" data-ty="${ty}" value="${esc(ty === 'words' ? items.join(' ') : items.join('\n'))}">
       <div class="led-items">${items.length ? items.map(ledItem).join('') : `<div class="led-bos">${t('ledEmpty')}</div>`}</div>
@@ -1763,6 +1763,43 @@ document.addEventListener('click', (e) => {
 });
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && e.target.matches && e.target.matches('[data-led-input]')) { e.preventDefault(); ledAddFromInput(ledBox(e.target)); }
+});
+// Filtreler sekmeli: Include | Exclude | Protect | Uzantılar (| Ignore dosyaları) — aynı anda tek liste
+// görünür (4-5 kutu yan yana kalabalıktı). Tüm listeler çizilir, seçili olmayan gizlenir (readForm
+// hepsini okur). prefix: '' (profil) | 'sync.' (proje / varsayılanlar); ignore: ignore dosyaları sekmesi.
+function filterTabs(prefix, src, { ignore = false } = {}) {
+  const n = (a) => (a || []).filter(Boolean).length;
+  const tabs = [
+    ['include', t('fltInc'), t('fltIncDesc'), fArea(prefix + 'include', '', src.include, { tree: 'paths', chips: 'include' }), n(src.include)],
+    ['exclude', t('fltExc'), t('fltExcDesc'), fArea(prefix + 'exclude', '', src.exclude, { tree: 'paths', chips: 'exclude' }), n(src.exclude)],
+    ['protect', t('fltProt'), t('fltProtDesc'), fArea(prefix + 'protect', '', src.protect, { tree: 'protect', chips: 'protect' }), n(src.protect)],
+    ['block', t('fltBlock'), t('fltBlockDesc'), fArea(prefix + 'block_extensions', '', src.block_extensions, { ty: 'words', hint: t('fBlockHint'), chips: 'block' }), n(src.block_extensions)],
+    ...(ignore ? [['ignore', t('fltIgn'), t('fIgnoreFilesHint'), fArea(prefix + 'ignore_files', '', src.ignore_files, { tree: 'paths', ph: '.gitignore' }), n(src.ignore_files)]] : []),
+  ];
+  let cur = localStorageGet('syncftp-filter-tab');
+  if (!tabs.some(([k]) => k === cur)) cur = 'exclude';
+  return `<div class="ft-kutu">
+    <div class="seg ft-sekmeler">${tabs.map(([k, label, , , c]) => `<button type="button" data-ftab="${k}" class="${k === cur ? 'aktif' : ''}">${label}<span class="ft-say${c ? ' dolu' : ''}">${c}</span></button>`).join('')}</div>
+    ${tabs.map(([k, , desc, html]) => `<div class="ft-panel" data-fpanel="${k}" ${k === cur ? '' : 'hidden'}><p class="ipucu ft-acik">${desc}</p>${html}</div>`).join('')}
+  </div>`;
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ftab]');
+  if (!b) return;
+  e.preventDefault();
+  const box = b.closest('.ft-kutu');
+  for (const x of box.querySelectorAll('[data-ftab]')) x.classList.toggle('aktif', x === b);
+  for (const p of box.querySelectorAll('[data-fpanel]')) p.hidden = p.dataset.fpanel !== b.dataset.ftab;
+  localStorageSet('syncftp-filter-tab', b.dataset.ftab);
+});
+// Liste değişince sekmedeki sayı da güncellenir (ledSet gizli input'a change gönderir)
+document.addEventListener('change', (e) => {
+  const panel = e.target.closest && e.target.closest('.ft-panel');
+  if (!panel || !e.target.matches('input[type=hidden]')) return;
+  const box = ledBox(e.target), c = ledGet(box).length;
+  const say = panel.closest('.ft-kutu').querySelector(`[data-ftab="${panel.dataset.fpanel}"] .ft-say`);
+  say.textContent = c;
+  say.classList.toggle('dolu', c > 0);
 });
 const fBool = (k, label, val, hint = '', dis = false) =>
   `<label class="anahtar"><span class="metin"><b>${label}</b>${hint ? `<small>${hint}</small>` : ''}</span><span class="switch"><input type="checkbox" data-k="${k}" data-ty="bool" ${val ? 'checked' : ''} ${dis ? 'disabled' : ''}><i></i></span></label>`;
@@ -2238,9 +2275,7 @@ async function tabServerEdit(proj, name) {
         ${fBool('minify', t('fMinify'), s.minify, t('fMinifyHint'))}${fBool('obfuscate', t('fObfuscate'), s.obfuscate, t('fObfuscateHint'))}
         ${fBool('no_backup', t('fNoBackup'), s.no_backup, t('fNoBackupHint'))}${fBool('direct_upload', t('fDirect'), s.direct_upload, t('fDirectHint'))}
         ${fText('webhook', t('fWebhook'), s.webhook, { wide: true, mono: true, hint: t('fWebhookHint'), ph: 'https://…', whtest: true })}</div>`, { fold: true, summary: sumUpload })}
-    ${section('sliders', t('secFilters'), t('secFiltersDesc'), `<div class="alanlar">
-        ${fArea('include', t('fInclude'), s.include, { wide: false, tree: 'paths', chips: 'include' })}${fArea('exclude', t('fExclude'), s.exclude, { wide: false, tree: 'paths', chips: 'exclude' })}
-        ${fArea('protect', t('fProtect'), s.protect, { wide: false, tree: 'protect', chips: 'protect' })}${fArea('block_extensions', t('fBlock'), s.block_extensions, { ty: 'words', wide: false, hint: t('fBlockHint'), chips: 'block' })}</div>`, { fold: true, summary: sumFilt })}
+    ${section('sliders', t('secFilters'), t('secFiltersDesc'), filterTabs('', s), { fold: true, summary: sumFilt })}
     ${section('log', t('secHooks'), t('secHooksDesc'), `<div class="alanlar">${fArea('pre_sync', t('fPre'), s.pre_sync, { wide: false })}${fArea('post_sync', t('fPost'), s.post_sync, { wide: false })}</div>`, { fold: true, summary: sumHooks })}
     ${section('terminal', t('secRemote'), t('secRemoteDesc'), `<div class="alanlar">${fArea('remote_pre_sync', t('fRemotePre'), s.remote_pre_sync, { wide: false })}${fArea('remote_post_sync', t('fRemotePost'), s.remote_post_sync, { wide: false, hint: 'php artisan migrate --force' })}</div>`, { fold: true, summary: sumRemote, proto: 'sftp' })}
     ${triggersSection('triggers', s.triggers, { servers: isNew ? [] : [s.name], sftp: (conn || s).protocol === 'sftp' })}
@@ -2411,11 +2446,7 @@ async function tabSettings(proj) {
   return `<div class="form" id="set-form" data-p="${esc(P)}" data-ppath="${esc(proj.path)}" data-srv="">
     ${section('folder', t('secProject'), '', `<div class="alanlar">${fText('project.name', t('fProjectName'), cfg.project.name)}${fText('project.default_path', t('fDefaultPath'), cfg.project.default_path, { mono: true, ph: '.', hint: t('fDefaultPathHint'), browse: 'reldir' })}</div>`)}
     <div class="ara-baslik">${t('secGlobal')}</div>
-    ${section('sliders', t('secFilters'), t('secGlobalDesc'), `<div class="alanlar">
-        ${fArea('sync.include', t('fInclude'), sy.include, { wide: false, tree: 'paths', chips: 'include' })}${fArea('sync.exclude', t('fExclude'), sy.exclude, { wide: false, tree: 'paths', chips: 'exclude' })}
-        ${fArea('sync.protect', t('fProtect'), sy.protect, { wide: false, tree: 'protect', chips: 'protect' })}${fArea('sync.block_extensions', t('fBlock'), sy.block_extensions, { ty: 'words', wide: false, hint: t('fBlockHint'), chips: 'block' })}
-        ${fArea('sync.ignore_files', t('fIgnoreFiles'), sy.ignore_files, { wide: false, tree: 'paths', ph: '.gitignore', hint: t('fIgnoreFilesHint') })}
-      </div>`, { fold: true, summary: sumFilt })}
+    ${section('sliders', t('secFilters'), t('secGlobalDesc'), filterTabs('sync.', sy, { ignore: true }), { fold: true, summary: sumFilt })}
     ${section('upload', t('secUpload'), '', `<div class="alanlar">
         ${fText('sync.webhook', t('fWebhook'), sy.webhook, { mono: true, ph: 'https://…', whtest: true })}
         ${fNum('sync.bandwidth_limit', t('fBandwidth'), sy.bandwidth_limit, { hint: '0 = ∞' })}
