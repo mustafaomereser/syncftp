@@ -8,7 +8,7 @@ Object.assign(T.tr, {
   navSettings: 'Ayarlar', setTitle: 'Ayarlar', setSub: 'Uygulama geneli ayarlar — proje bazlı sync ayarları her projenin Proje ayarları sekmesinde',
   setGeneral: 'Genel', setLang: 'Dil', setLangHint: 'Panel ve log mesajlarının dili',
   setEditSave: 'Dosya düzenleyicide kaydet', setEditSaveHint: 'Ctrl+S basınca nereye kaydedilsin. "Her seferinde sor" değişiklik farkını ve seçenekleri gösterir.', setEditAsk: 'Her seferinde sor', setEditBoth: 'Sunucuya ve yerele', setEditRemote: 'Yalnızca sunucuya',
-  setAutostart: 'Windows açılışında başlat', setAutostartHint: 'Oturum açılınca syncFTP pencere açmadan tepside başlar; açık watch\'lar ve webhook dinleyicisi kaldığı yerden devam eder.',
+  setAutostart: 'Windows açılışında başlat', setAutostartHint: 'Oturum açılınca syncFTP pencere açmadan tepside başlar; açık izleyiciler ve webhook dinleyicisi kaldığı yerden devam eder.',
   setAutostartOn: 'Windows açılışında başlayacak', setAutostartOff: 'Otomatik başlatma kapatıldı',
   setTrayOn: 'Tepsi simgesi açık — pencereyi kapatsanız da syncFTP tepside çalışmaya devam eder.',
   setHooks: 'CI/CD webhook dinleyicisi', setHooksDesc: 'Git sağlayıcılarından gelen push\'ları dinleyen yerel sunucu. Tetikleyicileri projenin CI/CD sekmesinden eklersiniz.',
@@ -28,7 +28,7 @@ Object.assign(T.tr, {
   setLocMissing: 'henüz yok', setLocReveal: 'Dosyayı klasöründe göster',
   loc_config_dir: 'Ayar klasörü', locHint_config_dir: 'Aşağıdaki uygulama dosyalarının hepsi burada',
   loc_library: 'Bağlantı kütüphanesi', locHint_library: 'Kayıtlı bağlantılar ve yeni proje varsayılanları',
-  loc_gui_state: 'Panel durumu', locHint_gui_state: 'Açık watch\'lar (panel açılınca geri gelir), webhook portu / tüneli, editör tercihi',
+  loc_gui_state: 'Panel durumu', locHint_gui_state: 'Açık izleyiciler (panel açılınca geri gelir), webhook portu / tüneli, editör tercihi',
   loc_gui_lang: 'Dil tercihi', locHint_gui_lang: 'Panelin ve CLI\'ın dili',
   loc_registry: 'CLI proje kaydı', locHint_registry: 'syncftp project / --project için kayıtlı projeler',
   loc_known_hosts: 'SFTP host anahtarları', locHint_known_hosts: 'İlk bağlantıda öğrenilen sunucu anahtarları (~/.ssh/known_hosts da okunur)',
@@ -36,7 +36,7 @@ Object.assign(T.tr, {
   loc_hashcache: 'Hash önbelleği', locHint_hashcache: 'Değişmeyen dosyalar yeniden okunmasın diye boyut + tarih + hash',
   loc_panel_profile: 'Panel penceresi profili', locHint_panel_profile: 'Panelin açıldığı tarayıcı penceresinin profili',
   loc_temp: 'Sistem Temp klasörü', locHint_temp: 'İndirme / yükleme / düzenleme sırasında syncftp-dl-*, syncftp-up-*, syncftp-edit-* açılır, iş bitince silinir',
-  locHint_project: 'Config, state, release yedekleri (rollback), loglar, freeze / failed / milestone, watch kilidi, AI dokümanları — .gitignore\'da',
+  locHint_project: 'Config, state, release yedekleri (rollback), loglar, freeze / failed / milestone, izleyici kilidi, AI dokümanları — .gitignore\'da',
 });
 Object.assign(T.en, {
   navSettings: 'Settings', setTitle: 'Settings', setSub: 'App-wide settings — per-project sync settings live in each project\'s Project settings tab',
