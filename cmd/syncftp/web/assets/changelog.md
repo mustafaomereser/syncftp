@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.1.0
+
+### tr
+- Yerelde silinen dosyaları sunucudan da silme (profil ya da proje başına açılır, varsayılan kapalı): her dosya önce yedeklenir, Geçmiş'te görünür ve geri alınabilir; freeze / protect listesindekilere ve ignore edilip diskte duran dosyalara dokunulmaz
+- Windows bildirimleri: panel kapalı ya da arka plandayken başarısız işler ve izleyici hataları tepsiden bildirilir, tıklayınca panel o projede açılır; Ayarlar → Genel'den kapatılabilir, başarılı işler için de açılabilir
+- Yardım: soldaki içindekiler okunan bölümü işaretliyor (scroll spy); aramada eşleşen metin vurgulanıyor, içindekiler ve komut listesi daralıyor
+
+### en
+- Optionally delete locally removed files on the server (per profile or per project, off by default): each file is backed up first, shows up in History and can be rolled back; freeze / protect entries and ignored files still on disk are never touched
+- Windows notifications: while the panel is closed or in the background, failed jobs and watch errors are notified from the tray; clicking opens the panel on that project; can be turned off, or on for successful jobs, under Settings → General
+- Help: the table of contents follows the section you read (scroll spy); search highlights matches and narrows the contents and command list
+
 ## 2.0.9
 
 ### tr

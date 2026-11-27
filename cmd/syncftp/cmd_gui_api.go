@@ -28,7 +28,7 @@ import (
 )
 
 // appVersion — GUI ve `syncftp --version`.
-const appVersion = "2.0.9"
+const appVersion = "2.1.0"
 
 // keepSecret — GUI'ye şifre yerine gönderilen işaret; kayıtta aynen dönerse mevcut şifre korunur.
 const keepSecret = "__keep__"
