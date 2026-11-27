@@ -244,24 +244,57 @@ async function pageHelp(section) {
   const L = LANG === 'en' ? 'en' : 'tr';
   bind((root) => {
     const q = $('#help-q', root);
+    const scroller = root.closest('.frame') || document.getElementById('frame');
+    // Aramada harf katlama uzunluğu korur (İ/I/ı → i) → metindeki konumlar aynen kullanılabilir
+    const fold = (x) => x.replace(/[^]/g, (ch) => { const l = ch.toLowerCase(); return l === 'ı' || l.length !== 1 ? 'i' : l; });
+    const hlOK = typeof Highlight !== 'undefined' && CSS.highlights;
+    let jumpT = 0;
+    const mark = (v) => {
+      if (!hlOK) return null;
+      const ranges = [];
+      if (v) $$('[data-hsec]:not([hidden])', root).forEach((sec) => {
+        const tw = document.createTreeWalker(sec, NodeFilter.SHOW_TEXT);
+        for (let n = tw.nextNode(); n; n = tw.nextNode()) {
+          if (n.parentElement.closest('[hidden]')) continue;
+          const txt = fold(n.data);
+          for (let i = txt.indexOf(v); i !== -1; i = txt.indexOf(v, i + v.length)) {
+            const r = new Range(); r.setStart(n, i); r.setEnd(n, i + v.length); ranges.push(r);
+          }
+        }
+      });
+      if (ranges.length) CSS.highlights.set('help-ara', new Highlight(...ranges)); else CSS.highlights.delete('help-ara');
+      return ranges[0] || null;
+    };
     q.oninput = () => {
-      const v = q.value.toLowerCase().trim();
+      const v = fold(q.value.trim());
       let any = false;
       $$('[data-hsec]', root).forEach((sec) => {
-        const show = !v || sec.textContent.toLowerCase().includes(v);
+        const show = !v || fold(sec.textContent).includes(v);
         sec.hidden = !show;
         any = any || show;
       });
+      // CLI komutları: eşleşen açılır, eşleşmeyen gizlenir; arama silinince eski hâline döner
+      $$('#h-cli .yardim-cmd', root).forEach((d) => {
+        const hit = !!v && fold(d.textContent).includes(v);
+        d.hidden = !!v && !hit;
+        if (d.tagName === 'DETAILS') d.open = hit;
+      });
       $('#help-none', root).hidden = any;
+      const first = mark(v);
+      clearTimeout(jumpT);
+      if (first && scroller) jumpT = setTimeout(() => {
+        if (!root.isConnected) return;
+        const r = first.getBoundingClientRect(), f = scroller.getBoundingClientRect();
+        if (r.top < f.top + 140 || r.bottom > f.bottom - 40) scroller.scrollBy({ top: r.top - f.top - 180, behavior: 'smooth' });
+      }, 350);
       $$('[data-hlink]', root).forEach((l) => (l.hidden = !!$(`#h-${l.dataset.hlink}`, root)?.hidden));
       spy();
     };
     // Scroll spy: kaydırılan alan #frame; üst kenarı çizginin üstüne geçen son bölüm aktif
-    const scroller = root.closest('.frame') || document.getElementById('frame');
     const links = new Map($$('[data-hlink]', root).map((l) => [l.dataset.hlink, l]));
     let cur = '';
     const spy = () => {
-      if (!root.isConnected) { scroller && scroller.removeEventListener('scroll', onScroll); return; }
+      if (!root.isConnected) { scroller && scroller.removeEventListener('scroll', onScroll); if (hlOK) CSS.highlights.delete('help-ara'); return; }
       const secs = $$('[data-hsec]', root).filter((x) => !x.hidden);
       if (!secs.length || !scroller) return;
       const line = scroller.getBoundingClientRect().top + 90;

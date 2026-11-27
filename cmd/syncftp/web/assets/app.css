@@ -371,6 +371,8 @@ body.secim-acik .frame { padding-bottom: 110px; }
 .yardim-toc a.aktif { background: var(--surface); color: var(--text); }
 .yardim-toc a.aktif::before { content: ''; position: absolute; left: 0; top: 7px; bottom: 7px; width: 3px; border-radius: 3px; background: var(--accent); }
 .yardim-toc a[hidden] { display: none; }
+::highlight(help-ara) { background-color: rgb(250 204 21 / .38); color: #fff; }
+.yardim-cmd[hidden] { display: none; }
 .yardim-ic { display: grid; gap: 14px; min-width: 0; }
 .yardim-bolum { scroll-margin-top: 10px; }
 .yardim-metin { color: var(--muted); line-height: 1.7; }
