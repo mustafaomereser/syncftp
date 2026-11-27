@@ -38,6 +38,7 @@ func (sv *guiServer) routes(mux *http.ServeMux) {
 		guiJSON(w, map[string]any{"jobs": sv.jobs.running(), "watches": sv.watches.count()})
 	})
 	mux.HandleFunc("GET /api/presence", sv.apiPresence)
+	mux.HandleFunc("POST /api/presence/visible", sv.apiPresenceVisible)
 	mux.HandleFunc("GET /api/meta", sv.apiMeta)
 	mux.HandleFunc("PUT /api/lang", sv.apiLang)
 	mux.HandleFunc("POST /api/quit", func(w http.ResponseWriter, r *http.Request) {
@@ -153,6 +154,10 @@ func (sv *guiServer) apiPresence(w http.ResponseWriter, r *http.Request) {
 		guiErr(w, 500, errors.New("sse"))
 		return
 	}
+	// Pencere kimliği hello'dan ÖNCE kaydedilir: sayfa "open" olayında görünürlüğünü hemen bildiriyor
+	pid := r.URL.Query().Get("id")
+	sv.setPanelVisible(pid, r.URL.Query().Get("vis") != "0", false)
+	defer sv.setPanelVisible(pid, false, true)
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.WriteHeader(http.StatusOK)
@@ -914,7 +919,7 @@ func (sv *guiServer) apiJobStart(w http.ResponseWriter, r *http.Request) {
 				return nil, err
 			}
 			defer c.Close()
-			defer context.AfterFunc(ctx, c.Abort)() // Durdur → SSH oturumu kesilir, komut durur
+			defer context.AfterFunc(ctx, c.Abort)()     // Durdur → SSH oturumu kesilir, komut durur
 			return nil, remoteExec(j, c, command, true) // CLI remote exec / shell exec ile aynı (SFTP kontrolü dahil)
 		}))
 	case "tree":
@@ -1216,6 +1221,7 @@ func (sv *guiServer) apiReleases(w http.ResponseWriter, r *http.Request) {
 		Backed     int       `json:"backed"`
 		New        int       `json:"new"`
 		NoBackup   int       `json:"no_backup"`
+		Deleted    int       `json:"deleted"`
 		HasBackup  bool      `json:"has_backup"`
 		RolledBack bool      `json:"rolled_back"`
 		Partly     int       `json:"partly_rolled_back"`
@@ -1228,7 +1234,7 @@ func (sv *guiServer) apiReleases(w http.ResponseWriter, r *http.Request) {
 		list, _ := release.Summaries(p.Path, srv.Name)
 		for _, m := range list {
 			out = append(out, relInfo{Server: srv.Name, ID: m.ID, CreatedAt: m.CreatedAt, Files: m.FileCount,
-				Backed: m.Backed, New: m.New, NoBackup: m.NoBackup, HasBackup: m.HasBackup, RolledBack: m.RolledBack, Partly: m.PartlyRolledBack})
+				Backed: m.Backed, New: m.New, NoBackup: m.NoBackup, Deleted: m.Deleted, HasBackup: m.HasBackup, RolledBack: m.RolledBack, Partly: m.PartlyRolledBack})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
@@ -1261,6 +1267,11 @@ func (sv *guiServer) apiReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, f := range m.New {
 		kind[f] = "new"
+	}
+	for _, f := range m.Deleted {
+		if kind[f] == "changed" { // yedekli silme → geri alınabilir
+			kind[f] = "deleted"
+		}
 	}
 	files := m.SortedFiles()
 	items := make([]item, 0, len(files))
@@ -1652,6 +1663,7 @@ func (sv *guiServer) startServerWatch(p projects.Project, cfg *config.Config, sr
 			gw.Syncs++
 			gw.LastSync = time.Now().Format("15:04:05")
 			sv.watches.mu.Unlock()
+			sv.onWatchSync(p.Name, res)
 		})
 	})
 	if err != nil {

@@ -173,7 +173,7 @@ The sidebar also has app-wide **Settings** (start with Windows, editor save targ
 
 Folder and file pickers run **inside the panel** (no native dialogs); include / exclude / protect / freeze lists can be ticked in a file tree. Every operation runs as a background job with a live log in the bottom-right corner. A **Help** page (sidebar, and the `?` button on every tab) contains task guides and a CLI reference generated from the program itself.
 
-**System tray (Windows)** — left click opens the panel; right click opens a dark menu with status, *Open panel*, *Projects* (opens the panel on that project), *Jobs*, active watches (click to stop), webhook tunnel on/off and *Quit*. Closing the window keeps syncFTP running in the tray; watches that were running are restored on the next start. A green dot on the icon means a job or watch is running.
+**System tray (Windows)** — left click opens the panel; right click opens a dark menu with status, *Open panel*, *Projects* (opens the panel on that project), *Jobs*, active watches (click to stop), webhook tunnel on/off and *Quit*. Closing the window keeps syncFTP running in the tray; watches that were running are restored on the next start. While the panel window is closed or in the background, failed jobs (sync, deploy…) and watch errors show up as **Windows notifications** — click one to open the panel on that project. *Settings → General* turns them off, or on for successful jobs too. A green dot on the icon means a job or watch is running.
 
 ### AI assistant (panel only)
 
@@ -241,6 +241,7 @@ For each session syncFTP writes `.syncftp/ai/` — `README.md` (rules), `CLI.md`
 | `sync.pre_sync` / `sync.post_sync` | `[]` | Local shell commands before / after upload |
 | `sync.bandwidth_limit` | `0` | KB/s per server (shared by its connections); `0` = unlimited |
 | `sync.no_backup` | `false` | Disable backups → no rollback |
+| `sync.delete_remote` | `false` | Delete files on the server when they are deleted locally (all servers; backed up first, can be rolled back) |
 | `sync.backup_keep` | `10` | Releases that keep their backup files |
 | `sync.direct_upload` | `false` | Disable atomic temp + rename upload |
 | `first_sync.full` | `false` | `true` = upload everything on the first sync instead of calibrating |
@@ -267,7 +268,7 @@ For each session syncFTP writes `.syncftp/ai/` — `README.md` (rules), `CLI.md`
 | `remote_pre_sync` / `remote_post_sync` | `[]` | **SFTP only** — commands run **on the server** over SSH in `remote_path` |
 | `webhook` | `""` | Overrides `sync.webhook` |
 | `minify` / `obfuscate` | `false` | Minify CSS/JS (built in) / obfuscate JS with `terser` (`npm i -g terser`) |
-| `bandwidth_limit` / `no_backup` / `direct_upload` | — | Per-server versions of the sync settings |
+| `bandwidth_limit` / `no_backup` / `direct_upload` / `delete_remote` | — | Per-server versions of the sync settings |
 
 **CI/CD triggers** (`deploy[]`) — see [CI/CD](#cicd--deploy-on-git-push)
 
@@ -314,7 +315,7 @@ Every network read/write has an idle timeout and SSH connections send keepalives
 5. **Upload** through a connection pool: back up the server version → upload to a temp name → rename into place. State is checkpointed every 20 files.
 6. Write the **release manifest**, send the **webhook**, run **post_sync** hooks (remote SSH, then local).
 
-Files deleted locally are **reported, never deleted** from the server. Every sync that uploads something writes a plain-text log to `.syncftp/logs/<server>/`.
+Files deleted locally are **reported, not deleted** on the server by default. With `delete_remote: true` (per server, or `sync.delete_remote` for all) the next sync — watch included — deletes them on the server too: each file is backed up into the release first (a file whose backup fails is not deleted), the release lists it as deleted and `rollback` restores it. Files in the freeze / protect lists and files that still exist on disk but are ignored are never deleted, and if the local folder has no files at all nothing is deleted. `--dry-run` lists the deletions. Every sync that uploads something writes a plain-text log to `.syncftp/logs/<server>/`.
 
 ---
 

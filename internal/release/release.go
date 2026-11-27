@@ -16,15 +16,18 @@ import (
 // Version 2: rollback alanları (Backed/New/PrevHashes) eklendi; yedek dosyaları
 // release dizininin files/ alt klasöründedir.
 type Manifest struct {
-	Version      int               `json:"version"`
-	ID           string            `json:"id,omitempty"`
-	CreatedAt    time.Time         `json:"created_at"`
-	Server       string            `json:"server"`
-	FileCount    int               `json:"file_count"`
-	Files        map[string]string `json:"files"`                 // relPath -> "sha256:<hex>" (yüklenen yerel sürüm)
-	Backed       []string          `json:"backed,omitempty"`      // eski uzak sürümü files/ altında yedeklenenler
-	New          []string          `json:"new,omitempty"`         // upload öncesi sunucuda olmayanlar (rollback'te silinir)
-	NoBackup     []string          `json:"no_backup,omitempty"`   // yedek alınamayanlar (geri alınamaz)
+	Version   int               `json:"version"`
+	ID        string            `json:"id,omitempty"`
+	CreatedAt time.Time         `json:"created_at"`
+	Server    string            `json:"server"`
+	FileCount int               `json:"file_count"`
+	Files     map[string]string `json:"files"`               // relPath -> "sha256:<hex>" (yüklenen yerel sürüm)
+	Backed    []string          `json:"backed,omitempty"`    // eski uzak sürümü files/ altında yedeklenenler
+	New       []string          `json:"new,omitempty"`       // upload öncesi sunucuda olmayanlar (rollback'te silinir)
+	NoBackup  []string          `json:"no_backup,omitempty"` // yedek alınamayanlar (geri alınamaz)
+	// Deleted yerelde silindiği için sunucudan silinenler (delete_remote). Files'ta DeletedHash ile
+	// durur; yedeği alındıysa Backed'de de vardır → rollback dosyayı yedekten geri yükler.
+	Deleted      []string          `json:"deleted,omitempty"`
 	PrevHashes   map[string]string `json:"prev_hashes,omitempty"` // upload öncesi state hash'i (rollback state'i buna döndürür)
 	BackupPurged bool              `json:"backup_purged,omitempty"`
 	RolledBack   bool              `json:"rolled_back,omitempty"`
@@ -106,6 +109,12 @@ func SaveAfter(configDir, serverName, id, rel, src string) error {
 	return os.WriteFile(dst, data, 0644)
 }
 
+// DeletedHash sunucudan silinen dosyanın Files'taki değeri (yüklenen içerik yok).
+const DeletedHash = "deleted"
+
+// IsDeleted dosya bu release'te sunucudan silindi mi.
+func (m *Manifest) IsDeleted(rel string) bool { return m.Files[rel] == DeletedHash }
+
 // NewID zaman damgalı benzersiz release kimliği.
 func NewID(configDir, serverName string) string {
 	base := time.Now().Format("20060102-150405")
@@ -145,6 +154,7 @@ func Write(configDir, serverName, id string, m *Manifest) (string, error) {
 	sort.Strings(m.Backed)
 	sort.Strings(m.New)
 	sort.Strings(m.NoBackup)
+	sort.Strings(m.Deleted)
 	data, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return "", err

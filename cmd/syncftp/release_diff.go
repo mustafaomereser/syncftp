@@ -46,6 +46,20 @@ func releaseFileVersions(dir string, cfg *config.Config, srv config.Server, m *r
 		return false
 	}
 	var before, after []byte
+	if m.IsDeleted(rel) { // sunucudan silindi: önce = yedek, sonra = yok
+		v.Status, v.AfterOK = "deleted", true
+		if inList(m.Backed) {
+			if data, err := readCapped(filepath.Join(release.FilesDir(dir, srv.Name, m.ID), filepath.FromSlash(rel))); err == nil {
+				before, v.BeforeOK = data, true
+			}
+		}
+		if isBinaryBytes(before) {
+			v.Binary = true
+			return v, nil
+		}
+		v.Before = strings.ReplaceAll(string(before), "\r\n", "\n")
+		return v, nil
+	}
 	switch {
 	case inList(m.New):
 		v.Status, v.BeforeOK = "new", true

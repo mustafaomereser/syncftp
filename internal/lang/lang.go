@@ -156,6 +156,14 @@ type StringSet struct {
 	SyncExcludeFmt     string // "Exclude (%d yol): bu yollar bu sync'ten hariç tutulacak\n"
 	SyncServerErrFmt   string // "  HATA: %v\n"
 	SyncNoChange2      string // "  Değişiklik yok"
+	// Sunucudan silme (delete_remote)
+	SyncDeleteHeaderFmt  string
+	SyncDeleteLabel      string
+	SyncDeleteOkFmt      string
+	SyncDeleteErrFmt     string
+	SyncDeleteKeptFmt    string // freeze/protect yüzünden silinmeyenler
+	SyncDeleteNoLocalFmt string // yerel klasör boş → silme reddedildi
+	SyncDeleteDoneFmt    string
 	SyncDeletedHeader  string // "  ! SİLİNEN dosyalar (FTP'de bırakıldı):\n"
 	SyncProcessingFmt  string // "  %d dosya işlenecek"
 	SyncProtectedFmt   string // " (%d korunuyor)"
@@ -718,6 +726,8 @@ type StringSet struct {
 	GuiJobExec        string // "SSH komutu"
 	CfgFldRemotePre   string // "Uzak pre_sync (SSH)"
 	CfgFldRemotePost  string // "Uzak post_sync (SSH)"
+	CfgFldDeleteRemote  string
+	CfgGFldDeleteRemote string
 
 	// ── AI asistan (yalnızca GUI) ───────────────────────────────────
 	AIBusy      string // "asistan hâlâ cevap veriyor — bekleyin ya da durdurun"
@@ -741,6 +751,11 @@ type StringSet struct {
 	TrayTunnelOpened    string // "Webhook tüneli açıldı"
 	TrayTunnelOpenedFmt string // "%s\nAdres panoya kopyalandı."
 	TrayTunnelFailed    string // "Webhook tüneli açılamadı"
+	// Masaüstü bildirimleri
+	NotifyJobFailedFmt   string
+	NotifyJobDoneFmt     string
+	NotifyWatchFailedFmt string
+	NotifyFilesFailedFmt string
 	TrayTunnelClosed    string // "Webhook tüneli kapatıldı"
 
 	// ── Tray tünel durumu ───────────────────────────────────────────

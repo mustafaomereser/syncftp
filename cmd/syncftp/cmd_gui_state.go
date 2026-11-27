@@ -26,6 +26,9 @@ type guiPersist struct {
 	// yerel, "remote" = yalnızca sunucu (kaydetme penceresindeki "bir daha sorma")
 	EditSaveTarget string `json:"edit_save_target,omitempty"`
 	UpdateCheckOff bool   `json:"update_check_off,omitempty"`
+	// NotifyOff masaüstü bildirimleri kapalı; NotifyDone başarılı işler de bildirilir
+	NotifyOff  bool `json:"notify_off,omitempty"`
+	NotifyDone bool `json:"notify_done,omitempty"`
 }
 
 var guiPersistMu sync.Mutex

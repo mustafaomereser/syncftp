@@ -126,6 +126,7 @@ func srvFieldLabel(i int) string {
 		lang.L.CfgFldTunnelPass, lang.L.CfgFldTunnelKey,
 		lang.L.CfgFldBandwidth, lang.L.CfgFldNoBackup, lang.L.CfgFldDirectUpload,
 		lang.L.CfgFldRemotePre, lang.L.CfgFldRemotePost,
+		lang.L.CfgFldDeleteRemote,
 	}
 	if i >= 0 && i < len(labels) {
 		return labels[i]
@@ -140,6 +141,7 @@ func globalFieldLabel(i int) string {
 		lang.L.CfgGFldWebhook, lang.L.CfgGFldBlockExts,
 		lang.L.CfgGFldBandwidth, lang.L.CfgGFldNoBackup, lang.L.CfgGFldBackupKeep,
 		lang.L.CfgGFldDirectUpload, lang.L.CfgGFldKeyring,
+		lang.L.CfgGFldDeleteRemote,
 	}
 	if i >= 0 && i < len(labels) {
 		return labels[i]
@@ -526,6 +528,7 @@ var serverFields = []srvField{
 	{"Direct upload", "bool", ""},             // idx 31 — atomik upload kapalı
 	{"Remote pre_sync", "list", ""},           // idx 32 — SFTP: sunucuda SSH komutları
 	{"Remote post_sync", "list", ""},          // idx 33
+	{"Delete remote", "bool", ""},             // idx 34 — yerelde silineni sunucudan da sil
 }
 
 type serverEditModel struct {
@@ -634,6 +637,8 @@ func (m *serverEditModel) getDisplayValue(i int) string {
 		return listDisplay(m.srv.RemotePreSync)
 	case 33:
 		return listDisplay(m.srv.RemotePostSync)
+	case 34:
+		return boolIcon(m.srv.DeleteRemote)
 	}
 	return ""
 }
@@ -784,6 +789,8 @@ func (m *serverEditModel) toggleBool(i int) {
 		m.srv.NoBackup = !m.srv.NoBackup
 	case 31:
 		m.srv.DirectUpload = !m.srv.DirectUpload
+	case 34:
+		m.srv.DeleteRemote = !m.srv.DeleteRemote
 	}
 }
 
@@ -1077,6 +1084,7 @@ var globalFields = []globalField{
 	{"Backup keep", "int", ""},    // idx 9
 	{"Direct upload", "bool", ""}, // idx 10
 	{"Keyring", "bool", ""},       // idx 11 — şifreler OS anahtarlığında
+	{"Delete remote", "bool", ""}, // idx 12
 }
 
 type globalEditModel struct {
@@ -1134,6 +1142,8 @@ func (m *globalEditModel) getDisplayValue(i int) string {
 		return boolIcon(m.sync.DirectUpload)
 	case 11:
 		return boolIcon(m.project.Keyring)
+	case 12:
+		return boolIcon(m.sync.DeleteRemote)
 	}
 	return ""
 }
@@ -1146,6 +1156,8 @@ func (m *globalEditModel) toggleBool(i int) {
 		m.sync.DirectUpload = !m.sync.DirectUpload
 	case 11:
 		m.project.Keyring = !m.project.Keyring
+	case 12:
+		m.sync.DeleteRemote = !m.sync.DeleteRemote
 	}
 }
 

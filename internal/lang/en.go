@@ -223,6 +223,13 @@ Other:
 	SyncExcludeFmt:     "Exclude (%d paths): these will be skipped\n",
 	SyncServerErrFmt:   "  ERROR: %v\n",
 	SyncNoChange2:      "  No changes",
+	SyncDeleteHeaderFmt:  "  − %d file(s) deleted locally will also be deleted on the server\n",
+	SyncDeleteLabel:      "      − delete: %s\n",
+	SyncDeleteOkFmt:      "  − %s (deleted on server)\n",
+	SyncDeleteErrFmt:     "  ✗ could not delete %s: %v\n",
+	SyncDeleteKeptFmt:    "  ❄ %d deleted file(s) in the freeze / protect lists were kept on the server\n",
+	SyncDeleteNoLocalFmt: "  ! The local folder has no files — nothing was deleted on the server for safety (%d files)\n",
+	SyncDeleteDoneFmt:    "  − Deleted on server: %d · failed: %d\n",
 	SyncDeletedHeader:  "  ! DELETED files (kept on FTP):\n",
 	SyncProcessingFmt:  "  %d files to process",
 	SyncProtectedFmt:   " (%d protected)",
@@ -777,6 +784,8 @@ Other:
 	GuiJobExec:        "SSH command",
 	CfgFldRemotePre:   "Remote pre_sync (SSH)",
 	CfgFldRemotePost:  "Remote post_sync (SSH)",
+	CfgFldDeleteRemote:  "Delete removed files on server",
+	CfgGFldDeleteRemote: "Delete removed files on server (all)",
 
 	// AI asistan (yalnızca GUI)
 	AIBusy:      "the assistant is still answering — wait or stop it",
@@ -800,6 +809,10 @@ Other:
 	TrayTunnelOpened:    "Webhook tunnel is open",
 	TrayTunnelOpenedFmt: "%s\nAddress copied to clipboard.",
 	TrayTunnelFailed:    "Webhook tunnel could not be opened",
+	NotifyJobFailedFmt:   "✗ %s failed",
+	NotifyJobDoneFmt:     "✓ %s finished",
+	NotifyWatchFailedFmt: "✗ Watch: %s · %s",
+	NotifyFilesFailedFmt: "%d file(s) could not be uploaded",
 	TrayTunnelClosed:    "Webhook tunnel closed",
 
 	// Tray tünel durumu

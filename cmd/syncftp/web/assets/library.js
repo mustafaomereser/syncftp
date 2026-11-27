@@ -161,6 +161,7 @@ function defaultsSectionHTML(lib) {
       ${fArea('sync.pre_sync', t('hkPre'), sy.pre_sync, { wide: false, hint: t('hkPreHint'), chips: HOOK_CHIPS.pre })}${fArea('sync.post_sync', t('hkPost'), sy.post_sync, { wide: false, hint: t('hkPostHint'), chips: HOOK_CHIPS.post })}
     </div><div style="height:12px"></div><div class="alanlar">
       ${fBool('sync.no_backup', t('fNoBackup'), sy.no_backup, t('fNoBackupHint'))}
+      ${fBool('sync.delete_remote', t('fDelRemoteGlobal'), sy.delete_remote, t('fDelRemoteHint'))}
       ${fBool('sync.direct_upload', t('fDirect'), sy.direct_upload, t('fDirectHint'))}
       ${fBool('first_sync_full', t('fFirstFull'), d.first_sync_full, t('fFirstFullHint'))}
       ${fBool('keyring', t('keyringTitle'), d.keyring, t('keyringHint'))}

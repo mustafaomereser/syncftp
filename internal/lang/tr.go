@@ -223,6 +223,13 @@ Diğer:
 	SyncExcludeFmt:     "Exclude (%d yol): bu yollar bu sync'ten hariç tutulacak\n",
 	SyncServerErrFmt:   "  HATA: %v\n",
 	SyncNoChange2:      "  Değişiklik yok",
+	SyncDeleteHeaderFmt:  "  − Yerelde silinen %d dosya sunucudan da silinecek\n",
+	SyncDeleteLabel:      "      − sil: %s\n",
+	SyncDeleteOkFmt:      "  − %s (sunucudan silindi)\n",
+	SyncDeleteErrFmt:     "  ✗ %s silinemedi: %v\n",
+	SyncDeleteKeptFmt:    "  ❄ Freeze / protect listesindeki %d silinmiş dosya sunucuda bırakıldı\n",
+	SyncDeleteNoLocalFmt: "  ! Yerel klasörde hiç dosya yok — güvenlik için sunucudan silme yapılmadı (%d dosya)\n",
+	SyncDeleteDoneFmt:    "  − Sunucudan silinen: %d · silinemeyen: %d\n",
 	SyncDeletedHeader:  "  ! SİLİNEN dosyalar (FTP'de bırakıldı):\n",
 	SyncProcessingFmt:  "  %d dosya işlenecek",
 	SyncProtectedFmt:   " (%d korunuyor)",
@@ -777,6 +784,8 @@ Diğer:
 	GuiJobExec:        "SSH komutu",
 	CfgFldRemotePre:   "Uzak pre_sync (SSH)",
 	CfgFldRemotePost:  "Uzak post_sync (SSH)",
+	CfgFldDeleteRemote:  "Silinenleri sunucudan sil",
+	CfgGFldDeleteRemote: "Silinenleri sunucudan sil (tümü)",
 
 	// AI asistan (yalnızca GUI)
 	AIBusy:      "asistan hâlâ cevap veriyor — bekleyin ya da durdurun",
@@ -800,6 +809,10 @@ Diğer:
 	TrayTunnelOpened:    "Webhook tüneli açıldı",
 	TrayTunnelOpenedFmt: "%s\nAdres panoya kopyalandı.",
 	TrayTunnelFailed:    "Webhook tüneli açılamadı",
+	NotifyJobFailedFmt:   "✗ %s başarısız",
+	NotifyJobDoneFmt:     "✓ %s tamamlandı",
+	NotifyWatchFailedFmt: "✗ İzleyici: %s · %s",
+	NotifyFilesFailedFmt: "%d dosya yüklenemedi",
 	TrayTunnelClosed:    "Webhook tüneli kapatıldı",
 
 	// Tray tünel durumu

@@ -28,6 +28,7 @@ type Summary struct {
 	Backed       int       `json:"backed"`
 	New          int       `json:"new"`
 	NoBackup     int       `json:"no_backup"`
+	Deleted      int       `json:"deleted,omitempty"`
 	HasBackup    bool      `json:"has_backup"`
 	BackupPurged bool      `json:"backup_purged,omitempty"`
 	RolledBack   bool      `json:"rolled_back,omitempty"`
@@ -41,7 +42,7 @@ func (s Summary) Restorable() bool { return s.HasBackup && !s.RolledBack }
 // Summary manifestin liste satırı.
 func (m *Manifest) Summary() Summary {
 	return Summary{ID: m.ID, CreatedAt: m.CreatedAt, Version: m.Version, FileCount: m.FileCount,
-		Backed: len(m.Backed), New: len(m.New), NoBackup: len(m.NoBackup), HasBackup: m.HasBackup(),
+		Backed: len(m.Backed), New: len(m.New), NoBackup: len(m.NoBackup), Deleted: len(m.Deleted), HasBackup: m.HasBackup(),
 		BackupPurged: m.BackupPurged, RolledBack: m.RolledBack, PartlyRolledBack: len(m.RolledBackFiles)}
 }
 

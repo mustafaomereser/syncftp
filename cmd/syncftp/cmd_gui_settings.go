@@ -113,6 +113,8 @@ func (sv *guiServer) apiSettings(w http.ResponseWriter, r *http.Request) {
 		"hook_port_active":    sv.hooks.activePort(),
 		"hook_default_port":   defaultHookPort,
 		"edit_save_target":    st.EditSaveTarget,
+		"notify":              !st.NotifyOff,
+		"notify_done":         st.NotifyDone,
 		"locations":           dataLocations(),
 	})
 }
@@ -123,6 +125,8 @@ func (sv *guiServer) apiSettingsPut(w http.ResponseWriter, r *http.Request) {
 		HookPort  *int  `json:"hook_port"`
 		// EditSaveTarget "" | "both" | "remote"
 		EditSaveTarget *string `json:"edit_save_target"`
+		Notify         *bool   `json:"notify"`
+		NotifyDone     *bool   `json:"notify_done"`
 	}
 	if err := guiDecode(r, &req); err != nil {
 		guiErr(w, 400, err)
@@ -149,6 +153,12 @@ func (sv *guiServer) apiSettingsPut(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		updateGUIPersist(func(st *guiPersist) { st.EditSaveTarget = v })
+	}
+	if req.Notify != nil {
+		updateGUIPersist(func(st *guiPersist) { st.NotifyOff = !*req.Notify })
+	}
+	if req.NotifyDone != nil {
+		updateGUIPersist(func(st *guiPersist) { st.NotifyDone = *req.NotifyDone })
 	}
 	guiJSON(w, true)
 }

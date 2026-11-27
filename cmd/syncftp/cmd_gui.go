@@ -179,6 +179,7 @@ func runGUIForeground() error {
 		startDir: guiStartDir(),
 	}
 	projects.SetBase(sv.startDir)
+	sv.jobs.onDone = sv.onJobDone
 	sv.hooks = newDeployManager(sv.jobs, nil)
 	sv.ai = newAIManager()
 	gi := guiInstance{Port: sv.port, Token: sv.token, PID: os.Getpid()}
@@ -275,6 +276,7 @@ type guiServer struct {
 	started  time.Time
 	lastSeen atomic.Int64 // unix nano — son heartbeat / son açık pencere
 	clients  atomic.Int32 // açık /api/presence bağlantısı (= açık panel penceresi) sayısı
+	pvis     panelVis     // pencere başına görünürlük (masaüstü bildirimleri yalnızca panel görünmezken)
 	jobs     *jobManager
 	watches  *watchManager
 	quit     chan struct{}
@@ -579,6 +581,8 @@ type jobManager struct {
 	seq   int
 	jobs  []*job
 	locks map[string]string // project|server → job id
+	// onDone her iş bittikten sonra çağrılır (masaüstü bildirimi)
+	onDone func(*job)
 }
 
 func newJobManager() *jobManager { return &jobManager{locks: map[string]string{}} }
@@ -630,6 +634,9 @@ func (m *jobManager) startCancelable(kind, project, server, title, lockKey strin
 			res, err = fn(j)
 		}()
 		j.finish(res, err)
+		if m.onDone != nil {
+			go m.onDone(j)
+		}
 		if lockKey != "" {
 			m.mu.Lock()
 			if m.locks[lockKey] == j.ID {

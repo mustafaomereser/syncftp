@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 
 	"syncftp/internal/config"
@@ -30,7 +31,9 @@ type uploadOutcome struct {
 	backed       int
 	newFiles     int
 	bytes        int64
-	canceled     bool // ctx iptal edildi — kalan görevler başlatılmadı
+	canceled     bool     // ctx iptal edildi — kalan görevler başlatılmadı
+	deleted      []string // sunucudan silinenler (delete_remote)
+	deleteFailed []string
 }
 
 // runUploadSession tüm sync akışlarının (CLI sync, shell sync, milestone, serve/GUI)
@@ -44,7 +47,7 @@ type uploadOutcome struct {
 //
 // onResult her sonuç geldiğinde (canlı) çağrılır. State'in son temizliği (silinen
 // dosyalar, FirstSyncDone) ve final kaydı çağıranın işidir.
-func runUploadSession(ctx context.Context, w io.Writer, configDir string, cfg *config.Config, srv config.Server, tasks []ftpclient.UploadTask, st *state.State, onResult func(ftpclient.UploadResult)) (uploadOutcome, error) {
+func runUploadSession(ctx context.Context, w io.Writer, configDir string, cfg *config.Config, srv config.Server, tasks []ftpclient.UploadTask, st *state.State, onResult func(ftpclient.UploadResult), deletes ...string) (uploadOutcome, error) {
 	out := uploadOutcome{successFiles: make(map[string]string)}
 	if ctx == nil {
 		ctx = context.Background()
@@ -67,7 +70,12 @@ func runUploadSession(ctx context.Context, w io.Writer, configDir string, cfg *c
 	if err != nil {
 		return out, err
 	}
-	defer pool.Close()
+	poolOpen := true
+	defer func() {
+		if poolOpen {
+			pool.Close()
+		}
+	}()
 	out.poolSize = pool.Size()
 	if want := max(srv.MaxConnections, 1); out.poolSize < want {
 		fmt.Fprintf(w, lang.L.SyncPoolLimitedFmt, out.poolSize, want)
@@ -124,7 +132,20 @@ func runUploadSession(ctx context.Context, w io.Writer, configDir string, cfg *c
 	}
 
 	out.canceled = ctx.Err() != nil
-	if len(out.successFiles) == 0 {
+
+	// Sunucudan silme (delete_remote): yüklemelerden SONRA (taşınan dosyanın yenisi önce çıksın),
+	// her dosya önce yedeklenir — yedek alınamazsa SİLİNMEZ (geri alınamaz kayıp olmasın).
+	if len(deletes) > 0 && !out.canceled {
+		pool.Close() // bağlantı hakkını bırak; silme tek bağlantıyla
+		poolOpen = false
+		if derr := deleteRemoteFiles(ctx, w, configDir, srv, backup, out.releaseID, deletes, st, m, &out); derr != nil {
+			fmt.Fprintf(w, lang.L.SyncServerErrFmt, derr)
+			out.deleteFailed = append(out.deleteFailed, deletes...)
+		}
+		fmt.Fprintf(w, lang.L.SyncDeleteDoneFmt, len(out.deleted), len(out.deleteFailed))
+		out.canceled = ctx.Err() != nil
+	}
+	if len(out.successFiles) == 0 && len(out.deleted) == 0 {
 		release.Discard(configDir, srv.Name, out.releaseID)
 		return out, nil
 	}
@@ -142,6 +163,57 @@ func runUploadSession(ctx context.Context, w io.Writer, configDir string, cfg *c
 		release.Prune(configDir, srv.Name, cfg.Sync.EffectiveBackupKeep())
 	}
 	return out, nil
+}
+
+// deleteRemoteFiles yerelde silinen dosyaları sunucudan siler (yedekli) ve release'e / state'e işler.
+func deleteRemoteFiles(ctx context.Context, w io.Writer, configDir string, srv config.Server, backup bool, releaseID string, rels []string, st *state.State, m *release.Manifest, out *uploadOutcome) error {
+	client, err := ftpclient.Connect(srv)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	stop := context.AfterFunc(ctx, client.Abort)
+	defer stop()
+	filesDir := release.FilesDir(configDir, srv.Name, releaseID)
+	for _, rel := range rels {
+		if ctx.Err() != nil {
+			break
+		}
+		backed := false
+		if backup {
+			existed, berr := client.BackupTo(rel, filepath.Join(filesDir, filepath.FromSlash(rel)))
+			if berr != nil {
+				fmt.Fprintf(w, lang.L.SyncDeleteErrFmt, rel, berr)
+				out.deleteFailed = append(out.deleteFailed, rel)
+				continue
+			}
+			if !existed { // sunucuda zaten yok — yalnızca state'ten düşer
+				delete(st.Files, rel)
+				continue
+			}
+			backed = true
+		}
+		if derr := client.DeleteFile(path.Join(srv.RemotePath, rel)); derr != nil && !ftpclient.IsNotFound(derr) {
+			fmt.Fprintf(w, lang.L.SyncDeleteErrFmt, rel, derr)
+			out.deleteFailed = append(out.deleteFailed, rel)
+			continue
+		}
+		fmt.Fprintf(w, lang.L.SyncDeleteOkFmt, rel)
+		out.deleted = append(out.deleted, rel)
+		if h, ok := st.Files[rel]; ok {
+			m.PrevHashes[rel] = h
+		}
+		delete(st.Files, rel)
+		m.Files[rel] = release.DeletedHash
+		m.Deleted = append(m.Deleted, rel)
+		if backed {
+			out.backed++
+			m.Backed = append(m.Backed, rel)
+		} else {
+			m.NoBackup = append(m.NoBackup, rel)
+		}
+	}
+	return nil
 }
 
 // printUploadResult tek bir upload sonucunu standart formatta yazar.

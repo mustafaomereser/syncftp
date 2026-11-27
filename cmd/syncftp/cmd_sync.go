@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -182,7 +183,7 @@ func syncServer(w io.Writer, configDir string, cfg *config.Config, srv config.Se
 	}
 	fmt.Fprintf(out, lang.L.GuiScannedFmt, srv.EffectiveLocalPath(cfg.Project), len(current))
 	r := syncToServerOpts(out, configDir, cfg, srv, current, byKey, cliInclude, cliExclude, since, opts)
-	if !opts.dryRun && (r.uploaded > 0 || r.failed > 0) {
+	if !opts.dryRun && (r.uploaded > 0 || r.failed > 0 || r.deleted > 0 || r.deleteFailed > 0) {
 		if p, lerr := synclog.Save(configDir, srv.Name, buf.String()); lerr == nil {
 			r.logPath = p
 		}
@@ -218,6 +219,7 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 	flt := effectiveFilters(cfg, srv, cliInclude, cliExclude)
 
 	var toUpload []string
+	var toDelete []string // delete_remote: yerelde silinip sunucudan da silinecekler
 
 	if since != nil {
 		fmt.Fprintf(w, lang.L.MilestoneSinceFmt, since.Format("2006-01-02 15:04:05"))
@@ -271,7 +273,18 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 			}
 		} else {
 			diff := state.Diff(st, current)
-			if len(diff.Deleted) > 0 {
+			if len(diff.Deleted) > 0 && srv.DeleteRemoteEnabled(cfg.Sync) {
+				var kept []string
+				toDelete, kept = planDeletes(configDir, cfg, srv, diff.Deleted, flt)
+				if n := len(kept); n > 0 {
+					fmt.Fprintf(w, lang.L.SyncDeleteKeptFmt, n)
+				}
+				// Güvenlik: yerel klasör boşsa (yanlış yol, bağlanmamış sürücü…) hiçbir şey silinmez
+				if len(current) == 0 && len(toDelete) > 0 {
+					fmt.Fprintf(w, lang.L.SyncDeleteNoLocalFmt, len(toDelete))
+					toDelete = nil
+				}
+			} else if len(diff.Deleted) > 0 {
 				sort.Strings(diff.Deleted)
 				fmt.Fprint(w, lang.L.SyncDeletedHeader)
 				for _, p := range diff.Deleted {
@@ -296,7 +309,7 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 		fmt.Fprintf(w, lang.L.SyncBlockedFmt, n)
 		result.blocked = n
 	}
-	if len(plan.upload)+len(plan.protected) == 0 {
+	if len(plan.upload)+len(plan.protected)+len(toDelete) == 0 {
 		fmt.Fprintln(w, lang.L.SyncNoChange2)
 		return result
 	}
@@ -317,6 +330,9 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 		fmt.Fprintf(w, lang.L.SyncProtectedFmt, skipped)
 	}
 	fmt.Fprintln(w, "")
+	if len(toDelete) > 0 {
+		fmt.Fprintf(w, lang.L.SyncDeleteHeaderFmt, len(toDelete))
+	}
 
 	if opts.dryRun {
 		for _, rel := range toUpload {
@@ -326,6 +342,9 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 			} else {
 				fmt.Fprintf(w, lang.L.SyncUploadLabel, rel)
 			}
+		}
+		for _, rel := range toDelete {
+			fmt.Fprintf(w, lang.L.SyncDeleteLabel, rel)
 		}
 		previewTriggers(w, cfg, srv, plan.upload)
 		return result
@@ -404,7 +423,7 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 			return
 		}
 		printUploadResult(w, r)
-	})
+	}, toDelete...)
 	if sessErr != nil && opts.ctx != nil && opts.ctx.Err() != nil {
 		fmt.Fprintln(w, lang.L.SyncCanceled)
 		result.err = opts.ctx.Err()
@@ -433,6 +452,11 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 	result.failed = failedCount
 	result.duration = time.Since(startTime)
 	result.releaseID = outcome.releaseID
+	result.deleted = len(outcome.deleted)
+	result.deleteFailed = len(outcome.deleteFailed)
+	if len(outcome.deleteFailed) > 0 && result.err == nil && !outcome.canceled {
+		result.err = errors.New(strings.TrimSpace(strings.TrimLeft(strings.TrimSpace(fmt.Sprintf(lang.L.SyncDeleteDoneFmt, len(outcome.deleted), len(outcome.deleteFailed))), "−")))
+	}
 
 	if outcome.canceled {
 		fmt.Fprintf(w, lang.L.SyncCanceledFmt, uploaded, len(tasks)-uploaded-failedCount)
@@ -452,8 +476,18 @@ func syncToServerOpts(w io.Writer, configDir string, cfg *config.Config, srv con
 		failed.Clear(configDir, srv.Name)
 	}
 
+	// Silinemeyen dosyalar state'te kalır → sonraki sync yeniden dener
+	keepDel := make(map[string]bool, len(outcome.deleteFailed))
+	for _, rel := range outcome.deleteFailed {
+		keepDel[rel] = true
+	}
+	if outcome.canceled { // iptalde sırası gelmeyen silmeler de bekleyen kalır
+		for _, rel := range toDelete {
+			keepDel[rel] = true
+		}
+	}
 	for rel := range st.Files {
-		if _, exists := current[rel]; !exists {
+		if _, exists := current[rel]; !exists && !keepDel[rel] {
 			delete(st.Files, rel)
 		}
 	}
@@ -637,6 +671,8 @@ type serverSyncResult struct {
 	uploadedFiles []string
 	failedFiles   []string
 	logPath       string // syncServer kaydettiyse
+	deleted       int    // sunucudan silinen (delete_remote)
+	deleteFailed  int
 }
 
 // humanBytes byte sayısını okunur biçimde döner: "1.4 MB", "230 KB", "87 B".

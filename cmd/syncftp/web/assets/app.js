@@ -67,6 +67,8 @@ const T = {
     fInclude: 'Dahil et (yalnızca bunlar)', foldInc: 'dahil', foldExc: 'hariç', foldProt: 'koru', syncOnceHint: 'dahil et / hariç tut', fExclude: 'Hariç tut', fProtect: 'Koru (asla üzerine yazma)', fBlock: 'Engellenen uzantılar', fBlockHint: 'Örn. .zip .psd — boşluk veya satırla ayırın',
     fMinify: 'CSS/JS minify', fMinifyHint: 'Yorum ve boşlukları kaldırır', fObfuscate: 'JS obfuscate', fObfuscateHint: 'terser gerekir (npm i -g terser)',
     fNoBackup: 'Yedeği kapat', fNoBackupHint: 'Upload öncesi eski dosya yedeklenmez — bu sunucuda rollback yapılamaz',
+    fDelRemote: 'Silinenleri sunucudan da sil', fDelRemoteHint: 'Yerelde sildiğiniz dosya bir sonraki sync\'te sunucudan da silinir. Önce yedeklenir (Geçmiş\'ten geri alınabilir); freeze / protect listesindekilere ve diskte duran ama ignore edilen dosyalara dokunulmaz.',
+    fDelRemoteGlobal: 'Silinenleri sunucudan da sil (tüm profiller)', relDeletedFile: 'Sunucudan silindi (yerelde silindiği için)', colDeleted: 'Silinen',
     fDirect: 'Doğrudan yükle', fDirectHint: 'Atomik (geçici ad + rename) yükleme kapalı — rename desteklemeyen sunucular için',
     fWebhook: 'Webhook URL', fWebhookHint: 'Her sync sonrası özet POST edilir; boş = global',
     fPre: 'pre_sync', fPost: 'post_sync',
@@ -182,6 +184,8 @@ const T = {
     fInclude: 'Include (only these)', foldInc: 'include', foldExc: 'exclude', foldProt: 'protect', syncOnceHint: 'include / exclude', fExclude: 'Exclude', fProtect: 'Protect (never overwrite)', fBlock: 'Blocked extensions', fBlockHint: 'e.g. .zip .psd — separate by space or line',
     fMinify: 'Minify CSS/JS', fMinifyHint: 'Removes comments and whitespace', fObfuscate: 'Obfuscate JS', fObfuscateHint: 'Requires terser (npm i -g terser)',
     fNoBackup: 'Disable backup', fNoBackupHint: 'Old files are not backed up before upload — no rollback on this server',
+    fDelRemote: 'Delete removed files on the server', fDelRemoteHint: 'A file you delete locally is also deleted on the server on the next sync. It is backed up first (roll back from History); files in the freeze / protect lists and files still on disk but ignored are never touched.',
+    fDelRemoteGlobal: 'Delete removed files on the server (all profiles)', relDeletedFile: 'Deleted on the server (removed locally)', colDeleted: 'Deleted',
     fDirect: 'Direct upload', fDirectHint: 'Atomic (temp name + rename) upload off — for servers without rename',
     fWebhook: 'Webhook URL', fWebhookHint: 'A summary is POSTed after each sync; empty = global',
     fPre: 'pre_sync', fPost: 'post_sync',
@@ -2272,7 +2276,7 @@ async function tabServerEdit(proj, name) {
   const onOff = (pairs) => pairs.filter(([v]) => v).map(([, l]) => l).join(' · ') || t('foldDefault');
   const tun = (conn || s).tunnel_host;
   const sumPerf = `${s.max_connections || 1} ${t('foldConn')} · ${s.max_retries || 0} ${t('foldRetry')} · ${s.bandwidth_limit ? s.bandwidth_limit + ' KB/s' : globalBw}`;
-  const sumUpload = onOff([[s.minify, 'minify'], [s.obfuscate, 'obfuscate'], [s.no_backup, t('fNoBackup')], [s.direct_upload, t('fDirect')], [s.webhook, 'webhook']]);
+  const sumUpload = onOff([[s.minify, 'minify'], [s.obfuscate, 'obfuscate'], [s.no_backup, t('fNoBackup')], [s.delete_remote, t('fDelRemote')], [s.direct_upload, t('fDirect')], [s.webhook, 'webhook']]);
   const sumFilt = `${t('foldInc')} ${n(s.include)} · ${t('foldExc')} ${n(s.exclude)} · ${t('foldProt')} ${n(s.protect)} · ${t('foldBlock')} ${n(s.block_extensions)}`;
   const sumHooks = t('hkSum', n(s.pre_sync), n(s.post_sync));
   const sumRemote = t('hkSum', n(s.remote_pre_sync), n(s.remote_post_sync));
@@ -2291,6 +2295,7 @@ async function tabServerEdit(proj, name) {
     ${section('upload', t('secUpload'), '', `<div class="alanlar">
         ${fBool('minify', t('fMinify'), s.minify, t('fMinifyHint'))}${fBool('obfuscate', t('fObfuscate'), s.obfuscate, t('fObfuscateHint'))}
         ${fBool('no_backup', t('fNoBackup'), s.no_backup, t('fNoBackupHint'))}${fBool('direct_upload', t('fDirect'), s.direct_upload, t('fDirectHint'))}
+        ${fBool('delete_remote', t('fDelRemote'), s.delete_remote, t('fDelRemoteHint'))}
         ${fText('webhook', t('fWebhook'), s.webhook, { wide: true, mono: true, hint: t('fWebhookHint'), ph: 'https://…', whtest: true })}</div>`, { fold: true, summary: sumUpload })}
     ${section('sliders', t('secFilters'), t('secFiltersDesc'), filterTabs('', s), { fold: true, summary: sumFilt })}
     ${section('log', t('secHooks'), t('secHooksDesc'), hookFields('', s), { fold: true, summary: sumHooks })}
@@ -2469,6 +2474,7 @@ async function tabSettings(proj) {
         ${fNum('sync.bandwidth_limit', t('fBandwidth'), sy.bandwidth_limit, { hint: '0 = ∞' })}
         ${fNum('sync.backup_keep', t('fBackupKeep'), sy.backup_keep || 10, { hint: t('fBackupKeepHint') })}
         ${fBool('sync.no_backup', t('fNoBackup'), sy.no_backup, t('fNoBackupHint'))}
+        ${fBool('sync.delete_remote', t('fDelRemoteGlobal'), sy.delete_remote, t('fDelRemoteHint'))}
         ${fBool('sync.direct_upload', t('fDirect'), sy.direct_upload, t('fDirectHint'))}
         ${fBool('first_sync.full', t('fFirstFull'), cfg.first_sync && cfg.first_sync.full, t('fFirstFullHint'))}
       </div>`, { fold: true, summary: sumUp })}
@@ -3458,7 +3464,7 @@ async function tabHistory(proj, srvFilter) {
   const more = (n, id) => (n > LIM ? `<div class="daha-fazla"><button class="btn kucuk" data-more="${id}">${icon('down2')}${t('showMore', n - LIM)}</button></div>` : '');
   const relRows = rels.map((r, i) => {
     const status = r.rolled_back ? `<span class="pill">${t('rolledBack')}</span>` : r.partly_rolled_back ? `<span class="pill warn">${t('relPartly', r.partly_rolled_back)}</span>` : r.has_backup ? `<span class="pill ok"><span class="nokta"></span>${t('restorable')}</span>` : `<span class="pill">${t('noBackupTag')}</span>`;
-    return `<tr ${i >= LIM ? 'hidden data-extra="rel"' : ''}><td class="mono">${fmtDate(r.created_at)}</td><td>${esc(r.server)}</td><td class="sag">${r.files}</td><td class="sag">${r.backed}</td><td class="sag">${r.new}</td><td>${status}</td>
+    return `<tr ${i >= LIM ? 'hidden data-extra="rel"' : ''}><td class="mono">${fmtDate(r.created_at)}</td><td>${esc(r.server)}</td><td class="sag">${r.files}${r.deleted ? ` <span class="bad-t" title="${esc(t('colDeleted'))}">−${r.deleted}</span>` : ''}</td><td class="sag">${r.backed}</td><td class="sag">${r.new}</td><td>${status}</td>
       <td class="sag" style="white-space:nowrap"><button class="btn kucuk hayalet" data-rel="${esc(r.id)}" data-srv="${esc(r.server)}">${t('details')}</button>
       ${r.has_backup && !r.rolled_back ? `<button class="btn kucuk tehlike" data-undo="${esc(r.id)}" data-srv="${esc(r.server)}">${icon('undo')}${t('undo')}</button>` : ''}
       <button class="ikon-btn tehlike" data-reldel="${esc(r.id)}" data-srv="${esc(r.server)}" title="${t('relDelete')}">${icon('trash')}</button></td></tr>`;
@@ -3483,14 +3489,14 @@ async function releaseDetail(P, srv, id) {
   const d = lm.d, m = d.manifest;
   const items = d.items || [];
   const can = (it) => d.restorable && !it.rolled_back && it.status !== 'nobackup'; // seçilebilir mi
-  const nB = (m.backed || []).length, nN = (m.new || []).length;
+  const nD = (m.deleted || []).length, nB = (m.backed || []).length - nD, nN = (m.new || []).length;
   const partly = (m.rolled_back_files || []).length;
   const state = m.rolled_back ? `<span class="pill">${t('rolledBack')}</span>`
     : partly ? `<span class="pill warn">${t('relPartly', partly)}</span>` : '';
 
   const rm = modal({
     title: `${title} ${state}`, size: 'genis',
-    body: `<p class="mono faint" style="margin:0 0 10px">${fmtDate(m.created_at)} · ${t('colFiles')}: ${items.length} · ${t('colReplaced')}: ${nB} · ${t('colNew')}: ${nN}</p>
+    body: `<p class="mono faint" style="margin:0 0 10px">${fmtDate(m.created_at)} · ${t('colFiles')}: ${items.length} · ${t('colReplaced')}: ${nB} · ${t('colNew')}: ${nN}${nD ? ` · <span class="bad-t">${t('colDeleted')}: ${nD}</span>` : ''}</p>
       <div class="rt-grid"><div class="rt-agac" data-tree>${relTreeHTML(items, can)}</div>
         <div class="rt-sag" data-pane><div class="bos" style="padding:40px">${t('relPickFile')}</div></div></div>
       <div class="rt-alt"><span class="faint" data-selcount></span><span style="margin-left:auto"></span>
@@ -3582,7 +3588,7 @@ function relTreeHTML(items, can) {
     for (const p of parts.slice(0, -1)) n = n.dirs[p] || (n.dirs[p] = { dirs: {}, files: [] });
     n.files.push({ ...it, name: parts[parts.length - 1] });
   }
-  const mark = { changed: ['~', 'warn-t'], new: ['+', 'ok-t'], nobackup: ['·', 'faint'] };
+  const mark = { changed: ['~', 'warn-t'], new: ['+', 'ok-t'], deleted: ['−', 'bad-t'], nobackup: ['·', 'faint'] };
   const count = (n) => n.files.length + Object.values(n.dirs).reduce((a, x) => a + count(x), 0);
   const draw = (n) => {
     const dirs = Object.keys(n.dirs).sort().map((name) => {
@@ -3597,7 +3603,7 @@ function relTreeHTML(items, can) {
     }).join('');
     const files = n.files.sort((a, b) => a.name.localeCompare(b.name)).map((f) => {
       const [sym, cls] = mark[f.status] || mark.nobackup;
-      const tip = f.rolled_back ? t('relRolledFile') : f.status === 'nobackup' ? t('relNoBackupFile') : '';
+      const tip = f.rolled_back ? t('relRolledFile') : f.status === 'nobackup' ? t('relNoBackupFile') : f.status === 'deleted' ? t('relDeletedFile') : '';
       return `<div class="rt-dosya${f.rolled_back ? ' geri' : ''}" data-rf="${esc(f.path)}" ${tip ? `title="${esc(tip)}"` : ''}>
         <input type="checkbox" data-rsel="${esc(f.path)}" ${can(f) ? '' : 'disabled'}><span class="${cls} mono">${sym}</span><span class="rt-ad">${esc(f.name)}</span></div>`;
     }).join('');
@@ -3614,11 +3620,13 @@ function releaseFileHTML(v, rel, mediaURL) {
     // Medya: önceki ↔ yüklenen hâl yan yana
     const side = (label, ok, sideName, missing) => `<div class="medya-yan"><div class="medya-bas"><b>${label}</b></div>
       ${ok ? mediaView(kind, `${mediaURL}&side=${sideName}`) : `<div class="bos">${t(missing)}</div>`}</div>`;
-    const media = `<div class="medya-ikili">${v.status === 'new' ? `<div class="medya-yan"><div class="medya-bas"><b>${t('relBefore')}</b></div><div class="bos ok-t">${t('relNewFile')}</div></div>`
+    const media = v.status === 'deleted' ? `<div class="medya-ikili">${side(t('relBefore'), v.before_ok, 'before', 'relNoBefore')}<div class="medya-yan"><div class="medya-bas"><b>${t('relAfter')}</b></div><div class="bos bad-t">${t('relDeletedFile')}</div></div></div>`
+      : `<div class="medya-ikili">${v.status === 'new' ? `<div class="medya-yan"><div class="medya-bas"><b>${t('relBefore')}</b></div><div class="bos ok-t">${t('relNewFile')}</div></div>`
       : side(t('relBefore'), v.before_ok, 'before', 'relNoBefore')}${side(t('relAfter'), v.after_ok, 'after', 'relNoAfter')}</div>`;
     if (v.binary || kind !== 'image') return { html: media, summary };
     diff = media;
   } else if (v.binary) diff = `<div class="bos">${t('binaryFile')}</div>`;
+  else if (v.status === 'deleted') diff = `<p class="bad-t">${t('relDeletedFile')}</p>${v.before_ok ? codeView(v.before, rel) : `<p class="warn-t">${t('relNoBefore')}</p>`}`;
   else if (!v.before_ok) diff = `<p class="warn-t">${t('relNoBefore')}</p>${v.after_ok ? codeView(v.after, rel) : ''}`;
   else if (!v.after_ok) diff = `<p class="warn-t">${t('relNoAfter')}</p>`;
   else if (v.status === 'new') diff = `<p class="ok-t">${t('relNewFile')}</p>${codeView(v.after, rel)}`;
@@ -3630,7 +3638,7 @@ function releaseFileHTML(v, rel, mediaURL) {
   }
   const views = [['diff', t('diffTitle'), diff]];
   if (!v.binary && v.before_ok && v.status !== 'new') views.push(['before', t('relBefore'), codeView(v.before, rel)]);
-  if (!v.binary && v.after_ok) views.push(['after', t('relAfter'), codeView(v.after, rel)]);
+  if (!v.binary && v.after_ok && v.status !== 'deleted') views.push(['after', t('relAfter'), codeView(v.after, rel)]);
   return { html: viewTabs(views), summary };
 }
 
@@ -3712,7 +3720,14 @@ async function boot() {
   render();
 
   // Varlık bağlantısı: pencere açık olduğu sürece süreç yaşar (küçültülünce de kopmaz)
-  const presence = new EventSource('/api/presence');
+  // Pencere kimliği + görünürlük: masaüstü bildirimleri yalnızca panel görünmezken çıkar
+  const pid = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const presence = new EventSource(`/api/presence?id=${pid}&vis=${document.hidden ? 0 : 1}`);
+  const sendVis = () => fetch('/api/presence/visible', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: pid, visible: !document.hidden && document.hasFocus() }) }).catch(() => {});
+  document.addEventListener('visibilitychange', sendVis);
+  window.addEventListener('focus', sendVis);
+  window.addEventListener('blur', sendVis);
+  presence.addEventListener('open', sendVis);
   presence.addEventListener('bye', () => { presence.close(); if (window.__frameClose) window.__frameClose(); else window.close(); });
   presence.addEventListener('navigate', (e) => { if (e.data && e.data.startsWith('#/')) location.hash = e.data; });
 

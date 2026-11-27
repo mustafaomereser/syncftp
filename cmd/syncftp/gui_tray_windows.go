@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 	"unsafe"
@@ -68,11 +69,12 @@ var (
 )
 
 const (
-	twmDestroy  = 0x0002
-	twmClose    = 0x0010
-	twmTrayIcon = 0x8000 + 1
-	twmLBtnUp   = 0x0202
-	twmRBtnUp   = 0x0205
+	twmDestroy          = 0x0002
+	twmClose            = 0x0010
+	twmTrayIcon         = 0x8000 + 1
+	twmLBtnUp           = 0x0202
+	twmRBtnUp           = 0x0205
+	ninBalloonUserClick = 0x0405 // balona tıklandı (WM_USER+5)
 
 	nimAdd    = 0x0000
 	nimModify = 0x0001
@@ -152,8 +154,9 @@ type tNotifyIconData struct {
 }
 
 type winTray struct {
-	sv       *guiServer
-	panelURL string
+	sv          *guiServer
+	panelURL    string
+	balloonHash atomic.Value // son bildirimin açacağı sayfa (balona tıklayınca)
 
 	hwnd       windows.HWND
 	iconIdle   windows.Handle // tepsi: logo (16 px)
@@ -192,6 +195,11 @@ func (sv *guiServer) runTray(panelURL string) {
 		return
 	}
 	defer t.destroy()
+	setTrayNotifyHook(func(title, body string, isErr bool, hash string) {
+		t.balloonHash.Store(hash)
+		t.notify(title, body, isErr)
+	})
+	defer setTrayNotifyHook(nil)
 
 	go func() {
 		tk := time.NewTicker(2 * time.Second)
@@ -415,6 +423,9 @@ func (t *winTray) wndProc(hwnd windows.HWND, message uint32, wParam, lParam uint
 			t.showMenu()
 		case twmLBtnUp:
 			t.openAt("")
+		case ninBalloonUserClick:
+			h, _ := t.balloonHash.Load().(string)
+			t.openAt(h)
 		}
 		return 0
 	case twmClose:

@@ -99,6 +99,7 @@ type Sync struct {
 	BandwidthLimit  int       `json:"bandwidth_limit,omitempty"`  // KB/s, sunucu başına upload hız sınırı (0 = sınırsız); sunucu değeri önceliklidir
 	NoBackup        bool      `json:"no_backup,omitempty"`        // true → upload öncesi uzak yedek alınmaz (rollback devre dışı)
 	BackupKeep      int       `json:"backup_keep,omitempty"`      // yedek dosyaları tutulacak son release sayısı (0 → 10)
+	DeleteRemote    bool      `json:"delete_remote,omitempty"`    // true → yerelde silinen dosyalar sunucudan da silinir (yedekli; tüm sunucular)
 	DirectUpload    bool      `json:"direct_upload,omitempty"`    // true → atomik (tmp+rename) upload kapalı, doğrudan hedefe yazılır              // nil/boş → [".gitignore","syncftp.ignore"] ikisi de yüklenir
 	Webhook         string    `json:"webhook,omitempty"`          // sync sonrası POST atılacak URL
 	BlockExtensions []string  `json:"block_extensions,omitempty"` // yüklenmeyecek uzantılar: [".jpg",".pdf"]
@@ -143,6 +144,7 @@ type Server struct {
 	RemotePostSync  []string  `json:"remote_post_sync,omitempty"` // SFTP: upload sonrası SUNUCUDA çalışacak komutlar (migrate, cache clear, restart…)
 	Triggers        []Trigger `json:"triggers,omitempty"`         // sunucuya özel tetikleyiciler (global listeye ek)
 	NoBackup        bool      `json:"no_backup,omitempty"`        // true → bu sunucuda upload öncesi yedek alınmaz
+	DeleteRemote    bool      `json:"delete_remote,omitempty"`    // true → yerelde silinen dosyalar bu sunucudan da silinir (yedekli)
 	DirectUpload    bool      `json:"direct_upload,omitempty"`    // true → atomik upload kapalı (rename desteklemeyen sunucular)
 	SSHTunnel
 }
@@ -163,6 +165,9 @@ func (s Server) ProtocolName() string {
 	}
 	return "ftp"
 }
+
+// DeleteRemoteEnabled yerelde silinen dosyalar sunucudan da silinecek mi (global ya da sunucu açar).
+func (s Server) DeleteRemoteEnabled(sy Sync) bool { return sy.DeleteRemote || s.DeleteRemote }
 
 // BackupEnabled upload öncesi uzak yedek alınacak mı (global ve sunucu NoBackup kapatabilir).
 func (s Server) BackupEnabled(sy Sync) bool { return !sy.NoBackup && !s.NoBackup }

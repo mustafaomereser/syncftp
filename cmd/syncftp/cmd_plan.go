@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -96,6 +97,22 @@ func planUploads(configDir string, cfg *config.Config, srv config.Server, cands 
 	sort.Strings(p.blocked)
 	sort.Strings(p.protected)
 	return p
+}
+
+// planDeletes delete_remote açıkken sunucudan silinecekleri seçer: state'te olup taramada
+// olmayanlar → include/exclude → freeze/protect'tekiler BIRAKILIR (kept). Diskte hâlâ duran dosya
+// (ignore'a eklenmiş, taramaya girmeyen) ASLA silinmez — yalnızca gerçekten silinmiş olanlar.
+func planDeletes(configDir string, cfg *config.Config, srv config.Server, deleted []string, f syncFilters) (del, kept []string) {
+	localDir := filepath.Join(configDir, srv.EffectiveLocalPath(cfg.Project))
+	plan := planUploads(configDir, cfg, srv, f.pick(deleted), f, false)
+	for _, rel := range append(append([]string{}, plan.upload...), plan.blocked...) {
+		if _, err := os.Lstat(filepath.Join(localDir, filepath.FromSlash(rel))); err != nil && os.IsNotExist(err) {
+			del = append(del, rel)
+		}
+	}
+	kept = append(append([]string{}, plan.frozen...), plan.protected...)
+	sort.Strings(del)
+	return del, kept
 }
 
 // pendingInfo durum ekranlarının ortak sonucu: yeni/değişen = plan.upload'ın parçaları.
