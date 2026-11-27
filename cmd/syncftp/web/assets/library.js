@@ -7,7 +7,7 @@
      kütüphaneden bağlantı ekle / kütüphaneye kaydet */
 
 Object.assign(T.tr, {
-  freezeFiles: 'Dondurulan dosyalar', ledEmpty: 'Boş', ledAdd: 'Ekle', ledPh: 'Yol ya da kalıp yaz: *.log, cache/ … (Enter)', ledPhCmd: 'komut yaz, Enter ile ekle', remove: 'Kaldır',
+  freezeFiles: 'Dondurulan dosyalar', ledEmpty: 'Boş', ledAdd: 'Ekle', ledPh: 'ya da kalıp yaz: *.log, cache/ … (Enter)', ledPhCmd: 'komut yaz, Enter ile ekle', remove: 'Kaldır',
   treeNeedRoot: 'Önce yerel klasörü seçin', treePickRoot: 'Ağaç için örnek bir proje klasörü seçin', defTreeHint: 'Ağaçtan seç: örnek bir proje klasöründen dosya/klasör işaretleyin; ya da alttaki hazır kalıplara tıklayın.',
   libTitle: 'Bağlantı kütüphanesi', libDesc: 'Proje bağımsız kayıtlı FTP / FTPS / SFTP bağlantıları. Yeni proje eklerken ve profil eklerken tek tıkla seçilir. Şifreler mümkünse Windows Kimlik Bilgileri Yöneticisi\'nde saklanır.',
   libEmpty: 'Henüz kayıtlı bağlantı yok', libAdd: 'Bağlantı ekle', libImport: 'Projeden aktar', libImportPick: 'Bağlantıları aktarılacak proje', libImported: '{0} bağlantı aktarıldı',
@@ -34,7 +34,7 @@ Object.assign(T.tr, {
   syncOnce: 'Tek seferlik filtreli sync…', syncOnceTitle: 'Filtreli sync', syncOnceDesc: 'Yalnızca bu çalıştırma için — config değişmez (CLI: sync --include / --exclude).', syncOnceInc: 'Sadece bunlar (include)', syncOnceExc: 'Bunları hariç tut (exclude)',
 });
 Object.assign(T.en, {
-  freezeFiles: 'Frozen files', ledEmpty: 'Empty', ledAdd: 'Add', ledPh: 'Type a path or pattern: *.log, cache/ … (Enter)', ledPhCmd: 'type a command, Enter to add', remove: 'Remove',
+  freezeFiles: 'Frozen files', ledEmpty: 'Empty', ledAdd: 'Add', ledPh: 'or type a pattern: *.log, cache/ … (Enter)', ledPhCmd: 'type a command, Enter to add', remove: 'Remove',
   treeNeedRoot: 'Choose the local folder first', treePickRoot: 'Pick a sample project folder for the tree', defTreeHint: 'Pick from tree: tick files/folders in a sample project folder, or click the ready-made patterns below.',
   libTitle: 'Connection library', libDesc: 'Project-independent saved FTP / FTPS / SFTP connections. Pick them with one click when adding a project or a profile. Passwords are stored in the OS keyring when available.',
   libEmpty: 'No saved connections yet', libAdd: 'Add connection', libImport: 'Import from project', libImportPick: 'Project to import connections from', libImported: '{0} connection(s) imported',
@@ -151,8 +151,8 @@ function defaultsSectionHTML(lib) {
   const tmpl = [['', t('defTemplateNone')], ...(lib.templates || []).map((k) => [k, TEMPLATE_LABEL[k] || k])];
   return `<div class="bolum"><h3>${icon('sliders')}${t('defTitle')}</h3><p class="aciklama">${t('defDesc')}</p>
     <p class="ipucu" style="margin:-4px 0 12px">${icon('folder')} ${t('defTreeHint')}</p><div class="form" id="def-form" data-p="" data-ppath="" data-srv=""><div class="alanlar">
-      ${fArea('sync.include', t('fInclude'), sy.include, { wide: false, tree: 'paths', chips: 'include', desc: t('fIncludeDesc') })}${fArea('sync.exclude', t('fExclude'), sy.exclude, { wide: false, tree: 'paths', chips: 'exclude', desc: t('fExcludeDesc') })}
-      ${fArea('sync.protect', t('fProtect'), sy.protect, { wide: false, tree: 'protect', chips: 'protect', desc: t('fProtectDesc') })}${fArea('sync.block_extensions', t('fBlock'), sy.block_extensions, { ty: 'words', wide: false, chips: 'block', desc: t('fBlockDesc') })}
+      ${fArea('sync.include', t('fInclude'), sy.include, { wide: false, tree: 'paths', chips: 'include' })}${fArea('sync.exclude', t('fExclude'), sy.exclude, { wide: false, tree: 'paths', chips: 'exclude' })}
+      ${fArea('sync.protect', t('fProtect'), sy.protect, { wide: false, tree: 'protect', chips: 'protect' })}${fArea('sync.block_extensions', t('fBlock'), sy.block_extensions, { ty: 'words', wide: false, hint: t('fBlockHint'), chips: 'block' })}
       ${fArea('sync.ignore_files', t('fIgnoreFiles'), sy.ignore_files, { wide: false, tree: 'paths', ph: '.gitignore', hint: t('fIgnoreFilesHint') })}
       ${fSelect('ignore_template', t('defTemplate'), d.ignore_template || '', tmpl)}
       ${fText('sync.webhook', t('fWebhook'), sy.webhook, { mono: true, ph: 'https://…' })}
