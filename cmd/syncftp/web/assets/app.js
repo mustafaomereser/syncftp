@@ -3728,7 +3728,10 @@ async function boot() {
       if (ping.jobs !== known) refreshJobsMeta();
     } catch { if (++lost === 2) toast(t('sessionLost'), 'bad'); }
   }, 5000);
-  setInterval(loadProjects, 20000);
+  // Proje listesi tazelemesi pencere görünürken: her çağrı dakikada bir tam klasör taramasını
+  // tetikleyebiliyor (6 seviye) — küçültülmüş pencerede boşuna disk/CPU harcamasın; görünür olunca hemen tazelenir
+  setInterval(() => { if (!document.hidden) loadProjects(); }, 20000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) loadProjects(); });
 }
 // pickers.js / cicd.js app.js'ten sonra yüklenir → boot tüm script'ler hazır olunca
 window.addEventListener('DOMContentLoaded', boot);
