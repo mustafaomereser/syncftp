@@ -639,7 +639,7 @@ function renderWatchRow() {
   if (!row) return;
   const ws = runningWatches();
   const n = Math.max(ws.length, S.projects.reduce((a, p) => a + (p.watched || []).length, 0));
-  $('#sb-watch').innerHTML = n ? `<span class="busy" style="display:inline-flex"><span class="nokta"></span></span>${n}` : '0';
+  $('#sb-watch').innerHTML = n ? `<span class="canli" style="display:inline-flex"><span class="nokta"></span></span>${n}` : '0';
   row.classList.toggle('aktif', n > 0);
   row.title = ws.map((j) => `${j.project} · ${j.server}: ${j.last || '…'}`).join('\n');
 }
@@ -845,7 +845,7 @@ function renderSidebarProjects() {
   el.innerHTML = projectsByGroup(S.projects).map((p) => {
     const head = hasGroups && p.group !== lastGroup ? `<div class="nav-grup">${esc((lastGroup = p.group) || t('lookNoGroup'))}</div>` : '';
     return `${head}<a href="${pHash(p.name)}" data-proj="${esc(p.name)}" class="${r.project === p.name ? 'aktif' : ''}">
-      ${p.watching ? `<span class="busy" style="display:flex"><span class="nokta"></span></span>` : `<span class="nav-ikon" ${p.color ? `style="color:${esc(p.color)}"` : ''}>${icon(p.ok ? 'folder' : 'alert', p.ok ? '' : 'bad-t')}</span>`}
+      ${p.watching ? `<span class="canli" style="display:flex"><span class="nokta"></span></span>` : `<span class="nav-ikon" ${p.color ? `style="color:${esc(p.color)}"` : ''}>${icon(p.ok ? 'folder' : 'alert', p.ok ? '' : 'bad-t')}</span>`}
       <span class="ad">${esc(p.name)}</span><span class="sag">${p.ok ? p.enabled : ''}</span></a>`;
   }).join('')
     || `<div class="nav-bos">${icon('folder')}<span data-t="navNoProjects">${t('navNoProjects')}</span>
@@ -1037,7 +1037,7 @@ async function pageHome() {
   const lookBtn = `<button class="ikon-btn pk-look" data-look title="${t('lookTitle')}">${icon('edit')}</button>`;
   const meta = (p) => (p.ok ? `<span>${t('serversN', p.servers)}</span><span>·</span><span>${t('enabledN', p.enabled)}</span>${p.keyring ? `<span>·</span><span class="acc-t">${icon('lock')}</span>` : ''}` : `<span class="bad-t">${t('configError')}</span>`);
   const pendPill = (p) => pendingBadgeHTML(p.name);
-  const watchPill = (p) => pendPill(p) + (p.watching ? `<span class="pill busy"><span class="nokta"></span>watch</span>` : '');
+  const watchPill = (p) => pendPill(p) + (p.watching ? `<span class="pill canli"><span class="nokta"></span>${t('watchingTag')}</span>` : '');
   const ikon = (p) => `<span class="p-ikon" ${p.color ? `style="color:${esc(p.color)}"` : ''}>${icon(p.ok ? 'folder' : 'alert', p.ok ? '' : 'bad-t')}</span>`;
   const card = (p) => `<div class="pkart ${p.banner ? 'kapakli' : ''}" data-p="${esc(p.name)}" ${pc(p)}>
       ${p.banner ? `<div class="pkapak"><img src="${banner(p)}" alt="" loading="lazy"></div>` : p.color ? '<div class="pserit"></div>' : ''}${lookBtn}
@@ -1348,7 +1348,7 @@ function serverCard(s) {
         ${s.enabled ? '' : `<span class="pill">${t('disabled')}</span>`}${busy}
         ${s.tunnel ? `<span class="pill vio" title="${esc(s.tunnel)}">${icon('tunnel')}${t('tunnel')}</span>` : ''}
         ${s.connection ? `<button type="button" class="pill yol-ac" data-act="conn" title="${t('goConnection')}">${icon('link')}${esc(s.connection)}</button>` : ''}
-        ${s.watching ? `<span class="pill busy"><span class="nokta"></span>${t('watchingTag')}</span>` : ''}</div>
+        ${s.watching ? `<span class="pill canli"><span class="nokta"></span>${t('watchingTag')}</span>` : ''}</div>
       <div class="meta">
         <span><button type="button" class="yol-ac" data-act="conn" title="${s.connection ? t('goConnection') : t('goProfile')}">${icon('server')}<span class="mono">${esc(s.user ? s.user + '@' : '')}${esc(s.host)}:${s.port}</span></button></span>
         <span><button type="button" class="yol-ac" data-act="local" title="${t('revealLocal')}">${icon('folder')}<span class="mono">${esc(s.local_path)}</span></button> <em>→</em> <button type="button" class="yol-ac" data-act="files" title="${t('browseFiles')}"><span class="mono">${esc(s.remote_path)}</span></button></span>
@@ -3677,7 +3677,7 @@ async function pageJobs() {
   });
   const st = (s) => { const [c, l] = jobPill(s); return `<span class="pill ${c}"><span class="nokta"></span>${l}</span>`; };
   return `<div class="sayfa"><div class="baslik-satir"><div><h1>${t('jobsTitle')}</h1><p>${t('jobsSub')}</p></div></div>
-    ${watches.length ? `<h2 style="margin-top:0">${icon('eye')}${t('activeWatches')}</h2><div class="kartlar" style="margin-bottom:24px">${watches.map((w) => `<div class="kart"><div><div class="ust"><h3>${esc(w.project)} · ${esc(w.server)}</h3><span class="pill busy"><span class="nokta"></span>${t('watchingTag')}</span></div>
+    ${watches.length ? `<h2 style="margin-top:0">${icon('eye')}${t('activeWatches')}</h2><div class="kartlar" style="margin-bottom:24px">${watches.map((w) => `<div class="kart"><div><div class="ust"><h3>${esc(w.project)} · ${esc(w.server)}</h3><span class="pill canli"><span class="nokta"></span>${t('watchingTag')}</span></div>
       <div class="meta"><span>${icon('server')}${esc(w.servers.join(', '))}</span><span>${icon('clock')}${t('watchSince', fmtDate(w.started).slice(11), w.syncs)}</span>${w.last_sync ? `<span>${icon('upload')}${esc(w.last_sync)}</span>` : ''}</div></div>
       <div class="butonlar"><button class="btn kucuk" data-jid="${esc(w.job_id)}">${icon('log')}${t('jobLog')}</button><button class="btn kucuk tehlike" data-wstop="${esc(w.project)}" data-wsrv="${esc(w.server)}">${icon('stop')}${t('stop')}</button></div></div>`).join('')}</div>` : ''}
     ${(jobs = jobs.filter((j) => !(j.kind === 'watch' && j.status === 'running'))).length ? `<div class="tablo-kap"><table class="tablo"><thead><tr><th>${t('colJob')}</th><th>${t('colProject')}</th><th>${t('colServer')}</th><th>${t('colStatus')}</th><th>${t('colStarted')}</th><th class="sag">${t('colDuration')}</th></tr></thead><tbody>

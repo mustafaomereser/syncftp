@@ -162,6 +162,7 @@ type winTray struct {
 	nid        tNotifyIconData
 	nidMu      sync.Mutex
 	active     bool
+	lastTip    string // refreshIcon: son gönderilen ipucu — değişmediyse Explorer'a güncelleme gönderilmez
 
 	// Açık menünün satırları ve yazı tipleri; yalnızca menü açıkken dolu.
 	items []trayItem
@@ -320,7 +321,12 @@ func (t *winTray) refreshIcon() {
 	if t.hwnd == 0 {
 		return
 	}
-	t.setTip("syncFTP — " + status)
+	tip := "syncFTP — " + status
+	if tip == t.lastTip && active == t.active {
+		return // 2 sn'lik kontrol: değişiklik yoksa NIM_MODIFY yok
+	}
+	t.lastTip = tip
+	t.setTip(tip)
 	t.nid.HIcon = t.iconIdle
 	if active {
 		t.nid.HIcon = t.iconActive

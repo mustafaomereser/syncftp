@@ -138,6 +138,10 @@ h2 small { font-weight: 400; color: var(--faint); font-size: 13px; }
 .bad { color: var(--bad); }
 .busy .nokta { background: var(--accent); animation: nabiz 1.2s ease-in-out infinite; }
 .busy { color: var(--accent); }
+/* Sürekli açık durumlar (izleyici): animasyonsuz nokta + hafif hale. Sonsuz yanıp sönen nokta
+   pencereyi her karede yeniden çizdiriyordu — 4 izleyici açıkken boşta GPU sürecinde ~%14 CPU */
+.canli .nokta { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+.canli { color: var(--accent); }
 @keyframes nabiz { 50% { opacity: .35; } }
 @keyframes don { to { transform: rotate(360deg); } }
 .spin { animation: don 1s linear infinite; }
