@@ -15,7 +15,7 @@ Object.assign(T.tr, {
   libTestRemote: 'Test için uzak dizin', libDeleteConfirm: '{0} bağlantısı kütüphaneden silinsin mi? Projelerdeki kopyalar etkilenmez.',
   libTunnel: 'SSH tüneli (opsiyonel)', libSaved: 'Kütüphane kaydedildi',
   defTitle: 'Yeni proje varsayılanları', defDesc: 'Yeni oluşturulan her projeye (panel, AI yardımcısı ve CLI init) kopyalanan global sync ayarları. Mevcut projeler etkilenmez.',
-  defTemplate: 'Ignore şablonu', defTemplateNone: 'Yok', defMaxConn: 'Yeni profil: max bağlantı', defMaxRetry: 'Yeni profil: max deneme',
+  defTemplate: 'Yok sayma şablonu', defTemplateNone: 'Yok', defMaxConn: 'Yeni profil: max bağlantı', defMaxRetry: 'Yeni profil: max deneme',
   defFromProject: 'Projeden al', defFromPick: 'Ayarları alınacak proje', defReset: 'Fabrika ayarı', defResetConfirm: 'Varsayılanlar fabrika ayarına dönsün mü?', defSaved: 'Varsayılanlar kaydedildi',
   pushNoLib: 'Kayıtlı bağlantı yok — elle girin ya da Ayarlar\'dan ekleyin',
   ptTools: 'Config araçları', ptToolsDesc: 'Bu projenin config\'ini dışa aktarın (şifreler çıkarılır), başka bir projeden ya da JSON\'dan ayar alın, ya da bu projenin global ayarlarını yeni projeler için varsayılan yapın.',
@@ -30,8 +30,8 @@ Object.assign(T.tr, {
   connFromLib: 'Kütüphaneden', connFromLibTitle: 'Kütüphaneden bağlantı ekle', connToLib: 'Kütüphaneye kaydet', connToLibDone: '{0} kütüphaneye kaydedildi', connAddedFromLib: '{0} bağlantısı eklendi',
   connInLib: 'Kütüphanede', connInLibAs: 'Kütüphanede "{0}" adıyla kayıtlı', connLibOverwriteTitle: 'Aynı adlı bağlantı var', connLibOverwrite: 'Kütüphanede "{0}" adında başka bir hesaba ait bağlantı var. Üzerine yazılsın mı?', overwrite: 'Üzerine yaz',
   connFromServer: 'Profilden al', connFromServerTitle: 'Profilin bilgilerinden bağlantı oluştur', connFromServerDesc: 'Seçtiğin profilin bağlantı bilgileri ayrı bir bağlantıya taşınır ve profil artık onu kullanır. Aynı hesap zaten bağlantı olarak varsa yenisi açılmaz, profil ona bağlanır.', connNoManual: 'Bilgileri elle girilmiş profil yok — hepsi bir bağlantı kullanıyor.', connExtracted: '{0} bağlantısı oluşturuldu', connExtractReused: 'Profil mevcut {0} bağlantısına bağlandı', connToProfile: 'Bağlantıya çevir', connToProfileHint: 'Kayıtlı bilgiler bir bağlantıya taşınır; diğer profiller de aynı bağlantıyı seçebilir',
-  apTemplate: 'Ignore şablonu', apTemplateDefault: 'Varsayılan ({0})', apFirstServer: 'İlk profil (opsiyonel)', apNoServer: 'Profilsiz — sonra eklerim', apRemote: 'Uzak dizin',
-  syncOnce: 'Tek seferlik filtreli sync…', syncOnceTitle: 'Filtreli sync', syncOnceDesc: 'Yalnızca bu çalıştırma için — config değişmez (CLI: sync --include / --exclude).', syncOnceInc: 'Sadece bunlar (include)', syncOnceExc: 'Bunları hariç tut (exclude)',
+  apTemplate: 'Yok sayma şablonu', apTemplateDefault: 'Varsayılan ({0})', apFirstServer: 'İlk profil (opsiyonel)', apNoServer: 'Profilsiz — sonra eklerim', apRemote: 'Uzak dizin',
+  syncOnce: 'Tek seferlik filtreli sync…', syncOnceTitle: 'Filtreli sync', syncOnceDesc: 'Yalnızca bu çalıştırma için — config değişmez (CLI: sync --include / --exclude).', syncOnceInc: 'Sadece bunlar (dahil et)', syncOnceExc: 'Bunları hariç tut',
 });
 Object.assign(T.en, {
   freezeFiles: 'Frozen files', ledEmpty: 'Empty', ledAdd: 'Add', ledPh: 'or type a pattern: *.log, cache/ … (Enter)', ledPhCmd: 'type a command, Enter to add', remove: 'Remove',

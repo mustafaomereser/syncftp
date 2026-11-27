@@ -12,7 +12,7 @@ Object.assign(T.tr, {
   pkTitleDir: 'Klasör seç', pkTitleFile: 'Dosya seç', pkDrives: 'Sürücüler', pkHome: 'Ev dizini', pkUp: 'Üst klasör',
   pkSelectThis: 'Bu klasörü seç', pkRemoteTitle: 'Sunucuda klasör seç', pkNoSubdirs: 'Alt klasör yok', pkSelect: 'Seç', pkGo: 'Git', pkEmpty: 'Klasör boş', pkProject: 'syncFTP projesi',
   pkExplorerHint: 'Klasöre tıklayınca içine girer, .. ile geri çıkar. Onay kutusuyla işaretleyin. Klavye: ↑↓ gez, Enter gir, Space işaretle, Backspace geri.', pkRoot: 'Proje kökü',
-  pkHidden: 'Gizlileri göster', pkTreeTitle: 'Yerel dosyalardan seç', pkIgnored: 'ignore', pkSelected: '{0} seçili',
+  pkHidden: 'Gizlileri göster', pkTreeTitle: 'Yerel dosyalardan seç', pkIgnored: 'yok sayılıyor', pkSelected: '{0} seçili',
   
   pkRemoteTreeTitle: 'Sunucudaki dosyalar · {0}', pkFreezeHint: 'Klasör işaretlenirse klasörün kendisi freeze\'lenir: altındaki her dosya (sonradan eklenenler dahil) yüklenmez.',
   pkNewFolder: 'Yeni klasör', pkNewFile: 'Yeni dosya', pkNewFolderPh: 'Klasör adı', pkNewFilePh: 'Dosya adı (ör. index.php)', pkCreate: 'Oluştur', pkCreated: '{0} oluşturuldu',
