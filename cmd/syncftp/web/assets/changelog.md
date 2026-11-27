@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.0.9
+
+### tr
+- Performans: izleyiciler açıkken panel boşta sürekli yeniden çiziliyordu (bir çekirdeğin ~%20'si); artık ~%2
+- İzleyici göstergesi yanıp sönmek yerine sabit nokta; proje kartındaki "watch" rozeti "izleniyor" oldu
+- Pencere küçültülmüşken proje listesi arka planda tazelenmiyor; tepsi ikonu yalnızca durum değişince güncelleniyor
+
+### en
+- Performance: with watches running the panel kept repainting while idle (~20% of a core); now ~2%
+- The watch indicator is a steady dot instead of a pulsing one
+- The project list is not refreshed while the window is minimized; the tray icon updates only when its state changes
+
 ## 2.0.8
 
 ### tr
