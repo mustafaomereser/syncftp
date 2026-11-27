@@ -54,7 +54,7 @@ const T = {
     secGeneral: 'Genel', secConnection: 'Bağlantı', secConnectionDesc: 'Bir bağlantı seçin ya da bilgileri elle girin.',
     secTunnel: 'SSH tüneli', secTunnelDesc: 'Sunucuya doğrudan erişilemiyorsa bağlantı bu SSH sunucusu (jump host) üzerinden açılır. Boş = tünel yok.',
     secPaths: 'Dizinler', secPerf: 'Performans', secFilters: 'Filtreler', secFiltersDesc: 'Profilin “Dahil et” listesi proje ayarlarındakinin yerine geçer; “Hariç tut” ve “Koru” onlara eklenir.', fltInc: 'Dahil et', fltExc: 'Hariç tut', fltProt: 'Koru', fltBlock: 'Uzantılar', fltIgn: 'Yok sayma dosyaları', fltIncDesc: 'Doluysa yalnızca bunlar gönderilir; boşsa her şey.', fltExcDesc: 'Bunlar hiç gönderilmez.', fltProtDesc: 'Sunucuda zaten varsa üzerine yazılmaz (ilk kez yüklenir).', fltBlockDesc: 'Bu uzantılı dosyalar gönderilmez.',
-    secUpload: 'Yükleme', secHooks: 'Hook\'lar', secHooksDesc: 'Her satıra bir komut, proje dizininde sırayla çalışır. Global hook\'lardan sonra çalışırlar.',
+    secUpload: 'Yükleme', secHooks: 'Hook\'lar', secHooksDesc: 'Sync sırasında bu bilgisayarda, proje klasöründe çalışan komutlar (derleme, paket kurulumu…).', hkPre: "Sync'ten önce", hkPost: "Sync'ten sonra", hkSum: "önce {0} · sonra {1}", hkPreHint: "Yüklenecek dosya varsa, yüklemeden önce çalışır. Biri hata verirse bu profilin sync'i iptal olur.", hkPostHint: "Yükleme bittikten sonra çalışır. Hata verse de sync başarılı sayılır.", hkRemotePre: "Sync'ten önce (sunucuda)", hkRemotePost: "Sync'ten sonra (sunucuda)", hkRemotePreHint: "Yerel hook'lardan sonra, yüklemeden önce çalışır. Hata verirse sync iptal olur.", hkRemotePostHint: "Yükleme bittikten sonra çalışır (migrate, cache temizleme, yeniden başlatma…). Hata raporlanır, yüklenenler geri alınmaz.", hkEnv: "Her satır bir komut, yazıldığı sırayla çalışır; biri hata verirse kalanlar çalışmaz. Komutlar <code>SYNCFTP_SERVER</code> (profil adı), <code>SYNCFTP_UPLOADED</code> ve <code>SYNCFTP_FAILED</code> (yüklenen / başarısız dosya sayısı, önce çalışanlarda 0) değişkenlerini alır.", hkOrderServer: "Proje ayarlarındaki hook'lardan sonra çalışırlar.", hkOrderProject: "Her profilin kendi hook'larından önce çalışırlar.", 
     fName: 'Ad', fEnabled: 'Aktif', fEnabledHint: 'Pasif profiller "tümünü sync et"e dahil olmaz',
     fConnection: 'Bağlantı', fProtocol: 'Protokol', fHost: 'Host', fPort: 'Port', fUser: 'Kullanıcı', fPassword: 'Şifre',
     fKeyFile: 'SSH anahtar dosyası', fKeyFileHint: 'SFTP için; şifreliyse şifre alanı passphrase olarak denenir',
@@ -109,7 +109,7 @@ const T = {
     copyPath: 'Yolu kopyala', notFound: 'Bulunamadı', minutes: '{0} dk', seconds: '{0} sn',
     compare: 'Yerelle karşılaştır', diffTitle: 'Fark', diffLocal: 'Yerel', diffRemote: 'Sunucu', diffSame: 'Yerel ve sunucu sürümü aynı',
     diffRemoteMissing: 'Sunucuda yok — sync bu dosyayı yeni olarak yükler',
-    secRemote: 'SSH komutları (sunucuda)', secRemoteDesc: 'Yalnızca SFTP sunucularında: SSH ile uzak dizinde çalışır. pre hata verirse sync iptal olur; post deploy sonrası çalışır (migrate, cache, restart…).', fRemotePre: 'remote_pre_sync', fRemotePost: 'remote_post_sync',
+    secRemote: 'SSH komutları (sunucuda)', secRemoteDesc: 'Yalnızca SFTP profillerinde: komutlar SSH ile sunucuda, profilin uzak dizininde çalışır.', fRemotePre: 'remote_pre_sync', fRemotePost: 'remote_post_sync',
     whTest: 'Test et', whTestOk: 'Webhook gönderildi: {0}', ignoreTitle: 'Yok sayma kuralları (.syncftp/syncftp.ignore)', ignoreDesc: 'Gitignore sözdizimi. .gitignore ile birleştirilir; yok sayılan klasörlere yerelde ve sunucuda hiç girilmez.',
     ignoreTemplate: 'Şablon ekle…', ignoreSaved: 'Yok sayma kuralları kaydedildi', gitignoreNote: '.gitignore ({0} satır) de uygulanıyor',
     failedTitle: '{0} — başarısız dosyalar', failedBody: 'Son sync\'te yüklenemeyen dosyalar. Tekrar denemek yalnızca bunları yükler.',
@@ -169,7 +169,7 @@ const T = {
     secGeneral: 'General', secConnection: 'Connection', secConnectionDesc: 'Pick a connection or enter the details by hand.',
     secTunnel: 'SSH tunnel', secTunnelDesc: 'If the server is not directly reachable, connect through this SSH server (jump host). Empty = no tunnel.',
     secPaths: 'Folders', secPerf: 'Performance', secFilters: 'Filters', secFiltersDesc: 'The profile\'s include replaces the project-wide one; exclude and protect add to it.', fltInc: 'Include', fltExc: 'Exclude', fltProt: 'Protect', fltBlock: 'Extensions', fltIgn: 'Ignore files', fltIncDesc: 'When set, only these are uploaded; when empty, everything.', fltExcDesc: 'Never uploaded.', fltProtDesc: 'Not overwritten if it already exists on the server (uploaded the first time).', fltBlockDesc: 'Files with these extensions are not uploaded.',
-    secUpload: 'Upload', secHooks: 'Hooks', secHooksDesc: 'One command per line, run in the project folder in order, after global hooks.',
+    secUpload: 'Upload', secHooks: 'Hooks', secHooksDesc: 'Commands run on this computer, in the project folder, during a sync (build, install packages…).', hkPre: "Before sync", hkPost: "After sync", hkSum: "before {0} · after {1}", hkPreHint: "Runs before uploading, when there is something to upload. If one fails, this profile's sync is aborted.", hkPostHint: "Runs after the upload. A failure here does not fail the sync.", hkRemotePre: "Before sync (on the server)", hkRemotePost: "After sync (on the server)", hkRemotePreHint: "Runs after the local hooks, before uploading. If it fails, the sync is aborted.", hkRemotePostHint: "Runs after the upload (migrate, clear caches, restart…). Failures are reported; uploaded files stay.", hkEnv: "One command per line, run in order; if one fails the rest are skipped. Commands get <code>SYNCFTP_SERVER</code> (profile name), <code>SYNCFTP_UPLOADED</code> and <code>SYNCFTP_FAILED</code> (uploaded / failed file count, 0 for the before hooks).", hkOrderServer: "They run after the project-wide hooks.", hkOrderProject: "They run before each profile's own hooks.", 
     fName: 'Name', fEnabled: 'Enabled', fEnabledHint: 'Disabled profiles are skipped by "sync all"',
     fConnection: 'Connection', fProtocol: 'Protocol', fHost: 'Host', fPort: 'Port', fUser: 'User', fPassword: 'Password',
     fKeyFile: 'SSH key file', fKeyFileHint: 'For SFTP; if encrypted, the password is tried as passphrase',
@@ -224,7 +224,7 @@ const T = {
     copyPath: 'Copy path', notFound: 'Not found', minutes: '{0} min', seconds: '{0} s',
     compare: 'Compare with local', diffTitle: 'Diff', diffLocal: 'Local', diffRemote: 'Server', diffSame: 'Local and server versions are identical',
     diffRemoteMissing: 'Not on the server — sync uploads it as a new file',
-    secRemote: 'SSH commands (on the server)', secRemoteDesc: 'SFTP servers only: run over SSH in the remote folder. If pre fails the sync is aborted; post runs after the deploy (migrate, cache, restart…).', fRemotePre: 'remote_pre_sync', fRemotePost: 'remote_post_sync',
+    secRemote: 'SSH commands (on the server)', secRemoteDesc: 'SFTP profiles only: commands run over SSH on the server, in the profile\'s remote folder.', fRemotePre: 'remote_pre_sync', fRemotePost: 'remote_post_sync',
     whTest: 'Test', whTestOk: 'Webhook sent: {0}', ignoreTitle: 'Ignore rules (.syncftp/syncftp.ignore)', ignoreDesc: 'Gitignore syntax. Merged with .gitignore; ignored folders are never walked locally or on the server.',
     ignoreTemplate: 'Add template…', ignoreSaved: 'Ignore rules saved', gitignoreNote: '.gitignore ({0} lines) is applied too',
     failedTitle: '{0} — failed files', failedBody: 'Files that could not be uploaded in the last sync. Retrying uploads only these.',
@@ -1801,6 +1801,23 @@ document.addEventListener('change', (e) => {
   say.textContent = c;
   say.classList.toggle('dolu', c > 0);
 });
+// Hook alanları (yerel ya da SSH): "pre_sync" gibi ham adlar yerine ne zaman çalıştığı, hata verirse ne
+// olduğu ve örnek komutlar. scope: 'server' | 'project' (sıralama notu), remote: SSH komutları.
+const HOOK_CHIPS = {
+  pre: ['npm run build', 'npm ci', 'composer install --no-dev', 'php artisan view:cache'],
+  post: ['npm run clean'],
+  rpre: ['php artisan down'],
+  rpost: ['php artisan migrate --force', 'php artisan optimize:clear', 'php artisan up', 'composer install --no-dev'],
+};
+function hookFields(prefix, src, { remote = false, scope = 'server' } = {}) {
+  const k = remote ? ['remote_pre_sync', 'remote_post_sync'] : ['pre_sync', 'post_sync'];
+  const note = remote ? '' : scope === 'project' ? t('hkOrderProject') : t('hkOrderServer');
+  return `<div class="alanlar">
+      ${fArea(prefix + k[0], t(remote ? 'hkRemotePre' : 'hkPre'), src[k[0]], { wide: false, hint: t(remote ? 'hkRemotePreHint' : 'hkPreHint'), chips: HOOK_CHIPS[remote ? 'rpre' : 'pre'] })}
+      ${fArea(prefix + k[1], t(remote ? 'hkRemotePost' : 'hkPost'), src[k[1]], { wide: false, hint: t(remote ? 'hkRemotePostHint' : 'hkPostHint'), chips: HOOK_CHIPS[remote ? 'rpost' : 'post'] })}
+    </div>
+    <p class="ipucu hk-not">${icon('help')}<span>${t('hkEnv')}${note ? ' ' + note : ''}</span></p>`;
+}
 const fBool = (k, label, val, hint = '', dis = false) =>
   `<label class="anahtar"><span class="metin"><b>${label}</b>${hint ? `<small>${hint}</small>` : ''}</span><span class="switch"><input type="checkbox" data-k="${k}" data-ty="bool" ${val ? 'checked' : ''} ${dis ? 'disabled' : ''}><i></i></span></label>`;
 const fSelect = (k, label, val, opts, { hint = '', dis = false } = {}) =>
@@ -2257,8 +2274,8 @@ async function tabServerEdit(proj, name) {
   const sumPerf = `${s.max_connections || 1} ${t('foldConn')} · ${s.max_retries || 0} ${t('foldRetry')} · ${s.bandwidth_limit ? s.bandwidth_limit + ' KB/s' : globalBw}`;
   const sumUpload = onOff([[s.minify, 'minify'], [s.obfuscate, 'obfuscate'], [s.no_backup, t('fNoBackup')], [s.direct_upload, t('fDirect')], [s.webhook, 'webhook']]);
   const sumFilt = `${t('foldInc')} ${n(s.include)} · ${t('foldExc')} ${n(s.exclude)} · ${t('foldProt')} ${n(s.protect)} · ${t('foldBlock')} ${n(s.block_extensions)}`;
-  const sumHooks = `pre ${n(s.pre_sync)} · post ${n(s.post_sync)}`;
-  const sumRemote = `pre ${n(s.remote_pre_sync)} · post ${n(s.remote_post_sync)}`;
+  const sumHooks = t('hkSum', n(s.pre_sync), n(s.post_sync));
+  const sumRemote = t('hkSum', n(s.remote_pre_sync), n(s.remote_post_sync));
   return `<a class="faint" href="${pHash(P, 'servers')}" style="display:inline-flex;gap:6px;align-items:center;margin-bottom:12px">${icon('left')}${t('back')}</a>
   <h2 style="margin-top:0">${isNew ? t('serverNew') : t('serverEdit') + ' — ' + esc(s.name)}</h2>
   <div class="form" id="srv-form" data-p="${esc(P)}" data-ppath="${esc(proj.path)}" data-srv="${esc(isNew ? '' : s.name)}">
@@ -2276,8 +2293,8 @@ async function tabServerEdit(proj, name) {
         ${fBool('no_backup', t('fNoBackup'), s.no_backup, t('fNoBackupHint'))}${fBool('direct_upload', t('fDirect'), s.direct_upload, t('fDirectHint'))}
         ${fText('webhook', t('fWebhook'), s.webhook, { wide: true, mono: true, hint: t('fWebhookHint'), ph: 'https://…', whtest: true })}</div>`, { fold: true, summary: sumUpload })}
     ${section('sliders', t('secFilters'), t('secFiltersDesc'), filterTabs('', s), { fold: true, summary: sumFilt })}
-    ${section('log', t('secHooks'), t('secHooksDesc'), `<div class="alanlar">${fArea('pre_sync', t('fPre'), s.pre_sync, { wide: false })}${fArea('post_sync', t('fPost'), s.post_sync, { wide: false })}</div>`, { fold: true, summary: sumHooks })}
-    ${section('terminal', t('secRemote'), t('secRemoteDesc'), `<div class="alanlar">${fArea('remote_pre_sync', t('fRemotePre'), s.remote_pre_sync, { wide: false })}${fArea('remote_post_sync', t('fRemotePost'), s.remote_post_sync, { wide: false, hint: 'php artisan migrate --force' })}</div>`, { fold: true, summary: sumRemote, proto: 'sftp' })}
+    ${section('log', t('secHooks'), t('secHooksDesc'), hookFields('', s), { fold: true, summary: sumHooks })}
+    ${section('terminal', t('secRemote'), t('secRemoteDesc'), hookFields('', s, { remote: true }), { fold: true, summary: sumRemote, proto: 'sftp' })}
     ${triggersSection('triggers', s.triggers, { servers: isNew ? [] : [s.name], sftp: (conn || s).protocol === 'sftp' })}
   </div>
   <div class="form-alt"><div class="sol">${isNew ? '' : `<button class="btn tehlike" id="b-del">${icon('trash')}${t('delete')}</button>`}</div>
@@ -2455,7 +2472,7 @@ async function tabSettings(proj) {
         ${fBool('sync.direct_upload', t('fDirect'), sy.direct_upload, t('fDirectHint'))}
         ${fBool('first_sync.full', t('fFirstFull'), cfg.first_sync && cfg.first_sync.full, t('fFirstFullHint'))}
       </div>`, { fold: true, summary: sumUp })}
-    ${section('log', t('secHooks'), t('secHooksDesc'), `<div class="alanlar">${fArea('sync.pre_sync', t('fPre'), sy.pre_sync, { wide: false })}${fArea('sync.post_sync', t('fPost'), sy.post_sync, { wide: false })}</div>`, { fold: true, summary: `pre ${n(sy.pre_sync)} · post ${n(sy.post_sync)}` })}
+    ${section('log', t('secHooks'), t('secHooksDesc'), hookFields('sync.', sy, { scope: 'project' }), { fold: true, summary: t('hkSum', n(sy.pre_sync), n(sy.post_sync)) })}
     ${triggersSection('sync.triggers', sy.triggers, { servers: cfg.servers.map((x) => x.name), global: true, sftp: true })}
     <div class="ara-baslik">${t('foldMore')}</div>
     ${section('x', t('ignoreTitle'), `${t('ignoreDesc')}${gitLines ? ' · ' + t('gitignoreNote', gitLines) : ''}`, `

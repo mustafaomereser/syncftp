@@ -4,11 +4,18 @@
 
 Object.assign(T.tr, {
   tabCicd: 'CI/CD',
-  ciIntro: 'Git sağlayıcınız her push\'ta bu bilgisayardaki syncFTP\'ye webhook gönderir; syncFTP isterse önce <code>git pull</code> yapar, sonra seçili sunuculara deploy eder (yedek ve rollback dahil). Panel tray\'de açık kaldığı sürece çalışır; sunucu makinelerde <code>syncftp hook serve --tunnel</code>.',
-  ciListener: 'Webhook dinleyicisi', ciLocal: 'Yerel adres', ciPublic: 'Public adres', ciNotPublic: 'Henüz dışarıdan erişilemiyor — tüneli başlatın ya da kendi adresinizi girin',
-  ciTunnel: 'trycloudflare tüneli', ciTunnelOn: 'açık', ciTunnelOff: 'kapalı', ciTunnelStart: 'Tüneli başlat', ciTunnelStop: 'Tüneli durdur', ciTunnelStarting: 'Tünel açılıyor…', ciTunnelOpened: 'Tünel açıldı — adres panoya kopyalandı: {0}', ciTunnelClosed: 'Tünel kapatıldı',
+  ciIntro: 'GitHub / GitLab gibi sağlayıcılar her push\'ta bu bilgisayardaki syncFTP\'ye haber verir; syncFTP isterse önce <code>git pull</code> yapar, sonra seçtiğiniz profillere yükler (yedek ve geri alma dahil). Panel tepside açık kaldığı sürece çalışır. Panelin olmadığı bir sunucuda: <code>syncftp hook serve --tunnel</code>.',
+  ciListener: 'Dışarıdan erişim ayarları', ciPublicNone: 'yok — dışarıya açık değil',
+  ciReachOff: 'Dışarıdan erişilemiyor', ciReachOffSub: 'GitHub / GitLab bu bilgisayara ulaşamaz. Tüneli başlatın ya da aşağıdaki ayarlardan kendi adresinizi girin.',
+  ciReachOn: 'Dışarıdan erişilebilir', ciReachStarting: 'Tünel açılıyor…',
+  ciStepsTitle: 'Nasıl kurulur?',
+  ciStep1: '<b>Tetikleyici ekleyin</b>: hangi branch\'e push gelince hangi profillere yükleneceğini seçin.',
+  ciStep2: '<b>Dışarıya açın</b>: Cloudflare tünelini başlatın (ücretsiz, hesap gerekmez) ya da kendi adresinizi girin.',
+  ciStep3: 'Tetikleyicideki <b>Kurulum</b> düğmesi URL\'yi ve secret\'ı sağlayıcıda nereye yapıştıracağınızı adım adım gösterir.',
+  ciLocalUrl: 'Bu adres yalnızca bu bilgisayardan çalışır — önce dışarıya açın.', ciLocal: 'Yerel adres', ciPublic: 'Public adres', ciNotPublic: 'Henüz dışarıdan erişilemiyor — tüneli başlatın ya da kendi adresinizi girin',
+  ciTunnel: 'Cloudflare tüneli', ciTunnelOn: 'açık', ciTunnelOff: 'kapalı', ciTunnelStart: 'Tüneli başlat', ciTunnelStop: 'Tüneli durdur', ciTunnelStarting: 'Tünel açılıyor…', ciTunnelOpened: 'Tünel açıldı — adres panoya kopyalandı: {0}', ciTunnelClosed: 'Tünel kapatıldı',
   ciInstall: 'cloudflared indir ve başlat', ciInstallHint: 'cloudflared bulunamadı. Resmi sürüm GitHub\'dan (cloudflare/cloudflared) indirilir — ~40 MB.',
-  ciTunnelNote: 'trycloudflare adresi her başlatmada değişir; adres değişince sağlayıcıdaki webhook URL\'sini güncelleyin. Kalıcı adres için kendi domain\'inizi (Cloudflare named tunnel, ngrok, reverse proxy) aşağıya girin.',
+  ciTunnelNote: 'Ücretsizdir, hesap gerekmez; ama adres her başlatmada değişir — değişince sağlayıcıdaki webhook adresini güncelleyin. Kalıcı adres için kendi alan adınızı (Cloudflare named tunnel, ngrok, ters vekil) aşağıya girin.',
   ciCustomURL: 'Kalıcı public adres (opsiyonel)', ciCustomHint: 'Örn. https://deploy.sirketim.com — 127.0.0.1:{0} adresine yönlenmeli', ciAutoTunnel: 'Panel açılınca tüneli otomatik başlat',
   ciTriggers: 'Deploy tetikleyicileri', ciNoTriggers: 'Henüz tetikleyici yok', ciNoTriggersSub: 'Bir tetikleyici ekleyin, URL\'yi ve secret\'ı GitHub/GitLab webhook ayarına yapıştırın.',
   ciAdd: 'Tetikleyici ekle', ciEdit: 'Tetikleyiciyi düzenle', ciNew: 'Yeni tetikleyici', ciProvider: 'Sağlayıcı', ciBranch: 'Branch', ciBranchHint: 'Boş = her branch (örn. main)',
@@ -25,11 +32,18 @@ Object.assign(T.tr, {
 });
 Object.assign(T.en, {
   tabCicd: 'CI/CD',
-  ciIntro: 'Your Git provider sends a webhook to syncFTP on this computer on every push; syncFTP optionally runs <code>git pull</code> and then deploys to the selected servers (with backup and rollback). It works while the panel stays in the tray; on server machines use <code>syncftp hook serve --tunnel</code>.',
-  ciListener: 'Webhook listener', ciLocal: 'Local address', ciPublic: 'Public address', ciNotPublic: 'Not reachable from outside yet — start the tunnel or enter your own address',
-  ciTunnel: 'trycloudflare tunnel', ciTunnelOn: 'on', ciTunnelOff: 'off', ciTunnelStart: 'Start tunnel', ciTunnelStop: 'Stop tunnel', ciTunnelStarting: 'Opening tunnel…', ciTunnelOpened: 'Tunnel is open — address copied: {0}', ciTunnelClosed: 'Tunnel closed',
+  ciIntro: 'Providers like GitHub / GitLab notify syncFTP on this computer on every push; syncFTP optionally runs <code>git pull</code> and then uploads to the profiles you pick (with backup and rollback). It works while the panel stays in the tray. On a server without the panel: <code>syncftp hook serve --tunnel</code>.',
+  ciListener: 'Access from outside', ciPublicNone: 'none — not reachable from outside',
+  ciReachOff: 'Not reachable from outside', ciReachOffSub: 'GitHub / GitLab cannot reach this computer. Start the tunnel or enter your own address in the settings below.',
+  ciReachOn: 'Reachable from outside', ciReachStarting: 'Opening tunnel…',
+  ciStepsTitle: 'How to set it up',
+  ciStep1: '<b>Add a trigger</b>: pick which branch deploys to which profiles.',
+  ciStep2: '<b>Open it to the outside</b>: start the Cloudflare tunnel (free, no account) or enter your own address.',
+  ciStep3: 'The trigger\'s <b>Setup</b> button shows step by step where to paste the URL and the secret at your provider.',
+  ciLocalUrl: 'This address only works on this computer — open it to the outside first.', ciLocal: 'Local address', ciPublic: 'Public address', ciNotPublic: 'Not reachable from outside yet — start the tunnel or enter your own address',
+  ciTunnel: 'Cloudflare tunnel', ciTunnelOn: 'on', ciTunnelOff: 'off', ciTunnelStart: 'Start tunnel', ciTunnelStop: 'Stop tunnel', ciTunnelStarting: 'Opening tunnel…', ciTunnelOpened: 'Tunnel is open — address copied: {0}', ciTunnelClosed: 'Tunnel closed',
   ciInstall: 'Download cloudflared and start', ciInstallHint: 'cloudflared not found. The official release is downloaded from GitHub (cloudflare/cloudflared) — ~40 MB.',
-  ciTunnelNote: 'The trycloudflare address changes on every start; update the webhook URL at your provider when it does. For a permanent address enter your own domain (Cloudflare named tunnel, ngrok, reverse proxy) below.',
+  ciTunnelNote: 'Free and needs no account, but the address changes on every start — update the webhook URL at your provider when it does. For a permanent address enter your own domain (Cloudflare named tunnel, ngrok, reverse proxy) below.',
   ciCustomURL: 'Permanent public address (optional)', ciCustomHint: 'e.g. https://deploy.mycompany.com — must forward to 127.0.0.1:{0}', ciAutoTunnel: 'Start the tunnel when the panel starts',
   ciTriggers: 'Deploy triggers', ciNoTriggers: 'No triggers yet', ciNoTriggersSub: 'Add a trigger and paste its URL and secret into your GitHub/GitLab webhook settings.',
   ciAdd: 'Add trigger', ciEdit: 'Edit trigger', ciNew: 'New trigger', ciProvider: 'Provider', ciBranch: 'Branch', ciBranchHint: 'Empty = any branch (e.g. main)',
@@ -123,6 +137,10 @@ async function tabCicd(proj) {
     $('#ci-rf', root).onclick = () => render(true);
     $('#ci-add', root).onclick = () => triggerModal(P, null);
     bindTunnelCtl(root, hooks, 'ci');
+    const tq = $('#ci-tunnel-q', root);
+    if (tq) tq.onclick = () => toggleTunnel(tq, hooks.tunnel || {}, hooks);
+    const add2 = $('#ci-add2', root);
+    if (add2) add2.onclick = () => triggerModal(P, null);
     $$('[data-trig]', root).forEach((card) => {
       const name = card.dataset.trig;
       const d = cfg.deploy.find((x) => x.name === name);
@@ -150,21 +168,28 @@ async function tabCicd(proj) {
     $$('[data-djob]', root).forEach((tr) => (tr.onclick = () => showJobLog(tr.dataset.djob)));
   });
 
-  const listenerCard = `<div class="bolum" style="margin-bottom:18px"><h3>${icon('link')}${t('ciListener')}</h3><p class="aciklama">${t('ciIntro')}</p>
-    <div class="alanlar">
+  const listenerCard = section('link', t('ciListener'), t('ciIntro'), `<div class="alanlar">
       <div class="alan"><label>${t('ciLocal')}</label><div class="girdi-grup"><input type="text" class="mono" value="${esc(hooks.local_url)}" readonly>${copyBtn(hooks.local_url)}</div></div>
-      <div class="alan"><label>${t('ciPublic')}</label><div class="girdi-grup"><input type="text" class="mono" value="${esc(hooks.public_url)}" readonly>${copyBtn(hooks.public_url)}</div>
-        ${isLocalOnly ? `<small class="warn-t">${t('ciNotPublic')}</small>` : ''}</div>
+      <div class="alan"><label>${t('ciPublic')}</label><div class="girdi-grup"><input type="text" class="mono" value="${isLocalOnly ? '' : esc(hooks.public_url)}" placeholder="${t('ciPublicNone')}" readonly>${isLocalOnly ? '' : copyBtn(hooks.public_url)}</div></div>
     </div>
     <div class="ayrac"></div>
-    ${tunnelCtlHTML(hooks, 'ci')}
-  </div>`;
+    ${tunnelCtlHTML(hooks, 'ci')}`, { fold: true, open: false, summary: isLocalOnly ? t('ciReachOff') : esc(hooks.public_url) });
+
+  // Üstte erişim durumu: webhook'un çalışması için asıl önemli olan bu; tünel tek tıkla açılır
+  const tun = hooks.tunnel || {};
+  const reach = isLocalOnly
+    ? `<div class="ci-erisim uyari">${icon(tun.active ? 'refresh' : 'alert', tun.active ? 'spin' : '')}<div><b>${tun.active ? t('ciReachStarting') : t('ciReachOff')}</b><small>${t('ciReachOffSub')}</small></div>
+        ${tun.active ? '' : `<button class="btn mavi" id="ci-tunnel-q">${icon('play')}${hooks.cloudflared ? t('ciTunnelStart') : t('ciInstall')}</button>`}</div>`
+    : `<div class="ci-erisim iyi">${icon('check')}<div><b>${t('ciReachOn')}</b><small class="mono">${esc(hooks.public_url)}</small></div>${copyBtn(hooks.public_url)}</div>`;
+  const steps = `<div class="bolum ci-adimlar"><h3>${icon('help')}${t('ciStepsTitle')}</h3><ol><li>${t('ciStep1')}</li><li>${t('ciStep2')}</li><li>${t('ciStep3')}</li></ol>
+    <div class="aksiyonlar"><button class="btn birincil" id="ci-add2">${icon('plus')}${t('ciAdd')}</button></div></div>`;
 
   const trigCards = dep.triggers.length ? `<div class="kartlar">${dep.triggers.map((d) => `<div class="kart ${d.enabled ? '' : 'pasif'}" data-trig="${esc(d.name)}">
       <div><div class="ust"><h3>${esc(d.name)}</h3><span class="pill vio">${esc(PROVIDER_LABEL[d.provider] || d.provider)}</span>
         ${d.branch ? `<span class="pill mono">${esc(d.branch)}</span>` : ''}${d.git_pull ? '<span class="pill">git pull</span>' : ''}${d.dry_run ? `<span class="pill warn">${t('ciDryRun')}</span>` : ''}</div>
         <div class="meta"><span>${icon('server')}${esc((d.servers && d.servers.length) ? d.servers.join(', ') : t('ciAllServers'))}</span></div>
         <div class="girdi-grup" style="margin-top:10px"><input type="text" class="mono" value="${esc(d.url)}" readonly style="font-size:12px">${copyBtn(d.url)}</div>
+        ${isLocalOnly ? `<small class="warn-t" style="display:block;margin-top:4px">${t('ciLocalUrl')}</small>` : ''}
         <div class="aksiyonlar" style="margin-top:6px;font-size:12px"><span class="faint">${t('ciSecret')}:</span><code data-secret>${'•'.repeat(16)}</code>
           <button class="btn hayalet kucuk" data-act="show" style="height:24px">${icon('eye')}${t('ciShow')}</button>${copyBtn(d.secret)}</div></div>
       <div class="butonlar" style="flex-direction:column;align-items:flex-end;gap:8px">
@@ -181,7 +206,7 @@ async function tabCicd(proj) {
         <td class="mono">${esc(d.branch || '')} <span class="faint">${esc(d.commit || '')}</span></td><td><span class="pill ${st(d.status)}"><span class="nokta"></span>${esc(d.status)}</span> <span class="faint" style="font-size:12px">${esc(d.detail || '')}</span></td></tr>`).join('')}</tbody></table></div>`
     : `<div class="bos" style="padding:24px">${t('ciNoDeliveries')}</div>`;
 
-  return `${listenerCard}<h2 style="margin-top:6px">${icon('zap')}${t('ciTriggers')}</h2>${trigCards}<h2>${icon('history')}${t('ciDeliveries')}</h2>${deliveries}`;
+  return `${reach}${dep.triggers.length ? `<h2 style="margin-top:6px">${icon('zap')}${t('ciTriggers')}</h2>${trigCards}` : steps}<h2>${icon('history')}${t('ciDeliveries')}</h2>${deliveries}<div style="height:18px"></div>${listenerCard}`;
 }
 
 // Tetikleyici listesini güncel config üzerinde değiştirip yazar (sayfa açıldıktan sonra başka yerde

@@ -158,7 +158,7 @@ function defaultsSectionHTML(lib) {
       ${fNum('sync.backup_keep', t('fBackupKeep'), sy.backup_keep || 10, { hint: t('fBackupKeepHint') })}
       ${fNum('max_connections', t('defMaxConn'), d.max_connections || 1)}
       ${fNum('max_retries', t('defMaxRetry'), d.max_retries || 2)}
-      ${fArea('sync.pre_sync', t('fPre'), sy.pre_sync, { wide: false })}${fArea('sync.post_sync', t('fPost'), sy.post_sync, { wide: false })}
+      ${fArea('sync.pre_sync', t('hkPre'), sy.pre_sync, { wide: false, hint: t('hkPreHint'), chips: HOOK_CHIPS.pre })}${fArea('sync.post_sync', t('hkPost'), sy.post_sync, { wide: false, hint: t('hkPostHint'), chips: HOOK_CHIPS.post })}
     </div><div style="height:12px"></div><div class="alanlar">
       ${fBool('sync.no_backup', t('fNoBackup'), sy.no_backup, t('fNoBackupHint'))}
       ${fBool('sync.direct_upload', t('fDirect'), sy.direct_upload, t('fDirectHint'))}
